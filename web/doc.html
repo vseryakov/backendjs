@@ -46,7 +46,7 @@
 <li><a href="#secure-web-site-backend-verification"> Secure Web site, backend verification</a></li>
 <li><a href="#websockets-connections"> WebSockets connections</a></li>
 <li><a href="#the-backend-tool-bkjs"> The backend tool: bkjs</a></li>
-<li><a href="#extending-bkjs"> Extending bkjs</a></li>
+<li><a href="#extending-bkjs-tool"> Extending bkjs tool</a></li>
 <li><a href="#web-development-notes"> Web development notes</a></li>
 <li><a href="#deployment-use-cases"> Deployment use cases</a></li>
 <li><a href="#aws-instance-setup-with-node-and-backendjs"> AWS instance setup with node and backendjs</a></li>
@@ -69,7 +69,7 @@
 <li><a href="#module-app">app</a></li>
 <li><a href="#module-aws">aws</a></li>
 <li><a href="#module-cache">cache</a></li>
-<li><a href="#module-nats">nats</a></li>
+<li><a href="#module-redis">redis</a></li>
 <li><a href="#module-core">core</a></li>
 <li><a href="#module-db">db</a></li>
 <li><a href="#module-events">events</a></li>
@@ -81,8 +81,12 @@
 <li><a href="#module-syslog">syslog</a></li>
 <li><a href="#module-logwatcher">logwatcher</a></li>
 <li><a href="#module-metrics">metrics</a></li>
-<li><a href="#module-msg">msg</a></li>
 <li><a href="#module-pool">pool</a></li>
+<li><a href="#module-push">push</a></li>
+<li><a href="#module-webpush">webpush</a></li>
+<li><a href="#module-queue">queue</a></li>
+<li><a href="#module-nats">nats</a></li>
+<li><a href="#module-redis">redis</a></li>
 <li><a href="#module-run">run</a></li>
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-shell">shell</a></li>
@@ -117,14 +121,12 @@ same way allowing you to switch databases without changing the code.</li>
 <li>REPL (command line) interface for debugging and looking into server internals.</li>
 <li>Supports push notifications via Webpush, APN and FCM.</li>
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.</li>
-<li>AWS support is very well integrated including EC2, S3, DynamoDB, SQS and more.</li>
+<li>AWS support is very well integrated including EC2, S3, DynamoDB, SQS, CloudWatch and more.</li>
 <li>Includes simple log watcher to monitor the log files including system errors.</li>
-<li>Supports i18n hooks for request/response objects, easily overriden with any real i18n implementation.</li>
 <li>Integrated very light unit testing facility which can be used to test modules and API requests.</li>
-<li>Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control</li>
+<li>Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control, AWS X-Ray spans</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
 </ul>
-<p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
 <h1 id="installation">Installation</h1>
 <p>To install the module with all optional dependencies if they are available in the system</p>
 <pre><code>npm install backendjs
@@ -139,7 +141,7 @@ same way allowing you to switch databases without changing the code.</li>
 <p>Only core required dependencies are installed but there are many modules which require a module to work correctly.</p>
 <p>All optional dependencies are listed in the package.json under &quot;modDependencies&quot; so npm cannot use it, only manual install of required modules is supported or
 it is possible to install all optional dependencies for development purposes.</p>
-<p>Here is the list of modules required for each internal feature:</p>
+<p>Here is the list of modules for each internal feature:</p>
 <ul>
 <li><code>pg</code> - PostgreSQL database access</li>
 <li><code>argon2</code> or <code>bcrypt</code> - for user password hashing</li>
@@ -235,7 +237,7 @@ bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200 -db
 </ul>
 <h2 id="to-run-an-example">To run an example</h2>
 <ul>
-<li><p>The library is packaged with copies of Bootstrap, jQuery, Knockout.js for quick Web development
+<li><p>The library is packaged with copies of Bootstrap, jQuery, Knockout.js, Alpine.js for quick Web development
 in web/js and web/css directories, all scripts are available from the browser with /js or /css paths. To use all at once as a bundle
 run the following command:</p>
 <pre><code>  cd node_modules/backendjs &amp;&amp; npm run devbuild
@@ -305,10 +307,7 @@ processing of the data is needed before sending it to the user, it is possible t
 <p>Special module/namespace <code>app</code> is designated to be used for application development/extension. This module is available in the same way as <code>api</code> and <code>core</code>
 which makes it easy to refer and extend with additional methods and structures.</p>
 <p>The typical structure of a single file backendjs application is the following:</p>
-<pre><code class="language-javascript">    const bkjs = require(&#39;backendjs&#39;);
-    const api = bkjs.api;
-    const app = bkjs.app;
-    const db = bkjs.db;
+<pre><code class="language-javascript">    const { api, core, db, app } = require(&#39;backendjs&#39;);
 
     app.listArg = [];
 
@@ -366,9 +365,7 @@ which makes it easy to refer and extend with additional methods and structures.<
     bkjs.server.start();
 </code></pre>
 <p>Another probably easier way to create single file apps is to use your namespace instead of <code>app</code>:</p>
-<pre><code class="language-javascript">    const bkjs = require(&quot;backendjs&quot;);
-    const api = bkjs.api;
-    const db = bkjs.db;
+<pre><code class="language-javascript">    const { api, db } = require(&quot;backendjs&quot;);
 
     const mymod = {
         name: &quot;mymod&quot;,
@@ -386,7 +383,7 @@ which makes it easy to refer and extend with additional methods and structures.<
         }
     };
     exports.module = mymod;
-    bkjs.core.addModule(mymod);
+    core.addModule(mymod);
 
     mymod.configureWeb = function(options, callback)
     {
@@ -414,8 +411,8 @@ home subdirectory <code>modules/</code>. The format is the same as for regular N
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
 methods.</p>
 <p>Let&#39;s assume the <code>modules/</code> contains file facebook.js which implements custom FB logic:</p>
-<pre><code class="language-javascript">    const bkjs = require(&quot;backendjs&quot;);
-    const core = bkjs.core;
+<pre><code class="language-javascript">    const { core } = require(&quot;backendjs&quot;);
+
     const mod = {
         name: &quot;facebook&quot;,
         args: [
@@ -433,25 +430,24 @@ methods.</p>
     }
 </code></pre>
 <p>This is the main app code:</p>
-<pre><code class="language-javascript">    const bkjs = require(&quot;backendjs&quot;);
-    const core = bkjs.core;
+<pre><code class="language-javascript">    const { api, core, server } = require(&quot;backendjs&quot;);
 
     // Using facebook module in the main app
     api.app.get(&quot;/me&quot;, (req, res) =&gt; {
 
        core.modules.facebook.makeRequest({ path: &quot;/me&quot; }, (err, data) =&gt; {
-          bkjs.api.sendJSON(req, err, data);
+          api.sendJSON(req, err, data);
        });
     });
 
-    bkj.server.start();
+    server.start();
 </code></pre>
 <h2 id="npm-packages-as-modules">NPM packages as modules</h2>
 <p>In case different modules is better keep separately for maintenance or development purposes they can be split into
 separate NPM packages, the structure is the same, modules must be in the modules/ folder and the package must be loadable
 via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
 by the backendjs <code>core.loadModule</code> machinery, the NPM packages are just keep different module directories separate from each other.</p>
-<p>The config parameter <code>preload-packages</code> can be used to specify NPM package names to be loaded separated by comma, as with the default
+<p>The config parameter <code>import-packages</code> can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:</p>
 <ul>
 <li>modules will be loaded from the modules/ folder</li>
@@ -584,11 +580,7 @@ the type or ignored.</p>
 <p>Here is an example how to create simple TODO application using any database supported by the backend. It supports basic
 operations like add/update/delete a record, show all records.</p>
 <p>Create a file named <code>app.js</code> with the code below.</p>
-<pre><code class="language-javascript">    const bkjs = require(&#39;backendjs&#39;);
-    const api = bkjs.api;
-    const lib = bkjs.lib;
-    const app = bkjs.app;
-    const db = bkjs.db;
+<pre><code class="language-javascript">    const { api, lib, ap, db } = require(&#39;backendjs&#39;);
 
     // Describe the table to store todo records
     db.describeTables({
@@ -752,10 +744,10 @@ It is also possible to set the default home using BKJS_HOME environment variable
 <li>BKJS_HOME - home directory where to cd and find files, <code>-home</code> config parameter overrides it</li>
 <li>BKJS_RUNMODE - initial run mode, <code>-run-mode</code> overrides it</li>
 <li>BKJS_CONFFILE - config file to use instead of &#39;config&#39;, <code>-conf-file</code> overrides it</li>
-<li>BKJS_PACKAGES - packags to preload, <code>-preload-packages</code> overrieds it</li>
-<li>BKJS_CONFIG_ROLES - config roles to use, <code>-config-roles</code> overrides it</li>
+<li>BKJS_PACKAGES - packags to use, <code>-import-packages</code> overrieds it</li>
 <li>BKJS_DB_POOL - default db pool, <code>-db-pool</code> overrides it</li>
 <li>BKJS_DB_CONFIG - config db pool, <code>-db-config</code> overrides it</li>
+<li>BKJS_ROLES - additonal roles to use for config, <code>-roles</code> overrides it</li>
 <li>BKJS_APP_NAME - default app name</li>
 <li>BKJS_APP_PACKAGE - default app package from preloaded packages</li>
 <li>BKJS_TAG - initial instance tag, <code>-instance-tag</code> overrides it, it may be also overridden by AWS instance tag</li>
@@ -786,7 +778,7 @@ cache-backup-options-max_attempts=3
 <h2 id="redis-system-bus">Redis system bus</h2>
 <p>If configured all processes subscribe to it and listen for system messages, it must support PUB/SUB and does not need to be reliable. Websockets
 in the API server also use the system bus to send broadcasts between multiple api instances.</p>
-<pre><code>cache-system=redis://
+<pre><code>queue-system=redis://
 ipc-system-queue=system
 </code></pre>
 <h2 id="redis-queue">Redis Queue</h2>
@@ -838,24 +830,21 @@ rendering is done using JavaScript. This is how the <code>examples/api/api.html<
     node -e &#39;require(&quot;backendjs&quot;).core.showHelp()&#39;
 </code></pre>
 <h2 id="secure-web-site-client-verification">Secure Web site, client verification</h2>
-<p>This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated. In this mode the pages must defined &#39;Backend.session = true&#39;
-during the initialization on every html page, it will enable Web sessions for the site and then no need to sign every API request.</p>
+<p>This is a mode when the whole Web site is secure by default, even access to the HTML files must be authenticated.</p>
 <p>The typical client JavaScript verification for the html page may look like this, it will redirect to login page if needed,
 this assumes the default path &#39;/public&#39; still allowed without the signature:</p>
 <pre><code class="language-javascript">   &lt;link href=&quot;/css/bkjs.bundle.css&quot; rel=&quot;stylesheet&quot;&gt;
    &lt;script src=&quot;/js/bkjs.bundle.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
    &lt;script&gt;
     $(function () {
-       bkjs.session = true;
-       $(bkjs).on(&quot;bkjs.nologin&quot;, function() { window.location=&#39;/public/index.html&#39;; });
-       bkjs.koInit();
+       app.on(&quot;nologin&quot;, () =&gt; { window.location=&#39;/public/index.html&#39;; });
+       app.koInit();
    });
    &lt;/script&gt;
 </code></pre>
 <h2 id="secure-web-site-backend-verification">Secure Web site, backend verification</h2>
 <p>On the backend side in your application app.js it needs more secure settings defined i.e. no html except /public will be accessible and
-in case of error will be redirected to the login page by the server. Note, in the login page <code>bkjs.session</code> must be set to true for all
-html pages to work after login without singing every API request.</p>
+in case of error will be redirected to the login page by the server.</p>
 <ol>
 <li>We disable all allowed paths to the html and registration:</li>
 </ol>
@@ -879,21 +868,21 @@ will never end up in this callback because it is called after the signature chec
 </code></pre>
 <h1 id="websockets-connections">WebSockets connections</h1>
 <p>The simplest way is to configure <code>ws-port</code> to the same value as the HTTP port. This will run WebSockets server along the regular Web server.</p>
-<p>In the browser the connection config is stored in the <code>bkjs.wsconf</code> and by default it connects to the local server on port 8000.</p>
+<p>In the browser the connection config is stored in the <code>app.wsconf</code> and by default it connects to the local server on port 8000.</p>
 <p>There are two ways to send messages via Websockets to the server from a browser:</p>
 <ul>
-<li><p>as urls, eg. <code>bkjs.wsSend(&#39;/project/update?id=1&amp;name=Test2&#39;)</code></p>
+<li><p>as urls, eg. <code>app.wsSend(&#39;/project/update?id=1&amp;name=Test2&#39;)</code></p>
 <p>In this case the url will be parsed and checked for access and authorization before letting it pass via Express routes. This method allows to
 share the same route handlers between HTTP and Websockets requests, the handlers will use the same code and all responses will be sent back,
 only in the Websockets case the response will arrived in the message listener (see an example below)</p>
 </li>
 </ul>
-<pre><code class="language-javascript">    bkjs.wsConnect({ path: &quot;/project/ws?id=1&quot; });
+<pre><code class="language-javascript">    app.wsConnect({ path: &quot;/project/ws?id=1&quot; });
 
-    $(bkjs).on(&quot;bkjs.ws.message&quot;, (msg) =&gt; {
+    app.on(&quot;ws:message&quot;, (msg) =&gt; {
         switch (msg.op) {
         case &quot;/account/update&quot;:
-            bkjs.wsSend(&quot;/account/ws/account&quot;);
+            app.wsSend(&quot;/account/ws/account&quot;);
             break;
 
         case &quot;/project/update&quot;:
@@ -901,15 +890,15 @@ only in the Websockets case the response will arrived in the message listener (s
             break;
 
         case &quot;/message/new&quot;:
-            bkjs.showAlert(&quot;info&quot;, `New message: ${msg.msg}`);
+            app.showAlert(&quot;info&quot;, `New message: ${msg.msg}`);
             break;
         }
     });
 </code></pre>
 <ul>
-<li><p>as JSON objects, eg. <code>bkjs.wsSend({ op: &quot;/project/update&quot;, project: { id: 1, name: &quot;Test2&quot; } })</code></p>
+<li><p>as JSON objects, eg. <code>app.wsSend({ op: &quot;/project/update&quot;, project: { id: 1, name: &quot;Test2&quot; } })</code></p>
 <p>  In this case the server still have to check for access so it treats all JSON messages as coming from the path which was used during the connect,
-  i.e. the one stored in the <code>bkjs.wsconf.path</code>. The Express route handler for this path will receive all messages from Websocket clients, the response will be
+  i.e. the one stored in the <code>app.wsconf.path</code>. The Express route handler for this path will receive all messages from Websocket clients, the response will be
   received in the event listener the same way as for the first use case.</p>
 </li>
 </ul>
@@ -989,7 +978,7 @@ cmd1)
 </code></pre>
 </li>
 </ul>
-<h2 id="extending-bkjs">Extending bkjs</h2>
+<h2 id="extending-bkjs-tool">Extending bkjs tool</h2>
 <p>The utility is extended via external scripts that reside in the <code>tools/</code> folders.</p>
 <p>When bkjs is running it treats the first arg as a command:</p>
 <ul>
@@ -1045,8 +1034,8 @@ esac
 <p>Then run the dev build script to produce web/js/bkjs.bundle.js and web/css/bkjs.bundle.css</p>
 <pre><code>cd node_modules/backendjs &amp;&amp; npm run devbuild
 </code></pre>
-<p>Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css. The configuration is in the
-package.json file.</p>
+<p>Now instead of including a bunch of .js or css files in the html pages it only needs /js/bkjs.bundle.js and /css/bkjs.bundle.css.</p>
+<p>The bundle configuration is in the package.json file.</p>
 <p>The list of files to be used in bundles is in the package.json under <code>config.bundles</code>.</p>
 <p>To enable auto bundler in your project just add to the local config <code>~/.bkjs/etc/config.local</code> a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support</p>
@@ -1060,7 +1049,7 @@ bkjs bundle -dev -file $2
 [ &quot;$?&quot; != &quot;0&quot; ] &amp;&amp; exit
 osascript -e &quot;tell application \&quot;Google Chrome\&quot; to reload (tabs of window 1 whose URL contains \&quot;$1\&quot;)&quot;
 </code></pre>
-<p>To use it call this script instead in the config.local:</p>
+<p>To use it, call this script instead in the config.local:</p>
 <pre><code>watch-build=bundle.sh /website
 </code></pre>
 <p>NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
@@ -1070,7 +1059,7 @@ repository when the bundle build may not be called or called too early. To force
 <h1 id="deployment-use-cases">Deployment use cases</h1>
 <h2 id="aws-instance-setup-with-node-and-backendjs">AWS instance setup with node and backendjs</h2>
 <ul>
-<li><p>start new AWS instance via AWS console, use Alpine 3.19 or later</p>
+<li><p>start new AWS instance via AWS console, use Alpine 3.21 or later</p>
 </li>
 <li><p>login as <code>alpine</code></p>
 </li>
@@ -1117,8 +1106,7 @@ defined via command line arguments as <code>-home</code> or via environment vari
 config parameters from the specified database pool, it will load all records from the <code>bk_config</code> table on that db pool. Using the database to store
 configuration make it easier to maintain dynamic environment for example in case of auto scaling or launching on demand, this way
 a new instance will query current config from the database and this eliminates supporting text files and distributing them to all instances.</p>
-<p>The config database is refreshed from time to time acording to the <code>db-config-interval</code> parameter, also all records with <code>ttl</code> property in the bk_config
-will be pulled every ttl interval and updated in place.</p>
+<p>The config database is refreshed from time to time according to the <code>db-config-map=interval:N</code> parameter. See <code>db/config.js</code> for more details.</p>
 </li>
 </ul>
 <h1 id="backend-library-development-mac-os-x-developers-">Backend library development (Mac OS X, developers)</h1>
@@ -1231,7 +1219,7 @@ environment, not just a Web browser. Request signature can be passed in the quer
 <p>For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON payload can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.</p>
-<p>See <a href="https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js">web/js/bkjs.js</a> function <code>bkjs.createSignature</code> or
+<p>See <a href="https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js">web/js/bkjs.js</a> function <code>app.createSignature</code> or
 <a href="https://github.com/vseryakov/backendjs/blob/master/api/auth.js">api.js</a> function <code>api.createSignature</code> for the JavaScript implementations.</p>
 <h3 id="authentication-api">Authentication API</h3>
 <ul>
@@ -1258,9 +1246,8 @@ this is the only way to ensure the body is not modified when not using query par
 <p> Example:</p>
 </li>
 </ul>
-<pre><code class="language-javascript">    $.ajax({ url: &quot;/login?login=test123&amp;secret=test123&amp;_session=1&quot;,
-        success: function(json, status, xhr) { console.log(json) }
-    });
+<pre><code class="language-javascript">    var res = await fetch(&quot;/login&quot;, { metod: &quot;POST&quot;, body: &quot;login=test123&amp;secret=test123&amp;_session=1&quot; });
+    await res.json()
 
     &gt; { id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, login: &quot;test123&quot;, ...}
 </code></pre>
@@ -1302,7 +1289,6 @@ this is the only way to ensure the body is not modified when not using query par
 purpose there is an API endpoint <code>/ping</code> that just responds with status 200. It is open by default in the default <code>api-allow-path</code> config parameter.</p>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
-<p>Check out the <a href="http://bkjs.io">Documentation</a> for more details.</p>
 
 <h2 id="module-account">Module: account</h2>
 <p>  User and account management</p>
@@ -1321,7 +1307,7 @@ purpose there is an API endpoint <code>/ping</code> that just responds with stat
 <li><code>account-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
 <li><code>account-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
 <li><code>account-file</code>, descr: &quot;A JSON file with users&quot;</li>
-<li><code>account-passkey-(.+)</code>, obj: &quot;passkey&quot;, autotype: 1, descr: &quot;Passkey numeric parameters: path, secret, queue, max, ttl, disabled&quot;</li>
+<li><code>account-passkey-(.+)</code>, obj: &quot;passkey&quot;, autotype: 1, descr: &quot;Passkey numeric parameters: path, secret, cache, max, ttl, disabled&quot;</li>
 </ul>
 </li>
 </ul>
@@ -1478,10 +1464,13 @@ early with some properties always present:<ul>
 </ul>
 </li>
 </ul>
+<p>  Every request has <code>trace</code> property, either fake or Xray depending on the config, see metrics for usage</p>
 
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
+<li><code>api-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
+<li><code>api-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
 <li><code>api-images-url</code>, descr: &quot;URL where images are stored, for cases of central image server(s), must be full URL with optional path&quot;</li>
 <li><code>api-images-s3</code>, descr: &quot;S3 bucket name where to store and retrieve images&quot;</li>
 <li><code>api-images-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name&quot;</li>
@@ -1563,7 +1552,7 @@ early with some properties always present:<ul>
 <li><code>api-allow-error-code</code>, type: &quot;regexpobj&quot;, descr: &quot;Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned&quot;</li>
 <li><code>api-rlimits-([a-z]+)$</code>, obj: &quot;rlimits&quot;, make: &quot;$1&quot;, autotype: 1, descr: &quot;Default rate limiter parameters, default interval is 1s, <code>ttl</code> is to expire old cache entries, message for error&quot;</li>
 <li><code>api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+)</code>, autotype: 1, obj: &quot;rlimitsMap.$2&quot;, make: &quot;$1&quot;, descr: &quot;Rate limiter parameters for Token Bucket algorithm. <code>queue</code> to use specific queue, ttl<code>is to expire cache entries,</code>ip` is to limit by IP address as well, ex. -api-rlimits-ip-ip=10, -api-rlimits-rate-/path=1, , -api-rlimits-rate-GET/path=1&quot;</li>
-<li><code>api-rlimits-map-(.+)</code>, type: &quot;map&quot;, obj: &quot;rlimitsMap.$1&quot;, make: &quot;$1&quot;, maptype: &quot;auto&quot;, merge: 1, descr: &quot;Rate limiter parameters for Token Bucket algorithm. set all at once, ex. -api-rlimits-map-/url=rate:1,interval:2000 -api-rlimits-map-GET/url=rate:10&quot;</li>
+<li><code>api-rlimits-map-(.+)</code>, type: &quot;map&quot;, obj: &quot;rlimitsMap.$1&quot;, maptype: &quot;auto&quot;, merge: 1, descr: &quot;Rate limiter parameters for Token Bucket algorithm. set all at once, ex. -api-rlimits-map-/url=rate:1,interval:2000 -api-rlimits-map-GET/url=rate:10&quot;</li>
 <li><code>api-exit-on-error</code>, type: &quot;bool&quot;, descr: &quot;Exit on uncaught exception in the route handler&quot;</li>
 <li><code>api-timeout</code>, type: &quot;number&quot;, min: 0, max: 3600000, descr: &quot;HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests&quot;</li>
 <li><code>api-keep-alive-timeout</code>, type: &quot;int&quot;, descr: &quot;Number of milliseconds to keep the HTTP conection alive&quot;</li>
@@ -1571,7 +1560,7 @@ early with some properties always present:<ul>
 <li><code>api-max-requests-per-socket</code>, type: &quot;int&quot;, min: 0, descr: &quot;The maximum number of requests a socket can handle before closing keep alive connection&quot;</li>
 <li><code>api-(query|header|upload)-limit</code>, type: &quot;number&quot;, descr: &quot;Max size for query/headers/uploads, bytes&quot;</li>
 <li><code>api-(files|fields)-limit</code>, type: &quot;number&quot;, descr: &quot;Max number of files or fields in uploads&quot;</li>
-<li><code>api-limiter-queue</code>, descr: &quot;Name of an ipc queue for API rate limiting&quot;</li>
+<li><code>api-limiter-cache</code>, descr: &quot;Name of a cache for API rate limiting&quot;</li>
 <li><code>api-errlog-limiter-max</code>, type: &quot;int&quot;, descr: &quot;How many error messages to put in the log before throttling kicks in&quot;</li>
 <li><code>api-errlog-limiter-interval</code>, type: &quot;int&quot;, descr: &quot;Interval for error log limiter, max errors per this interval&quot;</li>
 <li><code>api-errlog-limiter-ignore</code>, type: &quot;regexpobj&quot;, descr: &quot;Do not show errors that match the regexp&quot;</li>
@@ -1596,7 +1585,6 @@ early with some properties always present:<ul>
 <li><code>api-csrf-header-name</code>, descr: &quot;Name for the CSRF header&quot;</li>
 <li><code>api-csrf-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;CSRF token age in milliseconds&quot;</li>
 <li><code>api-delays-(.+)</code>, type: &quot;int&quot;, obj: &quot;delays&quot;, nocamel: 1, descr: &quot;Delays in ms by status and code, useful for delaying error responses to slow down brute force attacks, ex. -api-delays-401 1000 -api-delays-403:DENY -1&quot;</li>
-<li><code>api-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
 <li><code>api-compressed-([^/]+)</code>, type: &quot;regexp&quot;, obj: &quot;compressed&quot;, nocamel: 1, strip: &quot;compressed-&quot;, reverse: 1, regexp: &quot;i&quot;, descr: &quot;Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention , example: -api-compress-bundle.js gz&quot;</li>
 <li><code>api-allow-configure-(web|middleware)</code>, type: &quot;regexp&quot;, descr: &quot;Modules allowed to call configureWeb or Middleware, i.e. only allowed endpoints&quot;</li>
 <li><code>api-restart-hours</code>, type: &quot;list&quot;, datatype: &quot;int&quot;, descr: &quot;List of hours when to restart api workers, only done once for each hour&quot;</li>
@@ -2263,6 +2251,12 @@ cannot be verified by current hook, multiple hooks can be supported and it stops
 </ul>
 
 <ul>
+<li><p><code>api.bkCollectStats(options)</code></p>
+<p>  API stats if running</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.scaleIcon(infile, options, callback)</code></p>
 <p>  Scale image return err if failed.</p>
 <p>If image module is not set (default) then the input data is returned or saved as is.</p>
@@ -2863,13 +2857,23 @@ The argumernts specify the following:</p>
 <ul>
 <li>start_time - starting timestamp</li>
 <li>end_time - ending timestamp</li>
-<li>period - aggregation period in seconds, default is 60</li>
-<li>age - number of hours to go back in case end_time is not specified, fraction can be used, default is 1h if no timestamp are given</li>
+<li>period - aggregation period in seconds, default is 60, if &lt; 0 then dunamically set it for the time range</li>
+<li>age - number of ms to go back in case start_time is not specified, fraction can be used, default is 30 secs if no timestamp are given</li>
 <li>namespace - namespace for all metrics, default is AWS/EC2</li>
-<li>metrics - a list with metrics to retrieve: { name: &quot;..&quot;, stat: &quot;..&quot;, dimensions: { key: val, ...}, [namespace: &quot;..&quot;], [label: &quot;..&quot;&quot;] }</li>
+<li>desc - return data in descending order</li>
+<li>metrics - a list with metrics to retrieve:
+ { name: &quot;..&quot;,
+   stat: &quot;..&quot;,
+   dimensions: { key: val, ...},
+   [namespace: &quot;..&quot;],
+   [label: &quot;..&quot;&quot;],
+   [hidden: 1],
+   [expression: &quot;..&quot;]
+ }</li>
 </ul>
+<p>Returns an object: { data: [{ id, label, timestamps: [], data: [] }], errors: [] }</p>
 <p>Example:</p>
-<pre><code>aws.cwGetMetricData({ age: 5, metrics: [{ name: &quot;NetworkOut&quot;, label: &quot;Traffic&quot;, stat: &quot;Average&quot;, dimensions: { InstanceId: &quot;i-1234567&quot; } } ] }, lib.log)
+<pre><code>aws.cwGetMetricData({ age: 300000, metrics: [{ name: &quot;NetworkOut&quot;, label: &quot;Traffic&quot;, stat: &quot;Average&quot;, dimensions: { InstanceId: &quot;i-1234567&quot; } } ] }, lib.log)
 </code></pre>
 </li>
 </ul>
@@ -3435,6 +3439,12 @@ will be loaded.</p>
 </ul>
 
 <ul>
+<li><p><code>aws.getTaskDetails(options, callback)</code></p>
+<p>  If running inside ECS pulls the task details</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.stsAssumeRole(options, callback)</code></p>
 <p>  Assume a role and return new credentials that can be used in other API calls</p>
 </li>
@@ -3780,33 +3790,44 @@ The options can specify the following:</p>
 </ul>
 
 <h2 id="module-cache">Module: cache</h2>
-<p>  Cache module for shared cache, jobs, events and subscriptions.</p>
-<p>  Each driver can only implement subset of the cache interface, for example rate limiter only(local), or job queue only(SQS).</p>
-<p>  Some drivers (Redis) may support TTL so global <code>options.ttl</code> or local <code>options.ttl</code> can be used for <code>put/incr</code> operations and it will honored if it is suported.</p>
+<p>  Cache module for shared cache and subscriptions.</p>
+<p>  Some drivers (Redis) may support TTL so global <code>options.ttl</code> or local <code>options.ttl</code> can be used
+  for <code>put/incr</code> operations and it will honored if it is suported.</p>
 <p>  For caches that support maps, like Redis the <code>options.mapName</code> can be used with get/put/incr/del to
   work with maps and individual keys inside maps.</p>
-<p>  All methods use <code>options.queueName</code> for <code>options.cacheName</code> or non-default queue or cache.
+<p>  All methods use <code>options.cacheName</code> for non-default cache.
   If it is an array then a client will be picked sequentially by maintaining internal sequence number.</p>
-<p>  To specify a channel within a queue use the format <code>queueName#channelName</code>,
-  for drivers that support multiple channels like NATS/Redis the channel will be used for another subscription within the same connection.</p>
-<p>  For drivers (NATS) that support multiple consumers the full queue syntax is <code>queueName#channelName@groupName</code> or <code>queueName@groupName</code>,
-  as well as the <code>groupName</code> property in the subscribe options.</p>
 <p>  Empty <code>default</code> client always exists, it can be overridden to make default some other driver</p>
+<p>  To enable stats collection for a cache it must be enabled</p>
+<pre><code>   cache-redis-options-metrics=1
+</code></pre>
 
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
-<li><code>cache-config</code>, obj: &quot;_config&quot;, type: &quot;json&quot;, merge: 1, descr: &#39;An object with driver configs, an object with at least url or an url string, ex: <code>-cache-config {&quot;redis&quot;:{&quot;url&quot;:redis://localhost&quot;,&quot;count&quot;:1&quot;nats&quot;:&quot;nats://localhost:4222&quot;}</code>&#39;</li>
-<li><code>cache-([a-z0-9]+)-options$</code>, obj: &quot;_config.$1&quot;, type: &quot;map&quot;, merge: 1, maptype: &quot;auto&quot;, onupdate: function(v,o) {this.applyOptions(v,o) descr: &quot;Additional parameters for clients, specific to each implementation, ex: <code>-cache-redis-options count:10,interval:100</code>&quot;</li>
-<li><code>cache-([a-z0-9]+)-options-(.+)</code>, obj: &quot;_config.$1&quot;, make: &quot;$2&quot;, camel: &#39;-&#39;, autotype: 1, onupdate: function(v,o) {this.applyOptions(v,o) descr: &quot;Additional parameters for clients, specific to each implementation, ex: <code>-cache-default-options-count 10</code>&quot;</li>
-<li><code>cache-([a-z0-9]+)</code>, obj: &quot;_config.$1&quot;, make: &quot;url&quot;, nocamel: 1, onupdate: function(v,o) {this.applyOptions(v,o) descr: &quot;An URL that points to a cache/queue server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, multiple clients can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url, ex: <code>-cache-redis redis://localhost?bk-count=3&amp;bk-ttl=3000</code>&quot;</li>
+<li><code>cache-config</code>, obj: &quot;_config&quot;, type: &quot;json&quot;, merge: 1, onupdate: &quot;checkConfig&quot;, descr: &#39;An object with driver configs, an object with at least url or an url string, ex: <code>-cache-config {&quot;redis&quot;:{&quot;url&quot;:redis://localhost&quot;,&quot;count&quot;:1&quot;nats&quot;:&quot;nats://localhost:4222&quot;}</code>&#39;</li>
+<li><code>cache-([a-z0-9]+)-options$</code>, obj: &quot;_config.$1&quot;, type: &quot;map&quot;, merge: 1, maptype: &quot;auto&quot;, onupdate: &quot;applyOptions&quot;, descr: &quot;Additional parameters for clients, specific to each implementation, ex: <code>-cache-redis-options count:10,interval:100</code>&quot;</li>
+<li><code>cache-([a-z0-9]+)-options-(.+)</code>, obj: &quot;_config.$1&quot;, make: &quot;$2&quot;, camel: &#39;-&#39;, autotype: 1, onupdate: &quot;applyOptions&quot;, descr: &quot;Additional parameters for clients, specific to each implementation, ex: <code>-cache-default-options-count 10</code>&quot;</li>
+<li><code>cache-([a-z0-9]+)</code>, obj: &quot;_config.$1&quot;, make: &quot;url&quot;, nocamel: 1, onupdate: &quot;applyOptions&quot;, descr: &quot;An URL that points to a cache server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, multiple clients can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url, ex: <code>-cache-redis redis://localhost?bk-count=3&amp;bk-ttl=3000</code>&quot;</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>cache.initClients()</code></p>
+<p>  Initialize a client for cache purposes, previous client will be closed.</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>cache.checkConfig()</code></p>
 <p>  Initialize missing or new clients, existing clients stay the same</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>cache.closeClients()</code></p>
+<p>  Close all existing clients except empty local client</p>
 </li>
 </ul>
 
@@ -3818,28 +3839,15 @@ The options can specify the following:</p>
 
 <ul>
 <li><p><code>cache.getCache(options)</code></p>
-<p>  Return a cache or queue client by name if specified in the options or use default client which always exists,
-use <code>queueName</code> or <code>cacheName</code> to specify a specific driver.
+<p>  Return a cache client by name if specified in the options or use default client which always exists,
+use <code>cacheName</code> to specify a specific driver.
 If it is an array it will rotate items sequentially.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>cache.initClients()</code></p>
-<p>  Initialize a client for cache or queue purposes, previous client will be closed.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>cache.closeClients()</code></p>
-<p>  Close all existing clients except empty local client</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>cache.stats(options, callback)</code></p>
-<p>  Returns the cache statistics, the format depends on the cache type used, for queues it returns a property &#39;queueCount&#39; with currently
-visible messages in the queue, &#39;queueRunning&#39; with currently in-flight messages</p>
+<p>  Returns the cache statistics, the format depends on the cache type used</p>
 </li>
 </ul>
 
@@ -3941,102 +3949,9 @@ this is the same as to set key to &#39;*&#39; and define mapName in the options<
 </ul>
 
 <ul>
-<li><p><code>cache.subscribe(channel, options, callback)</code></p>
-<p>  Subscribe to receive messages from the given channel, the callback will be called only on new message received.</p>
-<ul>
-<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
-</ul>
-<p> Example:</p>
-<pre><code>     cache.subscribe(&quot;alerts&quot;, (msg) =&gt; {
-         req.res.json(data);
-     }, req);
-</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>cache.unsubscribe(channel, options, callback)</code></p>
-<p>  Close a subscription for the given channel, no more messages will be delivered.</p>
-<ul>
-<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>cache.publish(channel, msg, options, callback)</code></p>
-<p>  Publish an event to the channel to be delivered to all subscribers. If the <code>msg</code> is not a string it will be stringified.</p>
-<ul>
-<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>cache.subscribeQueue(options, callback)</code></p>
-<p>  Listen for messages from the given queue, the callback will be called only on new message received.</p>
-<ul>
-<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
-</ul>
-<p>The callback accepts 2 arguments, a message and optional next callback, if it is provided it must be called at the end to confirm or reject the message processing.
-Only errors with code&gt;=500 will result in rejection, not all drivers support the next callback if the underlying queue does not support message acknowledgement.</p>
-<p>Depending on the implementation, this can work as fan-out, delivering messages to all subscribed to the same channel or
-can implement job queue model where only one subscriber receives a message.
-For some cases like Redis this is the same as <code>subscribe</code>.</p>
-<p>For cases when the <code>next</code> callback is provided this means the queue implementation requires an acknowledgement of successful processing,
-returning an error with <code>err.status &gt;= 500</code> will keep the message in the queue to be processed later. Special code <code>600</code> means to keep the job
-in the queue and report as warning in the log.</p>
-<p> Example:</p>
-<pre><code>     cache.subscribeQueue({ queueName: &quot;jobs&quot; }, (msg, next) =&gt; {
-         req.res.json(data);
-         if (next) next();
-     }, req);
-</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>cache.unsubscribeQueue(options, callback)</code></p>
-<p>  Stop listening for message, if no callback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.</p>
-<ul>
-<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
-</ul>
-<p>The callback will not be called.</p>
-<p>It keeps a count how many subscribe/unsubscribe calls been made and stops any internal listeners once nobody is
-subscribed. This is specific to a queue which relies on polling.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>cache.publishQueue(msg, options, callback)</code></p>
-<p>  Submit a message to the queue, if the <code>msg</code> is not a string it will be stringified.</p>
-<ul>
-<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
-<li><code>options.stime</code> defines when the message should be processed, it will be held in the queue until the time comes</li>
-<li><code>options.etime</code> defines when the message expires, i.e. will be dropped if not executed before this time.</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>cache.monitorQueue(options)</code></p>
-<p>  Queue specific monitor services that must be run in the master process, this is intended to perform
-queue cleanup or dealing with stuck messages (Redis)</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>cache.unpublishQueue(msg, options, callback)</code></p>
-<p>  Queue specific message deletion from the queue in case of abnormal shutdown or job running too long in order not to re-run it after the restart, this
-is for queues which require manual message deletion ofter execution(SQS). Each queue client must maintain the mapping or other means to identify messages,
-the options is the message passed to the listener</p>
-</li>
-</ul>
-
-<ul>
 <li><p><code>cache.limiter(options, callback)</code></p>
-<p>  Check for rate limit using the default or specific queue, by default TokenBucket using local LRU cache is
-used unless a queue client provides its own implementation.</p>
+<p>  Check for rate limit using the default or specific cache, by default TokenBucket using local LRU cache is
+used unless a client provides its own implementation.</p>
 <p>The options must have the following properties:</p>
 <ul>
 <li>name - unique id, can be IP address, account id, etc...</li>
@@ -4061,8 +3976,9 @@ value on first successful consumption</li>
 <li><p><code>cache.checkLimiter(options, callback)</code></p>
 <p>  Keep checking the limiter until it is clear to proceed with the operation, if there is no available tokens in the bucket
 it will wait and try again until the bucket is filled.
-To support the same interface and ability to abort the loop pass <code>options.retry</code> with a number of loops to run before exiting.</p>
-<p>The callback will receive the same arguments as <code>cache.limiter``.  </code>options.retries`` will be set to how many times it tried.</p>
+To support the same interface and ability to abort the loop pass <code>options.retry</code> with a number of loops to run before exiting.
+To never retry pass -1 as <code>options.retry</code>.</p>
+<p>The callback will receive the same arguments as <code>cache.limiter``.  </code>options._retries`` will be set to how many times it tried.</p>
 </li>
 </ul>
 
@@ -4101,227 +4017,15 @@ otherwise it is already locked by other instance. In case of an error the lock i
 </li>
 </ul>
 
-<p>  Queue client using RabbitMQ server</p>
-<p>  To enable install the npm module:</p>
-<pre><code>   npm i -g amqplib
-</code></pre>
+<p>  Client that uses the local process or master process for jobs.</p>
 
-
-<ul>
-<li><p><code>Client.prototype.close()</code></p>
-<p>  Close current connection, ports.... not valid after this call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.applyOptions(options)</code></p>
-<p>  Prepare options to be used safely, parse the reserved params from the url</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.applyReservedOptions(options)</code></p>
-<p>  Handle reserved options</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.channel(options)</code></p>
-<p>  Return a subscription channel from the given name or options, the same client can support multiple subscriptions, additional
-subscriptions are specified by appending <code>#channel</code> to the <code>options.queueName</code>, default is to use the primary queue name.
-Consumer name if present is stripped off.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.consumer(options)</code></p>
-<p>  Returns the consumer name for the given queue or empty if not specified, <code>groupName</code> will be used as the consumer name if present</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.canonical(options)</code></p>
-<p>  Return canonical queue name, default channel is not appended, default consumer is not appened</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.stats(options, callback)</code></p>
-<p>  CACHE MANAGEMENT
-Returns the cache statistics to the callback as the forst argument, the object tructure is specific to each cache implementstion</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.clear(pattern, callback)</code></p>
-<p>  Clear all or only matched keys from the cache</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.get(key, options, callback)</code></p>
-<p>  Returns an item from the cache by a key, callback is required and it acceptes only the item,
-on any error null or undefined will be returned</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.put(key, val, options, callback)</code></p>
-<p>  Store an item in the cache, <code>options.ttl</code> can be used to specify TTL in milliseconds</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.incr(key, val, options, callback)</code></p>
-<p>  Add/substract a number from the an item, returns new number in the callback if provided, in case of an error null/indefined should be returned</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.del(key, options, callback)</code></p>
-<p>  Delete an item from the cache</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.subscribe(channel, options, callback)</code></p>
-<p>  EVENT MANAGEMENT
-Subscribe to receive notification from the given channel</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.unsubscribe(channel, options, callback)</code></p>
-<p>  Stop receiving notifications on the given channel</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.publish(channel, msg, options, callback)</code></p>
-<p>  Publish an event</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.subscribeQueue(options, callback)</code></p>
-<p>  QUEUE MANAGEMENT
-Listen for incoming messages</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.unsubscribeQueue(options, callback)</code></p>
-<p>  Stop receiving messages</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.publishQueue(msg, options, callback)</code></p>
-<p>  Submit a job to a queue</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.unpublishQueue(options, callback)</code></p>
-<p>  Drop a job in case of abnormal shutdown or exceeded run time</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.pollQueue(options)</code></p>
-<p>  This method must take care how to keep the poller running via interval or timeout as long as the <code>this._pollingQueue=1</code>.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.schedulePollQueue(options, timeout)</code></p>
-<p>  Schedule next poller iteration immediately or after timeout, check configured polling rate, make sure it polls no more than
-configured number of times per second. If not ready then keep polling until the ready signal is sent.
-Two events can be used for back pressure support: <code>pause</code> and <code>unpause</code> to stop/restart queue processing</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.monitorQueue()</code></p>
-<p>  Queue monitor or cleanup service, when poller is involved this will be started and can be used for cleaning up stale messages or other
-maintainence work the requires.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.lock(name, options, callback)</code></p>
-<p>  LOCKING MANAGEMENT
-By default return an error</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Client.prototype.limiter(options, callback)</code></p>
-<p>  RATE CONTROL
-Rate limit check, by default it uses the master LRU cache meaning it works within one physical machine only.</p>
-<p>The options must have the following properties:</p>
-<ul>
-<li>name - unique id, can be IP address, account id, etc...</li>
-<li>rate, max, interval - same as for <code>metrics.TokenBucket</code> rate limiter.</li>
-</ul>
-<p>The callback arguments must be:</p>
-<ul>
-<li>1st arg is a delay to wait till the bucket is ready again,</li>
-<li>2nd arg is an object with the bucket state: { delay:, count:, total:, elapsed: }</li>
-</ul>
-</li>
-</ul>
-
-<p>  Client that uses the local process or master process for jobs or rate limiter.</p>
-
-<h3 id="module-nats">Module: nats</h3>
-<p>  Queue client using NATS server</p>
-<p>  To enable install the npm modules:</p>
-<pre><code>   npm i -g nats
-</code></pre>
-<p>  Configuration:</p>
-<pre><code> -queue-nats=nats://localhost:4222
-</code></pre>
-
-<p>  Cache/queue client based on Redis server using <a href="https://github.com/NodeRedis/node_redis3">https://github.com/NodeRedis/node_redis3</a></p>
-<p>  The queue client implements reliable queue using sorted sets, one for the new messages and one for the
-  messages that are being processed if timeout is provided. With the timeout this queue works similar to AWS SQS.</p>
-<p>  The <code>interval</code> config property defines in ms how often to check for new messages after processing a message, i.e. after a messages processed
-  it can poll immediately or after this amount of time</p>
-<p>  The <code>retryInterval</code> config property defines in ms how often to check for new messages after an error or no data, i.e. on empty
-  pool when no messages are processed it can poll immediately or after this amount of time</p>
-<p>  The <code>visibilityTimeout</code> property specifies to use a shadow queue where all messages that are being processed are stored,
-  while the message is processed the timestamp will be updated so the message stays in the queue, if a worker exists or crashes without
-  confirming the message finished it will be put back into the work queue after <code>visibilityTimeout</code> milliseconds. The queue name that
-  keeps active messages is appended with #.</p>
+<h3 id="module-redis">Module: redis</h3>
+<p>  Cache client based on Redis server using <a href="https://github.com/NodeRedis/node_redis3">https://github.com/NodeRedis/node_redis3</a></p>
 <p>  Protocol rediss: will use TLS to connect to Redis servers, this is required for RedisCche Serverless</p>
-<p>  The <code>threshold</code> property defines the upper limit of how many active messages can be in the queue when to show an error message, this is
-  for monitoring queue performance</p>
-<p>  The rate limiter implementes Tocken Bucket algorithm using Lua script inside Redis, the only requirement is that
-  all workers to use NTP for time synchronization</p>
 <p>  Examples:</p>
-<pre><code>   -queue=redis://host1
-   -queue-options-interval=1000
-   -queue=redis://host1?bk-visibilityTimeout=30000&amp;bk-count=2
-</code></pre>
-
-<p>  Queue client using AWS SQS, full queue url can be used or just the name as sqs://queuename</p>
-<p>  The <code>count</code> config property specifies how messages to process at the same time, default is 1.</p>
-<p>  The <code>interval</code> config property defines in ms how often to check for new messages after processing a message, i.e. after a messages processed
-  it can poll immediately or after this amount of time, default is 1000 milliseconds.</p>
-<p>  The <code>retryInterval</code> config property defines in ms how often to check for new messages after an error or no data, i.e. on empty
-  pool when no messages are processed it can poll immediately or after this amount of time, default is 5000 mulliseconds.</p>
-<p>  The <code>visibilityTimeout</code> property specifies how long the messages being processed stay hidden, in milliseconds.</p>
-<p>  The <code>timeout</code> property defines how long to wait for new messages, i.e. the long poll, in milliseconds</p>
-<p>  The <code>retryCount</code> and <code>retryTimeout</code> define how many times to retry failed AWS HTTP requests, default is 5 times starting
-   with the backoff starting at 500 milliseconds.</p>
-<p>  For messages that have <code>startTime</code> property which is the time in the future when a message must be actually processed there
-  is a parameter <code>maxTimeout</code> which defines in milliseconds the max time a messsage can stay invisible while waiting for its scheduled date,
-  default is 6 hours, the AWS max is 12 hours. The scheduling is implemented using AWS <code>visibilityTimeout</code> feature, keep
-  scheduled messages hidden until the actual time.</p>
-<p>  Examples:</p>
-<pre><code>   -queue=sqs://messages?bk-interval=60000
-   -queue=https://sqs.us-east-1.amazonaws.com/123456/messages?bk-visibilityTimeout=300&amp;bk-count=2
+<pre><code>   -cache-redis=redis://host1
+   -cache-redis-options-interval=1000
+   -cache-redis=redis://host1?bk-visibilityTimeout=30000&amp;bk-count=2
 </code></pre>
 
 <p>  Client that uses master process rate limiter and workers for jobs.</p>
@@ -4332,12 +4036,12 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
-<li><code>help</code>, type: &quot;callback&quot;, callback: function() { this.showHelp()  descr: &quot;Print help and exit&quot;</li>
+<li><code>help</code>, type: &quot;callback&quot;, callback: &quot;showHelp&quot;, descr: &quot;Print help and exit&quot;</li>
 <li><code>log</code>, type: &quot;callback&quot;, callback: function(v) { logger.setLevel(v)  descr: &quot;Set debugging level to any of &quot; + Object.keys(logger.levels), pass: 2</li>
 <li><code>log-options</code>, type: &quot;map&quot;, maptype: &quot;auto&quot;, empty: 1, ephemeral: 1, onupdate: function(v) { logger.setOptions(v)  descr: &quot;Update logger options, the format is a map: name:val,...&quot;, pass: 1, env: &quot;BKJS_LOG_OPTIONS&quot;</li>
 <li><code>log-file</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.logFile=v;logger.setFile(this.logFile, this)  descr: &quot;Log to a file, if not specified used default logfile, disables syslog&quot;, pass: 1, env: &quot;BKJS_LOG_FILE&quot;</li>
 <li><code>log-ignore</code>, type: &quot;regexp&quot;, obj: &quot;logInspect&quot;, strip: /log-/, nocamel: 1, descr: &quot;Regexp with property names which must not be exposed in the log when using custom logger inspector&quot;</li>
-<li><code>log-inspect</code>, type: &quot;callback&quot;, callback: function(v) { this.setLogInspect(v)  descr: &quot;Install custom secure logger inspection instead of util.inspect&quot;</li>
+<li><code>log-inspect</code>, type: &quot;callback&quot;, callback: &quot;setLogInspect&quot;, descr: &quot;Install custom secure logger inspection instead of util.inspect&quot;</li>
 <li><code>log-inspect-map</code>, type: &quot;map&quot;, obj: &quot;log-inspect&quot;, maptype: &quot;auto&quot;, merge: 1, replace: { &quot;%20&quot;: &quot; &quot;, &quot;%2c&quot;: &quot;,&quot;, &quot;%3a&quot;: &quot;:&quot;, &quot;%3b&quot;: &quot;;&quot;  descr: &quot;Properties for the custom log inspect via objDescr&quot;</li>
 <li><code>log-filter</code>, type: &quot;callback&quot;, callback: function(v) { if (v) logger.setDebugFilter(v)  descr: &quot;Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug&quot;, pass: 1</li>
 <li><code>no-log-filter</code>, type: &quot;bool&quot;, ephemeral: 1, onupdate: function(v) { if (v) logger.filters={}  descr: &quot;Clear all log filters&quot;, pass: 1</li>
@@ -4346,17 +4050,18 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 <li><code>home</code>, type: &quot;callback&quot;, callback: &quot;setHome&quot;, descr: &quot;Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist&quot;, pass: 2</li>
 <li><code>conf-file</code>, descr: &quot;Name of the config file to be loaded instead of the default etc/config, can be relative or absolute path&quot;, pass: 1</li>
 <li><code>err-file</code>, type: &quot;path&quot;, descr: &quot;Path to the error log file where daemon will put app errors and crash stacks&quot;, pass: 1</li>
-<li><code>etc-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep config files&quot;, pass: 1</li>
-<li><code>tmp-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep temp files&quot;</li>
-<li><code>spool-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep modifiable files&quot;</li>
-<li><code>log-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep other log files, log-file and err-file are not affected by this&quot;, pass: 1</li>
-<li><code>files-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep uploaded files&quot;</li>
-<li><code>images-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /Dir/, descr: &quot;Path where to keep images&quot;</li>
-<li><code>web-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /Path/, descr: &quot;Path where to keep web pages and other static files to be served by the web servers&quot;</li>
-<li><code>views-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /Path/, descr: &quot;Path where to keep virtual hosts web pages, every subdirectory name is a host name to match with Host: header, www. is always stripped before matching vhost directory&quot;</li>
-<li><code>modules-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /Path/, descr: &quot;Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point&quot;, pass: 1</li>
-<li><code>locales-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /Path/, descr: &quot;Path where to keep locale translations&quot;</li>
+<li><code>etc-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /-dir/, descr: &quot;Path where to keep config files&quot;, pass: 1</li>
+<li><code>tmp-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /-dir/, descr: &quot;Path where to keep temp files&quot;</li>
+<li><code>spool-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /-dir/, descr: &quot;Path where to keep modifiable files&quot;</li>
+<li><code>log-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /-dir/, descr: &quot;Path where to keep other log files, log-file and err-file are not affected by this&quot;, pass: 1</li>
+<li><code>files-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /-dir/, descr: &quot;Path where to keep uploaded files&quot;</li>
+<li><code>images-dir</code>, type: &quot;path&quot;, obj: &quot;path&quot;, strip: /-dir/, descr: &quot;Path where to keep images&quot;</li>
+<li><code>web-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /-path/, descr: &quot;Path where to keep web pages and other static files to be served by the web servers&quot;</li>
+<li><code>views-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /-path/, descr: &quot;Path where to keep virtual hosts web pages, every subdirectory name is a host name to match with Host: header, www. is always stripped before matching vhost directory&quot;</li>
+<li><code>modules-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /-path/, descr: &quot;Directory from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules, the format of the files is NAME_{web,worker,shell}.js. The modules can load any other files or directories, this is just an entry point&quot;, pass: 1</li>
+<li><code>locales-path</code>, type: &quot;path&quot;, array: 1, obj: &quot;path&quot;, strip: /-path/, descr: &quot;Path where to keep locale translations&quot;</li>
 <li><code>role</code>, descr: &quot;Override servers roles, this may have very strange side effects and should only be used for testing purposes&quot;</li>
+<li><code>roles</code>, type: &quot;list&quot;, array: 1, descr: &quot;Additional roles this process is responsible for to use in config&quot;</li>
 <li><code>umask</code>, descr: &quot;Permissions mask for new files, calls system umask on startup, if not specified the current umask is used&quot;, pass: 1</li>
 <li><code>force-uid</code>, type: &quot;list&quot;, nouniq: 1, onupdate: function(v) { lib.dropPrivileges(v[0], v[1])  descr: &quot;Drop privileges if running as root by all processes as early as possibly, this reqiures uid being set to non-root user. A convenient switch to start the backend without using any other tools like su or sudo.&quot;, pass: 1</li>
 <li><code>port</code>, type: &quot;number&quot;, min: 0, descr: &quot;port to listen for the HTTP server, this is global default&quot;</li>
@@ -4384,8 +4089,8 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 <li><code>app-name</code>, type: &quot;callback&quot;, callback: function(v) { if (!v) return;v = v.split(/[/-]/);this.appName=v[0].trim();if (v[1]) this.appVersion=v[1].trim(); descr: &quot;Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version&quot;, pass: 1</li>
 <li><code>app-version</code>, descr: &quot;Set appVersion explicitely an skip reading it from package.json&quot;, pass: 1</li>
 <li><code>app-descr</code>, descr: &quot;Set appdescr explicitely an skip reading it from package.json&quot;, pass: 1</li>
-<li><code>app-package</code>, descr: &quot;NPM package containing the application package.json, it will be added to the list of package.json files for app name and version discovery. The package must be included in the -preload-packages list.&quot;, pass: 1</li>
-<li><code>instance-(.+)</code>, obj: &#39;instance&#39;, make: &quot;$1&quot;, descr: &quot;Set instance properties explicitly: tag, region, zone&quot;, pass: 1</li>
+<li><code>app-package</code>, descr: &quot;NPM package containing the application package.json, it will be added to the list of package.json files for app name and version discovery. The package must be included in the -import-packages list.&quot;, pass: 1</li>
+<li><code>instance-([a-z0-9_-]+)</code>, obj: &#39;instance&#39;, make: &quot;$1&quot;, camel: &quot;-&quot;, descr: &quot;Set instance properties explicitly: tag, region, zone&quot;, pass: 1</li>
 <li><code>run-mode</code>, descr: &quot;Running mode for the app, used to separate different running environment and configurations&quot;, pass: 1</li>
 <li><code>daemon</code>, type: &quot;none&quot;, descr: &quot;Daemonize the process, go to the background, can be specified only in the command line&quot;</li>
 <li><code>shell</code>, type: &quot;none&quot;, descr: &quot;Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line&quot;</li>
@@ -4398,15 +4103,15 @@ Rate limit check, by default it uses the master LRU cache meaning it works withi
 <li><code>repl-bind</code>, obj: &quot;repl&quot;, descr: &quot;Listen only on specified address for REPL server in the master process&quot;</li>
 <li><code>repl-file</code>, obj: &quot;repl&quot;, descr: &quot;User specified file for REPL history&quot;</li>
 <li><code>repl-size</code>, obj: &quot;repl&quot;, type: &quot;int&quot;, descr: &quot;Max size to read on start from the end of the history file&quot;</li>
-<li><code>preload-packages</code>, type: &quot;list&quot;, array: 1, push: 1, descr: &quot;NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present&quot;, pass: 1</li>
+<li><code>(import|preload)-packages</code>, type: &quot;list&quot;, array: 1, push: 1, descr: &quot;NPM packages to load on startup, the modules, locales, viewes, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the config file in etc subfolder will be parsed if present&quot;, pass: 1</li>
+<li><code>include-modules</code>, type: &quot;regexp&quot;, descr: &quot;Modules to load, the whole path is checked&quot;, pass: 1, env: &quot;BKJS_INCLUDE_MODULES&quot;</li>
 <li><code>exclude-modules</code>, type: &quot;regexp&quot;, descr: &quot;Modules not to load, the whole path is checked&quot;, pass: 1, env: &quot;BKJS_EXCLUDE_MODULES&quot;</li>
 <li><code>depth-modules</code>, type: &quot;int&quot;, descr: &quot;How deep to go looking for modules, it uses lib.findFileSync to locate all .js files&quot;, pass: 1</li>
 <li><code>user-agent</code>, array: 1, descr: &quot;Add HTTP user-agent header to be used in HTTP requests, for scrapers or other HTTP requests that need to be pretended coming from Web browsers&quot;</li>
 <li><code>backend-host</code>, descr: &quot;Host of the master backend, can be used for backend nodes communications using core.sendRequest function calls with relative URLs, also used in tests.&quot;</li>
 <li><code>backend-login</code>, descr: &quot;Credentials login for the master backend access when using core.sendRequest&quot;</li>
 <li><code>backend-secret</code>, descr: &quot;Credentials secret for the master backend access when using core.sendRequest&quot;</li>
-<li><code>host-name</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.hostName=v;this.domain = lib.domainName(v);this._name = &quot;hostName&quot;  descr: &quot;Hostname/domain to use for communications, default is current domain of the host machine&quot;</li>
-<li><code>config-roles</code>, type: &quot;list&quot;, array: 1, descr: &quot;Roles to assume when pulling config parameters from the config, used in config files or config database&quot;</li>
+<li><code>host-name</code>, type: &quot;callback&quot;, callback: &quot;setHost&quot;, descr: &quot;Hostname/domain to use for communications, default is current domain of the host machine&quot;</li>
 <li><code>locales</code>, array: 1, type: &quot;list&quot;, descr: &quot;A list of locales to load from the locales/ directory, only language name must be specified, example: en,es. It enables internal support for <code>res.__</code> and <code>req.__</code> methods that can be used for translations, for each request the internal language header will be honored forst, then HTTP Accept-Language&quot;</li>
 <li><code>email-from</code>, descr: &quot;Email address to be used when sending emails from the backend&quot;</li>
 <li><code>email-transport</code>, descr: &quot;Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used&quot;</li>
@@ -4564,7 +4269,7 @@ like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <co
 <li><p><code>core.parseConfig(data, pass, file)</code></p>
 <p>  Parse config lines for the file or other place,
 Examples of sections from modules:</p>
-<pre><code>tag=T, instance.tag=T, runMode=M, appName=N, role=R, db.configRoles=dev, aws.region=R, aws.tags=T
+<pre><code>tag=T, instance.tag=T, runMode=M, appName=N, role=R, roles=dev, aws.region=R, aws.tags=T
 </code></pre>
 </li>
 </ul>
@@ -4584,7 +4289,8 @@ a string which defines text parameter or an object with the properties:</p>
 <li>type - a valid config type: bool, int, number, url, js, callback, set, list, json, map, regexp, regexpobj, regexpmap,</li>
 <li>descr - parameter description, it is show when run <code>bksh -help</code> command</li>
 <li>obj - object name in the module where to store the value</li>
-<li>array - if true append value to the list</li>
+<li>array - if true prepend a value to the list</li>
+<li>push - for array: mode append a value</li>
 <li>pass - process only args that match the pass value</li>
 <li>env - env variable name to apply before parsing config files</li>
 <li>merge - if true merge properties with existing object, &#39;obj&#39; must be provided</li>
@@ -4632,6 +4338,12 @@ no need to do this in worker because we already switched to home directory in th
 inherit current directory
 Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling
 it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>core.setHost(host)</code></p>
+<p>  Set hostname and domain name</p>
 </li>
 </ul>
 
@@ -4756,8 +4468,8 @@ Options properties:</p>
 </ul>
 
 <h2 id="module-db">Module: db</h2>
-<p>  The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB and Cassandra.
-  The idea is not to introduce new abstraction layer on top of all databases but to make
+<p>  The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB, Elasticsearch.</p>
+<p>  The idea is not to introduce new abstraction layer on top of all databases but to make
   the API usable for common use cases. On the source code level access to all databases will be possible using
   this API but any specific usage like SQL queries syntax or data types available only for some databases will not be
   unified or automatically converted but passed to the database directly. Only conversion between JavaScript types and
@@ -4771,57 +4483,64 @@ Options properties:</p>
   modify or delete existing properties, so the same options object can be reused in subsequent operations.</p>
 <p>  All queries and update operations ignore properties that starts with underscore.</p>
 <p>  Before the DB functions can be used the <code>core.init</code> MUST be called first, the typical usage:</p>
-<pre><code>       var backend = require(&quot;backendjs&quot;), core = backend.core, db = backend.db;
-       core.init(function(err) {
-           db.add(...
-           ...
-       });
+<pre><code>     var backend = require(&quot;backendjs&quot;), core = backend.core, db = backend.db;
+     core.init((err) =&gt; {
+         db.add(...
+         ...
+     });
 </code></pre>
 <p>  All database methods can use default db pool or any other available db pool by using <code>pool: name</code> in the options. If not specified,
   then default db pool is used, sqlite is default if no -db-pool config parameter specified in the command line or the config file.
   Even if the specified pool does not exist, the default pool will be returned, this allows to pre-confgure the app with different pools
   in the code and enable or disable any particular pool at any time.</p>
 <p>   Example, use PostgreSQL db pool to get a record and update the current pool</p>
-<pre><code>       db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, { pool: &quot;pg&quot; }, (err, row) =&gt; {
-           if (row) db.update(&quot;bk_user&quot;, row);
-       });
+<pre><code>     db.get(&quot;bk_user&quot;, { login: &quot;123&quot; }, { pool: &quot;pg&quot; }, (err, row) =&gt; {
+         if (row) db.update(&quot;bk_user&quot;, row);
+     });
 
-       const user = await db.aget(&quot;bk_user&quot;, { login: &quot;123&quot; });
+     const user = await db.aget(&quot;bk_user&quot;, { login: &quot;123&quot; });
 </code></pre>
 <p>  Most database pools can be configured with options <code>min</code> and <code>max</code> for number of connections to be maintained, so no overload will happen and keep warm connection for
   faster responses. Even for DynamoDB which uses HTTPS this can be configured without hitting provisioned limits which will return an error but
   put extra requests into the waiting queue and execute once some requests finished.</p>
 <p>   Example:</p>
-<pre><code>       db-pg-pool-max = 100
-       db-dynamodb-pool-max = 100
+<pre><code>     db-pg-pool-max = 100
+     db-dynamodb-pool-max = 100
 </code></pre>
 <p>  Also, to spread functionality between different databases it is possible to assign some tables to the specific pools using <code>db-X-pool-tables</code> parameters
   thus redirecting the requests to one or another databases depending on the table, this for example can be useful when using fast but expensive
   database like DynamoDB for real-time requests and slower SQL database running on some slow instance for rare requests, reports or statistics processing.</p>
 <p>   Example, run the backend with default PostgreSQL database but keep all config parametrs in the DynamoDB table for availability:</p>
-<pre><code>       db-pool = pg
-       db-dynamodb-pool = default
-       db-dynamodb-pool-tables = bk_config
+<pre><code>     db-pool = pg
+     db-dynamodb-pool = default
+     db-dynamodb-pool-tables = bk_config
 </code></pre>
 <p>  The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, DynamoDB, Elasticsearch</p>
 <p>  Multiple connections of the same type can be opened, just add <code>N</code> suffix to all database config parameters where N is a number,
   referer to such pools in the code as <code>poolN</code> or by an alias.</p>
 <p>  Example:</p>
-<pre><code>       db-sqlite1-pool = billing
-       db-sqlite1-pool-max = 10
-       db-sqlite1-pool-options-path = /data/db
-       db-sqlite1-pool-options-journal_mode = OFF
-       db-sqlite1-pool-alias = billing
+<pre><code>     db-sqlite1-pool = billing
+     db-sqlite1-pool-max = 10
+     db-sqlite1-pool-options-path = /data/db
+     db-sqlite1-pool-options-journal_mode = OFF
+     db-sqlite1-pool-alias = billing
 
-       in the Javascript:
+     in the Javascript:
 
-       db.select(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;billing&quot; }, lib.log)
-       await db.aselect(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;billing&quot; })
+     db.select(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;billing&quot; }, lib.log)
+     await db.aselect(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;billing&quot; })
+</code></pre>
+<p>  To enable stats collection for a pool it must be explicitly set via config options:</p>
+<pre><code>     db-dynamodb-pool-options-metrics = 1
+</code></pre>
+<p>  Additionally collest statsd individually for a list of tables</p>
+<pre><code>     db-dynamodb-pool-metrics-tables = bk_config, bk_user
 </code></pre>
 
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
+<li><code>db-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
 <li><code>db-none</code>, type: &quot;bool&quot;, descr: &quot;disable all db pools&quot;</li>
 <li><code>db-pool</code>, descr: &quot;Default pool to be used for db access without explicit pool specified&quot;</li>
 <li><code>db-name</code>, key: &quot;db-name&quot;, descr: &quot;Default database name to be used for default connections in cases when no db is specified in the connection url&quot;</li>
@@ -4832,7 +4551,7 @@ Options properties:</p>
 <li><code>db-cache-pools</code>, array: 1, type: &quot;list&quot;, descr: &quot;List of pools which trigger cache flushes on update.&quot;</li>
 <li><code>db-cache-sync</code>, array: 1, type: &quot;list&quot;, descr: &quot;List of tables that perform synchronized cache updates before returning from a DB call, by default cache updates are done in the background&quot;</li>
 <li><code>db-cache-keys-([a-z0-9_]+)-(.+)</code>, obj: &quot;cacheKeys.$1&quot;, make: &quot;$2&quot;, nocamel: 1, type: &quot;list&quot;, descr: &quot;List of columns to be used for the table cache, all update operations will flush the cache if the cache key can be created from the record columns. This is for ad-hoc and caches to be used for custom selects which specified the cache key.&quot;</li>
-<li><code>db-describe-tables</code>, type: &quot;callback&quot;, callback: function(v) { this.describeTables(lib.jsonParse(v, { datatype: &quot;obj&quot;,logger: &quot;error&quot; }))  descr: &quot;A JSON object with table descriptions to be merged with the existing definitions&quot;</li>
+<li><code>db-describe-tables</code>, type: &quot;callback&quot;, callback: &quot;describeTables&quot;, descr: &quot;A JSON object with table descriptions to be merged with the existing definitions&quot;</li>
 <li><code>db-cache-ttl</code>, type: &quot;int&quot;, obj: &quot;cacheTtl&quot;, key: &quot;default&quot;, descr: &quot;Default global TTL for cached tables&quot;,</li>
 <li><code>db-cache-ttl-(.+)</code>, type: &quot;int&quot;, obj: &quot;cacheTtl&quot;, nocamel: 1, strip: /cache-ttl-/, descr: &quot;TTL in milliseconds for each individual table being cached&quot;,</li>
 <li><code>db-cache-name-(.+)</code>, obj: &quot;cacheName&quot;, nocamel: 1, make: &quot;$1&quot;, descr: &quot;Cache client name to use for cache reading and writing for each table instead of the default in order to split cache usage for different tables, it can be just a table name or <code>pool.table</code>, use <code>*</code> to set default cache for all tables&quot;,</li>
@@ -4843,10 +4562,8 @@ Options properties:</p>
 <li><code>db-describe-column-([a-z0-9_]+)-([a-zA-Z0-9_]+)</code>, obj: &quot;columns.$1&quot;, make: &quot;$2&quot;, type: &quot;map&quot;, maptype: &quot;auto&quot;, nocamel: 1, descr: &quot;Describe a table column properties, can be a new or existing column, overrides existing property, ex: -db-describe-column-bk_user-name max:255&quot;,</li>
 <li><code>db-local</code>, descr: &quot;Local database pool for properties, cookies and other local instance only specific stuff&quot;</li>
 <li><code>db-config</code>, descr: &quot;Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to <code>default</code> to use current default pool&quot;</li>
-<li><code>db-config-interval</code>, type: &quot;number&quot;, min: 0, descr: &quot;Interval between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db&quot;</li>
-<li><code>db-config-count</code>, type: &quot;number&quot;, min: 0, descr: &quot;Max number of records to read fron the config table&quot;</li>
+<li><code>db-config-map</code>, obj: &quot;config-map&quot;, type: &quot;map&quot;, merge: 1, maptype: &quot;auto&quot;, descr: &quot;Config options: <code>.interval</code> between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db, <code>.count</code> max records to load in one select, see the docs about <code>.top</code>, <code>.main</code>, <code>.other</code> config parameters&quot;</li>
 <li><code>db-local-tables</code>, type: &quot;bool&quot;, key: &quot;_localTables&quot;, descr: &quot;Only enable local, default and config pools&quot;</li>
-<li><code>db-no-cache-columns</code>, type: &quot;bool&quot;, descr: &quot;Do not read/cache table columns&quot;</li>
 <li><code>db-cache-columns-interval</code>, type: &quot;int&quot;, min: 0, descr: &quot;How often in minutes to refresh tables columns from the database, it calls cacheColumns for each pool which supports it&quot;</li>
 <li><code>db-skip-drop</code>, type: &quot;regexpobj&quot;, descr: &quot;A pattern of table names which will skipped in db.drop operations to prevent accidental table deletion&quot;</li>
 <li><code>db-aliases-(.+)</code>, obj: &quot;aliases&quot;, nocamel: 1, reverse: 1, onparse: function(v,o) { o.name=this.table(o.name); return this.table(v)  descr: &quot;Table aliases to be used instead of the requested table name, only high level db operations will use it, al low level utilities use the real table names&quot;</li>
@@ -4855,13 +4572,13 @@ Options properties:</p>
 <li><code>db-([a-z0-9]+)-pool-(max)$</code>, obj: &#39;_config.$1&#39;, make: &quot;$2&quot;, type: &quot;number&quot;, min: 1, descr: &quot;Max number of open connections for a pool, default is Infinity&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-(min)$</code>, obj: &#39;_config.$1&#39;, make: &quot;$2&quot;, type: &quot;number&quot;, min: 1, descr: &quot;Min number of open connections for a pool&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-(idle)$</code>, obj: &#39;_config.$1&#39;, make: &quot;$2&quot;, type: &quot;number&quot;, min: 1000, descr: &quot;Number of ms for a db pool connection to be idle before being destroyed&quot;</li>
-<li><code>db-([a-z0-9]+)-pool-(tables)$</code>, obj: &#39;_config.$1.configOptions&#39;, make: &quot;$2&quot;, array: 1, type: &quot;list&quot;, onupdate: function(v,o) {this.applyPoolOptions(v,o) descr: &quot;Tables to be created only in this pool, to prevent creating all tables in every pool&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-(tables)$</code>, obj: &#39;_config.$1.configOptions&#39;, make: &quot;$2&quot;, array: 1, type: &quot;list&quot;, onupdate: &quot;applyPoolOptions&quot;, descr: &quot;Tables to be created only in this pool, to prevent creating all tables in every pool&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-connect$</code>, obj: &#39;_config.$1.connectOptions&#39;, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;Connect options for a DB pool driver for new connection, driver specific&quot;</li>
-<li><code>db-([a-z0-9]+)-pool-options$</code>, obj: &#39;_config.$1.configOptions&#39;, type: &quot;map&quot;, maptype: &quot;auto&quot;, merge: 1, onupdate: function(v,o) {this.applyPoolOptions(v,o) descr: &quot;General options for a DB pool&quot;</li>
-<li><code>db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$</code>, obj: &#39;_config.$1.configOptions&#39;, camel: &#39;-&#39;, autotype: 1, make: &quot;$2&quot;, onupdate: function(v,o) {this.applyPoolOptions(v,o) descr: &quot;General options for a DB pool&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-options$</code>, obj: &#39;_config.$1.configOptions&#39;, type: &quot;map&quot;, maptype: &quot;auto&quot;, merge: 1, onupdate: &quot;applyPoolOptions&quot;, descr: &quot;General options for a DB pool&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$</code>, obj: &#39;_config.$1.configOptions&#39;, camel: &#39;-&#39;, autotype: 1, make: &quot;$2&quot;, onupdate: &quot;applyPoolOptions&quot;, descr: &quot;General options for a DB pool&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-(create-tables)$</code>, master: 1, obj: &#39;_config.$1.configOptions&#39;, make: &quot;$2&quot;, type: &quot;bool&quot;, descr: &quot;Create tables for this pool on startup&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-(skip-tables)$</code>, obj: &#39;_config.$1.configOptions&#39;, make: &quot;$2&quot;, array: 1, type: &quot;list&quot;, descr: &quot;Tables not to be created in this pool&quot;</li>
-<li><code>db-([a-z0-9]+)-pool-(metric-tables)$</code>, obj: &#39;_config.$1.configOptions&#39;, make: &quot;$2&quot;, array: 1, type: &quot;list&quot;, descr: &quot;Tables to collect metrics in this pool&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-(metrics-tables)$</code>, obj: &#39;_config.$1.configOptions&#39;, make: &quot;$2&quot;, array: 1, type: &quot;list&quot;, descr: &quot;Tables to collect metrics in this pool&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-cache2-(.+)</code>, obj: &#39;cache2&#39;, nocamel: 1, strip: /pool-cache2-/, type: &quot;int&quot;, descr: &quot;Level 2 cache TTL for the specified pool and table, data is JSON strings in the LRU cache&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-alias</code>, obj: &#39;poolAliases&#39;, make: &quot;$1&quot;, reverse: 1, descr: &quot;Pool alias to refer by an alternative name&quot;</li>
 </ul>
@@ -4873,14 +4590,15 @@ Options properties:</p>
 <pre><code>  // Configuration store, same parameters as in the commandline or config file, can be placed in separate config groups
   // to be used by different backends or workers
   bk_config: {
-      name: { primary: 1 },            // name of the parameter
-      type: { primary: 2 },            // config type or tag
-      value: { type: &quot;text&quot; },         // the value
-      status: { value: &quot;ok&quot; },         // ok - availaible
-      ttl: { type: &quot;int&quot; },            // refresh interval in seconds since last read
-      version: { type: &quot;text&quot; },       // version conditions, &gt;M.N,&lt;M.N
-      sort: { type: &quot;int&quot; },           // sorting order
-      ctime: { type: &quot;now&quot;, readonly: 1 },
+      name: { primary: 1, keyword: 1 },       // name of the parameter
+      ctime: { type: &quot;now&quot;, primary: 2 },     // create time
+      type: { type: &quot;text&quot;, keyword: 1 },     // config type or tag
+      value: { type: &quot;text&quot; },                // the value
+      status: { value: &quot;ok&quot; },                // ok - availaible
+      version: { type: &quot;text&quot; },              // version conditions, &gt;M.N,&lt;M.N
+      stime: { type: &quot;mtime&quot;, nozero: 0 },    // start time when in use
+      etime: { type: &quot;mtime&quot;, nozero: 0 },    // end time when not in use
+      sort: { type: &quot;int&quot; },                  // sorting order
       mtime: { type: &quot;now&quot; }
   },
 </code></pre>
@@ -4890,6 +4608,16 @@ Options properties:</p>
 <ul>
 <li><p><code>createPool:(opts) </code></p>
 <p>  None database driver</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.init(options, callback)</code></p>
+<p>  Initialize all database pools. the options may containt the following properties:</p>
+<ul>
+<li>createTables - if true then create new tables or upgrade tables with new columns</li>
+<li>localTables - if true only enable local, default and config pools</li>
+</ul>
 </li>
 </ul>
 
@@ -4928,6 +4656,7 @@ the callback is function(err, rows)</li>
 <li>syncMode - skip columns preprocessing and dynamic values for pool sync and backup restore</li>
 <li>quiet - report errors in debug level</li>
 <li>first - return the first row from the result</li>
+<li>last - return the last row from the result</li>
 <li>logger_db - log results at the end with this level or debug by default</li>
 <li>logger_error - a log level to report about the errors, default is &#39;error&#39;, if an object it can specify different log levels by err.code, * is default level for not matched codes</li>
 <li>ignore_error - clear errors occurred as it never happen, do not report in the log, if an array then only matched codes will be cleared</li>
@@ -5012,6 +4741,7 @@ also can be a list where each item is an object with primary key condition. Only
 <li>start - start records with this primary key, this is the next_token passed by the previous query</li>
 <li>count - how many records to return</li>
 <li>first - a convenient option to return the first record from the result or null (similar to <code>db.get</code> method)</li>
+<li>last - similar to first but return last record</li>
 <li>join - how to join condition expressions, default is AND</li>
 <li>joinOps - operators to use to combine several expressions in case when an array of values is given, supports `and|or|AND|OR``</li>
 <li>sort - sort by this column. if null then no sorting must be done at all, records will be returned in the order they are kept in the DB.
@@ -5027,7 +4757,8 @@ also can be a list where each item is an object with primary key condition. Only
 <li>cacheKey - exlicit key for caching, return from the cache or from the DB and then cache it with this key, works the same as <code>get</code></li>
 <li>cacheKeyName - a name of one of the cache keys to use, it must be defined by a <code>db-cache-keys-table-name</code> parameter</li>
 <li>nocache - do not use cache even if cache key is given</li>
-<li>aliases - an object with mapping between artificial name to real column name, useful in $or/$and conditions with same column but different values</li>
+<li>aliases - an object with mapping between artificial name to real column name, useful in $or/$and conditions with same column but different values,
+ alternative is to prepend aliases with $, like $name or $$name, the name must be valid column name</li>
 <li>custom_columns - an array of pairs to define global or artificial columns, the format is: [ RegExp, type, ...], useful with aliases</li>
 </ul>
 </li>
@@ -5159,7 +4890,8 @@ if does not exist yet.</em> To disable upsert pass <code>noupsert</code> in the 
 <li>typesMap - type mapping for properties to be used in the condition</li>
 <li>aliases - an object to map column aliases in the query in case the same column is used ultiple times</li>
 <li>expected - an object with the condition for the update, it is used in addition to the primary keys condition from the <code>obj</code>,
- a property named $or or $and will be treated as a sub-expression if it is an object.</li>
+ a property named $or/$and will be treated as a sub-expression if it is an object. For multiple OR/AND use
+ $or1, $or2,...</li>
 <li>expectedJoin - how to join expected expressions: OR, AND, default is AND</li>
 <li>upsert - create a new record if it does not exist</li>
 <li>syncMode - skip columns preprocessing and dynamic values for pool sync and backup restore</li>
@@ -5405,7 +5137,9 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 <li>incremental - if set, try to read the latest record in the other table and continue from there, uses <code>sort</code> index in desc order</li>
 <li>batch - a number of records to copy at once using the bulk operation</li>
 <li>syncMode - if set enabled the update mode in which all values are preserved and not pre-processed, default is 1</li>
-<li>updateOptions - pass options to update/bulk operations</li>
+<li>queryOptions - pass options to scan operations</li>
+<li>updateOptions - pass options to update/bulk operations
+Returns stats how many copied or errors</li>
 </ul>
 </li>
 </ul>
@@ -5565,6 +5299,12 @@ then <code>info.affected_rows</code> must be non zero.</p>
 </ul>
 
 <ul>
+<li><p><code>db.bkCollectStats(options)</code></p>
+<p>  Collect stats for enabled pools, this is called by the <code>stats</code> module</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>db.getCached(op, table, query, options, callback)</code></p>
 <p>  Retrieve cached result or put a record into the cache prefixed with table:key[:key...]
 Options accept the same parameters as for the usual get action but it is very important that all the options
@@ -5630,56 +5370,20 @@ Additional options:</p>
 </ul>
 
 <ul>
-<li><p><code>db.init(options, callback)</code></p>
-<p>  Initialize all database pools. the options may containt the following properties:</p>
-<ul>
-<li>createTables - if true then create new tables or upgrade tables with new columns</li>
-<li>localTables - if true only enable local, default and config pools</li>
-</ul>
-</li>
-</ul>
-
-<ul>
 <li><p><code>db.initConfig(options, callback)</code></p>
-<p>  Load configuration from the config database, must be configured with <code>db-config-type</code> pointing to the database pool where bk_config table contains
+<p>  Load configuration from the config database, must be configured with <code>db-config</code> pointing to the database pool where bk_config table contains
 configuration parameters.</p>
-<p>The priority of the paramaters is fixed and goes from the most broad to the most specific, most specific always wins, this allows
-for very flexible configuration policies defined by the app or place where instances running and separated by the run mode.</p>
-<p>The following list of properties will be queried from the config database and the sorting order is very important, the last values
-will override values received for the earlier properties, for example, if two properties defined in the <code>bk_config</code> table with the
-types <code>myapp</code> and <code>prod-myapp</code>, then the last value will be used only.</p>
-<p>The major elements are the following:</p>
-<ul>
-<li>the run mode specified in the command line <code>-run-mode: production</code></li>
-<li>the application name from the package.json: <code>myapp</code></li>
-<li>the process role: <code>-worker</code></li>
-<li>the instance tag, AWS name tag or other name: <code>-nat</code></li>
-</ul>
-<p>The modifiers which are appended to each major attributes:</p>
-<ul>
-<li>the network where the instance is running, first 2 octets from the current IP address: <code>-192.168</code></li>
-<li>the region where the instance is running, AWS region or other: <code>us-east-1</code></li>
-</ul>
-<p>The top level list is the following:</p>
-<ul>
-<li>runMode</li>
-<li>appName</li>
-<li>runMode-appName</li>
-<li>runMode-role</li>
-<li>runMode-tag</li>
-<li>runMode-tag-role</li>
-<li>runMode-appName-role</li>
-<li>runMode-appName-tag</li>
-</ul>
-<p>All modifiers are appended for every item in the list like <code>runMode-network</code>, <code>runMode-appName-tag-region</code>,...</p>
+<p>The priority of the parameters goes from the most broad to the most specific, most specific always wins, this allows
+for very flexible configuration policies defined by the app or place where instances running and separated by the run mode.
+See `db.getConfigTypes`` for more details.</p>
 <p>The options takes the following properties:</p>
 <ul>
 <li>force - if true then force to refresh and reopen all db pools</li>
-<li>delta - if true then pull only records updated since the last config pull using the max mtime from received records.</li>
 <li>table - a table where to read the config parameters, default is bk_config</li>
 </ul>
-<p><strong>NOTE: The config parameters from the DB always take precedence even over config.local.</strong></p>
-<p>On return, the callback second argument will receive all parameters received form the database as a list: -name value ...</p>
+<p>Do not create/upgrade tables and indexes when reloading the config, this is to
+avoid situations when maintenance is being done and any process reloading the config may
+create indexes/columns which are not missing but being provisioned or changed.</p>
 </li>
 </ul>
 
@@ -5690,8 +5394,28 @@ types <code>myapp</code> and <code>prod-myapp</code>, then the last value will b
 </ul>
 
 <ul>
-<li><p><code>db.refreshConfig(options, callback)</code></p>
-<p>  Refresh parameters which are configured with a TTL</p>
+<li><p><code>db.configTypes(options)</code></p>
+<p>  Build a list of all config types we want to retrieve, based on the <code>db-config-map</code> parameters that defines which fields to use for config types.</p>
+<ul>
+<li>for each <code>top</code> item it create a mix of all main items below</li>
+<li>for each <code>main</code> item it creates a mix of all `other`` items</li>
+</ul>
+<p> top... -&gt; each of top-main... -&gt; each of top-main-other...</p>
+<p>Most common config parameters: runMode, appName, role, roles, tag, region</p>
+<p>Example: top is runMode(prod), main is role(shell),tag(local), other is region(none)</p>
+<ul>
+<li>prod</li>
+<li>prod-shell</li>
+<li>prod-shell-none</li>
+<li>prod-local</li>
+<li>prod-local-none</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.setConfig(options, callback)</code></p>
+<p>  Update and create a DB config record for the given name/type, updates the last record only</p>
 </li>
 </ul>
 
@@ -5760,7 +5484,7 @@ given by the application. If <code>options.names</code> is 1 then return just ta
 <ul>
 <li>options - an object with default pool properties<ul>
 <li>type - pool type, this is the db driver name</li>
-<li>pool or name - pool name</li>
+<li>pool - actual pool name, overrides defaults.name because it is the driver module with generic name</li>
 <li>watchfile - file path to be watched for changes, all clients will be destroyed gracefully</li>
 <li>min - min number of open database connections</li>
 <li>max - max number of open database connections, all attempts to run more will result in clients waiting for the next available db connection, if set to 0 no
@@ -6123,7 +5847,8 @@ options may contain the following properties:</p>
 <p>  Build SQL where condition from the keys and object values, returns SQL statement to be used in WHERE</p>
 <ul>
 <li>query - properties for the condition, in case of an array the primary keys for IN condition will be used only,
- a property named $or or $and will be treated as a sub-expression if it is an object.</li>
+ a property named $or or $and will be treated as a sub-expression if it is an object. Add a number if need multiple OR/AND conditions like
+ $or1, $or2,...</li>
 <li>keys - a list of columns to use for the condition, other properties will be ignored</li>
 <li>options may contains the following properties:<ul>
 <li>pool - pool to be used for driver specific functions</li>
@@ -6558,80 +6283,12 @@ set and the name-sake property will contained the value exceeded.</p>
 <p>  Note: SIDE EFFECT: the params object is modified in place so many options will be changed/removed or added</p>
 
 <h2 id="module-ipc">Module: ipc</h2>
-<p>  IPC communications between processes and support for subscriptions via queues.</p>
-<p>  The module is EventEmitter and emits messages received.</p>
-<p>  A special system queue can be configured and it will be used by all processes to listen for messages on the channel <code>bkjs:role</code>, where the role
-  is the process role, the same messages that are processed by the server/worker message handlers like api:restart, config:init,....</p>
-<p>  All instances will be listening and processing these messages at once, the most usefull use case is refreshing the DB config on demand or
-  restarting without configuring any other means like SSH, keys....</p>
-
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
-<li><code>ipc-ping-interval</code>, type: &quot;int&quot;, min: 0, descr: &quot;Interval for a worker keep-alive pings, if not received within this period it will be killed&quot;</li>
+<li><code>ipc-ping</code>, obj: &quot;ping&quot;, type: &quot;map&quot;, merge: 1, maptype: &quot;auto&quot;, descr: &quot;Keep alive pings for workers: interval:ms how oftern do pings, kill:ms kill worker after this period&quot;</li>
 <li><code>ipc-system-queue</code>, descr: &quot;System queue name to send broadcast control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...&quot;</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Ipc.prototype.initServer()</code></p>
-<p>  This function is called by a master server process to setup IPC channels and support for cache and messaging</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Ipc.prototype.initWorker()</code></p>
-<p>  This function is called by a worker process to setup IPC channels and support for cache and messaging</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Ipc.prototype.handleServerMessages(worker, msg)</code></p>
-<p>  To be used in messages processing that came from the clients or other way</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Ipc.prototype.sendReplPort(role, worker)</code></p>
-<p>  Send REPL port to a worker if needed</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Ipc.prototype.newMsg(op, msg, options)</code></p>
-<p>  Returns an IPC message object, <code>msg</code> must be an object if given.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Ipc.prototype.emitMsg(op, msg, options)</code></p>
-<p>  Wrapper around EventEmitter <code>emit</code> call to send unified IPC messages in the same format</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Ipc.prototype.sendMsg(op, msg, options, callback)</code></p>
-<p>  Send a message to the master process via IPC messages, callback is used for commands that return value back</p>
-<ul>
-<li>the <code>timeout</code> property can be used to specify a timeout for how long to wait the reply, if not given the default is used</li>
-<li>the rest of the properties are optional and depend on the operation.</li>
-</ul>
-<p>If called inside the server, it process the message directly, reply is passed in the callback if given.</p>
-<p>Examples:</p>
-<pre><code>   ipc.sendMsg(&quot;op1&quot;, { data: &quot;data&quot; }, { timeout: 100 })
-   ipc.sendMsg(&quot;op1&quot;, { name: &quot;name&quot;, value: &quot;data&quot; }, function(data) { console.log(data); })
-   ipc.sendMsg(&quot;op1&quot;, { 1: 1, 2: 2 }, { timeout: 100 })
-   ipc.sendMsg(&quot;op1&quot;, { 1: 1, 2: 2 }, function(data) { console.log(data); })
-   ipc.newMsg({ __op: &quot;op1&quot;, name: &quot;test&quot; })
-</code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Ipc.prototype.broadcast(channel, msg, options, callback)</code></p>
-<p>  Send a message to a channel, this is high level routine that uses the corresponding queue, it uses eventually queue.publish.
-If no client or queue is provided in the options it uses default <code>systemQueue</code>.</p>
 </li>
 </ul>
 
@@ -6647,12 +6304,13 @@ If no client or queue is provided in the options it uses default <code>systemQue
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
+<li><code>jobs-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
 <li><code>jobs-workers</code>, type: &quot;number&quot;, min: -1, max: 32, descr: &quot;How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available&quot;</li>
 <li><code>jobs-worker-cpu-factor</code>, type: &quot;real&quot;, min: 0, descr: &quot;A number to multiply the number of CPUs available to make the total number of workers to launch, only used if <code>workers</code> is 0&quot;</li>
 <li><code>jobs-worker-env</code>, type: &quot;map&quot;, logger: &quot;warn&quot;, descr: &quot;Environment to be passed to the worker via fork, see <code>cluster.fork</code>&quot;</li>
 <li><code>jobs-worker-delay</code>, type: &quot;int&quot;, descr: &quot;Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start&quot;</li>
 <li><code>jobs-worker-queue</code>, type: &quot;list&quot;, onupdate: function() { if (ipc.role==&quot;worker&quot;&amp;&amp;core.role==&quot;worker&quot;) this.subscribeWorker() descr: &quot;Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues&quot;</li>
-<li><code>jobs-worker-options-(.+)</code>, obj: &quot;workerOptions&quot;, make: &quot;$1&quot;, type: &quot;json&quot;, descr: &quot;Custom parameters by queue name, passed to <code>cache.subscribeQueue</code> on worker start, useful with channels, ex: <code>-jobs-worker-options-nats#events {\&quot;count\&quot;:10}</code>&quot;</li>
+<li><code>jobs-worker-options-(.+)</code>, obj: &quot;workerOptions&quot;, make: &quot;$1&quot;, type: &quot;json&quot;, descr: &quot;Custom parameters by queue name, passed to <code>queue.subscribeQueue</code> on worker start, useful with channels, ex: <code>-jobs-worker-options-nats#events {\&quot;count\&quot;:10}</code>&quot;</li>
 <li><code>jobs-max-runtime</code>, type: &quot;int&quot;, min: 0, descr: &quot;Max number of seconds a job can run before being killed&quot;</li>
 <li><code>jobs-max-lifetime</code>, type: &quot;int&quot;, min: 0, descr: &quot;Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely&quot;</li>
 <li><code>jobs-shutdown-timeout</code>, type: &quot;int&quot;, min: 500, descr: &quot;Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits&quot;</li>
@@ -6661,11 +6319,12 @@ If no client or queue is provided in the options it uses default <code>systemQue
 <li><code>jobs-global-ignore</code>, type: &quot;list&quot;, array: 1, descr: &quot;Queue names which ignore the global setting, the queueName is used as usual, local and worker are ignored by default&quot;</li>
 <li><code>jobs-cron</code>, type: &quot;bool&quot;, descr: &quot;Allow cron jobs to be executed from the local etc/crontab file or via config parameter&quot;</li>
 <li><code>jobs-schedule</code>, type: &quot;json&quot;, onupdate: function() { if (core.role == &quot;master&quot; &amp;&amp; this.cron) this.scheduleCronjobs(&quot;config&quot;, this.schedule)  logger: &quot;error&quot;, descr: &quot;Cron jobs to be scheduled, the JSON must be in the same format as crontab file, cron format by <a href="https://croner.56k.guru">https://croner.56k.guru</a>&quot;</li>
-<li><code>jobs-unique-queue</code>, descr: &quot;Default queue name to use for keeping track of unique jobs&quot;</li>
+<li><code>jobs-unique-cache</code>, descr: &quot;Default cache name to use for keeping track of unique jobs&quot;</li>
 <li><code>jobs-unique-ignore</code>, type: &quot;regexp&quot;, descr: &quot;Ignore all unique parameters if a job&#39;s uniqueKey matches&quot;</li>
 <li><code>jobs-unique-set-ttl-([0-9]+)</code>, type: &quot;regexp&quot;, obj: &quot;uniqueSetTtl&quot;, make: &quot;$1&quot;, descr: &quot;Override unique TTL to a new value if matches the unique key, ex: -jobs-unique-ttl-100 KEY&quot;</li>
 <li><code>jobs-unique-logger</code>, descr: &quot;Log level for unique error conditions&quot;</li>
 <li><code>jobs-retry-visibility-timeout</code>, type: &quot;map&quot;, maptype: &quot;int&quot;, descr: &quot;Visibility timeout by error code &gt;= 500 for queues that support it&quot;</li>
+<li><code>jobs-task-ignore</code>, type: &quot;regexp&quot;, descr: &quot;Ignore matched tasks&quot;</li>
 </ul>
 </li>
 </ul>
@@ -6866,18 +6525,37 @@ empty invalid jobs must be passed, like: <code>[ {} ]</code></p>
 </li>
 </ul>
 
+<ul>
+<li><p><code>jobs.bkCollectStats(options)</code></p>
+<p>  Jobs run time stats</p>
+</li>
+</ul>
+
 <h2 id="module-lib">Module: lib</h2>
 <p>  Common utilities and useful functions</p>
 
 <ul>
+<li><p><code>lib.call(obj, method, ...arg)</code></p>
+<p>  Call a function safely with context:</p>
+<ul>
+<li>bkjs.call(func,..)</li>
+<li>bkjs.call(context, func, ...)</li>
+<li>bkjs.call(context, method, ...)</li>
+</ul>
+</li>
+</ul>
+
+<ul>
 <li><p><code>lib.tryCall(callback, ...args)</code></p>
-<p>  Run a callback if a valid function, all arguments after the callback will be passed as is</p>
+<p>  Run a callback if a valid function, all arguments after the callback will be passed as is,
+report a warning if callback is not a function but not empty</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>lib.tryLater(callback, timeout, ...args)</code></p>
-<p>  Run a callback after timeout, returns a function so it can be used instead of actual callback</p>
+<p>  Run a callback after timeout, returns a function so it can be used instead of actual callback,
+report a warning if callback is not a function but not empty</p>
 </li>
 </ul>
 
@@ -6895,7 +6573,7 @@ all arguments will be printed in the log</p>
 </ul>
 
 <ul>
-<li><p><code>lib.__()</code></p>
+<li><p><code>lib.__(msg, ...args)</code></p>
 <p>  Simple i18n translation method compatible with other popular modules, supports the following usage:</p>
 <ul>
 <li>__(name)</li>
@@ -7013,7 +6691,7 @@ be removed, underscores will be treated as dots. Returns a floating number which
 
 <ul>
 <li><p><code>lib.toCamel(name, chars)</code></p>
-<p>  Convert into camelized form, optional chars can define the separators, default is -, _ and .</p>
+<p>  Convert into camelized form, optional chars can define the separators, default is [ _.:-]</p>
 </li>
 </ul>
 
@@ -8207,7 +7885,7 @@ in the condition object.</p>
 </ul>
 
 <ul>
-<li><p><code>lib.objClone()</code></p>
+<li><p><code>lib.objClone(obj, ...args)</code></p>
 <p>  A copy of an object, this is a shallow copy, only arrays and objects are created but all other types are just referenced in the new object</p>
 <ul>
 <li>first argument is the object to clone, can be null</li>
@@ -8219,7 +7897,7 @@ Example:
 </ul>
 
 <ul>
-<li><p><code>lib.objNew()</code></p>
+<li><p><code>lib.objNew(...args)</code></p>
 <p>  Return new object using arguments as name value pairs for new object properties</p>
 </li>
 </ul>
@@ -8306,7 +7984,7 @@ the third argument can be an options object that can control how the properties 
 </ul>
 
 <ul>
-<li><p><code>lib.objDel()</code></p>
+<li><p><code>lib.objDel(obj, ...args)</code></p>
 <p>  Delete properties from the object, first arg is an object, the rest are properties to be deleted</p>
 </li>
 </ul>
@@ -8578,13 +8256,12 @@ If <code>options.keepempty</code> is given all empty parts will be kept in the l
 </ul>
 
 <ul>
-<li><p><code>lib.sprintf(fmt, args)</code></p>
+<li><p><code>lib.sprintf(fmt, ...args)</code></p>
 <p>  C-sprintf alike
 based on <a href="http://stackoverflow.com/a/13439711">http://stackoverflow.com/a/13439711</a>
 Usage:</p>
 <ul>
 <li>sprintf(fmt, arg, ...)</li>
-<li>sprintf(fmt, [arg, ...]);</li>
 </ul>
 </li>
 </ul>
@@ -8706,10 +8383,16 @@ This is an alternative to AhoCorasick if number of words is less than 50-70.</p>
 </li>
 </ul>
 
+<ul>
+<li><p><code>lib.gcStats(enabled)</code></p>
+<p>  Return GC stats if enabled is true, starts if not running, if not enabled stops the observer</p>
+</li>
+</ul>
+
 
 <ul>
-<li><p><code>lib.processStats()</code></p>
-<p>  Return CPU/mem process stats in an object</p>
+<li><p><code>lib.cpuStats()</code></p>
+<p>  Return CPU process stats in an object</p>
 </li>
 </ul>
 
@@ -9001,16 +8684,30 @@ the default is to use the <code>error</code> level.</li>
 
 <h2 id="module-metrics">Module: metrics</h2>
 <ul>
-<li><p><code>exports.incr(obj, name, count)</code></p>
-<p>  Increments a counter in an object, creates a new var if not exist</p>
+<li><p><code>exports.toJSON(obj, options)</code></p>
+<p>  Convert all metrics for all propeties.
+Options:</p>
+<ul>
+<li>reset - true to reset all metrics</li>
+<li>take - regexp for variable that should use <code>take</code> i.e. resetable counters</li>
+<li>skip - regexp of properties to ignore</li>
+</ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>exports.toJSON(obj)</code></p>
-<p>  Returns all properties in an object, convert all metrics if necessary</p>
+<li><p><code>exports.incr(obj, name, count)</code></p>
+<p>  Increments a counter in an object, creates a new var if not exist or not a number</p>
 </li>
 </ul>
+
+<ul>
+<li><p><code>exports.take(obj, name)</code></p>
+<p>  Return the value for the given var and resets it to 0</p>
+</li>
+</ul>
+
+
 
 
 <ul>
@@ -9058,6 +8755,7 @@ the default is to use the <code>error</code> level.</li>
 </li>
 </ul>
 
+
 <ul>
 <li><p><code>Trace.prototype.stop(req)</code></p>
 <p>  Closes a segment or subsegment, for segments it sends it right away</p>
@@ -9071,192 +8769,8 @@ the default is to use the <code>error</code> level.</li>
 </ul>
 
 <ul>
-<li><p><code>Trace.prototype.start(name)</code></p>
+<li><p><code>Trace.prototype.start(options)</code></p>
 <p>  Starts a new subsegment</p>
-</li>
-</ul>
-
-<h2 id="module-msg">Module: msg</h2>
-<p>  Messaging and push notifications for mobile and other clients, supports Apple, Google and AWS/SNS push notifications.</p>
-<p>  Emits a signal <code>uninstall(client, device_id, account_id)</code> on device invalidation or if a device token is invalid as reported by the server, account_id
-  may not be available.</p>
-
-<ul>
-<li><p><code>Config parameters</code></p>
-<ul>
-<li><code>msg-([^-]+)-key(@.+)?</code>, obj: &quot;config&quot;, make: &quot;$1$2|_key&quot;, nocamel: 1, trim: 1, descr: &quot;API private key for FCM/Webpush or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global&quot;</li>
-<li><code>msg-([^-]+)-pubkey(@.+)?</code>, obj: &quot;config&quot;, make: &quot;$1$2|_pubkey&quot;, nocamel: 1, trim: 1, descr: &quot;API public key for Webpush or similar services, if the suffix is specified in the config parameter will be used as the app name, without the suffix it is global&quot;</li>
-<li><code>msg-([^-]+)-authkey-([^-]+)-(.+)</code>, obj: &quot;config&quot;, make: &quot;$1@$2-$3|_authkey&quot;, nocamel: 1, descr: &quot;A auth key for APN in p8 format, can be a file name with .p8 extension or a string with the key contents encoded with base64, the format is: -msg-apn-authkey-TEAMID-KEYID KEYDATA&quot;</li>
-<li><code>msg-([^-]+)-sandbox(@.+)?</code>, obj: &quot;config&quot;, make: &quot;$1$2|_sandbox&quot;, nocamel: 1, type: &quot;bool&quot;, descr: &quot;Enable sandbox for a service, default is production mode&quot;</li>
-<li><code>msg-([^-]+)-options-([^@]+)(@.+)?</code>, obj: &quot;config&quot;, make: &quot;$1$3|$2&quot;, autotype: 1, nocamel: 1, descr: &quot;A config property to the specified agent, driver specific&quot;</li>
-<li><code>msg-shutdown-timeout</code>, type: &quot;int&quot;, min: 0, descr: &quot;How long to wait for messages draining out in ms on shutdown before exiting&quot;</li>
-<li><code>msg-app-default</code>, descr: &quot;Default app id(app bundle id) to be used when no app_id is specified&quot;</li>
-<li><code>msg-app-dependency@(.+)</code>, obj: &quot;dependency&quot;, make: &quot;$1&quot;, type: &quot;list&quot;, nocamel: 1, descr: &quot;List of other apps that are considered in the same app family, sending to the primary app will also send to all dependent apps&quot;</li>
-<li><code>msg-app-team-(.+)</code>, obj: &quot;teams&quot;, make: &quot;$1&quot;, type: &quot;regexp&quot;, nocamel: 1, descr: &quot;Regexp that identifies all app bundles for a team&quot;</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Msg.prototype.init(options, callback)</code></p>
-<p>  Initialize supported notification services, it supports jobs arguments convention so can be used in the jobs that
-need to send push notifications in the worker process.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Msg.prototype.shutdown(options, callback)</code></p>
-<p>  Shutdown notification services, wait till all pending messages are sent before calling the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Msg.prototype.send(device, options, callback)</code></p>
-<p>  Deliver a notification for the given device token(s).</p>
-<p>The <code>device</code> is where to send the message to, can be multiple ids separated by , or |.</p>
-<p>Options with the following properties:</p>
-<ul>
-<li>service_id - list of services to use for delivery only: default, sns, apn, gcm</li>
-<li>account_id - an account id associated with this token, for debugging and invalid token management</li>
-<li>app_id - send to the devices for the given app only, if none matched send to the default device tokens only</li>
-<li>msg - text message to send</li>
-<li>badge - badge number to show if supported by the service</li>
-<li>sound - set to 1 if a sound should be produced on message receive</li>
-<li>type - set type of the message, service specific</li>
-<li>category - action category for APN</li>
-<li>id - send id with the notification, this is application specific data, sent as is</li>
-<li>name - notification group name, can be used for grouping multiple messages under this name</li>
-<li>url - a launch url for the app, it show associated screen on launch if supported</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Msg.prototype.parseDevice(device)</code></p>
-<p>  Parse device URN and returns an object with all parts into separate properties. A device URN can be in the following format:
-   [service://]device_token[@app]</p>
-<ul>
-<li>service is optional, supported types: <code>apn</code>, <code>gcm</code>, <code>sns</code>, the <code>default</code> service uses APN delivery</li>
-<li>app is optional and can define an application id which is used by APN for routing to the devices with corresponding APS certificate.</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Msg.prototype.getClient(dev)</code></p>
-<p>  Return a client module that supports the given device</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Msg.prototype.getConfig(name)</code></p>
-<p>  Return a list of all config cert/key parameters for the given name.
-Each item in the list is an object with the following properties: key, secret, app</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Msg.prototype.getAgent(mod, dev)</code></p>
-<p>  Return an agent for the given module for the given device</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>Msg.prototype.getTeam(app)</code></p>
-<p>  Return a team for the given app</p>
-</li>
-</ul>
-
-
-<ul>
-<li><p><code>client.check(dev)</code></p>
-<p>  Returns true if given device is supported by APN</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.init(options)</code></p>
-<p>  Initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
-not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
-connection to APN gateway.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.close(callback)</code></p>
-<p>  Close APN agent, try to send all pending messages before closing the gateway connection</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p>  Send push notification to an Apple device, returns true if the message has been queued.</p>
-<p>The options may contain the following properties:</p>
-<ul>
-<li>msg - message text</li>
-<li>title - alert title</li>
-<li>badge - badge number</li>
-<li>sound - 1, true or a sound file to play</li>
-<li>category - a user notification category</li>
-<li>alertAction - action to exec per Apple doc, action</li>
-<li>launchImage - image to show per Apple doc, launch-image</li>
-<li>contentAvailable - content indication per Apple doc, content-available</li>
-<li>mutableContent - mark the notification to go via extention for possible modifications</li>
-<li>locKey - localization key per Apple doc, loc-key</li>
-<li>locArgs - localization key per Apple doc, loc-args</li>
-<li>titleLocKey - localization key per Apple doc, title-loc-key</li>
-<li>titleLocArgs - localization key per Apple doc, title-loc-args</li>
-<li>threadId - grouping id, all msgs with the same id will be grouped together</li>
-<li>id - send id in the user properties</li>
-<li>type - set type of the event</li>
-<li>url - launch url</li>
-<li>payload - an object with additional fileds to send in the message payload</li>
-</ul>
-</li>
-</ul>
-
-
-<ul>
-<li><p><code>client.init(options)</code></p>
-<p>  Initialize Google Cloud Messaging service to send push notifications to mobile devices</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.close(callback)</code></p>
-<p>  Close GCM connection, flush the queue</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p>  Send push notification to an Android device, return true if queued.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>client.retryOnError()</code></p>
-<p>  Retry on server error, honor Retry-After header if present, use it only on the first error</p>
-</li>
-</ul>
-
-
-<ul>
-<li><p><code>client.send(dev, options, callback)</code></p>
-<p>  Send a Web push notification using the <code>web-push</code> npm module, referer to it for details how to generate VAPID credentials to
-configure this module with 3 required parameters:</p>
-<ul>
-<li><code>msg-webpush-key</code> - VAPID private key</li>
-<li><code>msg-webpush-pubkey</code> - VAPID public key</li>
-<li><code>msg-webpush-options-email</code> - an admin email for the VAPID subject</li>
-</ul>
-<p>The device token must be generated in the browser after successful subscription:</p>
-<pre><code>     navigator.serviceWorker.register(&quot;/js/webpush.js&quot;, { scope: &quot;/&quot; }).then(function(registration) {
-         registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKeyPublic }).then(function(subscription) {
-             bkjs.send({ url: &#39;/uc/account/update&#39;, data: { device_id: &quot;wp://&quot; + window.btoa(JSON.stringify(subscription)) }, type: &quot;POST&quot; });
-         }).catch((err) =&gt; {})
-     });
-</code></pre>
 </li>
 </ul>
 
@@ -9351,6 +8865,221 @@ all items to be released, when expired the callback will be called</p>
 </li>
 </ul>
 
+<h2 id="module-push">Module: push</h2>
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>push-config</code>, obj: &quot;_config&quot;, type: &quot;json&quot;, merge: 1, descr: &#39;An object with client configs, ex: <code>-push-config {&quot;wp&quot;:{&quot;type&quot;:&quot;wp&quot;,key&quot;:XXX&quot;,&quot;pubkey&quot;:&quot;XXXX&quot;}}</code>&#39;</li>
+<li><code>push-([a-z0-9]+)</code>, obj: &quot;_config.$1&quot;, type: &quot;map&quot;, merge: 1, maptype: &quot;auto&quot;, descr: &quot;A client parameters, ex: <code>-push-wp type:wp,key:K,pubkey:PK,email:XXX</code>&quot;</li>
+<li><code>push-shutdown-timeout</code>, type: &quot;int&quot;, min: 0, descr: &quot;How long to wait for messages draining out in ms on shutdown before exiting&quot;</li>
+</ul>
+</li>
+</ul>
+
+<h3 id="module-webpush">Module: webpush</h3>
+
+<h2 id="module-queue">Module: queue</h2>
+<p>  Queue module for jobs, events and subscriptions.</p>
+<p>  All methods use <code>options.queueName</code> for non-default queue.</p>
+<p>  If it is an array then a client will be picked sequentially by maintaining internal sequence number.</p>
+<p>  To specify a channel within a queue use the format <code>queueName#channelName</code>,
+  for drivers that support multiple channels like NATS/Redis the channel will be used for another subscription within the same connection.</p>
+<p>  For drivers (NATS) that support multiple consumers the full queue syntax is <code>queueName#channelName@groupName</code> or <code>queueName@groupName</code>,
+  as well as the <code>groupName</code> property in the subscribe options.</p>
+<p>  Empty <code>default</code> client always exists, it can be overridden to make default some other driver</p>
+<p>  To enable stats collection for a queue it must be enabled</p>
+<pre><code>   queue-redis-options-metrics=1
+</code></pre>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>queue-config</code>, obj: &quot;_config&quot;, type: &quot;json&quot;, merge: 1, onupdate: &quot;checkConfig&quot;, descr: &#39;An object with driver configs, an object with at least url or an url string, ex: <code>-queue-config {&quot;redis&quot;:{&quot;url&quot;:redis://localhost&quot;,&quot;count&quot;:1&quot;nats&quot;:&quot;nats://localhost:4222&quot;}</code>&#39;</li>
+<li><code>queue-([a-z0-9]+)-options$</code>, obj: &quot;_config.$1&quot;, type: &quot;map&quot;, merge: 1, maptype: &quot;auto&quot;, onupdate: &quot;applyOptions&quot;, descr: &quot;Additional parameters for drivers, specific to each implementation, ex: <code>-queue-redis-options count:10,interval:100</code>&quot;</li>
+<li><code>queue-([a-z0-9]+)-options-(.+)</code>, obj: &quot;_config.$1&quot;, make: &quot;$2&quot;, camel: &#39;-&#39;, autotype: 1, onupdate: &quot;applyOptions&quot;, descr: &quot;Additional parameters for drivers, specific to each implementation, ex: <code>-queue-default-options-count 10</code>&quot;</li>
+<li><code>queue-([a-z0-9]+)</code>, obj: &quot;_config.$1&quot;, make: &quot;url&quot;, nocamel: 1, onupdate: &quot;applyOptions&quot;, descr: &quot;An URL that points to a server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, multiple clients can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url, ex: <code>-queue-redis redis://localhost?bk-count=3&amp;bk-ttl=3000</code>&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.initClients()</code></p>
+<p>  Initialize a client for queue purposes, previous client will be closed.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.checkConfig()</code></p>
+<p>  Initialize missing or new clients, existing clients stay the same</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.closeClients()</code></p>
+<p>  Close all existing clients except empty local client</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.createClient(options)</code></p>
+<p>  Return a new client for the given host or null if not supported</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.getQueue(options)</code></p>
+<p>  Return a queue client by name if specified in the options or use default client which always exists,
+use <code>queueName</code> to specify a specific driver.
+If it is an array it will rotate items sequentially.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.subscribe(channel, options, callback)</code></p>
+<p>  Subscribe to receive messages from the given channel, the callback will be called only on new message received.</p>
+<ul>
+<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
+</ul>
+<p> Example:</p>
+<pre><code>     queue.subscribe(&quot;alerts&quot;, (msg) =&gt; {
+         req.res.json(data);
+     }, req);
+</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.unsubscribe(channel, options, callback)</code></p>
+<p>  Close a subscription for the given channel, no more messages will be delivered.</p>
+<ul>
+<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.publish(channel, msg, options, callback)</code></p>
+<p>  Publish an event to the channel to be delivered to all subscribers. If the <code>msg</code> is not a string it will be stringified.</p>
+<ul>
+<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.listen(options, callback)</code></p>
+<p>  Listen for messages from the given queue, the callback will be called only on new message received.</p>
+<ul>
+<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
+</ul>
+<p>The callback accepts 2 arguments, a message and optional next callback, if it is provided it must be called at the end to confirm or reject the message processing.
+Only errors with code&gt;=500 will result in rejection, not all drivers support the next callback if the underlying queue does not support message acknowledgement.</p>
+<p>Depending on the implementation, this can work as fan-out, delivering messages to all subscribed to the same channel or
+can implement job queue model where only one subscriber receives a message.
+For some cases like Redis this is the same as <code>subscribe</code>.</p>
+<p>For cases when the <code>next</code> callback is provided this means the queue implementation requires an acknowledgement of successful processing,
+returning an error with <code>err.status &gt;= 500</code> will keep the message in the queue to be processed later. Special code <code>600</code> means to keep the job
+in the queue and report as warning in the log.</p>
+<p> Example:</p>
+<pre><code>     queue.listen({ queueName: &quot;jobs&quot; }, (msg, next) =&gt; {
+         req.res.json(data);
+         if (next) next();
+     }, req);
+</code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.unlisten(options, callback)</code></p>
+<p>  Stop listening for message, if no callback is provided all listeners for the key will be unsubscribed, otherwise only the specified listener.</p>
+<ul>
+<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
+</ul>
+<p>The callback will not be called.</p>
+<p>It keeps a count how many subscribe/unsubscribe calls been made and stops any internal listeners once nobody is
+subscribed. This is specific to a queue which relies on polling.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.submit(msg, options, callback)</code></p>
+<p>  Submit a message to the queue, if the <code>msg</code> is not a string it will be stringified.</p>
+<ul>
+<li><code>options.queueName</code> defines the queue, if not specified then it is sent to the default queue</li>
+<li><code>options.stime</code> defines when the message should be processed, it will be held in the queue until the time comes</li>
+<li><code>options.etime</code> defines when the message expires, i.e. will be dropped if not executed before this time.</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.monitor(options)</code></p>
+<p>  Queue specific monitor services that must be run in the master process, this is intended to perform
+queue cleanup or dealing with stuck messages (Redis)</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.drop(msg, options, callback)</code></p>
+<p>  Queue specific message deletion from the queue in case of abnormal shutdown or job running too long in order not to re-run it after the restart, this
+is for queues which require manual message deletion ofter execution(SQS). Each queue client must maintain the mapping or other means to identify messages,
+the options is the message passed to the listener</p>
+</li>
+</ul>
+
+<p>  Client that uses the local process or master process for jobs.</p>
+
+<h3 id="module-nats">Module: nats</h3>
+<p>  Queue client using NATS server</p>
+<p>  To enable install the npm modules:</p>
+<pre><code>   npm i -g nats
+</code></pre>
+<p>  Configuration:</p>
+<pre><code> -queue-nats=nats://localhost:4222
+</code></pre>
+
+<h3 id="module-redis">Module: redis</h3>
+<p>  Queue client based on Redis server using <a href="https://github.com/NodeRedis/node_redis3">https://github.com/NodeRedis/node_redis3</a></p>
+<p>  The queue client implements reliable queue using sorted sets, one for the new messages and one for the
+  messages that are being processed if timeout is provided. With the timeout this queue works similar to AWS SQS.</p>
+<p>  The <code>interval</code> config property defines in ms how often to check for new messages after processing a message, i.e. after a messages processed
+  it can poll immediately or after this amount of time</p>
+<p>  The <code>retryInterval</code> config property defines in ms how often to check for new messages after an error or no data, i.e. on empty
+  pool when no messages are processed it can poll immediately or after this amount of time</p>
+<p>  The <code>visibilityTimeout</code> property specifies to use a shadow queue where all messages that are being processed are stored,
+  while the message is processed the timestamp will be updated so the message stays in the queue, if a worker exists or crashes without
+  confirming the message finished it will be put back into the work queue after <code>visibilityTimeout</code> milliseconds. The queue name that
+  keeps active messages is appended with #.</p>
+<p>  Protocol rediss: will use TLS to connect to Redis servers, this is required for RedisCche Serverless</p>
+<p>  The <code>threshold</code> property defines the upper limit of how many active messages can be in the queue when to show an error message, this is
+  for monitoring queue performance</p>
+<p>  Examples:</p>
+<pre><code>   -queue=redis://host1
+   -queue-options-interval=1000
+   -queue=redis://host1?bk-visibilityTimeout=30000&amp;bk-count=2
+</code></pre>
+
+<p>  Queue client using AWS SQS, full queue url can be used or just the name as sqs://queuename</p>
+<p>  The <code>count</code> config property specifies how messages to process at the same time, default is 1.</p>
+<p>  The <code>interval</code> config property defines in ms how often to check for new messages after processing a message, i.e. after a messages processed
+  it can poll immediately or after this amount of time, default is 1000 milliseconds.</p>
+<p>  The <code>retryInterval</code> config property defines in ms how often to check for new messages after an error or no data, i.e. on empty
+  pool when no messages are processed it can poll immediately or after this amount of time, default is 5000 mulliseconds.</p>
+<p>  The <code>visibilityTimeout</code> property specifies how long the messages being processed stay hidden, in milliseconds.</p>
+<p>  The <code>timeout</code> property defines how long to wait for new messages, i.e. the long poll, in milliseconds</p>
+<p>  The <code>retryCount</code> and <code>retryTimeout</code> define how many times to retry failed AWS HTTP requests, default is 5 times starting
+   with the backoff starting at 500 milliseconds.</p>
+<p>  For messages that have <code>startTime</code> property which is the time in the future when a message must be actually processed there
+  is a parameter <code>maxTimeout</code> which defines in milliseconds the max time a messsage can stay invisible while waiting for its scheduled date,
+  default is 6 hours, the AWS max is 12 hours. The scheduling is implemented using AWS <code>visibilityTimeout</code> feature, keep
+  scheduled messages hidden until the actual time.</p>
+<p>  Examples:</p>
+<pre><code>   -queue=sqs://messages?bk-interval=60000
+   -queue=https://sqs.us-east-1.amazonaws.com/123456/messages?bk-visibilityTimeout=300&amp;bk-count=2
+</code></pre>
+
+<p>  Client that uses master process rate limiter and workers for jobs.</p>
+
 <h2 id="module-run">Module: run</h2>
 <h2 id="module-server">Module: server</h2>
 <p>  The main server class that starts various processes</p>
@@ -9359,7 +9088,7 @@ all items to be released, when expired the callback will be called</p>
 <li><p><code>Config parameters</code></p>
 <ul>
 <li><code>server-workers</code>, type: &quot;callback&quot;, callback: setWorkers, descr: &quot;Max number of web processes to launch, 0 means <code>NumberOfCPUs-1</code>, &lt; 0 means <code>NumberOfCPUs*abs(N)</code>&quot;</li>
-<li><code>server-worker-args</code>, type: &quot;list&quot;, re_map: [&quot;%20&quot;, &quot; &quot;], descr: &quot;Node arguments for workers, job and web processes, for passing v8 options&quot;</li>
+<li><code>server-worker-args</code>, type: &quot;list&quot;, vreplace: { &quot;%20&quot;: &quot; &quot;  descr: &quot;Node arguments for workers, job and web processes, for passing v8 options, use %20 for spaces&quot;</li>
 <li><code>server-no-restart</code>, type: &quot;bool&quot;, descr: &quot;Do not restart any workers&quot;</li>
 <li><code>server-exit-on-empty</code>, type: &quot;int&quot;, descr: &quot;Duration in ms to exit the server process after last worker terminated&quot;</li>
 </ul>
@@ -9398,34 +9127,34 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </ul>
 
 <h2 id="module-shell">Module: shell</h2>
+<ul>
+<li><p><code>module.exports(options)</code></p>
 <p>  Shell command interface for <code>bksh</code></p>
-<p>  This module is supposed to be extended with commands, the format is `shell.cmdNAME``</p>
-<p>  where <code>NAME</code> is he commnd name in camel case</p>
-<p>  For example:</p>
-<pre><code class="language-javascript"> const bkjs = require(&quot;backendjs&quot;);
- const shell = bkjs.shell;
- 
- shell.cmdMyCommand = function(options) { console.log(&quot;hello&quot;); return &quot;continue&quot; }
+<p>This module is supposed to be extended with commands, the format is `shell.cmdNAME``</p>
+<p>where <code>NAME</code> is he commnd name in camel case</p>
+<p>For example:</p>
+<pre><code class="language-javascript">
 </code></pre>
-<p>  Now if i call <code>bksh -my-command</code> it will print hello and launch the repl,
-  instead of retuning continue if the command must exit jut call <code>process.exit()</code></p>
-<p>  Run <code>bksh -shell-help</code> to see all registered shell commands</p>
-
-<ul>
-<li><p><code>shell.start(options)</code></p>
-<p>  Start REPL shell or execute any subcommand if specified in the command line.
-A subcommand may return special string to indicate how to treat the flow:</p>
-<ul>
-<li>stop - stop processing commands and create REPL</li>
-<li>continue - do not exit and continue processing other commands or end with REPL</li>
-<li>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</li>
-<li><code>-noexit</code> - in the command line keep the shell running after executing the command</li>
-<li><code>-exit</code> - exit with error if no shell command found</li>
-<li><code>-exit-timeout MS</code> - will be set to ms to wait before exit</li>
-<li><code>-shell-delay MS</code> - will wait before running the command</li>
-</ul>
 </li>
 </ul>
+<p> const bkjs = require(&quot;backendjs&quot;);
+ const shell = bkjs.shell;</p>
+<p> shell.cmdMyCommand = function(options) { console.log(&quot;hello&quot;); return &quot;continue&quot; }</p>
+<pre><code> Now if i call `bksh -my-command` it will print hello and launch the repl,
+ instead of retuning continue if the command must exit jut call `process.exit()`
+
+ Run `bksh -shell-help` to see all registered shell commands
+
+ Start REPL shell or execute any subcommand if specified in the command line.
+ A subcommand may return special string to indicate how to treat the flow:
+ - stop - stop processing commands and create REPL
+ - continue - do not exit and continue processing other commands or end with REPL
+ - all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created
+ - `-noexit` - in the command line keep the shell running after executing the command
+ - `-exit` - exit with error if no shell command found
+ - `-exit-timeout MS` - will be set to ms to wait before exit
+ - `-shell-delay MS` - will wait before running the command
+</code></pre>
 
 <ul>
 <li><p><code>shell.awsCheckTags(obj, name)</code></p>
@@ -9446,13 +9175,13 @@ A subcommand may return special string to indicate how to treat the flow:</p>
 </ul>
 
 <ul>
-<li><p><code>shell.awsLaunchInstances(options, callback)</code></p>
+<li><p><code>shell.awsRunInstances(options, callback)</code></p>
 <p>  Launch instances by run mode and/or other criteria</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>shell.cmdAwsLaunchInstances(options)</code></p>
+<li><p><code>shell.cmdAwsRunInstances(options)</code></p>
 <p>  Delete an AMI with the snapshot</p>
 </li>
 </ul>
@@ -9873,16 +9602,18 @@ bkjs test-db
 <h2 id="module-stats">Module: stats</h2>
 <p>  Collects metrics about host and processes like CPU, memory, network, API rates...
   All metrics are stored in a single object and sent to the confgured destination</p>
-<p>  To use Elasticsearch run <code>bkjs es-prepare-stats -table bk_stats</code> in order to
-  map @timestamp for Kibana and make all strings as keywords for aggregations.
+<p>  To use Elasticsearch run
+      bkjs es-prepare-stats -table bk_stats
   Then set in config <code>stats-target={ &quot;url&quot;: &quot;http://localhost:9200/bk_stats/_doc/&quot; }</code></p>
 
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
-<li><code>stats-interval</code>, type: &quot;int&quot;, descr: &quot;Interval for process stats collection&quot;</li>
-<li><code>stats-target</code>, type: &quot;json&quot;, descr: &quot;Target options, one of file, url, db, log...&quot;</li>
+<li><code>stats-flags</code>, type: &quot;list&quot;, descr: &quot;Feature flags&quot;</li>
+<li><code>stats-interval</code>, type: &quot;int&quot;, descr: &quot;Interval for process stats collection in ms&quot;</li>
+<li><code>stats-target</code>, type: &quot;json&quot;, descr: &quot;Target options, one of file, url, log...&quot;</li>
 <li><code>stats-roles</code>, type: &quot;list&quot;, descr: &quot;Process roles that report stats only&quot;</li>
+<li><code>stats-filter</code>, obj: &quot;filter&quot;, type: &quot;map&quot;, maptype: &quot;regexp&quot;, merge: 1, noempty: 1, descr: &quot;For each metric prefix provide regexp to keep only matched stats, ex: -stats-filter db:dynamodb&quot;</li>
 </ul>
 </li>
 </ul>
@@ -9902,7 +9633,7 @@ bkjs test-db
 <li><code>watch-dir</code>, type: &quot;list&quot;, array: 1, descr: &quot;Watch sources directories for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added.&quot;</li>
 <li><code>watch-ignore</code>, type: &quot;regexp&quot;, descr: &quot;Files to be ignored by the watcher&quot;</li>
 <li><code>watch-match</code>, type: &quot;regexp&quot;, descr: &quot;Files to be watched, .js and .css is the default&quot;</li>
-<li><code>watch-web</code>, type: &quot;list&quot;, array: 1, descr: &quot;List of directories to be watched for file modifications and execute a <code>buildWeb</code> command to produce bundles, apps, etc... Relative paths will be applied to all packages, example: web/js,web/css&quot;</li>
+<li><code>watch-web</code>, type: &quot;list&quot;, array: 1, descr: &quot;List of directories to be watched for file modifications and execute a <code>build-web</code> command to produce bundles, apps, etc... Relative paths will be applied to all packages, example: web/js,web/css&quot;</li>
 <li><code>watch-build</code>, descr: &quot;Command to run on web files modifications, to be used with tools like minify/uglify&quot;</li>
 <li><code>watch-mode</code>, descr: &quot;How to serialize web build launches for multiple files chnaged at the same time, if empty run one build per file, <code>dir</code> to run every launch per config directory, <code>dir1</code> to run by next top dir, <code>dir3</code> to run by thid directory from the file....&quot;</li>
 <li><code>watch-delay</code>, type: &quot;int&quot;, descr: &quot;Delay in ms before triggering the build web command to allow multiple files saved&quot;</li>

@@ -34,7 +34,7 @@ Features:
 * Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control, AWS X-Ray spans
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
 
-Check out the [Documentation](http://bkjs.io) for more details.
+Check out the [Documentation](https://github.com/vseryakov/backendjs/blob/master/web/doc.html)) for more details.
 
 # Installation
 
@@ -1367,4 +1367,3 @@ purpose there is an API endpoint `/ping` that just responds with status 200. It 
 # Author
   Vlad Seryakov
 
-Check out the [Documentation](http://bkjs.io) for more details.

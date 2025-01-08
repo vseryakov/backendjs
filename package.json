@@ -5,7 +5,7 @@
   "name": "backendjs",
   "description": "A platform for building backends",
   "main": "lib/index",
-  "homepage": "http://bkjs.io",
+  "homepage": "https://github.com/vseryakov/backendjs",
   "repository": {
     "type": "git",
     "url": "https://github.com/vseryakov/backendjs.git"
