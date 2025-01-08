@@ -112,14 +112,14 @@ app.showConfirm = function(options, callback, cancelled)
     if (typeof options == "string") options = { text: options };
 
     var opts = {
-        self: this,
+        self: options.self || this,
         sanitizer: app.sanitizer,
         title: options.title || 'Confirm',
         show_header: options.title !== null,
         buttons: ["cancel", "ok"],
         content: [{ div: { html: String(options.text || "").replace(/\n/g, "<br>"), class: options.css || "" } }],
-        ok: callback,
-        cancel: cancelled
+        ok: () => { app.call(this, callback) },
+        cancel: () => { app.call(this, cancelled) },
     };
     for (const p in options) {
         if (/^(class|text|icon)_/.test(p)) opts[p] = options[p];
@@ -133,13 +133,13 @@ app.showPrompt = function(options, callback)
 
     var value;
     var opts = {
-        self: this,
+        self: options.self || this,
         sanitizer: app.sanitizer,
         title: options.title || 'Prompt',
         buttons: ["cancel", "ok"],
         content: [{ input: { name: "value", label: String(options.text || "").replace(/\n/g, "<br>"), class: `form-control ${options.css ||""}`, value: options.value } }],
         ok: (d) => { value = d.value },
-        dismiss: () => { app.call(callback, value) }
+        dismiss: () => { app.call(this, callback, value) }
     };
     for (const p in options) {
         if (/^(class|text|icon)_/.test(p)) opts[p] = options[p];
@@ -153,7 +153,7 @@ app.showLogin = function(options, callback)
 
     var popup;
     var opts = {
-        self: this,
+        self: options.self || this,
         sanitizer: app.sanitizer,
         id: "app-login-modal",
         show_header: false,
@@ -176,7 +176,7 @@ app.showLogin = function(options, callback)
             if (typeof options?.onSubmit == "function" && !options.onSubmit(popup, d)) return false;
             app.login({ url: options.url, data: d }, (err) => {
                 if (err) popup.showAlert(err);
-                app.call(callback, err);
+                app.call(this, callback, err);
             });
             return false;
         },

@@ -124,7 +124,7 @@
         element.dataset[toCamel(key.substr(5))] = val;
       } else if (key == "text") {
         element.textContent = val || "";
-      } else {
+      } else if (val !== null) {
         element.setAttribute(key, val ?? "");
       }
     }
@@ -265,7 +265,7 @@
       for (const p of plugins.filter((x) => x.cleanup)) {
         app.call(p.cleanup, element);
       }
-      if (!(options?.nohistory || params.$nohistory)) {
+      if (!(options?.nohistory || params.$nohistory || tmpl.component?.$nohistory)) {
         queueMicrotask(() => {
           app.emit("path:save", tmpl);
         });

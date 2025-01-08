@@ -430,6 +430,7 @@ function bootpopup(...args)
 
                 // Special case for checkbox
                 if (["radio", "checkbox"].includes(attrs.type) && !opts.raw) {
+                    if (attrs.checked === false || attrs.checked == 0) delete attrs.checked;
                     label = app.$elem('label', {
                         class: opts.class_input_btn || opts.class_input_label || "form-check-label",
                         for: opts.for || attrs.id,
@@ -470,6 +471,7 @@ function bootpopup(...args)
                 for (const i in attrs.options) {
                     let o = attrs.options[i];
                     if (!o?.name) continue;
+                    if (o.checked === false || o.checked == 0) delete o.checked;
                     const title = o.title;
                     const label = app.$elem('label', { class: "form-check-label", for: attrs.id + "-" + i, text: o.label || o.name });
                     o = Object.assign(o, {
@@ -609,7 +611,7 @@ function bootpopup(...args)
         app.$on(this.modal, 'hidden.bs.modal', (e) => {
             e.bootpopupButton = self._callback;
             self.options.complete.call(self.options.self, e, self);
-            bootstrap.Modal.getOrCreateInstance(self.modal).dispose();
+            self.modal.remove();
         });
 
         // Add window to body
@@ -662,7 +664,8 @@ function bootpopup(...args)
         var d = { list: [], obj: {} }, e, n, v, l = app.$all(this.options.inputs.join(","), this.form);
         for (let i = 0; i < l.length; i++) {
             e = l[i];
-            n = e.name;
+            n = e.name || app.$attr(e, "name");
+            if (this.options.debug) console.log("bootpopup:", n, e.value, e);
             if (!n || e.disabled) continue;
             if (/radio|checkbox/i.test(e.type) && !e.checked) continue;
             v = e.value;
@@ -673,11 +676,12 @@ function bootpopup(...args)
             d.list.push({ name: n, value: v })
         }
         for (const v of d.list) d.obj[v.name] = v.value;
+        if (this.options.debug) console.log("bootpopup:", this.options.inputs, d);
         return d;
     },
 
     this.callback = function(name, event) {
-        if (this.options.debug) console.log("callback:", name, event);
+        if (this.options.debug) console.log("bootpopup:", name, event);
         var func = this.options[name];        // Get function to call
         if (typeof func != "function") return;
         this._callback = name;

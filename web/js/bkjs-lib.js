@@ -1272,9 +1272,9 @@ app.getFileInput = function(file)
 {
     if (typeof file == "string") file = app.$(file);
     if (file?.jquery !== undefined && file.length) file = file[0];
-    if (typeof file == "object") {
+    if (app.isO(file)) {
         if (file.files?.length) return file.files[0];
-        if (!(file instanceof HTMLElement) && file.name && file.size && (file.type || file.lastModified)) return file;
+        if (!app.isE(file) && file.name && file.size && (file.type || file.lastModified)) return file;
     }
     return "";
 }

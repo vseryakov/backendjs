@@ -101,6 +101,9 @@ function create(name)
 function cleanup(element)
 {
     app.$empty(element, (el => ko.cleanNode(el)));
+    ko.cleanNode(element);
+    app.$attr(element, "data-bind", null);
+    delete element._x_params;
 }
 
 function dataFor(element)
@@ -122,9 +125,9 @@ function render(element, options)
 {
     cleanup(element);
 
-    const node = app.$elem("div", "data-bind", `component: '${options.name}'`, ":_x_params", options.params);
-    element.appendChild(node);
-    ko.applyBindings(dataFor(element), node);
+    app.$attr(element, "data-bind", `component: '${options.name}'`);
+    element._x_params = options.params;
+    ko.applyBindings(dataFor(element), element);
 }
 
 ko.components.loaders.unshift({
