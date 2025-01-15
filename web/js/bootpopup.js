@@ -143,7 +143,7 @@ function bootpopup(...args)
         if (this.options.scroll) class_dialog += " modal-dialog-scrollable";
 
         // Create HTML elements for modal dialog
-        var opts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", role: "dialog", "aria-labelledby": "bootpopup-title", "aria-hidden": true };
+        var opts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", "aria-labelledby": "a" + this.formid, "aria-hidden": true };
         if (this.options.backdrop !== true) opts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
         if (!this.options.keyboard) opts["data-bs-keyboard"] = false;
         this.modal = app.$elem('div', opts);
@@ -155,7 +155,7 @@ function bootpopup(...args)
         // Header
         if (this.options.show_header && this.options.title) {
             this.header = app.$elem('div', { class: this.options.class_header });
-            const title = app.$elem('h5', { class: this.options.class_title, id: "bootpopup-title" });
+            const title = app.$elem('h5', { class: this.options.class_title, id: "a" + this.formid });
             title.append(...this.sanitize(this.options.title));
             this.header.append(title);
 
@@ -298,9 +298,14 @@ function bootpopup(...args)
             } else
             if (opts.text_input_button) {
                 const group = app.$elem('div', { class: `input-group ${opts.class_input_group || ""}` });
-                elem.append(group);
+                group.append(elem);
                 elem = group;
-                const bopts = { class: opts.class_input_button || this.options.class_input_button, type: "button", 'data-formid': '#'+this.formid, text: opts.text_input_button };
+                const bopts = {
+                    class: opts.class_input_button || this.options.class_input_button,
+                    type: "button",
+                    'data-formid': '#'+this.formid,
+                    text: opts.text_input_button
+                };
                 for (const b in opts.attrs_input_button) bopts[b] = opts.attrs_input_button[b];
                 const button = app.$elem('button', bopts);
                 elem.append(button);
@@ -580,7 +585,7 @@ function bootpopup(...args)
                 type: "button",
                 class: `${this.options.class_buttons} ${this.options["class_" + name] || this.options.class_button}`,
                 "data-callback": name,
-                "data-formid": this.formid,
+                "data-formid": "#" + this.formid,
                 click: (event) => { self.callback(event.target.dataset.callback, event) }
             });
             btn.append(...this.sanitize(this.options["text_" + name] || name));
@@ -612,6 +617,7 @@ function bootpopup(...args)
             e.bootpopupButton = self._callback;
             self.options.complete.call(self.options.self, e, self);
             self.modal.remove();
+            bootstrap.Modal.getInstance(self.modal)?.dispose();
         });
 
         // Add window to body

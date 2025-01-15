@@ -40,14 +40,14 @@ app.send = function(options, onsuccess, onerror)
             if (!options.quiet) app.log('send:', err, options);
             if (options.alert) {
                 var a = app.isS(options.alert) && options.alert;
-                app.emit("alert", ["error", a || err, { safe: !a }]);
+                app.emit("alert", "error", a || err, { safe: !a });
             }
             app.call(options.self || this, onerror, err, info);
             if (options.trigger) app.emit(options.trigger, { url: options.url, query: options.data, err: err });
         } else {
             if (!data && options.dataType == 'json') data = {};
             if (options.info_msg || options.success_msg) {
-                app.emit("alert", [options.info_msg ? "info" : "success", options.info_msg || options.success_msg]);
+                app.emit("alert", options.info_msg ? "info" : "success", options.info_msg || options.success_msg);
             }
             app.call(options.self || this, onsuccess, data, info);
             if (options.trigger) app.emit(options.trigger, { url: options.url, query: options.data, data: data });

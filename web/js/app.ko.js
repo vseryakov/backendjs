@@ -117,7 +117,7 @@ function dataFor(element)
 
 function data(element)
 {
-    if (!app.isE(element)) element = app.$(app.main + " div")?.firstElementChild;
+    if (!app.isE(element)) element = app.$(app.main)?.firstElementChild;
     return ko.dataFor(element);
 }
 
