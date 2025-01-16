@@ -236,13 +236,10 @@
     }
     if (template?.startsWith("#")) {
       template = document.getElementById(template.substr(1))?.innerHTML;
-    } else if (template?.startsWith("$")) {
-      rc.name = template.substr(1);
-      template = templates[rc.name];
-    }
+    } else if (template?.startsWith("$")) template = templates[template.substr(1)];
     if (!template) return;
     rc.template = template;
-    var component = components[rc.name] || components[name];
+    var component = components[name] || components[rc.name];
     if (isString(component)) component = components[component];
     rc.component = component;
     return rc;

@@ -321,7 +321,9 @@ function bootpopup(...args)
             parent.append(group);
 
             if (opts.class_prefix || opts.text_prefix) {
-                group.append(app.$elem("span", { class: opts.class_prefix || "", text: opts.text_prefix }));
+                const div = app.$elem("span", { class: opts.class_prefix || "" });
+                if (opts.text_prefix) div.append(...this.sanitize(opts.text_prefix));
+                group.append(div);
             }
             if (opts.horizontal !== undefined ? opts.horizontal : this.options.horizontal) {
                 group.classList.add("row");
@@ -357,7 +359,9 @@ function bootpopup(...args)
                 group.append(app.$elem("div", { class: "invalid-feedback", text: opts.text_invalid }));
             }
             if (opts.class_suffix || opts.text_suffix) {
-                group.append(app.$elem("div", { class: opts.class_suffix || this.options.class_suffix, text: opts.text_suffix }));
+                const div = app.$elem("div", { class: opts.class_suffix || this.options.class_suffix });
+                if (opts.text_suffix) div.append(...this.sanitize(opts.text_suffix));
+                group.append(div);
             }
             if (opts.autofocus) this.autofocus = elem;
         }
@@ -695,7 +699,10 @@ function bootpopup(...args)
         var a = this.data();
         var ret = func.call(this.options.self, a.obj, a.list, event);
         // Hide window
-        if (ret !== null) bootstrap.Modal.getOrCreateInstance(this.modal).hide();
+        if (ret !== null) {
+            document.body.focus(); // to avoid aria-hidden errors
+            bootstrap.Modal.getOrCreateInstance(this.modal).hide();
+        }
         return ret;
     }
 
