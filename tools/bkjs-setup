@@ -490,7 +490,7 @@ case "$BKJS_CMD" in
 
         echo -e "auth required pam_env.so" > /etc/pam.d/sshd
         echo -e "auth required pam_nologin.so successok" >> /etc/pam.d/sshd
-        echo -e "auth required /usr/lib/security/pam_google_authenticator.so echo_verification_code grace_period=900 nullok" >> /etc/pam.d/sshd
+        echo -e "auth required pam_google_authenticator.so echo_verification_code grace_period=900 nullok" >> /etc/pam.d/sshd
         echo -e "account include base-account" >> /etc/pam.d/sshd
         echo -e "password include base-password" >> /etc/pam.d/sshd
         ln /etc/pam.d/sshd /etc/pam.d/sshd.pam
