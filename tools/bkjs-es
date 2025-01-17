@@ -15,14 +15,20 @@ case "$BKJS_CMD" in
     echo "  es-ls [-host HOST] - show Elasticsearch cluster nodes"
     echo "  es-n [-host HOST] - show Elasticsearch cluster nodes IDs to be used for other commands by node id"
     echo "  es-map [-host HOST] TABLE - show Elasticsearch mappings for a table"
-    echo "  es-set-script-rate [-rate 1000] - set ElasticSearch script compilation rate"
-    echo "  es-set-disk-watermark [-high 95] [-low 95] [-flood 95] - set ElasticSearch disk allocations threshold"
-    echo "  es-exclude-node [-host HOST] [-ip IP] - disable a node by IP address"
-    echo "  es-reindex -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex a single index from remote host"
-    echo "  es-set-replication [-mode MODE] - stop/start replication for upgrade, mode can be null,all,none,primaries"
+    echo
     echo "  es-prepare-stats -table N - create an index for stats collector"
     echo "  es-register-repo -repo R -bucket B [-path P] - register a S3 snapshot repository"
     echo "  es-snapshot -repo R -name N - create a snapshot in the given repository"
+    echo "  es-reindex -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex a single index from remote host"
+    echo
+    echo "  es-settings -refresh N [-table T] - set refresh interval for a table or globaal"
+    echo "  es-settings -replicas N -table T - set number of replicas for a table"
+    echo "  es-settings -replication [MODE] [-table T] - stop/start replication for upgrade, mode can be null,all,none,primaries"
+    echo "  es-settings -scroll-context 1000 - set ElasticSearch scroll context max"
+    echo "  es-settings -script-rate 1000 - set ElasticSearch script compilation rate"
+    echo "  es-settings -disk-watermark [-high 95] [-low 95] [-flood 95] - set ElasticSearch disk allocations threshold"
+    echo "  es-settings -exclude-node [IP] - disable a node by IP address, if empty clear"
+    echo "  es-settings -param NAME -value V - set any parameter with value"
     ;;
 
   es-map)
@@ -82,34 +88,6 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  es-set-script-rate)
-    port=$(get_arg -port 9200)
-    host=$(get_arg -host ${ES_HOST:-localhost})
-    rate=$(get_arg -rate 1000)
-    curl -sS -XPUT -H 'Content-Type: application/json' -d "{\"persistent\":{\"script.max_compilations_rate\":\"${rate}/1m\"}}" http://$host:$port/_cluster/settings
-    exit
-    ;;
-
-  es-set-replication)
-    port=$(get_arg -port 9200)
-    host=$(get_arg -host ${ES_HOST:-localhost})
-    mode=$(get_arg -mode null)
-    [ "$mode" = "all" ] && mode=null
-    [ "$mode" != "null" ] && mode="\"$mode\""
-    curl -sS -XPUT -H 'Content-Type: application/json' -d "{\"persistent\":{\"cluster.routing.allocation.enable\":$mode}}" http://$host:$port/_cluster/settings
-    exit
-    ;;
-
-  es-set-disk-watermark)
-    port=$(get_arg -port 9200)
-    host=$(get_arg -host ${ES_HOST:-localhost})
-    high=$(get_arg -high 95)
-    low=$(get_arg -low 95)
-    flood=$(get_arg -flood 95)
-    curl -sS -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.disk.watermark.flood_stage\":\"$flood%\",\"cluster.routing.allocation.disk.watermark.high\":\"$high%\",\"cluster.routing.allocation.disk.watermark.low\":\"$low%\"}}" http://$host:$port/_cluster/settings
-    exit
-    ;;
-
   es-reindex)
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
@@ -118,15 +96,6 @@ case "$BKJS_CMD" in
     remote=$(get_arg -remote $host)
     d="{ \"source\": { \"index\": \"$index\", \"remote\": { \"host\": \"http://$remote:$port\" } }, \"dest\": { \"index\": \"$dest\" } }"
     curl -sS -XPOST -H 'Content-Type:application/json' -d "$d" "http://$host:$port/_reindex?wait_for_completion=false"
-    exit
-    ;;
-
-  es-exclude-node)
-    port=$(get_arg -port 9200)
-    host=$(get_arg -host ${ES_HOST:-localhost})
-    ip=$(get_arg -ip $(get_local_ip))
-    [ "$ip" = "." ] && ip=""
-    curl -sS -XPUT -H 'Content-Type: application/json' -d "{\"transient\":{\"cluster.routing.allocation.exclude._ip\":\"$ip\"}}" http://$host:$port/_cluster/settings
     exit
     ;;
 
@@ -177,31 +146,80 @@ case "$BKJS_CMD" in
     table=$(get_arg -table)
     d=""
 
-    refresh=$(get_arg -refresh)
-    if [ -n "$refresh" ]; then
-        [ "$refresh" != "null" ] && refresh="\"$refresh\""
-        d="\"refresh_interval\": $refresh"
+    val=$(get_arg -refresh)
+    if [ -n "$val" ]; then
+        [ -n "$d" ] && d="$d,"
+        [ "$val" != "null" ] && val="\"$val\""
+        d="\"refresh_interval\": $val"
     fi
 
-    replicas=$(get_arg -replicas)
-    if [ -n "$replicas" ]; then
+    val=$(get_arg -replicas)
+    if [ -n "$val" ]; then
         [ -n "$d" ] && d="$d,"
-        d="$d \"number_of_replicas\" : $replicas"
+        d="$d \"number_of_replicas\" : $val"
     fi
 
-    repl=$(get_arg -replication)
-    if [ -n "$repl" ]; then
+    val=$(get_arg -replication)
+    if [ -n "$val" ]; then
         [ -n "$d" ] && d="$d,"
-        [ "$repl" = "all" ] && repl=null
-        [ "$repl" != "null" ] && repl="\"$repl\""
-        d="$d \"index.routing.allocation.enable\": $repl"
+        [ "$val" = "all" ] && val=null
+        [ "$val" != "null" ] && val="\"$val\""
+        [ -z "$table" ] && type=cluster || type=index
+        d="$d \"$type.routing.allocation.enable\": $val"
+    fi
+
+    val=$(get_arg -scroll-context)
+    if [ -n "$val" ]; then
+        [ -n "$d" ] && d="$d,"
+        d="$d \"search.max_open_scroll_context\": $val"
+    fi
+
+    val=$(get_arg -script-rate)
+    if [ -n "$val" ]; then
+        [ -n "$d" ] && d="$d,"
+        d="$d \"script.max_compilations_rate\": \"${val}/1m\""
+    fi
+
+    val=$(get_flag -disk-watermark)
+    if [ -n "$val" ]; then
+        [ -n "$d" ] && d="$d,"
+        high=$(get_arg -high 95)
+        low=$(get_arg -low 95)
+        flood=$(get_arg -flood 95)
+        d="$d \"cluster.routing.allocation.disk.watermark.flood_stage\": \"$flood%\", \"cluster.routing.allocation.disk.watermark.high\": \"$high%\", \"cluster.routing.allocation.disk.watermark.low\": \"$low%\""
+    fi
+
+    val=$(get_flag -exclude-node)
+    if [ -n "$val" ]; then
+        [ -n "$d" ] && d="$d,"
+        [ "$val" = "1" ] && val=""
+        d="$d \"cluster.routing.allocation.exclude._ip\": \"$val\""
+    fi
+
+    param=$(get_arg -param)
+    if [ -n "$param" ]; then
+        [ -n "$d" ] && d="$d,"
+        val=$(get_flag -value)
+        d="$d \"${param}\": \"$val\""
+    fi
+
+    if [ -z "$table" ]; then
+        [ -n "$(get_flag -transient)" ] && type=transient || type=persistent
+        d="{ \"$type\": { ${d} } }"
+        path=_cluster/settings
+    else
+        d="{ \"index\": { ${d} } }"
+        path=$table/_settings
     fi
 
     if [ -z "$d" ]; then
-        curl -sS "http://$host:$port/$table/_settings?flat_settings&pretty"
-    else
-        curl -sS -XPUT -H 'Content-Type: application/json' -d "{ \"index\": { ${d} } }" "http://$host:$port/$table/_settings"
+        curl -sS "http://$host:$port/${path}?flat_settings&pretty"
+        exit
     fi
+
+    debug "$host:$port/$path": "$d"
+
+    curl -sS -XPUT -H 'Content-Type: application/json' -d "$d" "http://$host:$port/$path"
     exit
     ;;
 esac
