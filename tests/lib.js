@@ -530,6 +530,9 @@ tests.test_totemplate = function(callback, test)
     var m = lib.toTemplate("email@id@@@com", { id: 1 }, { allow: ["id"] });
     expect(m == "email1@com", "expected email1@com", "got", m)
 
+    m = lib.toTemplate("email@com,@id@@@com", { id: 1, code: "A" });
+    expect(m == "email@com,1@com", "expected email@com,1@com", "got", m)
+
     m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" });
     expect(m == "/A/1", "expected /A/1", "got", m)
 
