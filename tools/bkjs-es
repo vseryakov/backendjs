@@ -126,7 +126,7 @@ case "$BKJS_CMD" in
     repo=$(get_arg -repo)
     bucket=$(get_arg -bucket)
     path=$(get_arg -path)
-    d="{ \"type\": \"s3\", \"settings\": { \"bucket": \"${bucket}\", \"base-path\": \"${path} " } }"
+    d="{ \"type\": \"s3\", \"settings\": { \"bucket\": \"${bucket}\", \"base-path\": \"${path}\" } }"
     curl -sS -XPUT -H 'Content-Type: application/json' -d "${d}" http://$host:$port/_snapshot/$repo
     exit
     ;;
@@ -192,8 +192,9 @@ case "$BKJS_CMD" in
     val=$(get_flag -exclude-node)
     if [ -n "$val" ]; then
         [ -n "$d" ] && d="$d,"
-        [ "$val" = "1" ] && val=""
-        d="$d \"cluster.routing.allocation.exclude._ip\": \"$val\""
+        [ "$val" = "1" ] && val="null"
+        [ "$val" != "null" ] val="\"$val\""
+        d="$d \"cluster.routing.allocation.exclude._ip\": $val"
     fi
 
     param=$(get_arg -param)
@@ -204,11 +205,15 @@ case "$BKJS_CMD" in
     fi
 
     if [ -z "$table" ]; then
-        [ -n "$(get_flag -transient)" ] && type=transient || type=persistent
-        d="{ \"$type\": { ${d} } }"
+        if [ - n "$d" ]; then
+            [ -n "$(get_flag -transient)" ] && type=transient || type=persistent
+            d="{ \"$type\": { ${d} } }"
+        fi
         path=_cluster/settings
     else
-        d="{ \"index\": { ${d} } }"
+        if [ - n "$d" ]; then
+            d="{ \"index\": { ${d} } }"
+        fi
         path=$table/_settings
     fi
 
