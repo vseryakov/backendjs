@@ -614,6 +614,9 @@ function bootpopup(...args)
             self.options.shown.call(self.options.self, e, self);
         });
         app.$on(this.modal, 'hide.bs.modal', (e) => {
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
             e.bootpopupButton = self._callback;
             self.options.dismiss.call(self.options.self, e, self);
         });
@@ -700,7 +703,6 @@ function bootpopup(...args)
         var ret = func.call(this.options.self, a.obj, a.list, event);
         // Hide window
         if (ret !== null) {
-            document.body.focus(); // to avoid aria-hidden errors
             bootstrap.Modal.getOrCreateInstance(this.modal).hide();
         }
         return ret;
