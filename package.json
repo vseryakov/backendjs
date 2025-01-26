@@ -1,5 +1,5 @@
 {
-  "version": "0.176.0",
+  "version": "0.177.0",
   "type": "commonjs",
   "author": "Vlad Seryakov",
   "name": "backendjs",
@@ -19,7 +19,7 @@
     "hashids": "2.3.0",
     "microtime": "3.1.1",
     "mime-types": "2.1.35",
-    "nodemailer": "6.9.16",
+    "nodemailer": "6.10.0",
     "qs": "6.14.0",
     "ws": "8.18.0",
     "xml2json": "0.12.0"
@@ -30,7 +30,7 @@
   "modDependencies": {
     "bcrypt": "5.1.1",
     "mmmagic": "0.5.3",
-    "nats": "2.28.2",
+    "nats": "2.29.1",
     "pg": "8.13.1",
     "redis": "3.1.2",
     "sharp": "0.33.5",
