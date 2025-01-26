@@ -17,6 +17,8 @@ case "$BKJS_CMD" in
     echo "  es-map [-host HOST] TABLE - show Elasticsearch mappings for a table"
     echo
     echo "  es-prepare-stats -table N - create an index for stats collector"
+    echo "  es-delete-stats -table N -days D - delete stats older than -days from now"
+    echo
     echo "  es-register-repo -repo R -bucket B [-path P] - register a S3 snapshot repository"
     echo "  es-snapshot -repo R -name N - create a snapshot in the given repository"
     echo "  es-reindex -index INDEX [-dest INDEX] [-host HOST] [-remote HOST] - reindex a single index from remote host"
@@ -112,11 +114,24 @@ case "$BKJS_CMD" in
     ;;
 
   es-prepare-stats)
-    table=$(get_arg -table)
+    table=$(get_arg -table bk_stats)
     port=$(get_arg -port 9200)
     host=$(get_arg -host ${ES_HOST:-localhost})
     d='"mappings":{"date_detection":false,"properties":{"timestamp":{"type":"date","format":"epoch_millis"},"@timestamp":{"type":"alias","path":"timestamp"},"ip":{"type":"ip"}},"dynamic_templates":[{"keywords":{"match_mapping_type":"string","mapping":{"ignore_above":128,"type":"keyword"}}}]}'
     curl -sS -XPUT -H 'Content-Type: application/json' -d "{$d}" http://$host:$port/$table
+    exit
+    ;;
+
+  es-delete-stats)
+    now=`date "+%s"`
+    days=$(get_arg -days)
+    [ -z "$days" ] && echo "-days must be provided" && exit 1
+    start=$(($now - $days*86400))
+    table=$(get_arg -table bk_stats)
+    port=$(get_arg -port 9200)
+    host=$(get_arg -host ${ES_HOST:-localhost})
+    d="\"query\": { \"query_string\": { \"query\": \"timestamp:<${start}000\" } }"
+    curl -sS -XPOST -H 'Content-Type: application/json' -d "{$d}" "http://$host:$port/$table/_delete_by_query?wait_for_completion=false"
     exit
     ;;
 
