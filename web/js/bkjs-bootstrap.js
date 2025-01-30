@@ -30,20 +30,19 @@ var loading = { count: 0 };
 
 app.showLoading = function(op)
 {
-    var img = app.$('.loading');
-    if (!img) return;
+    var imgs = app.$all('.loading');
+    if (!imgs.length) return;
 
     switch (op) {
     case "hide":
         if (--loading.count > 0) break;
         loading.count = 0;
-        if (loading.display == "none") img.style.display = 'none'; else img.style.visibility = "hidden";
+        imgs.forEach(img => { img.style.visibility = "hidden" })
         break;
 
     case "show":
         if (loading.count++ > 0) break;
-        if (!loading.display) loading.display = img.style.display;
-        if (loading.display == "none") img.style.display = 'inline-block'; else img.style.visibility = "visible";
+        imgs.forEach(img => { img.style.visibility = "visible" })
         break;
     }
 }
