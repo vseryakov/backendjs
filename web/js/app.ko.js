@@ -24,10 +24,14 @@ class Component {
     }
 
     handleEvent(event, ...args) {
-        app.trace("event:", this.$_id, event, ...args)
-        app.call(this, "onEvent", event, ...args);
-        if (typeof event != "string") return;
-        var method = ("on_" + event).toLowerCase().replace(/[.:_-](\w)/g, (_, char) => char.toUpperCase());
+        if (this.onEvent) {
+            app.trace("event:", this.$name, event, ...args);
+            app.call(this, event, ...args);
+        }
+        if (!app.isS(event)) return;
+        var method = app.toCamel("on_" + event);
+        if (!this[method]) return;
+        app.trace("event:", this.$name, method, ...args);
         app.call(this, method, ...args);
     }
 

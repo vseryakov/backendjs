@@ -10,7 +10,8 @@
     isF: isFunction,
     isS: isString,
     isE: isElement,
-    isO: isObj
+    isO: isObj,
+    toCamel
   };
   function isFunction(callback) {
     return typeof callback == "function";
@@ -25,7 +26,7 @@
     return element instanceof HTMLElement ? element : void 0;
   }
   function toCamel(key) {
-    return key.toLowerCase().replace(/-(\w)/g, (_, c) => c.toUpperCase());
+    return isString(key) ? key.toLowerCase().replace(/[.:_-](\w)/g, (_, c) => c.toUpperCase()) : "";
   }
 
   // src/util.js
@@ -130,9 +131,9 @@
     }
     return element;
   };
-  app.$parse = (html, list) => {
-    html = new window.DOMParser().parseFromString(html || "", "text/html").body;
-    return list ? Array.from(html.childNodes) : html;
+  app.$parse = (html, format) => {
+    html = new window.DOMParser().parseFromString(html || "", "text/html");
+    return format === "doc" ? html : format === "list" ? Array.from(html.body.childNodes) : html.body;
   };
   var _ready = [];
   app.$ready = (callback) => {
@@ -217,11 +218,11 @@
     if (options?.default) _default_plugin = plugin;
     return Object.assign(plugin, options);
   };
-  app.$data = (element) => {
+  app.$data = (element, level) => {
     if (isString(element) && element) element = app.$(element);
     for (const p in _plugins) {
       if (!_plugins[p].data) continue;
-      const d = _plugins[p].data(element);
+      const d = _plugins[p].data(element, level);
       if (d) return d;
     }
   };
@@ -304,10 +305,14 @@
       this.params = {};
     }
     handleEvent(event, ...args) {
-      app.trace("event:", this.$name, ...args);
-      app.call(this.onEvent?.bind(this.$data), event, ...args);
+      if (this.onEvent) {
+        app.trace("event:", this.$name, event, ...args);
+        app.call(this.onEvent?.bind(this.$data), event, ...args);
+      }
       if (!isString(event)) return;
       var method = toCamel("on_" + event);
+      if (!this[method]) return;
+      app.trace("event:", this.$name, method, ...args);
       app.call(this[method]?.bind(this.$data), ...args);
     }
   };
@@ -324,11 +329,14 @@
       if (!options) return;
     }
     app.$empty(element);
-    const body = app.$parse(options.template);
+    const doc = app.$parse(options.template, "doc");
     if (!options.component) {
       Alpine.mutateDom(() => {
-        while (body.firstChild) {
-          const node = body.firstChild;
+        while (doc.head.firstChild) {
+          element.appendChild(doc.head.firstChild);
+        }
+        while (doc.body.firstChild) {
+          const node = doc.body.firstChild;
           element.appendChild(node);
           if (node.nodeType != 1) continue;
           Alpine.initTree(node);
@@ -337,8 +345,11 @@
     } else {
       Alpine.data(options.name, () => new options.component(options.name));
       const node = app.$elem("div", "x-data", options.name, ":_x_params", options.params);
-      while (body.firstChild) {
-        node.appendChild(body.firstChild);
+      while (doc.head.firstChild) {
+        element.appendChild(doc.head.firstChild);
+      }
+      while (doc.body.firstChild) {
+        node.appendChild(doc.body.firstChild);
       }
       Alpine.mutateDom(() => {
         element.appendChild(node);
@@ -347,9 +358,11 @@
       });
     }
   }
-  function data(element) {
+  function data(element, level) {
     if (!isElement(element)) element = app.$(app.main + " div");
-    return element && Alpine.closestDataStack(element)[0];
+    if (!element) return;
+    if (typeof level == "number") return element._x_dataStack?.at(level);
+    return Alpine.closestDataStack(element)[0];
   }
   app.plugin(_alpine, { render, Component, data, default: 1 });
   app.on("alpine:init", () => {
@@ -390,6 +403,10 @@
         template = value;
       }));
       cleanup(hide);
+    });
+    Alpine.directive("scope-level", (el, { expression }, { evaluate }) => {
+      const scope = Alpine.closestDataStack(el);
+      el._x_dataStack = scope.slice(0, parseInt(evaluate(expression)) || 0);
     });
   });
 

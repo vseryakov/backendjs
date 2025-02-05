@@ -380,7 +380,7 @@ function bootpopup(...args)
             }
             for (const p in opts) {
                 if (p == "html") {
-                    html = opts.nosanitize ? app.$parse(opts[p], 1) : this.sanitize(opts[p]);
+                    html = opts.nosanitize ? app.$parse(opts[p], 'list') : this.sanitize(opts[p]);
                 } else
                 if (!/^(tab_|attrs_|click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) {
                     attrs[p] = opts[p];

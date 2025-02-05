@@ -659,11 +659,6 @@ app.toTitle = function(name)
     return typeof name == "string" ? name.replace(/_/g, " ").split(/[ ]+/).reduce((x,y) => (x + y.substr(0,1).toUpperCase() + y.substr(1) + " "), "").trim() : "";
 }
 
-app.toCamel = function(name, chars)
-{
-    return typeof name == "string" ? name.toLowerCase().replace(/([_.:-])(\w)/g, (_, c) => c.toUpperCase()) : "";
-}
-
 // Interpret the value as a boolean
 app.toBool = function(val, dflt)
 {
