@@ -60,7 +60,6 @@ it is possible to install all optional dependencies for development purposes.
 Here is the list of modules for each internal feature:
 
 - `pg` - PostgreSQL database access
-- `argon2` or `bcrypt` - for user password hashing
 - `mmmagic` - file detection in uploads, only used when `allow` is passed to the `api.putFile`
 - `redis` - for Redis queue and cache driver
 - `unix-dgram` - for syslog on Linux to use local syslog

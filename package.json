@@ -92,7 +92,8 @@
           "web/js/bkjs-ko.js",
           "web/js/bkjs-account.js",
           "web/js/bkjs-passkey.js",
-          "web/js/bkjs-bootstrap.js"
+          "web/js/bkjs-bootstrap.js",
+          "web/js/alpine.js"
         ],
         "js.dev": [
           "web/js/jquery3.slim.js",
@@ -109,7 +110,8 @@
           "web/js/bkjs-ko.js",
           "web/js/bkjs-account.js",
           "web/js/bkjs-passkey.js",
-          "web/js/bkjs-bootstrap.js"
+          "web/js/bkjs-bootstrap.js",
+          "web/js/alpine.js"
         ],
         "css": [
           "web/css/bootstrap.css",

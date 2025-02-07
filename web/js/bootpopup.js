@@ -677,11 +677,11 @@ function bootpopup(...args)
         var d = { list: [], obj: {} }, e, n, v, l = app.$all(this.options.inputs.join(","), this.form);
         for (let i = 0; i < l.length; i++) {
             e = l[i];
-            n = e.name || app.$attr(e, "name");
-            if (this.options.debug) console.log("bootpopup:", n, e.value, e);
+            n = e.name || app.$attr(e, "name") || e.id || app.$attr("id");
+            if (this.options.debug) console.log("bootpopup:", n, e.type, e.value, e.checked, e);
             if (!n || e.disabled) continue;
-            if (/radio|checkbox/i.test(e.type) && !e.checked) continue;
             v = e.value;
+            if (/radio|checkbox/i.test(e.type) && !e.checked) v = undefined;
             if (v === undefined || v === "") {
                 if (!this.options.empty) continue;
                 v = "";
