@@ -106,6 +106,8 @@ function bootpopup(...args)
         keyboard: true,
         autofocus: true,
         empty: false,
+        xscope: "",
+        xdata: "",
         data: "",
         tabs: "",
         tab: "",
@@ -139,6 +141,7 @@ function bootpopup(...args)
         if (this.options.size == "xlarge") class_dialog += " modal-xl";
         if (this.options.size == "large") class_dialog += " modal-lg";
         if (this.options.size == "small") class_dialog += " modal-sm";
+        if (this.options.size == "fullscreen") class_dialog += " modal-fullscreen";
         if (this.options.center) class_dialog += " modal-dialog-centered";
         if (this.options.scroll) class_dialog += " modal-dialog-scrollable";
 
@@ -146,6 +149,7 @@ function bootpopup(...args)
         var opts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", "aria-labelledby": "a" + this.formid, "aria-hidden": true };
         if (this.options.backdrop !== true) opts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
         if (!this.options.keyboard) opts["data-bs-keyboard"] = false;
+
         this.modal = app.$elem('div', opts);
         this.dialog = app.$elem('div', { class: class_dialog, role: "document" });
         this.content = app.$elem('div', { class: this.options.class_content + " " + this.options.class_h });
@@ -634,6 +638,10 @@ function bootpopup(...args)
     this.show = function() {
         // Call before event
         this.options.before(this);
+
+        if (this.options.xdata) {
+            Alpine.addScopeToNode(this.modal, this.options.xdata || {}, app.isE(this.options.xscope));
+        }
 
         // Fire the modal window
         bootstrap.Modal.getOrCreateInstance(this.modal).show();

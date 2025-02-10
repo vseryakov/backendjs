@@ -59,12 +59,11 @@ app.showAlert = function(obj, type, text, options)
     if (obj?.jquery !== undefined) obj = obj[0];
     if (typeof obj == "string") options = text, text = type, type = obj, obj = document.body;
     if (!text) return;
-    var o = Object.assign({}, options);
+    var o = Object.assign({}, options, { type });
     o.type = o.type == "error" ? "danger" : o.type || "info";
 
     var element = o.element || ".alerts";
-    if (!(obj instanceof HTMLElement) || !app.$(element, obj)) obj = document.body;
-    var alerts = app.$(element, obj);
+    var alerts = app.$(element, app.isE(obj) || document.body);
     if (!alerts) return;
 
     var html = `

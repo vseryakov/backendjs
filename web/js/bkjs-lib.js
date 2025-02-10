@@ -1245,6 +1245,7 @@ app.sanitizer = sanitizer;
 // - `options.async` if set then scripts executed as soon as loaded otherwise executing scripts will be in the order provided
 // - `options.callback` will be called with (el, opts) args for customizations after loading each url or on error
 // - `options.attrs` is an object with attributes to set like nonce, ...
+// - `options.timeout` - call the callback after timeout
 app.loadResources = function(urls, options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
@@ -1259,7 +1260,7 @@ app.loadResources = function(urls, options, callback)
         }
         for (const p in options?.attrs) app.$attr(el, p, options.attrs[p]);
         document.head.appendChild(el);
-    }, callback);
+    }, options?.timeout > 0 ? () => { setTimeout(callback, options.timeout) } : callback);
 }
 
 // Return a file object for the selector

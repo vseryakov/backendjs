@@ -13,17 +13,17 @@
     isO: isObj,
     toCamel
   };
-  function isFunction(callback) {
-    return typeof callback == "function";
-  }
   function isString(str) {
     return typeof str == "string";
+  }
+  function isFunction(callback) {
+    return typeof callback == "function" && callback;
   }
   function isObj(obj) {
     return typeof obj == "object" && obj;
   }
   function isElement(element) {
-    return element instanceof HTMLElement ? element : void 0;
+    return element instanceof HTMLElement && element;
   }
   function toCamel(key) {
     return isString(key) ? key.toLowerCase().replace(/[.:_-](\w)/g, (_, c) => c.toUpperCase()) : "";
