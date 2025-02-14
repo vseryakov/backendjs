@@ -108,18 +108,19 @@
     return element;
   };
   app.$elem = (name, ...arg) => {
-    var element = document.createElement(name), key, val;
+    var element = document.createElement(name), key, val, opts;
     if (isObj(arg[0])) {
       arg = Object.entries(arg[0]).flatMap((x) => x);
+      opts = arg[1];
     }
     for (let i = 0; i < arg.length - 1; i += 2) {
       key = arg[i], val = arg[i + 1];
       if (!isString(key)) continue;
       if (isFunction(val)) {
-        app.$on(element, key, val);
-      } else if (key.startsWith(".")) {
+        app.$on(element, key, val, opts?.signal ? { signal: opts.signal } : void 0);
+      } else if (key.startsWith("-")) {
         element.style[key.substr(1)] = val;
-      } else if (key.startsWith(":")) {
+      } else if (key.startsWith(".")) {
         element[key.substr(1)] = val;
       } else if (key.startsWith("data-")) {
         element.dataset[toCamel(key.substr(5))] = val;
@@ -344,7 +345,7 @@
       });
     } else {
       Alpine.data(options.name, () => new options.component(options.name));
-      const node = app.$elem("div", "x-data", options.name, ":_x_params", options.params);
+      const node = app.$elem("div", "x-data", options.name, "._x_params", options.params);
       while (doc.head.firstChild) {
         element.appendChild(doc.head.firstChild);
       }

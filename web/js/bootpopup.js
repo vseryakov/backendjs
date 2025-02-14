@@ -136,6 +136,9 @@ function bootpopup(...args)
     }
 
     this.create = function() {
+        var controller = new AbortController();
+        var eventOpts = { signal: controller.signal };
+
         // Option for modal dialog size
         var class_dialog = this.options.class_dialog;
         if (this.options.size == "xlarge") class_dialog += " modal-xl";
@@ -150,7 +153,7 @@ function bootpopup(...args)
         if (this.options.backdrop !== true) opts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
         if (!this.options.keyboard) opts["data-bs-keyboard"] = false;
 
-        this.modal = app.$elem('div', opts);
+        this.modal = app.$elem('div', opts, eventOpts);
         this.dialog = app.$elem('div', { class: class_dialog, role: "document" });
         this.content = app.$elem('div', { class: this.options.class_content + " " + this.options.class_h });
         this.dialog.append(this.content);
@@ -218,7 +221,7 @@ function bootpopup(...args)
                     "data-callback": p,
                     click: (event) => { self.options.showtab(event.target.dataset.callback, event) },
                     text: this.options.tabs[p],
-                });
+                }, eventOpts);
                 this.tabs.append(a);
 
                 tabs[p] = app.$elem("div", {
@@ -261,8 +264,8 @@ function bootpopup(...args)
 
                 var menu = app.$elem('div', {
                     class: opts.class_input_menu || this.options.class_input_menu,
-                    ".overflowY": "auto",
-                    ".maxHeight": opts.list_input_mh || this.options.list_input_mh
+                    "-overflowY": "auto",
+                    "-maxHeight": opts.list_input_mh || this.options.list_input_mh
                 });
                 elem.append(menu);
 
@@ -283,7 +286,7 @@ function bootpopup(...args)
                                 el.value = app.toFlags("add", app.strSplit(el.value), ev.target.textContent).join(', ')
                             },
                             text: n
-                        });
+                        }, eventOpts);
                         menu.append(a);
                     } else {
                         const a = app.$elem('a', {
@@ -295,7 +298,7 @@ function bootpopup(...args)
                                 app.$(ev.target.dataset.attrid).value = ev.target.dataset.value
                             },
                             text: n
-                        });
+                        }, eventOpts);
                         menu.append(a);
                     }
                 }
@@ -413,7 +416,7 @@ function bootpopup(...args)
             case "textarea":
                 attrs.type = (attrs.type === undefined ? "text" : attrs.type);
                 if (attrs.type == "hidden") {
-                    elem = app.$elem(type, attrs);
+                    elem = app.$elem(type, attrs, eventOpts);
                     parent.append(elem);
                     break;
                 }
@@ -456,7 +459,7 @@ function bootpopup(...args)
                     if (opts.class_check) class_check += " " + opts.class_check;
                     attrs.class = (opts.class_input_btn ? "btn-check " : "form-check-input ") + (attrs.class || "");
                     elem = app.$elem('div', { class: class_check });
-                    elem.append(app.$elem(type, attrs), label);
+                    elem.append(app.$elem(type, attrs, eventOpts), label);
 
                     if (opts.class_append || opts.text_append) {
                         label.append(app.$elem("span", { class: opts.class_append || "", text: opts.text_append }));
@@ -470,10 +473,10 @@ function bootpopup(...args)
                     attrs.class = attrs.class || "form-control";
                     if (type == "textarea") {
                         delete attrs.value;
-                        elem = app.$elem(type, attrs);
+                        elem = app.$elem(type, attrs, eventOpts);
                         if (opts.value) elem.append(opts.value);
                     } else {
-                        elem = app.$elem(type, attrs);
+                        elem = app.$elem(type, attrs, eventOpts);
                     }
                 }
                 addElement(type);
@@ -501,7 +504,7 @@ function bootpopup(...args)
                     if (o.reverse || opts.reverse) c += " form-check-reverse";
                     if (o.class_check || opts.class_check) c += " " + (o.class_check || opts.class_check);
                     const div = app.$elem('div', { class: c, title: title });
-                    div.append(app.$elem(`input`, o), label);
+                    div.append(app.$elem(`input`, o, eventOpts), label);
                     children.push(div);
                 }
                 for (const p of ["switch", "inline", "reverse", "options", "value", "type"]) delete attrs[p];
@@ -510,7 +513,7 @@ function bootpopup(...args)
 
             case "alert":
             case "success":
-                this[type] = elem = app.$elem("div", attrs);
+                this[type] = elem = app.$elem("div", attrs, eventOpts);
                 parent.append(elem);
                 break;
 
@@ -530,7 +533,7 @@ function bootpopup(...args)
                 break;
 
             default:
-                elem = app.$elem(type, attrs);
+                elem = app.$elem(type, attrs, eventOpts);
                 if (html) elem.append(...html);
                 if (opts.class_append || opts.text_append) {
                     elem.append(app.$elem("span", { class: opts.class_append || "", text: opts.text_append }));
@@ -566,7 +569,7 @@ function bootpopup(...args)
 
         for (const i in this.options.footer) {
             const entry = this.options.footer[i];
-            let div;
+            let div, html, elem;
             switch (typeof entry) {
             case "string":
                 this.footer.append(...this.sanitize(entry));
@@ -578,9 +581,14 @@ function bootpopup(...args)
                 for (const type in entry) {
                     const opts = typeof entry[type] == "string" ? { text: entry[type] } : entry[type], attrs = {};
                     for (const p in opts) {
+                        if (p == "html") {
+                            html = opts.nosanitize ? app.$parse(opts[p], 'list') : this.sanitize(opts[p]);
+                        } else
                         if (!/^(type|[0-9]+)$|^(class|text|icon|size)_/.test(p)) attrs[p] = opts[p];
                     }
-                    div.append(app.$elem(opts.type || type, attrs));
+                    elem = app.$elem(opts.type || type, attrs, eventOpts)
+                    if (html) elem.append(...html);
+                    div.append(elem);
                 }
                 break;
             }
@@ -595,7 +603,7 @@ function bootpopup(...args)
                 "data-callback": name,
                 "data-formid": "#" + this.formid,
                 click: (event) => { self.callback(event.target.dataset.callback, event) }
-            });
+            }, eventOpts);
             btn.append(...this.sanitize(this.options["text_" + name] || name));
             if (this.options["icon_" + name]) {
                 btn.append(app.$elem("i", { class: this.options["icon_" + name] }));
@@ -608,6 +616,7 @@ function bootpopup(...args)
         app.$on(this.modal, 'show.bs.modal', (e) => {
             self.options.show.call(self.options.self, e, self);
         });
+
         app.$on(this.modal, 'shown.bs.modal', (e) => {
             if (self.options.autofocus) {
                 var focus = self.autofocus ||
@@ -617,6 +626,7 @@ function bootpopup(...args)
             }
             self.options.shown.call(self.options.self, e, self);
         });
+
         app.$on(this.modal, 'hide.bs.modal', (e) => {
             if (document.activeElement instanceof HTMLElement) {
                 document.activeElement.blur();
@@ -624,24 +634,31 @@ function bootpopup(...args)
             e.bootpopupButton = self._callback;
             self.options.dismiss.call(self.options.self, e, self);
         });
+
         app.$on(this.modal, 'hidden.bs.modal', (e) => {
             e.bootpopupButton = self._callback;
             self.options.complete.call(self.options.self, e, self);
+            controller.abort();
             self.modal.remove();
             bootstrap.Modal.getInstance(self.modal)?.dispose();
+            delete self.options.data;
+            delete self.options.xdata;
         });
-
-        // Add window to body
-        document.body.append(this.modal);
     }
 
     this.show = function() {
+        if (app.isO(this.options.xdata)) {
+            var xdata = this.options.xdata = Alpine.reactive(this.options.xdata);
+            Alpine.addScopeToNode(this.modal, xdata, app.isE(this.options.xscope));
+            Alpine.initTree(this.modal);
+            Alpine.onElRemoved(this.modal, () => {
+                delete this.modal._x_dataStack;
+            });
+        }
+        document.body.append(this.modal);
+
         // Call before event
         this.options.before(this);
-
-        if (this.options.xdata) {
-            Alpine.addScopeToNode(this.modal, this.options.xdata || {}, app.isE(this.options.xscope));
-        }
 
         // Fire the modal window
         bootstrap.Modal.getOrCreateInstance(this.modal).show();
@@ -682,13 +699,14 @@ function bootpopup(...args)
     }
 
     this.data = function() {
-        var d = { list: [], obj: {} }, e, n, v, l = app.$all(this.options.inputs.join(","), this.form);
+        var inputs = [...this.options.inputs, ...bootpopup.inputs];
+        var d = { list: [], obj: {} }, e, n, v, l = app.$all(inputs.join(","), this.form);
         for (let i = 0; i < l.length; i++) {
             e = l[i];
             n = e.name || app.$attr(e, "name") || e.id || app.$attr("id");
-            if (this.options.debug) console.log("bootpopup:", n, e.type, e.value, e.checked, e);
-            if (!n || e.disabled) continue;
             v = e.value;
+            if (this.options.debug) console.log("bootpopup:", n, e.type, e.checked, v, e);
+            if (!n || e.disabled) continue;
             if (/radio|checkbox/i.test(e.type) && !e.checked) v = undefined;
             if (v === undefined || v === "") {
                 if (!this.options.empty) continue;
@@ -751,3 +769,4 @@ function bootpopup(...args)
     return this;
 }
 bootpopup.plugins = [];
+bootpopup.inputs = [];
