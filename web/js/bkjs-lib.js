@@ -654,9 +654,14 @@ app.toFlags = function(cmd, list, name)
 }
 
 // Capitalize words
-app.toTitle = function(name)
+app.toTitle = function(name, minlen)
 {
-    return typeof name == "string" ? name.replace(/_/g, " ").split(/[ ]+/).reduce((x,y) => (x + y.substr(0,1).toUpperCase() + y.substr(1) + " "), "").trim() : "";
+    return typeof name == "string" ?
+           minlen > 0 && name.length <= minlen ? name :
+           name.replace(/_/g, " ").
+           split(/[ ]+/).
+           reduce((x,y) => (x + y.substr(0,1).toUpperCase() + y.substr(1) + " "), "").
+           trim() : "";
 }
 
 // Interpret the value as a boolean

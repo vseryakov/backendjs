@@ -117,7 +117,7 @@
       key = arg[i], val = arg[i + 1];
       if (!isString(key)) continue;
       if (isFunction(val)) {
-        app.$on(element, key, val, opts?.signal ? { signal: opts.signal } : void 0);
+        app.$on(element, key, val, { capture: opts?.capture, passive: opts?.passive, once: opts?.once, signal: opts?.signal });
       } else if (key.startsWith("-")) {
         element.style[key.substr(1)] = val;
       } else if (key.startsWith(".")) {
