@@ -127,6 +127,7 @@ same way allowing you to switch databases without changing the code.</li>
 <li>Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control, AWS X-Ray spans</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
 </ul>
+<p>Check out the <a href="https://github.com/vseryakov/backendjs/blob/master/web/doc.html">Documentation</a>) for more details.</p>
 <h1 id="installation">Installation</h1>
 <p>To install the module with all optional dependencies if they are available in the system</p>
 <pre><code>npm install backendjs
@@ -144,7 +145,6 @@ it is possible to install all optional dependencies for development purposes.</p
 <p>Here is the list of modules for each internal feature:</p>
 <ul>
 <li><code>pg</code> - PostgreSQL database access</li>
-<li><code>argon2</code> or <code>bcrypt</code> - for user password hashing</li>
 <li><code>mmmagic</code> - file detection in uploads, only used when <code>allow</code> is passed to the <code>api.putFile</code></li>
 <li><code>redis</code> - for Redis queue and cache driver</li>
 <li><code>unix-dgram</code> - for syslog on Linux to use local syslog</li>
@@ -1301,9 +1301,6 @@ purpose there is an API endpoint <code>/ping</code> that just responds with stat
 <li><code>account-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
 <li><code>account-admin-roles</code>, type: &quot;list&quot;, descr: &quot;List of special super admin roles&quot;</li>
 <li><code>account-sigversion</code>, type: &quot;int&quot;, descr: &quot;Signature version for secrets&quot;</li>
-<li><code>account-hash</code>, descr: &quot;Hashing method to use by default: bcrypt, argon2, none&quot;</li>
-<li><code>account-bcrypt</code>, type: &quot;int&quot;, min: 12, descr: &quot;Number of iterations for bcrypt&quot;</li>
-<li><code>account-argon2</code>, type: &quot;map&quot;, maptype: &quot;auto&quot;, nocamel: 1, descr: &quot;Argon2 parameteres, ex: type:2,memoryCost:1,hashLength:32&quot;</li>
 <li><code>account-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
 <li><code>account-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
 <li><code>account-file</code>, descr: &quot;A JSON file with users&quot;</li>
@@ -1414,9 +1411,6 @@ returns a new record in the callback</p>
 <ul>
 <li><p><code>account.prepareSecret(query, options, callback)</code></p>
 <p>  If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
-<ul>
-<li>hash - use bcrypt or argon2 explicitely, otherwise use the config</li>
-</ul>
 </li>
 </ul>
 
@@ -1842,6 +1836,12 @@ subject to log throttling configuration.</p>
 </ul>
 
 <ul>
+<li><p><code>api.checkAuthHooks(req, status, callback)</code></p>
+<p>  Run authentication hooks for alternative credentials, to proceed it must return the same status or 200</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>api.newSignature(req)</code></p>
 <p>  Returns a new signature object with all required properties filled form the request object</p>
 </li>
@@ -2108,7 +2108,7 @@ status == 0 means continue processing, ignore this match</li>
 the ACL authorizaton is called. The <code>req.account</code> object will always exist at this point but may not contain the user in case of an error.</p>
 <p>The purpose of this hook is to perform alternative authentication like API access with keys. Because it is called before the authorization it is
 also possible to customize user roles.</p>
-<p>To just continue to next hopok or step return nothing in the <code>cb</code>,
+<p>To just continue to next hoook or step return nothing in the <code>cb</code>,
 any returned status will be final, an error status will be immediately returned in the response,
 status 200 will continue to the authorization step</p>
 <ul>
@@ -3641,6 +3641,12 @@ The following options accepted:</p>
 </ul>
 
 <ul>
+<li><p><code>aws.sesSendRawEmail2(body, options, callback)</code></p>
+<p>  SES V2 version</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>aws.querySNS(action, obj, options, callback)</code></p>
 <p>  AWS SNS API request</p>
 </li>
@@ -4386,7 +4392,7 @@ making it usable for repeating environments or storage solutions.</p>
 <li>json: - return message as JSON</li>
 <li>file: - save to a file in the <code>tmp/</code></li>
 <li>sendgrid: - send via SendGrid</li>
-<li>ses: - send via AWS SES service</li>
+<li>ses: - send via AWS SES service v1, ses2: use V2</li>
 </ul>
 </li>
 </ul>
@@ -4729,9 +4735,12 @@ Options can use the following special properties:</p>
 <li><p><code>db.select(table, query, options, callback)</code></p>
 <p>  Select objects from the database that match supplied conditions.</p>
 <ul>
-<li>query - can be an object with properties for the condition, all matching records will be returned,
-also can be a list where each item is an object with primary key condition. Only records specified in the list must be returned.</li>
-<li>options can use the following special properties:<ul>
+<li><p>query - can be an object with properties for the condition, all matching records will be returned.</p>
+<p>deep property path can be used as well, like <code>prop.subprop</code>,
+the top level column must be defined to work, this is for DBs that support JSON objects like DymamoDB, Elasticsearch.</p>
+</li>
+<li><p>options can use the following special properties:</p>
+<ul>
 <li>ops - operators to use for comparison for properties, an object with column name and operator. The following operators are available:
  <code>&gt;, gt, &lt;, lt, =, !=, &lt;&gt;, &gt;=, ge, &lt;=, le, in, all_in, between, regexp, iregexp, begins_with, not_begins_with, like%, ilike%, contains, not_contains</code></li>
 <li>opsMap - operator mapping between supplied operators and actual operators supported by the db</li>
@@ -4801,6 +4810,11 @@ also can be a list where each item is an object with primary key condition. Only
 </code></pre>
 <p>Example: select accounts by type for the last day</p>
 <pre><code>   db.select(&quot;bk_user&quot;, { type: &#39;admin&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;contains&quot;, mtime: &quot;gt&quot; } }, (err, rows) =&gt; {
+
+   });
+</code></pre>
+<p>Example: select accounts by JSON sub property using Elasticsearch</p>
+<pre><code>   db.select(&quot;bk_user&quot;, { &quot;settings.status&quot;: &quot;ok&quot; }, { pool: &quot;elasticsearch&quot; }, (err, rows) =&gt; {
 
    });
 </code></pre>
@@ -6684,8 +6698,8 @@ be removed, underscores will be treated as dots. Returns a floating number which
 </ul>
 
 <ul>
-<li><p><code>lib.toTitle(name)</code></p>
-<p>  Convert text into capitalized words</p>
+<li><p><code>lib.toTitle(name, minlen)</code></p>
+<p>  Convert text into capitalized words, if it is less or equal than minlen leave it as is</p>
 </li>
 </ul>
 
@@ -6757,6 +6771,12 @@ in this case invalid date returned as null. If <code>dflt</code> is NaN, null or
 <ul>
 <li><p><code>lib.toBase62(num, alphabet)</code></p>
 <p>  Return base62 representation for a number</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.fromBase62(num, alphabet)</code></p>
+<p>  Convert base62 number as a string into base10 number</p>
 </li>
 </ul>
 
@@ -7161,25 +7181,19 @@ By default encode is &quot;hex&quot;, can be any encoding supported by Buffer, &
 
 <ul>
 <li><p><code>lib.encrypt(key, data, options)</code></p>
-<p>  Encrypt data with the given key code</p>
+<p>  Encrypt data with the given key, GCM mode is default</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>lib.decrypt(key, data, options)</code></p>
-<p>  Decrypt data with the given key code</p>
+<p>  Decrypt data with the given key, GCM mode is default</p>
 </li>
 </ul>
 
 <ul>
 <li><p><code>lib.sign (key, data, algorithm, encode)</code></p>
 <p>  HMAC signing and base64 encoded, default algorithm is sha1</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.hash (data, algorithm, encode)</code></p>
-<p>  Hash and base64 encoded, default algorithm is sha1</p>
 </li>
 </ul>
 
@@ -7671,6 +7685,32 @@ All functions are called via setImmediate unless the <code>direct</code> argumen
              console.log(err, data, count);
          });
 </code></pre>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.hash (data, algorithm, encode)</code></p>
+<p>  Hash and base64 encoded, default algorithm is sha1, uses node crypto module which is based on OLpenSSL</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.getHashid(options)</code></p>
+<p>  Return cached Hashids object for the given configuration
+Properties:</p>
+<ul>
+<li>salt - hashid salt, default is lib.salt</li>
+<li>min - minimum size of a hashid</li>
+<li>alphabet - chars allowed in hashids, default is lib.base32</li>
+<li>separators - hashid separator characters</li>
+<li>counter - max counter value to wrap back to 1, default is 65535</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>lib.murmurHash3(key, seed = 0)</code></p>
+<p>  32-bit MurmurHash3 implemented by bryc (github.com/bryc)</p>
 </li>
 </ul>
 
@@ -8474,20 +8514,6 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
 </ul>
 
 <ul>
-<li><p><code>lib.getHashid(options)</code></p>
-<p>  Return cached Hashids object for the given configuration
-Properties:</p>
-<ul>
-<li>salt - hashid salt, default is lib.salt</li>
-<li>min - minimum size of a hashid</li>
-<li>alphabet - chars allowed in hashids, default is lib.base32</li>
-<li>separators - hashid separator characters</li>
-<li>counter - max counter value to wrap back to 1, default is 65535</li>
-</ul>
-</li>
-</ul>
-
-<ul>
 <li><p><code>lib.uuid(prefix)</code></p>
 <p>  Return unique Id (UUID v4) without any special characters and in lower case</p>
 </li>
@@ -8502,12 +8528,6 @@ Properties:</p>
 <ul>
 <li><p><code>lib.suuid(prefix, options)</code></p>
 <p>  Returns a short unique id within a microsecond</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>lib.murmurHash3(key, seed = 0)</code></p>
-<p>  32-bit MurmurHash3 implemented by bryc (github.com/bryc)</p>
 </li>
 </ul>
 
@@ -8931,6 +8951,12 @@ all items to be released, when expired the callback will be called</p>
 <p>  Return a queue client by name if specified in the options or use default client which always exists,
 use <code>queueName</code> to specify a specific driver.
 If it is an array it will rotate items sequentially.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>queue.stats(options, callback)</code></p>
+<p>  Returns the queue statistics, the format depends on the queue type used</p>
 </li>
 </ul>
 
