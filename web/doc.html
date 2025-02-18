@@ -16,9 +16,9 @@
 <ul>
 <li><a href="#backend-library-for-node-js"> Backend library for Node.js</a></li>
 <li><a href="#installation"> Installation</a></li>
-<li><a href="#dependencies"> Dependencies</a></li>
-<li><a href="#quick-start-and-introduction"> Quick start and introduction</a></li>
+<li><a href="#quick-start"> Quick start</a></li>
 <li><a href="#to-run-an-example"> To run an example</a></li>
+<li><a href="#dependencies"> Dependencies</a></li>
 <li><a href="#configuration"> Configuration</a></li>
 <li><a href="#backend-runtime"> Backend runtime</a></li>
 <li><a href="#application-structure"> Application structure</a></li>
@@ -96,127 +96,77 @@
 </li>
 </ul>
 <h1 id="backend-library-for-node-js">Backend library for Node.js</h1>
-<p>General purpose backend library. The primary goal is to have a scalable platform for running and managing Node.js
-servers for Web services implementation.</p>
-<p>This project only covers the lower portion of the Web services ecosystem:
-Node.js processes, HTTP servers, basic API functionality, database access, caching, messaging between processes,
-metrics and monitoring, a library of tools for developing Node.js servers.</p>
-<p>For the UI and presentation layer there are no restrictions what to use as long as it can run on top of the Express server.</p>
-<p>Features:</p>
+<p>A Node.js library to create Web backends with minimal dependencies.</p>
+<p>Included features:</p>
 <ul>
-<li>Exposes a set of Web service APIs over HTTP(S) using Express framework.</li>
-<li>Database API supports SQLite, PostreSQL, DynamoDB, ElasticSearch with all basic operations behaving the
-same way allowing you to switch databases without changing the code.</li>
-<li>Database operations (Get, Put, Del, Update, Select) for all supported databases using the same DB API.</li>
-<li>Easily extensible to support any kind of database, provides an experimental database driver on top of Redis with all supported methods as an example.</li>
-<li>Supports crontab and queue job processing by separate worker processes.</li>
+<li>API access is served by Express framework.</li>
+<li>Database operations like Get, Put, Del, Update, Select for supported databases (SQLite, PostreSQL, DynamoDB, ElasticSearch) using the same DB API,
+a simple layer no full ORM,  SQL can be used directly if needed.</li>
 <li>Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.</li>
 <li>Supports Web sessions with CSRF protection</li>
 <li>Supports Webauthn/Passkeys</li>
 <li>Runs web server as separate processes to utilize multiple CPU cores.</li>
 <li>Supports WebSockets connections and process them with the same Express routes as HTTP requests</li>
+<li>Supports cron and on-demand jobs running is separate worker processes.</li>
 <li>Supports cache/rate-limiter using Redis.</li>
 <li>Supports PUB/SUB modes of operations using Redis, NATS.</li>
 <li>Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS.</li>
 <li>REPL (command line) interface for debugging and looking into server internals.</li>
 <li>Supports push notifications via Webpush, APN and FCM.</li>
 <li>Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.</li>
-<li>AWS support is very well integrated including EC2, S3, DynamoDB, SQS, CloudWatch and more.</li>
+<li>AWS support is very well integrated including EC2, S3, DynamoDB, SQS, CloudWatch and more, not using AWS SDK.</li>
 <li>Includes simple log watcher to monitor the log files including system errors.</li>
 <li>Integrated very light unit testing facility which can be used to test modules and API requests.</li>
 <li>Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control, AWS X-Ray spans</li>
 <li>Hosted on <a href="https://github.com/vseryakov/backendjs">github</a>, BSD licensed.</li>
 </ul>
-<p>Check out the <a href="https://github.com/vseryakov/backendjs/blob/master/web/doc.html">Documentation</a>) for more details.</p>
+<p>Check out the <a href="https://vseryakov.github.io/backendjs/web/doc.html">Documentation</a> for more details.</p>
 <h1 id="installation">Installation</h1>
 <p>To install the module with all optional dependencies if they are available in the system</p>
-<pre><code>npm install backendjs
+<pre><code>    npm install backendjs
 </code></pre>
 <p>To install from the git because NPM versions are always behind the cutting edge:</p>
-<pre><code> npm install git+https://github.com/vseryakov/backendjs.git
+<pre><code>    npm install vseryakov/backendjs
 </code></pre>
-<p>or simply</p>
-<pre><code> npm install vseryakov/backendjs
-</code></pre>
-<h1 id="dependencies">Dependencies</h1>
-<p>Only core required dependencies are installed but there are many modules which require a module to work correctly.</p>
-<p>All optional dependencies are listed in the package.json under &quot;modDependencies&quot; so npm cannot use it, only manual install of required modules is supported or
-it is possible to install all optional dependencies for development purposes.</p>
-<p>Here is the list of modules for each internal feature:</p>
+<h1 id="quick-start">Quick start</h1>
 <ul>
-<li><code>pg</code> - PostgreSQL database access</li>
-<li><code>mmmagic</code> - file detection in uploads, only used when <code>allow</code> is passed to the <code>api.putFile</code></li>
-<li><code>redis</code> - for Redis queue and cache driver</li>
-<li><code>unix-dgram</code> - for syslog on Linux to use local syslog</li>
-<li><code>bkjs-sqlite</code> - to use SQLite database driver</li>
-<li><code>web-push</code> - for Web push notifications</li>
-<li><code>@parse/node-apn</code> - for Apple push notifications</li>
-<li><code>sharp</code> - scaling images in uploads using VPS imaging</li>
-<li><code>nats</code> - NATS driver for queue and events</li>
-<li><code>amqplib</code> - RabbitMQ driver for queue and events (alpha)</li>
-</ul>
-<p>The command below will show all core and optional dependencies, <code>npm install</code> will install only the core dependencies</p>
-<pre><code> bkjs deps -dry-run -mods
+<li><p>To start a bare-bone server</p>
+<pre><code>  bkjs watch
 </code></pre>
-<h1 id="quick-start-and-introduction">Quick start and introduction</h1>
-<ul>
-<li><p>Simplest way of using the backendjs, it will start the server listening on port 8000</p>
+<p>Now point your browser to <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a></p>
+<p>The server is running with default configuration, while no custom code is loaded it still can serve internal API requests
+described below and serve static assets from the web/ folder.</p>
+</li>
+<li><p>Programmatic way to start the server</p>
 <pre><code>  $ node
-  &gt; const bkjs = require(&#39;backendjs&#39;)
-  &gt; bkjs.server.start()
+  &gt; const { server, api } = require(&#39;backendjs&#39;)
+  &gt; server.start({ api: 1 })
 </code></pre>
 </li>
-<li><p>Access is allowed only with valid signature except urls that are explicitly allowed without it (see <code>api-allow</code> config parameter below)</p>
+<li><p>By default access is allowed only with valid session or signature, to see all public urls type in the node shell above:</p>
+<pre><code>  &gt; api.allow
+</code></pre>
+<p>This property of the api module corresponds to the the <code>-api-allow</code> config parameter, see it in your browser
+at <a href="http://localhost:8000/doc.html#module-api">docs</a>.</p>
 </li>
-<li><p>Same but using the helper tool, by default no database driver are enabled so here we use embedded SQLite database and listen on port 8000.</p>
-<pre><code>  bkjs web -db-pool sqlite -db-sqlite-pool default
+<li><p>No database driver is enabled by default so here are examples to load local PostgreSQL, dynamoDB or Elasticsearch</p>
+<pre><code>  bkjs run -api -db-pool pg -db-pg-pool default
+  bkjs run -api -db-pool dynamodb -db-dynamodb-pool default
+  bkjs run -api -db-pool elasticsearch -db-elasticsearch-pool default
 </code></pre>
 </li>
-<li><p>or to the PostgreSQL server, database backend</p>
-<pre><code>  bkjs web -db-pool pg -db-pg-pool postgresql://postgres@localhost/backend
+<li><p>All command line parameters from the above can be saved in the <code>~.bkjs/etc/config.local</code> making pg the default database</p>
+<pre><code>  db-pool=pg
+  db-pg-pool=default
+  db-dynamdb-pool=default
+  db-elasticsearch-pool=default
 </code></pre>
 </li>
-<li><p>If running on EC2 instance with IAM profile no need to specify AWS credentials:</p>
-<pre><code>  bkjs web -db-pool dynamodb -db-dynamodb-pool default
-</code></pre>
-</li>
-<li><p>To start the server and connect to the DynamoDB (command line parameters can be saved in the <code>etc/config file</code>, see below about config files)</p>
-<pre><code>  bkjs web -db-pool dynamodb -db-dynamodb-pool default
-</code></pre>
-</li>
-<li><p>or to the ElasticSearch server, database backend</p>
-<pre><code>  bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200
-</code></pre>
-</li>
-<li><p>All commands above will behave exactly the same</p>
-</li>
-<li><p><strong>Tables are not created by default</strong>, in order to initialize the database, run the server or the shell with <code>-db-create-tables</code> flag,
-it is called only inside a master process, a worker never creates tables on start</p>
-<ul>
-<li><p>prepare the tables in the shell</p>
-<pre><code>bksh -db-pool dynamodb -db-dynamodb-pool default -db-create-tables
-</code></pre>
-</li>
-<li><p>run the server and create tables on start, run Elasticsearch locally first on the local machine</p>
-<pre><code>bkjs get-elasticsearch
-bkjs run-elasticsearch
-
-bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200 -db-create-tables
-</code></pre>
-</li>
-</ul>
-</li>
-<li><p>While the local backendjs is runnning, the documentation is always available at <a href="http://localhost:8000/doc.html">http://localhost:8000/doc.html</a> (or whatever port is the server using)</p>
-</li>
-<li><p>To add users from the command line</p>
-<pre><code>  bksh -user-add login test secret test name TestUser email test@test.com
-</code></pre>
-</li>
-<li><p>To start Node.js shell with backendjs loaded and initialized, all command line parameters apply to the shell as well</p>
+<li><p>To start Node.js shell with backendjs loaded and initialized, all internal modules in shell are global for convenience</p>
 <pre><code>  bkjs shell
 </code></pre>
 </li>
-<li><p>To access the database while in the shell using callbacks</p>
+<li><p>Here is preview how the database can be accessed using internal DB methods</p>
 <pre><code>  &gt; db.select(&quot;bk_user&quot;, {}, lib.log);
   &gt; db.add(&quot;bk_user&quot;, { id: &#39;test2&#39;, login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39; }, lib.log);
   &gt; db.select(&quot;bk_user&quot;, { id: &#39;test2&#39; }, lib.log);
@@ -230,18 +180,15 @@ bkjs web -db-pool elasticsearch -db-elasticsearch-pool http://127.0.0.1:9200 -db
     &gt; await db.aselect(&quot;bk_user&quot;, { id: &#39;test2&#39; });
 </code></pre>
 <ul>
-<li><p>To search using Elasticsearch (assuming it runs on EC2 and it is synced with DynamoDB using streams)</p>
+<li><p>To search using Elasticsearch full text capabilities</p>
 <pre><code>  &gt; await db.select(&quot;bk_user&quot;, { q: &#39;test&#39; }, { pool: &quot;elasticsearch&quot; });
 </code></pre>
 </li>
 </ul>
 <h2 id="to-run-an-example">To run an example</h2>
 <ul>
-<li><p>The library is packaged with copies of Bootstrap, jQuery, Knockout.js, Alpine.js for quick Web development
-in web/js and web/css directories, all scripts are available from the browser with /js or /css paths. To use all at once as a bundle
-run the following command:</p>
-<pre><code>  cd node_modules/backendjs &amp;&amp; npm run devbuild
-</code></pre>
+<li><p>The library is packaged with copies of Bootstrap, jQuery, Knockout.js, Alpine.js for quick Web prototyping
+in web/js and web/css directories, all scripts are available from the browser with /js or /css paths.</p>
 </li>
 <li><p>Go to <code>examples</code> directory, it has several apps with README.md explaining how to run each.</p>
 </li>
@@ -254,9 +201,27 @@ letting you focus on the source code and not server management, this mode is onl
 check <code>app.sh</code> for parameters before running it in production.</p>
 </li>
 </ul>
+<h1 id="dependencies">Dependencies</h1>
+<p>Only core required dependencies are installed but there are many modules which require a module to work correctly.</p>
+<p>All optional dependencies are listed in the package.json under &quot;modDependencies&quot; so npm cannot use it, only manual install of required modules is supported or
+it is possible to install all optional dependencies for development purposes.</p>
+<p>Here is the list of modules for each internal feature:</p>
+<ul>
+<li><code>pg</code> - PostgreSQL database access</li>
+<li><code>redis</code> - for Redis queue and cache driver</li>
+<li><code>unix-dgram</code> - for Linux to use local syslog via Unix domain</li>
+<li><code>web-push</code> - for Web push notifications</li>
+<li><code>@parse/node-apn</code> - for Apple push notifications</li>
+<li><code>sharp</code> - scaling images in uploads using VPS imaging</li>
+<li><code>nats</code> - NATS driver for queue and events</li>
+<li><code>mmmagic</code> - file detection in uploads, only used when <code>allow</code> is passed to the <code>api.putFile</code></li>
+</ul>
+<p>The command below will show all core and optional dependencies, <code>npm install</code> will install only the core dependencies</p>
+<pre><code>bkjs deps -dry-run -mods
+</code></pre>
 <h1 id="configuration">Configuration</h1>
-<p>Almost everything in the backend is configurable using config files, a config database.
-The whole principle behind it is that once deployed in production, even quick restarts are impossible to do so
+<p>Almost everything in the backend is configurable using config files or a config database.
+The whole principle behind it is that once deployed in production, sometimes even quick restarts are impossible to do so
 there should be a way to push config changes to the processes without restarting.</p>
 <p>Every module defines a set of config parameters that defines the behavior of the code, due to the single threaded
 nature of the Node.js. It is simple to update any config parameter to a new value so the code can operate differently.
@@ -273,7 +238,6 @@ config database is loaded periodically which is defined by another config parame
 <li>a Web server (server) with Web workers (web)</li>
 <li>a job scheduler (master)</li>
 </ul>
-<p>These features can be run standalone or under the guard of the monitor which tracks all running processes and restarted any failed ones.</p>
 <p>This is the typical output from the ps command on Linux server:</p>
 <pre><code>ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 bkjs: master
 ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 bkjs: web
@@ -299,73 +263,15 @@ commands that simplify running the backend in different modes.</p>
 <p>The main purpose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
 but the access to that data will be over HTTP and returned back as JSON. This is default functionality but any custom application
 may return data in whatever format is required.</p>
-<p>Basically the backendjs is a Web server with ability to perform data processing using local or remote jobs which can be scheduled similar to Unix cron.</p>
-<p>The principle behind the system is that nowadays the API services just return data which Web apps or mobiles apps can render to
+<p>Basically the backendjs is a Web server with ability to perform data processing using local or remote jobs which can be scheduled similar to Unix cron or
+requested on demand.</p>
+<p>The principle behind the system is that the API services just return data and Web or mobiles apps can render it to
 the user without the backend involved. It does not mean this is simple gateway between the database, in many cases it is but if special
 processing of the data is needed before sending it to the user, it is possible to do and backendjs provides many convenient helpers and tools for it.</p>
 <p>When the API layer is initialized, the api module contains <code>app</code> object which is an Express server.</p>
-<p>Special module/namespace <code>app</code> is designated to be used for application development/extension. This module is available in the same way as <code>api</code> and <code>core</code>
-which makes it easy to refer and extend with additional methods and structures.</p>
-<p>The typical structure of a single file backendjs application is the following:</p>
-<pre><code class="language-javascript">    const { api, core, db, app } = require(&#39;backendjs&#39;);
-
-    app.listArg = [];
-
-    // Define the module config parameters
-    core.describeArgs(&#39;app&#39;, [
-        { name: &quot;list-arg&quot;, array: 1, type: &quot;list&quot;, descr: &quot;List of words&quot; },
-        { name: &quot;int-arg&quot;, type: &quot;int&quot;, descr: &quot;An integer parameter&quot; },
-     ]);
-
-    // Describe the tables or data models, all DB pools will use it, the master or shell
-    // process only creates new tables, workers just use the existing tables
-    db.describeTables({
-         ...
-    });
-
-     // Optionally customize the Express environment, setup MVC routes or else, `api.app` is the Express server
-    app.configureMiddleware = function(options, callback)
-    {
-       ...
-       callback()
-    }
-
-    // Register API endpoints, i.e. url callbacks
-    app.configureWeb = function(options, callback)
-    {
-        api.app.get(&#39;/some/api/endpoint&#39;, (req, res) =&gt; {
-          // to return an error, the message will be translated with internal i18n module if locales
-          // are loaded and the request requires it
-          api.sendReply(res, err);
-
-          // or with custom status and message, explicitely translated
-          api.sendReply(res, 404, res.__({ phrase: &quot;not found&quot;, locale: &quot;fr&quot; }));
-
-          // with config check
-          if (app.intArg &gt; 5) ...
-          if (app.listArg.indexOf(req.query.name) &gt; -1) ...
-
-          // to send data back with optional postprocessing hooks
-          api.sendJSON(req, err, data);
-          // or simply
-          res.json(data);
-        });
-        ...
-        callback();
-    }
-
-    // Optionally register post processing of the returned data from the default calls
-    api.registerPostProcess(&#39;&#39;, /^\/account\/([a-z\/]+)$/, (req, res, rows) =&gt; { ... });
-     ...
-
-    // Optionally register access permissions callbacks
-    api.registerAccessCheck(&#39;&#39;, /^\/test\/list$/, (req, status, callback) =&gt; { ...  });
-    api.registerPreProcess(&#39;&#39;, /^\/test\/list$/, (req, status, callback) =&gt; { ...  });
-     ...
-    bkjs.server.start();
-</code></pre>
-<p>Another probably easier way to create single file apps is to use your namespace instead of <code>app</code>:</p>
-<pre><code class="language-javascript">    const { api, db } = require(&quot;backendjs&quot;);
+<p>Special empty module <code>app</code> is designated to be used for quick application development/prototyping. This module is available in the same way as <code>api</code> and <code>core</code> which makes it easy to refer and extend with additional methods and structures.</p>
+<p>An example structure of a generic single file application, app.js</p>
+<pre><code class="language-javascript">    const { core, api, db, server } = require(&quot;backendjs&quot;);
 
     const mymod = {
         name: &quot;mymod&quot;,
@@ -387,25 +293,27 @@ which makes it easy to refer and extend with additional methods and structures.<
 
     mymod.configureWeb = function(options, callback)
     {
-        api.app.all(&quot;/mymod&quot;, async function(req, res) {
-            if (!req.query.id) return api.sendReply(res, 400, &quot;id is required&quot;);
-            req.query.type = mod.types;
+        api.app.all(&quot;/listTypes&quot;, async (req, res) =&gt; {
+            var query = api.getQuery(req, {
+                id: { required: 1 },
+                type: { required: 1, values: mod.types },
+            });
+            if (typeof query == &quot;string&quot;) return api.sendReply(res, 400, query);
 
-            const rows = await db.aselect(&quot;mymod&quot;, req.query, { ops: { type: &quot;in&quot; }, count: mod.size });
+            const rows = await db.aselect(&quot;mymod&quot;, query, { ops: { type: &quot;in&quot; }, count: mod.size });
             api.sendJSON(req, null, rows);
         });
     }
 
-    bkjs.server.start();
+    server.start();
 </code></pre>
-<p>Except the <code>app.configureWeb</code> and <code>server.start()</code> all other functions are optional, they are here for the sake of completeness of the example. Also
-because running the backend involves more than just running web server many things can be setup using the configuration options like common access permissions,
-configuration of the cron jobs so the amount of code to be written to have fully functioning production API server is not that much, basically only
-request endpoint callbacks must be provided in the application.</p>
+<p>To run it:</p>
+<pre><code>    node app.js -api -mymod-size 20 -mymod-types t1,t2,t3
+</code></pre>
 <p>As with any Node.js application, node modules are the way to build and extend the functionality, backendjs does not restrict how
-the application is structured.</p>
+the application is structured but has predefined conventions to make it easy.</p>
 <h2 id="modules">Modules</h2>
-<p>Another way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
+<p>The primary way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory <code>modules/</code>. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.</p>
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
@@ -442,9 +350,12 @@ methods.</p>
 
     server.start();
 </code></pre>
+<p>To run:</p>
+<pre><code>    node app.js -api -modules-path $(pwd)/modules
+</code></pre>
 <h2 id="npm-packages-as-modules">NPM packages as modules</h2>
 <p>In case different modules is better keep separately for maintenance or development purposes they can be split into
-separate NPM packages, the structure is the same, modules must be in the modules/ folder and the package must be loadable
+separate NPM packages, the structure is the same, modules must be in the <code>modules/</code> folder and the package must be loadable
 via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
 by the backendjs <code>core.loadModule</code> machinery, the NPM packages are just keep different module directories separate from each other.</p>
 <p>The config parameter <code>import-packages</code> can be used to specify NPM package names to be loaded separated by comma, as with the default
@@ -459,10 +370,11 @@ application structure all subfolders inside each NPM package will be added to th
 without touching other or global configuration. Although such config files will not be reloaded on changes, when NPM installs or updates packages it
 moves files around so watching the old config is no point because the updated config file will be different.</p>
 <h1 id="database-schema-definition">Database schema definition</h1>
-<p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other specific usage can be achieved by
-using SQL directly or other query language supported by any particular database.
-The database operations supported in the unified way provide simple actions like <code>db.get, db.put, db.update, db.del, db.select</code>. The <code>db.query</code> method provides generic
-access to the database driver and executes given query directly by the db driver, it can be SQL or other driver specific query request.</p>
+<p>The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other
+specific usage can be achieved by using SQL directly or other query language supported by any particular database.</p>
+<p>The database operations supported in the unified way provide simple actions like <code>db.get, db.put, db.update, db.del, db.select</code>.
+The <code>db.query</code> method provides generic access to the database driver and executes given query directly by the db driver,
+it can be SQL or other driver specific query request.</p>
 <p>Before the tables can be queried the schema must be defined and created, the backend db layer provides simple functions to do it:</p>
 <ul>
 <li>first the table needs to be described, this is achieved by creating a JavaScript object with properties describing each column, multiple tables can be described
@@ -488,19 +400,23 @@ and be called on every app startup. This allows 1) to see the db schema while wo
 necessary, all new columns will be detected and the database tables updated accordingly. And it is all JavaScript, no need to learn one more language or syntax
 to maintain database tables.</li>
 </ul>
-<p>Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics, it just provides the same
-API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range key, so when creating table to be used with DynamoDB, only
-one or two columns can be marked with primary property while for SQL databases the composite primary key can consist of more than 2 columns.</p>
-<p>The backendjs always creates several tables in the configured database pools by default, these tables are required to support default API functionality and some
-are required for backend operations. Refer below for the JavaScript modules documentation that described which tables are created by default. In the custom applications
-the <code>db.describeTables</code> method can modify columns in the default table and add more columns if needed.</p>
-<p>For example, to make age and some other columns in the accounts table public and visible by other users with additional columns the following can be
-done in the <code>api.initApplication</code> method. It will extend the bk_user table and the application can use new columns the same way as the already existing columns.
-Using the birthday column we make &#39;age&#39; property automatically calculated and visible in the result, this is done by the internal method <code>api.processAccountRow</code> which
-is registered as post process callback for the bk_user table. The computed property <code>age</code> will be returned because it is not present in the table definition
-and all properties not defined and configured are passed as is.</p>
-<p>The cleanup of the public columns is done by the <code>api.sendJSON</code> which is used by all API routes when ready to send data back to the client. If any post-process
-hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.</p>
+<p>Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics,
+it just provides the same API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range
+key, so when creating table to be used with DynamoDB, only one or two columns can be marked with primary property while for SQL
+databases the composite primary key can consist of more than 2 columns.</p>
+<p>The backendjs always creates several tables in the configured database pools by default, these tables are required to support
+default API functionality and some are required for backend operations. Refer below for the JavaScript modules documentation
+that described which tables are created by default. In the custom applications the <code>db.describeTables</code> method can modify columns
+in the default table and add more columns if needed.</p>
+<p>For example, to make age and some other columns in the accounts table public and visible by other users with additional columns
+the following can be done in the <code>api.initApplication</code> method. It will extend the bk_user table and the application can use new
+columns the same way as the already existing columns.</p>
+<p>Using the birthday column we make &#39;age&#39; property automatically calculated and visible in the result, this is done by the
+internal method <code>api.processAccountRow</code> which is registered as post process callback for the bk_user table. The computed
+property <code>age</code> will be returned because it is not present in the table definition and all properties not defined and
+configured are passed as is.</p>
+<p>The cleanup of the public columns is done by the <code>api.sendJSON</code> which is used by all API routes when ready to send data back
+to the client. If any post-process hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.</p>
 <pre><code class="language-javascript">    db.describeTables({
         bk_user: {
             birthday: {},
@@ -541,8 +457,9 @@ hooks are registered and return data itself then it is the hook responsibility t
     mod.configureModule = function(options, callback)
     {
         db.setProcessRows(&quot;post&quot;, &quot;invoices&quot;, function(req, row, opts) {
-         if (row.id) row.icon = &quot;/images/&quot; + row.id + &quot;.png&quot;;
-     });
+           if (row.id) row.icon = &quot;/images/&quot; + row.id + &quot;.png&quot;;
+        });
+
         callback();
     }
 </code></pre>
@@ -560,7 +477,7 @@ access to the table by it is real name is always available.</p>
 </code></pre>
 <h1 id="api-requests-handling">API requests handling</h1>
 <p>All methods will put input parameters in the <code>req.query</code>, GET or POST.</p>
-<p>One way to verify input values is to use <code>lib.toParams</code>, only specified parameters will be returned and converted according to
+<p>One way to verify input values is to use <code>api.getQuery</code>, only specified parameters will be returned and converted according to
 the type or ignored.</p>
 <p>Example:</p>
 <pre><code class="language-javascript">   var params = {
@@ -571,7 +488,7 @@ the type or ignored.</p>
    };
 
    api.app.all(&quot;/endpoint/test1&quot;, function(req, res) {
-      const query = lib.toParams(req.query, params.test1);
+      const query = api.getQuery(req, params.test1);
       if (typeof query == &quot;string&quot;) return api.sendReply(res, 400, query);
       ...
    });
@@ -580,7 +497,7 @@ the type or ignored.</p>
 <p>Here is an example how to create simple TODO application using any database supported by the backend. It supports basic
 operations like add/update/delete a record, show all records.</p>
 <p>Create a file named <code>app.js</code> with the code below.</p>
-<pre><code class="language-javascript">    const { api, lib, ap, db } = require(&#39;backendjs&#39;);
+<pre><code class="language-javascript">    const { api, lib, app, db, server } = require(&#39;backendjs&#39;);
 
     // Describe the table to store todo records
     db.describeTables({
@@ -596,7 +513,7 @@ operations like add/update/delete a record, show all records.</p>
     // API routes
     app.configureWeb = function(options, callback)
     {
-        api.app.get(/^\/todo\/([a-z]+)$/, async function(req, res) {
+        api.app.get(/^\/todo\/([a-z]+)$/, async (req, res) =&gt; {
            var options = api.getOptions(req), query;
 
            switch (req.params[0]) {
@@ -661,17 +578,19 @@ operations like add/update/delete a record, show all records.</p>
                 break;
             }
         });
+
         callback();
      }
-     bkjs.server.start();
+
+     server.start();
 </code></pre>
 <p>Now run it with an option to allow API access without an account:</p>
-<pre><code>node app.js -log debug -web -api-allow-path /todo -db-create-tables
+<pre><code>node app.js -log debug -api -api-allow-path /todo -db-create-tables
 </code></pre>
 <p>To use a different database, for example PostgresSQL(running localy) or DynamoDB(assuming EC2 instance),
 all config parametetrs can be stored in the etc/config as well</p>
-<pre><code>node app.js -log debug -web -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default -db-create-tables
-node app.js -log debug -web -api-allow-path /todo -db-pool pg -db-pg-pool default -db-create-tables
+<pre><code>node app.js -log debug -api -api-allow-path /todo -db-pool dynamodb -db-dynamodb-pool default -db-create-tables
+node app.js -log debug -api -api-allow-path /todo -db-pool pg -db-pg-pool default -db-create-tables
 </code></pre>
 <p>API commands can be executed in the browser or using <code>curl</code>:</p>
 <pre><code>curl &#39;http://localhost:8000/todo?name=TestTask1&amp;descr=Descr1&amp;due=2015-01-01`
@@ -710,15 +629,15 @@ It is also possible to set the default home using BKJS_HOME environment variable
 </code></pre>
 </li>
 <li><p>Define the function that the cron will call with the options specified, callback must be called at the end, create this app.js file</p>
-<pre><code> var bkjs = require(&quot;backendjs&quot;);
- bkjs.app.cleanSessions = function(options, callback) {
-      bkjs.db.delAll(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot; }, callback);
+<pre><code> const { app, db } = require(&quot;backendjs&quot;);
+ app.cleanSessions = function(options, callback) {
+      db.delAll(&quot;session&quot;, { mtime: options.interval + Date.now() }, { ops: &quot;le&quot; }, callback);
  }
- bkjs.server.start()
+ server.start()
 </code></pre>
 </li>
 <li><p>Start the jobs queue and the web server at once</p>
-<pre><code> bkjs master -jobs-workers 1 -jobs-cron
+<pre><code> node app.js -master -jobs-workers 1 -jobs-cron
 </code></pre>
 </li>
 </ol>
@@ -822,8 +741,7 @@ will be passed to the corresponding AMQP methods: <code>amqp.queue, amqp.queue.s
 <h1 id="security-configurations">Security configurations</h1>
 <h2 id="api-only">API only</h2>
 <p>This is default setup of the backend when all API requests except must provide valid signature and all HTML, JavaScript, CSS and image files
-are available to everyone. This mode assumes that Web development will be based on &#39;single-page&#39; design when only data is requested from the Web server and all
-rendering is done using JavaScript. This is how the <code>examples/api/api.html</code> developers console is implemented, using JQuery-UI and Knockout.js.</p>
+are available to everyone. This mode assumes that Web development will be based on &#39;single-page&#39; design when only data is requested from the Web server and all rendering is done using JavaScript.</p>
 <p>To see current default config parameters run any of the following commands:</p>
 <pre><code>    bkjs bkhelp | grep api-allow
 
@@ -838,7 +756,7 @@ this assumes the default path &#39;/public&#39; still allowed without the signat
    &lt;script&gt;
     $(function () {
        app.on(&quot;nologin&quot;, () =&gt; { window.location=&#39;/public/index.html&#39;; });
-       app.koInit();
+       app.login();
    });
    &lt;/script&gt;
 </code></pre>
@@ -1219,8 +1137,7 @@ environment, not just a Web browser. Request signature can be passed in the quer
 <p>For JSON content type, the method must be POST and no query parameters specified, instead everything should be inside the JSON object
 which is placed in the body of the request. For additional safety, SHA1 checksum of the JSON payload can be calculated and passed in the signature,
 this is the only way to ensure the body is not modified when not using query parameters.</p>
-<p>See <a href="https://github.com/vseryakov/backendjs/blob/master/web/js/bkjs.js">web/js/bkjs.js</a> function <code>app.createSignature</code> or
-<a href="https://github.com/vseryakov/backendjs/blob/master/api/auth.js">api.js</a> function <code>api.createSignature</code> for the JavaScript implementations.</p>
+<p>See <a href="https://github.com/vseryakov/backendjs/blob/master/api/auth.js">api.js</a> function <code>api.createSignature</code> for the JavaScript implementation.</p>
 <h3 id="authentication-api">Authentication API</h3>
 <ul>
 <li><p><code>/auth</code></p>
@@ -1263,10 +1180,10 @@ this is the only way to ensure the body is not modified when not using query par
 <p>Returns information about the current account, all account columns are returned except the secret and other table columns with the property <code>priv</code></p>
 <p>Response:</p>
 <pre><code>      { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
-      &quot;name&quot;: &quot;Test User&quot;,
-      &quot;mtime&quot;: 1391824028,
-      &quot;login&quot;: &quot;testuser&quot;,
-      &quot;type&quot;: [&quot;user&quot;],
+        &quot;name&quot;: &quot;Test User&quot;,
+        &quot;mtime&quot;: 1391824028,
+        &quot;login&quot;: &quot;testuser&quot;,
+        &quot;type&quot;: [&quot;admin&quot;],
       }
 </code></pre>
 <p>How to make an account as admin</p>
@@ -3379,7 +3296,13 @@ The options can specify the following:</p>
 
 <ul>
 <li><p><code>aws.elb2RegisterInstances(target, instance, options, callback)</code></p>
-<p>  Register an instance(s) with ELB, instance can be one id or a list of ids</p>
+<p>  Register an instance(s) with ELB, instance can be one id or a list of ids or IP addresses</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>aws.elb2DeregisterInstances(target, instance, options, callback)</code></p>
+<p>  Deregister an instance(s) from ELB, instance can be one id or a list of ids</p>
 </li>
 </ul>
 
@@ -4103,7 +4026,7 @@ otherwise it is already locked by other instance. In case of an error the lock i
 <li><code>master</code>, type: &quot;none&quot;, descr: &quot;Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server in separate process, keeps track of failed processes and restarts them&quot;</li>
 <li><code>worker</code>, type: &quot;bool&quot;, descr: &quot;Set this process as a worker even it is actually a master, this skips some initializations&quot;</li>
 <li><code>no</code>, type: &quot;callback&quot;, callback: function(v) { lib.toFlags(&quot;add&quot;, this.none, lib.strSplit(v))  descr: &quot;List of subsystems to disable instead of using many inidividual -no-NNN parameters&quot;, pass: 1</li>
-<li><code>no-([a-z]+)</code>, type: &quot;callback&quot;, callback: function(v,o) { lib.toFlags(&quot;add&quot;, this.none, o.name)  strip: &quot;no-&quot;, nocamel: 1, descr: &quot;Do not start or disbale a service, matser, web, dns, jobs, ipc, db, dbconf, locales, watch, modules, packages, configure&quot;, pass: 1</li>
+<li><code>no-([a-z]+)</code>, type: &quot;callback&quot;, callback: function(v,o) { lib.toFlags(&quot;add&quot;, this.none, o.name)  strip: &quot;no-&quot;, nocamel: 1, descr: &quot;Do not start or disbale a service, master, web, jobs, ipc, db, dbconf, locales, watch, modules, packages, configure&quot;, pass: 1</li>
 <li><code>ok-(.+)</code>, type: &quot;callback&quot;, callback: function(v,o) { lib.toFlags(&quot;del&quot;, this.none, o.name)  strip: &quot;ok-&quot;, nocamel: 1, descr: &quot;Enable disabled service, opposite of -no&quot;, pass: 1</li>
 <li><code>repl-port-([a-z]+)$</code>, type: &quot;number&quot;, obj: &quot;repl&quot;, make: &quot;$1Port&quot;, min: 1001, descr: &quot;Base REPL port for process role (server, master, web, worker), if specified it initializes REPL in the processes, for workers the port is computed by adding a worker id to the base port, for example if specified <code>-repl-port-web 2090</code> then a web worker will use any available 2091,2092...&quot;</li>
 <li><code>repl-bind</code>, obj: &quot;repl&quot;, descr: &quot;Listen only on specified address for REPL server in the master process&quot;</li>
@@ -9122,8 +9045,9 @@ the options is the message passed to the listener</p>
 </ul>
 
 <ul>
-<li><p><code>server.start()</code></p>
-<p>  Start the server process, call the callback to perform some initialization before launchng any server, just after core.init</p>
+<li><p><code>server.start(options)</code></p>
+<p>  Start the server process, run <code>core.init</code> before switching to the requested role.
+The options can be used to set the role instead of command line args: shell, master, watch, api, worker</p>
 </li>
 </ul>
 
