@@ -150,13 +150,15 @@ described below and serve static assets from the web/ folder.</p>
 at <a href="http://localhost:8000/doc.html#module-api">docs</a>.</p>
 </li>
 <li><p>No database driver is enabled by default so here are examples to load local PostgreSQL, dynamoDB or Elasticsearch</p>
-<pre><code>  bkjs run -api -db-pool pg -db-pg-pool default
-  bkjs run -api -db-pool dynamodb -db-dynamodb-pool default
-  bkjs run -api -db-pool elasticsearch -db-elasticsearch-pool default
+<pre><code>  bkjs run -api -db-pool sqlite -db-sqlite-pool
+  bkjs run -api -db-pool pg -db-pg-pool
+  bkjs run -api -db-pool dynamodb -db-dynamodb-pool
+  bkjs run -api -db-pool elasticsearch -db-elasticsearch-pool
 </code></pre>
 </li>
 <li><p>All command line parameters from the above can be saved in the <code>~.bkjs/etc/config.local</code> making pg the default database</p>
-<pre><code>  db-pool=pg
+<pre><code>  db-pool=sqlite
+  db-sqlite-pool=default
   db-pg-pool=default
   db-dynamdb-pool=default
   db-elasticsearch-pool=default
@@ -166,22 +168,24 @@ at <a href="http://localhost:8000/doc.html#module-api">docs</a>.</p>
 <pre><code>  bkjs shell
 </code></pre>
 </li>
-<li><p>Here is preview how the database can be accessed using internal DB methods</p>
-<pre><code>  &gt; db.select(&quot;bk_user&quot;, {}, lib.log);
-  &gt; db.add(&quot;bk_user&quot;, { id: &#39;test2&#39;, login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39; }, lib.log);
-  &gt; db.select(&quot;bk_user&quot;, { id: &#39;test2&#39; }, lib.log);
-  &gt; db.select(&quot;bk_user&quot;, { id: [&#39;test1&#39;,&#39;test2&#39;] }, { ops: { id: &quot;in&quot; } }, lib.log);
+<li><p>Here is preview how the database can be accessed using internal DB methods with native Sqlite module:</p>
+<pre><code>  bkjs shell -db-sqlite-pool -db-pool sqlite -db-create-tables
+
+  &gt; db.select(&quot;bk_user&quot;, {}, lib.log);
+  &gt; db.add(&quot;bk_user&quot;, { login: &#39;test2&#39;, name: &#39;Test2 name&#39; }, lib.log);
+  &gt; db.select(&quot;bk_user&quot;, { login: &#39;test2&#39; }, lib.log);
+  &gt; db.select(&quot;bk_user&quot;, { login: [&#39;test1&#39;,&#39;test2&#39;] }, { ops: { login: &quot;in&quot; } }, lib.log);
 </code></pre>
 </li>
 </ul>
 <p>or the same using async/await, same methods with <code>a</code> prepended to the name</p>
 <pre><code>    &gt; await db.aselect(&quot;bk_user&quot;, {});
-    &gt; await db.aadd(&quot;bk_user&quot;, { id: &#39;test2&#39;, login: &#39;test2&#39;, secret: &#39;test2&#39;, name&#39; Test 2 name&#39; });
-    &gt; await db.aselect(&quot;bk_user&quot;, { id: &#39;test2&#39; });
+    &gt; await db.aadd(&quot;bk_user&quot;, { login: &#39;test2&#39;, name: &#39;Test2 name&#39; });
+    &gt; await db.aselect(&quot;bk_user&quot;, { login: &#39;test2&#39; });
 </code></pre>
 <ul>
 <li><p>To search using Elasticsearch full text capabilities</p>
-<pre><code>  &gt; await db.select(&quot;bk_user&quot;, { q: &#39;test&#39; }, { pool: &quot;elasticsearch&quot; });
+<pre><code>  &gt; await db.aselect(&quot;bk_user&quot;, { q: &#39;test&#39; }, { pool: &quot;elasticsearch&quot; });
 </code></pre>
 </li>
 </ul>
@@ -3727,6 +3731,8 @@ The options can specify the following:</p>
 <p>  All methods use <code>options.cacheName</code> for non-default cache.
   If it is an array then a client will be picked sequentially by maintaining internal sequence number.</p>
 <p>  Empty <code>default</code> client always exists, it can be overridden to make default some other driver</p>
+<p>  All public <code>cache.get|put|incr|del|lock|unlock|limiter</code> operations have corresponding promisifed methods
+  starting with <code>a</code>, like <code>cache.get</code> -&gt; <code>cache.aget</code>.</p>
 <p>  To enable stats collection for a cache it must be enabled</p>
 <pre><code>   cache-redis-options-metrics=1
 </code></pre>
@@ -3842,7 +3848,7 @@ are returned.</p>
 <ul>
 <li><code>options.ttl</code> can be passed in milliseconds if the driver supports it</li>
 <li><code>options.mapName</code> defines a map where the counter will be stored if the cache supports maps, to store the whole map in one
- operation the <code>key</code> must be set to * and the <code>val</code> must be an object</li>
+ operation the <code>key</code> must be empty or * and the <code>val</code> must be an object</li>
 <li><code>options.setmax</code> if not empty tell the driver to set this new number only if there is no existing
 value or it is less that the new number, only works for numeric values</li>
 <li><code>options.listName</code> defines a list where to add items, <code>val</code> can be a value or an array of values, <code>key</code> is ignored in this case</li>
@@ -3864,15 +3870,21 @@ error and the new value will be returned.</p>
 <ul>
 <li><code>options.ttl</code> in milliseconds can be used if the driver supports it</li>
 <li><code>options.mapName</code> defines a map where the counter will be stored if the cache supports maps</li>
-<li><code>options.returning</code> - return old or new map object, if <code>new or *</code> it will be the first item in the result array, if `old`` the last</li>
-<li>if <code>val</code> is an object then the key is treated as a map and all numeric properties will be incremented, other properties just set,
-this is the same as to set key to &#39;*&#39; and define mapName in the options</li>
+<li><code>options.returning</code> - return old or new map object, if <code>new or *</code> it will be the first item in the result array, if `old`` the last,
+ to return all values for multi updates must be provided, otherwise only first result by default.</li>
+<li>if <code>val</code> is an object then all numeric properties will be incremented, other properties just set.</li>
+<li>if <code>val</code> is an object then either <code>mapName</code> or non empty <code>key</code> is used for map</li>
+<li>if <code>val</code> is an object and the <code>key</code> is empty then all properties are treated as standalone items</li>
+<li>if <code>key</code> is an array then increment each item in the list with given <code>val</code> number,
+  in this case <code>ttl</code> can be an array as well with specific ttl per key</li>
 </ul>
 <p>Example:</p>
 <pre><code>   cache.incr(&quot;my:key&quot;, 1)
-   cache.incr(&quot;count&quot;, 1, { mapName: &quot;my:map&quot; })
+   cache.incr(&quot;counter&quot;, 1, { mapName: &quot;my:map&quot; })
    cache.incr(&quot;my:map&quot;, { count: 1, name: &quot;aaa&quot;, mtime: Date.now().toString() })
-   cache.incr(&quot;*&quot;, { count: 1, name: &quot;bbb&quot;, mtime: Date.now().toString() }, { mapName: &quot;my:map&quot; })
+   cache.incr(&quot;&quot;, { count: 1, name: &quot;bbb&quot;, mtime: Date.now().toString() }, { mapName: &quot;my:map&quot; })
+   cache.incr(&quot;&quot;, { &quot;my-key&quot;: 1, counter2: 2 })
+   cache.incr([ &quot;my:key&quot;, &quot;my:counter&quot;], 1 }, { ttl: [1000, 30000] })
 </code></pre>
 </li>
 </ul>
@@ -4445,6 +4457,7 @@ Options properties:</p>
      db-dynamodb-pool-tables = bk_config
 </code></pre>
 <p>  The following databases are supported with the basic db API methods: Sqlite, PostgreSQL, DynamoDB, Elasticsearch</p>
+<p>  All public <code>db.get|put|update|del|select|list</code> operations have corresponding promisifed method starting with <code>a</code>, like <code>db.get</code> -&gt; <code>db.aget</code>,...</p>
 <p>  Multiple connections of the same type can be opened, just add <code>N</code> suffix to all database config parameters where N is a number,
   referer to such pools in the code as <code>poolN</code> or by an alias.</p>
 <p>  Example:</p>
@@ -4462,7 +4475,7 @@ Options properties:</p>
 <p>  To enable stats collection for a pool it must be explicitly set via config options:</p>
 <pre><code>     db-dynamodb-pool-options-metrics = 1
 </code></pre>
-<p>  Additionally collest statsd individually for a list of tables</p>
+<p>  Additionally collest stats individually for a list of tables</p>
 <pre><code>     db-dynamodb-pool-metrics-tables = bk_config, bk_user
 </code></pre>
 

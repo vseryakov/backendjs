@@ -22508,6 +22508,7 @@ bootpopup.inputs = [];
     path = path.join("/");
     app.trace("savePath:", path, options);
     if (!path) return;
+    app.emit("path:push", window.location.origin + app.base + path);
     window.history.pushState(null, "", window.location.origin + app.base + path);
   };
   app.restorePath = (path) => {
@@ -22598,9 +22599,6 @@ bootpopup.inputs = [];
   // src/alpine.js
   var _alpine = "alpine";
   var Component = class {
-    // x-template dynamic rendering
-    template = "";
-    // Render options
     params = {};
     static $type = _alpine;
     constructor(name, params) {
@@ -22709,7 +22707,7 @@ bootpopup.inputs = [];
       });
     });
     Alpine.directive("template", (el, { expression }, { effect, cleanup }) => {
-      const evaluate = Alpine.evaluateLater(el, expression || "template");
+      const evaluate = Alpine.evaluateLater(el, expression);
       var template;
       const hide = () => {
         template = null;

@@ -63,13 +63,15 @@ To install from the git because NPM versions are always behind the cutting edge:
 
 * No database driver is enabled by default so here are examples to load local PostgreSQL, dynamoDB or Elasticsearch
 
-        bkjs run -api -db-pool pg -db-pg-pool default
-        bkjs run -api -db-pool dynamodb -db-dynamodb-pool default
-        bkjs run -api -db-pool elasticsearch -db-elasticsearch-pool default
+        bkjs run -api -db-pool sqlite -db-sqlite-pool
+        bkjs run -api -db-pool pg -db-pg-pool
+        bkjs run -api -db-pool dynamodb -db-dynamodb-pool
+        bkjs run -api -db-pool elasticsearch -db-elasticsearch-pool
 
 * All command line parameters from the above can be saved in the `~.bkjs/etc/config.local` making pg the default database
 
-        db-pool=pg
+        db-pool=sqlite
+        db-sqlite-pool=default
         db-pg-pool=default
         db-dynamdb-pool=default
         db-elasticsearch-pool=default
@@ -78,22 +80,24 @@ To install from the git because NPM versions are always behind the cutting edge:
 
         bkjs shell
 
-* Here is preview how the database can be accessed using internal DB methods
+* Here is preview how the database can be accessed using internal DB methods with native Sqlite module:
+
+        bkjs shell -db-sqlite-pool -db-pool sqlite -db-create-tables
 
         > db.select("bk_user", {}, lib.log);
-        > db.add("bk_user", { id: 'test2', login: 'test2', secret: 'test2', name' Test 2 name' }, lib.log);
-        > db.select("bk_user", { id: 'test2' }, lib.log);
-        > db.select("bk_user", { id: ['test1','test2'] }, { ops: { id: "in" } }, lib.log);
+        > db.add("bk_user", { login: 'test2', name: 'Test2 name' }, lib.log);
+        > db.select("bk_user", { login: 'test2' }, lib.log);
+        > db.select("bk_user", { login: ['test1','test2'] }, { ops: { login: "in" } }, lib.log);
 
 or the same using async/await, same methods with `a` prepended to the name
 
         > await db.aselect("bk_user", {});
-        > await db.aadd("bk_user", { id: 'test2', login: 'test2', secret: 'test2', name' Test 2 name' });
-        > await db.aselect("bk_user", { id: 'test2' });
+        > await db.aadd("bk_user", { login: 'test2', name: 'Test2 name' });
+        > await db.aselect("bk_user", { login: 'test2' });
 
 * To search using Elasticsearch full text capabilities
 
-        > await db.select("bk_user", { q: 'test' }, { pool: "elasticsearch" });
+        > await db.aselect("bk_user", { q: 'test' }, { pool: "elasticsearch" });
 
 ## To run an example
 

@@ -7,8 +7,13 @@ var fs = require('fs')
 var path = require("path");
 
 var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && x.match(/\.js$/); });
-files = files.concat(fs.readdirSync("lib/").filter(function(x) { return fs.statSync("lib/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "lib/" + x }));
-files = files.concat(fs.readdirSync("modules/").filter(function(x) { return fs.statSync("modules/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "modules/" + x }));
+
+try {
+    files = files.concat(fs.readdirSync("lib/").filter(function(x) { return fs.statSync("lib/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "lib/" + x }));
+} catch (e) {}
+try {
+    files = files.concat(fs.readdirSync("modules/").filter(function(x) { return fs.statSync("modules/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "modules/" + x }));
+} catch (e) {}
 
 var text = "";
 
