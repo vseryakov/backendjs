@@ -254,8 +254,16 @@ The primary way to add functionality to the backend is via external modules spec
 home subdirectory `modules/`. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
-can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the `core.modules` the same way as all other core submodules
-methods.
+can be shipped regardless of the npm, node modules and other env setup.
+
+All modules are exposed in the `core.modules` map. This is a way for global access to modules by name.
+
+By having module names contain dots it is possible to create a module hierarchy, for example
+modules with names `billing.invoices`, `billing.payable`, `billing.stripe` can be accessed like this:
+
+      core.modules.billing.invoices....
+      core.modules.billing.payable...
+      core.modules.billing.stripe...
 
 Let's assume the `modules/` contains file facebook.js which implements custom FB logic:
 
