@@ -320,8 +320,15 @@ the application is structured but has predefined conventions to make it easy.</p
 <p>The primary way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
 home subdirectory <code>modules/</code>. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.</p>
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
-can be shipped regardless of the npm, node modules and other env setup. These modules are exposed in the <code>core.modules</code> the same way as all other core submodules
-methods.</p>
+can be shipped regardless of the npm, node modules and other env setup.</p>
+<p>All modules are exposed in the top level <code>modules</code> module or legacy <code>core.modules</code>. This is a way for global access to modules by name.</p>
+<p>By having module names contain dots it is possible to create a module hierarchy, for example
+modules with names <code>billing.invoices</code>, <code>billing.payable</code>, <code>billing.stripe</code> can be accessed like this:</p>
+<pre><code>  const { modules } = require(&quot;backendjs&quot;);
+  modules.billing.invoices....
+  modules.billing.payable...
+  modules.billing.stripe...
+</code></pre>
 <p>Let&#39;s assume the <code>modules/</code> contains file facebook.js which implements custom FB logic:</p>
 <pre><code class="language-javascript">    const { core } = require(&quot;backendjs&quot;);
 
@@ -342,12 +349,12 @@ methods.</p>
     }
 </code></pre>
 <p>This is the main app code:</p>
-<pre><code class="language-javascript">    const { api, core, server } = require(&quot;backendjs&quot;);
+<pre><code class="language-javascript">    const { api, modules, server } = require(&quot;backendjs&quot;);
 
     // Using facebook module in the main app
     api.app.get(&quot;/me&quot;, (req, res) =&gt; {
 
-       core.modules.facebook.makeRequest({ path: &quot;/me&quot; }, (err, data) =&gt; {
+       modules.facebook.makeRequest({ path: &quot;/me&quot; }, (err, data) =&gt; {
           api.sendJSON(req, err, data);
        });
     });
@@ -4088,18 +4095,6 @@ the database config may have overrides or other dynamic parameters that can be c
 </ul>
 
 <ul>
-<li><p><code>core.run(options, callback)</code></p>
-<p>  Run any backend function after environment has been initialized, this is to be used in shell scripts,
-core.init will parse all command line arguments, the simplest case to run from /data directory and it will use
-default environment or pass -home dir so the script will reuse same config and paths as the server
-context can be specified for the callback, if no then it run in the core context</p>
-<ul>
-<li>require(&#39;backendjs&#39;).run(function() {}) is one example where this call is used as a shortcut for ad-hoc scripting</li>
-</ul>
-</li>
-</ul>
-
-<ul>
 <li><p><code>core.exit(code, msg)</code></p>
 <p>  Exit the process with possible message to be displayed and status code</p>
 </li>
@@ -4129,18 +4124,27 @@ specify the conditions or parameters which wil be used by the `runMethods`` only
 
 <ul>
 <li><p><code>core.addModule(...args)</code></p>
-<p>  Adds reference to the objects in the core for further access, specify module name, module reference pairs.
-This is used the the core itcore to register all internal modules and makes it available in the shell and in the <code>core.modules</code> object.</p>
+<p>  Adds reference to the objects in the core for further access.
+This is used in the core to register all internal modules and makes it available in the shell and in the <code>core.modules</code> object.</p>
+<p>If module name starts with underscore it is silently ignored. Empty names are not allowed and reported.</p>
+<p>Module name can dontain dots, meaning to place the module under hierarchy of namespaces.
+Intermediate objects must not be existing modules.</p>
+<pre><code> const { modules } = require(&quot;backendjs&quot;);
+ const mymod = { name: &quot;billing.invoices&quot;, request: () =&gt; { ... } }
+ core.addModule(mymod);
+
+ modules.billing.invoices.request({ ... });
+</code></pre>
 <p>Also this is used when creating modular backend application by separating the logic into different modules, by registering such
 modules with the core it makes the module a first class citizen in the backendjs core and exposes all the callbacks and methods.</p>
 <p>For example, the module below will register API routes and some methods</p>
-<pre><code>  const bkjs = require(&quot;backendjs&quot;);
+<pre><code>  const { api, core } = require(&quot;backendjs&quot;);
   const mymod = { name: &quot;mymod&quot; }
   exports.module = mymod;
   core.addModule(mymod);
 
   mymod.configureWeb = function(options, callback) {
-     bkjs.api.app.all(&quot;/mymod&quot;, function(req, res) {
+     api.app.all(&quot;/mymod&quot;, (req, res) =&gt; {
           res.json({});
      });
   }
@@ -4163,9 +4167,12 @@ modules with the core it makes the module a first class citizen in the backendjs
 <code>init</code> method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
 called on startup, not dynamically during a request processing.</p>
 <p>Only .js files from top level are loaded by default unless the depth is provided. <code>core.addModule</code> is called automatically.</p>
-<p>Each module is put in the global <code>core.modules`` object by name, the name can be a property </code>name` or the module base file name.</p>
+<p>Each module is put in the top level <code>modules</code> registry or legacy <code>core.modules</code> by name, the name can
+be a property <code>name</code> or the module base file name. Module names starting with underscore will not be added to the registry.</p>
+<p>If a module name contains dots it means nested hierarchy, all intermediate objects will be created automatically. Nested
+names allow a better separation of modules and name collisions.</p>
 <p>Modules can be sorted by a priority, if .priority property is defined in the module it will be used to sort the modules, the higher priority the
-closer to the top the module will be. The position of a module in the <code>core.modules</code> will define the order <code>runMethods</code> will call.</p>
+closer to the top the module will be. The position of a module in the <code>modules</code> registry will define the order of <code>runMethod</code> call.</p>
 <p>it uses lib.findFileSync to locate the modules, options <code>depth</code>, <code>include or </code>exclude` can be provided</p>
 <p><strong>Caution must be taken for module naming, it is possible to override any default bkjs module which will result in unexpected behaviour</strong></p>
 <p> Example, to load all modules from the local relative directory</p>
