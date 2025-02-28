@@ -1,4 +1,4 @@
-/* global lib logger cache */
+/* global lib logger cache sleep */
 
 tests.test_cache = function(callback, test)
 {
@@ -107,24 +107,17 @@ tests.test_cache = function(callback, test)
             });
         },
         async function(next) {
-            await cache.del(["counter1","counter2"]);
+            await cache.adel(["counter1","counter2"], opts);
             var rc = await cache.aincr(["counter1","counter2"], 1, Object.assign({ returning: "*" }, opts));
             expect(rc?.length == 2 && rc[0] === 1 && rc[1] === 1, "expect rc[1,1], got", rc);
             next();
         },
         async function(next) {
-          await cache.del(["counter1","counter2"]);
+          await cache.adel(["counter1","counter2"], opts);
           var rc = await cache.aincr("", { counter1: 1, counter2: 2 }, Object.assign({ returning: "*" }, opts));
           expect(rc?.length == 2 && rc[0] === 1 && rc[1] === 2, "expect rc[1,2], got", rc);
           next();
       },
-    ], (err) => {
-        if (!err) return callback();
-        lib.forEachSeries(["a","b","c"], (key, next) => {
-            cache.get(key, opts, (e, val) => { logger.info(key, val); next(); })
-        }, () => {
-            callback(err);
-        });
-    }, true);
+    ], callback);
 }
 
