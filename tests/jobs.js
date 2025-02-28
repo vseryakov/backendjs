@@ -23,7 +23,7 @@ tests.test_jobs = async function(callback, test)
     await sleep(1000)
 
     // jobs.cancelJob only sends to workers so we send to all shells explicitly
-    ipc.broadcast(core.name + ":" + core.role, ipc.newMsg("jobs:cancel", { key: process.pid }));
+    ipc.broadcast(":" + core.role, ipc.newMsg("jobs:cancel", { key: process.pid }));
     await sleep(1000);
 
     data = lib.readFileSync(file);
