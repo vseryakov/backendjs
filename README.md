@@ -130,7 +130,6 @@ Here is the list of modules for each internal feature:
 - `@parse/node-apn` - for Apple push notifications
 - `sharp` - scaling images in uploads using VPS imaging
 - `nats` - NATS driver for queue and events
-- `mmmagic` - file detection in uploads, only used when `allow` is passed to the `api.putFile`
 
 The command below will show all core and optional dependencies, `npm install` will install only the core dependencies
 

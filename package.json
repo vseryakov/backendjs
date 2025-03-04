@@ -1,5 +1,5 @@
 {
-  "version": "0.180.0",
+  "version": "0.181.0",
   "type": "commonjs",
   "author": "Vlad Seryakov",
   "name": "backendjs",
@@ -29,7 +29,6 @@
   },
   "modDependencies": {
     "bcrypt": "5.1.1",
-    "mmmagic": "0.5.3",
     "nats": "2.29.1",
     "pg": "8.13.3",
     "redis": "3.1.2",
