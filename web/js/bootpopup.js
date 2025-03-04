@@ -642,13 +642,13 @@ function bootpopup(...args)
             self.modal.remove();
             bootstrap.Modal.getInstance(self.modal)?.dispose();
             delete self.options.data;
-            delete self.options.xdata;
+            delete self.xdata;
         });
     }
 
     this.show = function() {
         if (app.isO(this.options.xdata)) {
-            var xdata = this.options.xdata = Alpine.reactive(this.options.xdata);
+            var xdata = this.xdata = Alpine.reactive(this.options.xdata);
             Alpine.addScopeToNode(this.modal, xdata, app.isE(this.options.xscope));
             Alpine.initTree(this.modal);
             Alpine.onElRemoved(this.modal, () => {

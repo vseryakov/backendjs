@@ -22189,13 +22189,13 @@ function bootpopup(...args)
             self.modal.remove();
             bootstrap.Modal.getInstance(self.modal)?.dispose();
             delete self.options.data;
-            delete self.options.xdata;
+            delete self.xdata;
         });
     }
 
     this.show = function() {
         if (app.isO(this.options.xdata)) {
-            var xdata = this.options.xdata = Alpine.reactive(this.options.xdata);
+            var xdata = this.xdata = Alpine.reactive(this.options.xdata);
             Alpine.addScopeToNode(this.modal, xdata, app.isE(this.options.xscope));
             Alpine.initTree(this.modal);
             Alpine.onElRemoved(this.modal, () => {
@@ -22679,7 +22679,7 @@ bootpopup.inputs = [];
   }
   function data(element, level) {
     if (!isElement(element)) element = app.$(app.main + " div");
-    if (!element || element._x_ignore) return;
+    if (!element) return;
     if (typeof level == "number") return element._x_dataStack?.at(level);
     return Alpine.closestDataStack(element)[0];
   }
@@ -22724,11 +22724,15 @@ bootpopup.inputs = [];
         if (value !== template) {
           if (render(el, value)) {
             if (modifiers.includes("show")) {
-              el.style.setProperty(
-                "display",
-                modifiers.includes("flex") ? "flex" : modifiers.includes("inline") ? "inline-block" : "block",
-                modifiers.includes("important") ? "important" : void 0
-              );
+              if (modifiers.includes("nonempty") && !el.firstChild) {
+                el.style.setProperty("display", "none", modifiers.includes("important") ? "important" : void 0);
+              } else {
+                el.style.setProperty(
+                  "display",
+                  modifiers.includes("flex") ? "flex" : modifiers.includes("inline") ? "inline-block" : "block",
+                  modifiers.includes("important") ? "important" : void 0
+                );
+              }
             }
           }
         }

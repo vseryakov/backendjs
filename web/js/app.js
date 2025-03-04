@@ -360,7 +360,7 @@
   }
   function data(element, level) {
     if (!isElement(element)) element = app.$(app.main + " div");
-    if (!element || element._x_ignore) return;
+    if (!element) return;
     if (typeof level == "number") return element._x_dataStack?.at(level);
     return Alpine.closestDataStack(element)[0];
   }
@@ -405,11 +405,15 @@
         if (value !== template) {
           if (render(el, value)) {
             if (modifiers.includes("show")) {
-              el.style.setProperty(
-                "display",
-                modifiers.includes("flex") ? "flex" : modifiers.includes("inline") ? "inline-block" : "block",
-                modifiers.includes("important") ? "important" : void 0
-              );
+              if (modifiers.includes("nonempty") && !el.firstChild) {
+                el.style.setProperty("display", "none", modifiers.includes("important") ? "important" : void 0);
+              } else {
+                el.style.setProperty(
+                  "display",
+                  modifiers.includes("flex") ? "flex" : modifiers.includes("inline") ? "inline-block" : "block",
+                  modifiers.includes("important") ? "important" : void 0
+                );
+              }
             }
           }
         }
