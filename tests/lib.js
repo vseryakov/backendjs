@@ -595,6 +595,12 @@ tests.test_totemplate = function(callback, test)
     m = lib.toTemplate("/@aaa@", { aaa: { a: 1, b: 2 } });
     expect(m == `/{"a":1,"b":2}`, `expected /{"a":1,"b":2}`, "got", m)
 
+    m = lib.toTemplate("@if code A@@code@@else@ELSE@endif@", { code: "A" });
+    expect(m == "A", "expected A", "got", m)
+
+    m = lib.toTemplate("@if code A@@code@@else@ELSE@endif@", { code: "B" });
+    expect(m == "ELSE", "expected ELSe", "got", m)
+
     callback();
 }
 

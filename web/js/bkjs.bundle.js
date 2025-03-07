@@ -23681,10 +23681,17 @@ app.toNumber = function(val, options)
 // Return a test representation of a number according to the money formatting rules
 app.toPrice = function(num, options)
 {
-    return app.toNumber(num).toLocaleString("en", {
-        minimumFractionDigits: options?.min || 2,
-        maximumFractionDigits: options?.max || 5
-    });
+    try {
+        return this.toNumber(num).toLocaleString(options?.locale || "en-US", { style: 'currency',
+            currency: options?.currency || 'USD',
+            currencyDisplay: options?.display || "symbol",
+            currencySign: options?.sign || "standard",
+            minimumFractionDigits: options?.min || 2,
+            maximumFractionDigits: options?.max || 5 });
+    } catch (e) {
+        console.error("toPrice:", e, num, options);
+        return "";
+    }
 }
 
 app.toValue = function(val, type, options)
@@ -23790,6 +23797,9 @@ app.toTemplate = function(text, obj, options)
             case "mtime":
                 v = app.toDate(v, null);
                 if (!v) v = 0;
+                break;
+            case "price":
+                v = app.toPrice(v, options);
                 break;
             }
         } catch (e) {}

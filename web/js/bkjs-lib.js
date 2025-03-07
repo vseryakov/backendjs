@@ -705,10 +705,17 @@ app.toNumber = function(val, options)
 // Return a test representation of a number according to the money formatting rules
 app.toPrice = function(num, options)
 {
-    return app.toNumber(num).toLocaleString("en", {
-        minimumFractionDigits: options?.min || 2,
-        maximumFractionDigits: options?.max || 5
-    });
+    try {
+        return this.toNumber(num).toLocaleString(options?.locale || "en-US", { style: 'currency',
+            currency: options?.currency || 'USD',
+            currencyDisplay: options?.display || "symbol",
+            currencySign: options?.sign || "standard",
+            minimumFractionDigits: options?.min || 2,
+            maximumFractionDigits: options?.max || 5 });
+    } catch (e) {
+        console.error("toPrice:", e, num, options);
+        return "";
+    }
 }
 
 app.toValue = function(val, type, options)
@@ -814,6 +821,9 @@ app.toTemplate = function(text, obj, options)
             case "mtime":
                 v = app.toDate(v, null);
                 if (!v) v = 0;
+                break;
+            case "price":
+                v = app.toPrice(v, options);
                 break;
             }
         } catch (e) {}
@@ -941,9 +951,14 @@ function _toTemplate(text, obj, options, encoder)
                 ok = val <= d[3];
                 break;
             }
+            end = body.indexOf(sep1 + "else" + sep2);
             if (ok) {
+                if (end > -1) body = body.substr(0, end);
                 v = app.toTemplate(body, rc, options);
-                tag = d[2];
+            } else
+            if (end > -1) {
+                body = body.substr(end + 4 + sep1.length + sep2.length);
+                v = app.toTemplate(body, rc, options);
             }
         } else {
             d = tag.match(/^([a-zA-Z0-9._-]+)(\|.+)?$/);
