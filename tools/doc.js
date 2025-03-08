@@ -77,9 +77,10 @@ if (lib.isArg("-md")) {
 } else {
     marked.setOptions({ gfm: true, tables: true, breaks: false, pedantic: false, smartLists: true });
     marked.use({ renderer: {
-        heading(text, level) {
-            var id = text.toLowerCase().trim().replace(/[^\w]+/g, '-');
-            return `<h${level} id="${id}">${text}</h${level}>\n`;
+        heading({ tokens, depth }) {
+            const text = this.parser.parseInline(tokens);
+            const id = text.toLowerCase().trim().replace(/[^\w]+/g, '-');
+            return `<h${depth} id="${id}">${text}</h${depth}>\n`;
         }
     } });
 }
