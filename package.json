@@ -21,7 +21,7 @@
     "mime-types": "2.1.35",
     "nodemailer": "6.10.0",
     "qs": "6.14.0",
-    "ws": "8.18.0",
+    "ws": "8.18.1",
     "xml2json": "0.12.0"
   },
   "devDependencies": {
@@ -29,8 +29,8 @@
   },
   "modDependencies": {
     "bcrypt": "5.1.1",
-    "nats": "2.29.1",
-    "pg": "8.13.3",
+    "nats": "2.29.2",
+    "pg": "8.14.0",
     "redis": "3.1.2",
     "sharp": "0.33.5",
     "unix-dgram": "2.0.6",
@@ -95,7 +95,6 @@
           "web/js/alpine.js"
         ],
         "js.dev": [
-          "web/js/jquery3.slim.js",
           "web/js/popper2.js",
           "web/js/bootstrap.js",
           "web/js/knockout.js",

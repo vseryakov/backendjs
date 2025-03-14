@@ -110,13 +110,19 @@ tests.test_cache = function(callback, test)
             await cache.adel(["counter1","counter2"], opts);
             var rc = await cache.aincr(["counter1","counter2"], 1, Object.assign({ returning: "*" }, opts));
             expect(rc?.length == 2 && rc[0] === 1 && rc[1] === 1, "expect rc[1,1], got", rc);
+
+            rc = await cache.aincr(["counter1","counter2"], 1, Object.assign({ ttl: [100], returning: "*" }, opts));
+            expect(rc?.length == 2 && rc[0] === 2 && rc[1] === 2, "expect rc[2,2], got", rc);
+
+            await sleep(200);
+
+            rc = await cache.aincr("", { counter1: 1, counter2: 2 }, Object.assign({ returning: "*" }, opts));
+            expect(rc?.length == 2 && rc[0] === 1 && rc[1] === 4, "expect rc[1,4], got", rc);
+
+            rc = await cache.aincr("", { counter1: 1, counter2: 2 }, Object.assign({ ttl: { counter1: 1000 }, returning: "*" }, opts));
+            expect(rc?.length == 2 && rc[0] === 2 && rc[1] === 6, "expect rc[2,6], got", rc);
+
             next();
-        },
-        async function(next) {
-          await cache.adel(["counter1","counter2"], opts);
-          var rc = await cache.aincr("", { counter1: 1, counter2: 2 }, Object.assign({ returning: "*" }, opts));
-          expect(rc?.length == 2 && rc[0] === 1 && rc[1] === 2, "expect rc[1,2], got", rc);
-          next();
       },
     ], callback);
 }
