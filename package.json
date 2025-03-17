@@ -77,7 +77,6 @@
     "bundles": {
       "bkjs": {
         "js": [
-          "web/js/jquery3.slim.min.js",
           "web/js/popper2.min.js",
           "web/js/bootstrap.min.js",
           "web/js/knockout.min.js",

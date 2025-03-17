@@ -65,7 +65,7 @@
     if (i > -1) return _events[event].splice(i, 1);
   };
   app.emit = (event, ...args) => {
-    app.trace("emit:", event, ...args);
+    app.trace("emit:", event, ...args, app.debug > 1 && _events[event]);
     if (_events[event]) {
       for (const cb of _events[event]) cb(...args);
     } else if (isString(event) && event.endsWith(":*")) {
@@ -286,11 +286,13 @@
       this.$name = name;
       Object.assign(this.params, params);
       this._handleEvent = this.handleEvent.bind(this);
+      this._onCreate = this.onCreate || null;
+      this._onDelete = this.onDelete || null;
     }
     init() {
       app.trace("init:", this.$name);
       Object.assign(this.params, this.$el._x_params);
-      app.call(this.onCreate?.bind(this));
+      app.call(this._onCreate?.bind(this));
       if (!this.params.$noevents) {
         app.on(app.event, this._handleEvent);
       }
@@ -300,7 +302,7 @@
       app.trace("destroy:", this.$name);
       app.off(app.event, this._handleEvent);
       app.emit("component:delete", { type: _alpine, name: this.$name, component: this, element: this.$el, params: Alpine.raw(this.params) });
-      app.call(this.onDelete?.bind(this));
+      app.call(this._onDelete?.bind(this));
       this.params = {};
     }
     handleEvent(event, ...args) {

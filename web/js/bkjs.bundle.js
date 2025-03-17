@@ -12982,6 +12982,7 @@ function bootpopup(...args)
         footer: [],
         onsubmit: "close",
         buttons: ["close"],
+        attrs_modal: null,
         class_h: "",
         class_modal: "modal fade",
         class_dialog: "modal-dialog",
@@ -13082,6 +13083,7 @@ function bootpopup(...args)
         var opts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", "aria-labelledby": "a" + this.formid, "aria-hidden": true };
         if (this.options.backdrop !== true) opts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
         if (!this.options.keyboard) opts["data-bs-keyboard"] = false;
+        for (const p in this.options.attrs_modal) opts[p] = this.options.attrs_modal[p];
 
         this.modal = app.$elem('div', opts, eventOpts);
         this.dialog = app.$elem('div', { class: class_dialog, role: "document" });
@@ -13767,7 +13769,7 @@ bootpopup.inputs = [];
     if (i > -1) return _events[event].splice(i, 1);
   };
   app.emit = (event, ...args) => {
-    app.trace("emit:", event, ...args);
+    app.trace("emit:", event, ...args, app.debug > 1 && _events[event]);
     if (_events[event]) {
       for (const cb of _events[event]) cb(...args);
     } else if (isString(event) && event.endsWith(":*")) {
@@ -13988,11 +13990,13 @@ bootpopup.inputs = [];
       this.$name = name;
       Object.assign(this.params, params);
       this._handleEvent = this.handleEvent.bind(this);
+      this._onCreate = this.onCreate || null;
+      this._onDelete = this.onDelete || null;
     }
     init() {
       app.trace("init:", this.$name);
       Object.assign(this.params, this.$el._x_params);
-      app.call(this.onCreate?.bind(this));
+      app.call(this._onCreate?.bind(this));
       if (!this.params.$noevents) {
         app.on(app.event, this._handleEvent);
       }
@@ -14002,7 +14006,7 @@ bootpopup.inputs = [];
       app.trace("destroy:", this.$name);
       app.off(app.event, this._handleEvent);
       app.emit("component:delete", { type: _alpine, name: this.$name, component: this, element: this.$el, params: Alpine.raw(this.params) });
-      app.call(this.onDelete?.bind(this));
+      app.call(this._onDelete?.bind(this));
       this.params = {};
     }
     handleEvent(event, ...args) {

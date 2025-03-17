@@ -52,6 +52,7 @@ function bootpopup(...args)
         footer: [],
         onsubmit: "close",
         buttons: ["close"],
+        attrs_modal: null,
         class_h: "",
         class_modal: "modal fade",
         class_dialog: "modal-dialog",
@@ -152,6 +153,7 @@ function bootpopup(...args)
         var opts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", "aria-labelledby": "a" + this.formid, "aria-hidden": true };
         if (this.options.backdrop !== true) opts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
         if (!this.options.keyboard) opts["data-bs-keyboard"] = false;
+        for (const p in this.options.attrs_modal) opts[p] = this.options.attrs_modal[p];
 
         this.modal = app.$elem('div', opts, eventOpts);
         this.dialog = app.$elem('div', { class: class_dialog, role: "document" });
