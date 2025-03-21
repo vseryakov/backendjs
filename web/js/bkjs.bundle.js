@@ -13718,7 +13718,7 @@ bootpopup.inputs = [];
     toCamel
   };
   function isString(str) {
-    return typeof str == "string";
+    return typeof str == "string" && str;
   }
   function isFunction(callback) {
     return typeof callback == "function" && callback;
@@ -13787,8 +13787,8 @@ bootpopup.inputs = [];
     return new URLSearchParams(location.search).get(name) || dflt || "";
   };
   var esc = (selector) => selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`);
-  app.$ = (selector, doc) => isString(selector) && selector ? (isElement(doc) || document).querySelector(esc(selector)) : null;
-  app.$all = (selector, doc) => isString(selector) && selector ? (isElement(doc) || document).querySelectorAll(esc(selector)) : null;
+  app.$ = (selector, doc) => isString(selector) ? (isElement(doc) || document).querySelector(esc(selector)) : null;
+  app.$all = (selector, doc) => isString(selector) ? (isElement(doc) || document).querySelectorAll(esc(selector)) : null;
   app.$event = (element, name, detail = {}) => isElement(element) && element.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true, cancelable: true }));
   app.$on = (element, event, callback, ...arg) => {
     return isFunction(callback) && element.addEventListener(event, callback, ...arg);
@@ -13797,12 +13797,12 @@ bootpopup.inputs = [];
     return isFunction(callback) && element.removeEventListener(event, callback, ...arg);
   };
   app.$attr = (element, attr, value) => {
-    if (isString(element) && element) element = app.$(element);
+    if (isString(element)) element = app.$(element);
     if (!isElement(element)) return;
     return value === void 0 ? element.getAttribute(attr) : value === null ? element.removeAttribute(attr) : element.setAttribute(attr, value);
   };
   app.$empty = (element, cleanup) => {
-    if (isString(element) && element) element = app.$(element);
+    if (isString(element)) element = app.$(element);
     if (!isElement(element)) return;
     while (element.firstChild) {
       const node = element.firstChild;
@@ -13839,6 +13839,24 @@ bootpopup.inputs = [];
   app.$parse = (html, format) => {
     html = new window.DOMParser().parseFromString(html || "", "text/html");
     return format === "doc" ? html : format === "list" ? Array.from(html.body.childNodes) : html.body;
+  };
+  app.$append = (element, template, setup) => {
+    if (isString(element)) element = app.$(element);
+    if (!isElement(element)) return;
+    let doc;
+    if (isString(template)) doc = app.$parse(template, "doc");
+    else if (template?.content?.nodeType == 11) doc = { body: template.content.cloneNode(true) };
+    else
+      return element;
+    let node;
+    while (node = doc.head?.firstChild) {
+      element.appendChild(node);
+    }
+    while (node = doc.body.firstChild) {
+      element.appendChild(node);
+      if (setup && node.nodeType == 1) app.call(setup, node);
+    }
+    return element;
   };
   var _ready = [];
   app.$ready = (callback) => {
@@ -13925,7 +13943,7 @@ bootpopup.inputs = [];
     return Object.assign(plugin, options);
   };
   app.$data = (element, level) => {
-    if (isString(element) && element) element = app.$(element);
+    if (isString(element)) element = app.$(element);
     for (const p in _plugins) {
       if (!_plugins[p].data) continue;
       const d = _plugins[p].data(element, level);
@@ -13936,14 +13954,16 @@ bootpopup.inputs = [];
     const rc = app.parsePath(path);
     app.trace("resolve:", path, dflt, rc);
     var name = rc.name, templates = app.templates, components = app.components;
-    var template = templates[name] || document.getElementById(name)?.innerHTML;
+    var template = templates[name] || document.getElementById(name);
     if (!template && dflt) {
-      template = templates[dflt] || document.getElementById(dflt)?.innerHTML;
+      template = templates[dflt] || document.getElementById(dflt);
       if (template) rc.name = dflt;
     }
-    if (template?.startsWith("#")) {
-      template = document.getElementById(template.substr(1))?.innerHTML;
-    } else if (template?.startsWith("$")) template = templates[template.substr(1)];
+    if (isString(template) && template.startsWith("#")) {
+      template = document.getElementById(template.substr(1));
+    } else if (isString(template) && template.startsWith("$")) {
+      template = templates[template.substr(1)];
+    }
     if (!template) return;
     rc.template = template;
     var component = components[name] || components[rc.name];
@@ -13980,51 +14000,69 @@ bootpopup.inputs = [];
     plugin.render(element, tmpl);
     return tmpl;
   };
+  app.on("alpine:init", () => {
+    for (const p in _plugins) {
+      app.call(_plugins[p], "init");
+    }
+  });
 
-  // src/alpine.js
-  var _alpine = "alpine";
+  // src/component.js
   var Component = class {
     params = {};
-    static $type = _alpine;
     constructor(name, params) {
       this.$name = name;
       Object.assign(this.params, params);
-      this._handleEvent = this.handleEvent.bind(this);
+      this._handleEvent = handleEvent.bind(this);
       this._onCreate = this.onCreate || null;
       this._onDelete = this.onDelete || null;
     }
-    init() {
-      app.trace("init:", this.$name);
-      Object.assign(this.params, this.$el._x_params);
-      app.call(this._onCreate?.bind(this));
+    init(params) {
+      app.trace("init:", this.$type, this.$name);
+      Object.assign(this.params, params);
       if (!this.params.$noevents) {
         app.on(app.event, this._handleEvent);
       }
-      app.emit("component:create", { type: _alpine, name: this.$name, component: this, element: this.$el, params: Alpine.raw(this.params) });
+      app.call(this._onCreate?.bind(this, this.params));
+      app.emit("component:create", { type: this.$type, name: this.$name, component: this, element: this.$el, params: this.params });
     }
     destroy() {
-      app.trace("destroy:", this.$name);
+      app.trace("destroy:", this.$type, this.$name);
       app.off(app.event, this._handleEvent);
-      app.emit("component:delete", { type: _alpine, name: this.$name, component: this, element: this.$el, params: Alpine.raw(this.params) });
+      app.emit("component:delete", { type: this.$type, name: this.$name, component: this, element: this.$el, params: this.params });
       app.call(this._onDelete?.bind(this));
       this.params = {};
+      delete this.$root;
     }
-    handleEvent(event, ...args) {
-      if (this.onEvent) {
-        app.trace("event:", this.$name, event, ...args);
-        app.call(this.onEvent?.bind(this.$data), event, ...args);
-      }
-      if (!isString(event)) return;
-      var method = toCamel("on_" + event);
-      if (!this[method]) return;
-      app.trace("event:", this.$name, method, ...args);
-      app.call(this[method]?.bind(this.$data), ...args);
+  };
+  function handleEvent(event, ...args) {
+    if (this.onEvent) {
+      app.trace("event:", this.$type, this.$name, event, ...args);
+      app.call(this.onEvent?.bind(this.$data || this), event, ...args);
+    }
+    if (!isString(event)) return;
+    var method = toCamel("on_" + event);
+    if (!this[method]) return;
+    app.trace("event:", this.$type, this.$name, method, ...args);
+    app.call(this[method]?.bind(this.$data || this), ...args);
+  }
+  var component_default = Component;
+
+  // src/alpine.js
+  var _alpine = "alpine";
+  var AlpineComponent = class extends component_default {
+    static $type = _alpine;
+    constructor(name, params) {
+      super(name, params);
+      this.$type = _alpine;
+    }
+    init() {
+      super.init(this.$root._x_params);
     }
   };
   var Element = class extends HTMLElement {
     connectedCallback() {
       queueMicrotask(() => {
-        render(this, this.getAttribute("template") || this.localName.substr(4));
+        render(this, this.localName.substr(4));
       });
     }
   };
@@ -14034,28 +14072,14 @@ bootpopup.inputs = [];
       if (!options) return;
     }
     app.$empty(element);
-    const doc = app.$parse(options.template, "doc");
     if (!options.component) {
       Alpine.mutateDom(() => {
-        while (doc.head.firstChild) {
-          element.appendChild(doc.head.firstChild);
-        }
-        while (doc.body.firstChild) {
-          const node = doc.body.firstChild;
-          element.appendChild(node);
-          if (node.nodeType != 1) continue;
-          Alpine.initTree(node);
-        }
+        app.$append(element, options.template, Alpine.initTree);
       });
     } else {
       Alpine.data(options.name, () => new options.component(options.name));
       const node = app.$elem("div", "x-data", options.name, "._x_params", options.params);
-      while (doc.head.firstChild) {
-        element.appendChild(doc.head.firstChild);
-      }
-      while (doc.body.firstChild) {
-        node.appendChild(doc.body.firstChild);
-      }
+      app.$append(node, options.template);
       Alpine.mutateDom(() => {
         element.appendChild(node);
         Alpine.initTree(node);
@@ -14070,8 +14094,7 @@ bootpopup.inputs = [];
     if (typeof level == "number") return element._x_dataStack?.at(level);
     return Alpine.closestDataStack(element)[0];
   }
-  app.plugin(_alpine, { render, Component, data, default: 1 });
-  app.on("alpine:init", () => {
+  function init() {
     for (const [name, obj] of Object.entries(app.components)) {
       const tag = `app-${obj?.$tag || name}`;
       if (obj?.$type != _alpine || customElements.get(tag)) continue;
@@ -14079,7 +14102,8 @@ bootpopup.inputs = [];
       });
       Alpine.data(name, () => new obj(name));
     }
-  });
+  }
+  app.plugin(_alpine, { render, Component: AlpineComponent, data, init, default: 1 });
   app.$on(document, "alpine:init", () => {
     app.emit("alpine:init");
     Alpine.magic("app", (el) => app);
@@ -14198,6 +14222,7 @@ bootpopup.inputs = [];
   };
 
   // src/index.js
+  app.Component = component_default;
   var src_default = app;
 
   // builds/cdn.js
@@ -14212,39 +14237,17 @@ bootpopup.inputs = [];
 const app = window.app;
 const _type = "ko";
 
-class Component {
-    params = {};
-
+class Component extends app.Component {
     static $type = _type;
-    static _id = 0;
 
     constructor(name, params, componentInfo) {
-        this.$name = name;
-        this.$_id = `${name}:${_type}:${Component._id++}`;
-        this.element = componentInfo?.element;
-        Object.assign(this.params, params);
-        if (!this.params.$noevents) {
-            app.on(app.event, this._handleEvent = this.handleEvent.bind(this));
-        }
-    }
-
-    handleEvent(event, ...args) {
-        if (this.onEvent) {
-            app.trace("event:", this.$name, event, ...args);
-            app.call(this, "onEvent", event, ...args);
-        }
-        if (!app.isS(event)) return;
-        var method = app.toCamel("on_" + event);
-        if (!this[method]) return;
-        app.trace("event:", this.$name, method, ...args);
-        app.call(this, method, ...args);
+        super(name, params);
+        this.$type = _type;
+        this.element = this.$el = componentInfo.element;
     }
 
     dispose() {
-        app.trace("dispose:", this.$_id);
-        app.off(app.event, this._handleEvent);
-        app.emit("component:delete", { type: _type, name: this.$name, params: this.params, component: this, element: this.element });
-        app.call(this, "onDelete");
+        super.destroy();
 
         // Auto dispose all subscriptions
         for (const p in this) {
@@ -14262,7 +14265,6 @@ class Component {
         for (const i in this.__sub) this.__sub[i].dispose();
         delete this.__sub;
         delete this.element;
-        delete this.params;
     }
 
     subscribe(obj, extend, callback) {
@@ -14297,10 +14299,7 @@ function create(name)
 
                 if (tmpl.component.$noevents) params.$noevents = 1;
                 const component = new tmpl.component(name, params, componentInfo);
-                params = component.params;
-
-                app.call(component, "onCreate", params, componentInfo);
-                app.emit("component:create", { type: _type, name, component, element: componentInfo.element, params });
+                app.call(component, "init");
                 return component;
             }
         },
@@ -14309,7 +14308,7 @@ function create(name)
 
 function cleanup(element)
 {
-    app.$empty(element, (el => ko.cleanNode(el)));
+    app.$empty(element, ko.cleanNode);
     ko.cleanNode(element);
     app.$attr(element, "data-bind", null);
     delete element._x_params;
@@ -15700,7 +15699,7 @@ app.send = function(options, onsuccess, onerror)
         if (err) {
             if (!options.quiet) app.log('send:', err, options);
             if (options.alert) {
-                var a = app.isS(options.alert) && options.alert;
+                var a = app.isS(options.alert);
                 app.emit("alert", "error", a || err, { safe: !a });
             }
             app.call(options.self || this, onerror, err, info);

@@ -7,39 +7,17 @@
 const app = window.app;
 const _type = "ko";
 
-class Component {
-    params = {};
-
+class Component extends app.Component {
     static $type = _type;
-    static _id = 0;
 
     constructor(name, params, componentInfo) {
-        this.$name = name;
-        this.$_id = `${name}:${_type}:${Component._id++}`;
-        this.element = componentInfo?.element;
-        Object.assign(this.params, params);
-        if (!this.params.$noevents) {
-            app.on(app.event, this._handleEvent = this.handleEvent.bind(this));
-        }
-    }
-
-    handleEvent(event, ...args) {
-        if (this.onEvent) {
-            app.trace("event:", this.$name, event, ...args);
-            app.call(this, "onEvent", event, ...args);
-        }
-        if (!app.isS(event)) return;
-        var method = app.toCamel("on_" + event);
-        if (!this[method]) return;
-        app.trace("event:", this.$name, method, ...args);
-        app.call(this, method, ...args);
+        super(name, params);
+        this.$type = _type;
+        this.element = this.$el = componentInfo.element;
     }
 
     dispose() {
-        app.trace("dispose:", this.$_id);
-        app.off(app.event, this._handleEvent);
-        app.emit("component:delete", { type: _type, name: this.$name, params: this.params, component: this, element: this.element });
-        app.call(this, "onDelete");
+        super.destroy();
 
         // Auto dispose all subscriptions
         for (const p in this) {
@@ -57,7 +35,6 @@ class Component {
         for (const i in this.__sub) this.__sub[i].dispose();
         delete this.__sub;
         delete this.element;
-        delete this.params;
     }
 
     subscribe(obj, extend, callback) {
@@ -92,10 +69,7 @@ function create(name)
 
                 if (tmpl.component.$noevents) params.$noevents = 1;
                 const component = new tmpl.component(name, params, componentInfo);
-                params = component.params;
-
-                app.call(component, "onCreate", params, componentInfo);
-                app.emit("component:create", { type: _type, name, component, element: componentInfo.element, params });
+                app.call(component, "init");
                 return component;
             }
         },
@@ -104,7 +78,7 @@ function create(name)
 
 function cleanup(element)
 {
-    app.$empty(element, (el => ko.cleanNode(el)));
+    app.$empty(element, ko.cleanNode);
     ko.cleanNode(element);
     app.$attr(element, "data-bind", null);
     delete element._x_params;

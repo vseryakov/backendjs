@@ -39,7 +39,7 @@ app.send = function(options, onsuccess, onerror)
         if (err) {
             if (!options.quiet) app.log('send:', err, options);
             if (options.alert) {
-                var a = app.isS(options.alert) && options.alert;
+                var a = app.isS(options.alert);
                 app.emit("alert", "error", a || err, { safe: !a });
             }
             app.call(options.self || this, onerror, err, info);
