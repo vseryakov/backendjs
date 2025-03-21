@@ -26,7 +26,7 @@ class Component {
     handleEvent(event, ...args) {
         if (this.onEvent) {
             app.trace("event:", this.$name, event, ...args);
-            app.call(this, event, ...args);
+            app.call(this, "onEvent", event, ...args);
         }
         if (!app.isS(event)) return;
         var method = app.toCamel("on_" + event);

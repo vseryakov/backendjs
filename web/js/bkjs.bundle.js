@@ -13786,9 +13786,9 @@ bootpopup.inputs = [];
   app.$param = (name, dflt) => {
     return new URLSearchParams(location.search).get(name) || dflt || "";
   };
-  var esc = (selector) => isString(selector) ? selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`) : "";
-  app.$ = (selector, doc) => (isElement(doc) || document).querySelector(esc(selector));
-  app.$all = (selector, doc) => (isElement(doc) || document).querySelectorAll(esc(selector));
+  var esc = (selector) => selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`);
+  app.$ = (selector, doc) => isString(selector) && selector ? (isElement(doc) || document).querySelector(esc(selector)) : null;
+  app.$all = (selector, doc) => isString(selector) && selector ? (isElement(doc) || document).querySelectorAll(esc(selector)) : null;
   app.$event = (element, name, detail = {}) => isElement(element) && element.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true, cancelable: true }));
   app.$on = (element, event, callback, ...arg) => {
     return isFunction(callback) && element.addEventListener(event, callback, ...arg);
@@ -14231,7 +14231,7 @@ class Component {
     handleEvent(event, ...args) {
         if (this.onEvent) {
             app.trace("event:", this.$name, event, ...args);
-            app.call(this, event, ...args);
+            app.call(this, "onEvent", event, ...args);
         }
         if (!app.isS(event)) return;
         var method = app.toCamel("on_" + event);
