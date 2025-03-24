@@ -15105,6 +15105,7 @@ app.toValue = function(val, type, options)
                     if (options?.maptype) v = app.toValue(v, options.maptype, options);
                 }
                 if (options?.noempty && app.isEmpty(v)) return a;
+                if (options?.mapcamel) b[0] = lib.toCamel(b[0]);
                 a[b[0]] = v;
                 return a;
             }, {});
