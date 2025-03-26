@@ -17,7 +17,7 @@ case "$BKJS_CMD" in
     if [[ -z "$dirs" ]]; then
         dirs=$(get_arg -find)
         depth=$(get_arg -depth 1)
-        [[ -n "$dirs" ]] && dirs=$(find $dirs -maxdepth $depth -mindepth 1 -type d)
+        [[ -n "$dirs" ]] && dirs=$(find $dirs -maxdepth $depth -mindepth 1 -type d|sort)
     fi
     if [[ -n "$dirs" ]]; then
         skip=$(get_arg -skip)
