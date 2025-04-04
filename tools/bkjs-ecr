@@ -50,7 +50,7 @@ case "$BKJS_CMD" in
     [ "$?" != "0" ] && exit 1
 
     if [ -n "$(get_flag -latest)" -a "$(get_arg -tag)" != "latest" ]; then
-        $BKJS_BIN ecr-tag $(get_all_args) -ecr $ecr
+        $BKJS_BIN ecr-tag $(get_all_args "-tag") -ecr $ecr
         [ "$?" != "0" ] && exit 1
     fi
     exit 0

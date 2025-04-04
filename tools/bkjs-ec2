@@ -18,7 +18,7 @@ case "$BKJS_CMD" in
     echo "  ec2-tag [-tag NAME] - current instance tag name, default key is Name"
     echo "  ec2-check-storage - runs on start to check for external disk mounted to $BKJS_HOME/data, links log/var to it"
     echo "  ec2-check-hostname - runs on start to set the hostname to the EC2 tag"
-    echo "  ec2-launch-instance - launch an instance via -aws-launch-instances, wait and return env variables set: INSTANCE_HOST, INSTANCE_ID...."
+    echo "  ec2-launch-instance [-return] - launch an instance via -aws-run-instances, wait and return env variables set: INSTANCE_HOST, INSTANCE_ID...."
     ;;
 
   start-hook)
@@ -187,15 +187,18 @@ case "$BKJS_CMD" in
     ;;
 
   ec2-launch-instance)
+    ret=$(get_flag -return)
     export INSTANCE_USER=$(get_arg -ssh-user $whoami)
+
     INFO=$($BKJS_BIN shell -no db,ipc -aws-run-instances -public-ip -wait $(get_all_args))
     echo "$INFO"
 
-    INSTANCE_INFO=$(echo "$INFO"|egrep -E "^EC2-Instance:")
+    export INSTANCE_INFO=$(echo "$INFO"|egrep -E "^EC2-Instance:")
     export INSTANCE_HOST=$(echo "$INSTANCE_INFO"|cut -d' ' -f3)
     if [ -z "$INSTANCE_HOST" ]; then
-        echo "no instance host detected"
-        [ -n "$BKJS_RUNCMD" ] && exit 1 || return 1
+        echo "no instance host detected: $INSTANCE_INFO"
+        [ -n "$ret" ] && return 1
+        exit 1
     fi
 
     # Remove existing host due to recyling in the same VPC
@@ -215,7 +218,8 @@ case "$BKJS_CMD" in
     echo "Connecting to $INSTANCE_ID as $INSTANCE_USER@$INSTANCE_HOST"
     run_ssh_cmd $INSTANCE_HOST $INSTANCE_USER "uname -s" Linux
     rc=$?
-    [ -n "$BKJS_RUNCMD" ] && exit $rc || return $rc
+    [ -n "$ret" ] && return $rc
+    exit $rc
     ;;
 
 esac
