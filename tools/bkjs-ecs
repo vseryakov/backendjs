@@ -8,6 +8,7 @@ case "$BKJS_CMD" in
 
   help|ecs-help)
     echo ""
+    echo "  ecs-ip - show IP for running tasks"
     echo "  ecs-ls [-cluser $BKJS_CLUSTER] [-service SN] [-status RUNNING|STOPPED] - show running tasks in the cluster for a service"
     echo "  ecs-ps [-cluser $BKJS_CLUSTER] [-task ID] [-service S] [-index I] - show task details"
     echo "  ecs-sh [-cluser $BKJS_CLUSTER] [-service SN] [-task ID] [-index I] - run shell in the given task for the given service, for multiple tasks -index can use specific task"
@@ -30,6 +31,11 @@ case "$BKJS_CMD" in
     service=$(get_arg -service)
     [ -z "$task" ] && task=$($BKJS_BIN ecs-ls -service $service|cut -s -d/ -f3|head -$(get_arg -index 1)|tail -1)
     aws ecs describe-tasks --tasks "$task" --cluster "$cluster" --output $(get_arg -output yaml)
+    exit
+    ;;
+
+  ecs-ip)
+    aws ec2 describe-network-interfaces $region --filters "Name=tag-key,Values=aws:ecs:clusterName" --query 'NetworkInterfaces[*].[NetworkInterfaceId,PrivateIpAddresses[*].PrivateIpAddress,Association.PublicIp,TagSet[*].Value]' --output yaml|sed -E 's/- //g'|awk '{if($1~"^i-")printf "\n%s\t",$1;else printf "%-10s\t",$1;}'|grep -v '^$'
     exit
     ;;
 

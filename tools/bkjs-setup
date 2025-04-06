@@ -180,7 +180,7 @@ case "$BKJS_CMD" in
         echo 'alias g=git' >> $log
         echo 'alias di="docker images"' >> $log
         echo 'alias dexec="docker exec -ti"' >> $log
-        echo 'bcp() { socat readline,history=$HOME/.socat tcp4:localhost:$1; }' >> $log
+        echo 'bcp() { socat readline,history=$HOME/.socat tcp4:${2:-localhost}:$1; }' >> $log
         echo 'bkssh() { bkjs ec2-ssh -tag "$1" -index "$2" -cmd "$3" -skip-tag dev; }' >> $log
         echo '[ -f ~/.aliases ] && . ~/.aliases' >> $log
     fi
