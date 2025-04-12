@@ -471,6 +471,10 @@ tests.test_toparams = function(callback, test)
     q = lib.toParams({ empty: "." }, schema, opts);
     expect(q.empty === "", "expected empty", q);
 
+    schema.empty.setempty = null;
+    q = lib.toParams({ empty: "." }, schema, opts);
+    expect(q.empty === null, "expected empty == null", q);
+
     q = lib.toParams({ nospecial: "a<b>c", special: "a<b>c" }, schema, opts);
     expect(q.special === "<>", "expected <> with only specials", q);
     expect(q.nospecial === "abc", "expected abc without specials", q);
