@@ -35,7 +35,7 @@ case "$BKJS_CMD" in
     ;;
 
   ecs-ip)
-    aws ec2 describe-network-interfaces $region --filters "Name=tag-key,Values=aws:ecs:clusterName" --query 'NetworkInterfaces[*].[NetworkInterfaceId,PrivateIpAddresses[*].PrivateIpAddress,Association.PublicIp,TagSet[*].Value]' --output yaml|sed -E 's/- //g'|awk '{if($1~"^i-")printf "\n%s\t",$1;else printf "%-10s\t",$1;}'|grep -v '^$'
+    aws ec2 describe-network-interfaces $region --filters "Name=tag-key,Values=aws:ecs:clusterName" --query 'NetworkInterfaces[*].[NetworkInterfaceId,PrivateIpAddresses[*].PrivateIpAddress,Association.PublicIp,TagSet[*].Value]' --output yaml|sed -E 's/- //g'|awk '{if($1~"^eni-")printf "\n%s\t",$1;else printf "%-10s\t",$1;}'|grep -v '^$'
     exit
     ;;
 

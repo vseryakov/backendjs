@@ -1,71 +1,85 @@
+/* global lib api core logger */
 
-tests.test_auth = function(callback)
+tests.test_auth = function(callback, test)
 {
     var argv = [
-        "-api-allow-admin", "^/system",
-        "-api-allow-authenticated", "^/authonly",
-        "-api-allow-acl-authenticated", "allow2",
-        "-api-allow-account-manager", "^/manager",
-        "-api-allow-acl-manager", "allow1",
-        "-api-allow-account-user", "^/user",
-        "-api-allow-acl-user", "allow1",
-        "-api-only-acl-manager", "only1",
-        "-api-only-acl-only", "only1",
+        "-api-allow-acl-admin", "admin, manager, allow1, auth",
+        "-api-allow-acl-manager", "manager, user",
+        "-api-allow-acl-user", "user, allow1",
+        "-api-allow-acl-authenticated", "auth",
+
+        "-api-deny-acl-manager", "useronly",
+        "-api-deny-acl-user", "manageronly, userdeny",
+        "-api-deny-acl-admin", "manageronly",
+
+        "-api-acl-auth", "^/auth",
+        "-api-acl-admin", "^/admin",
+        "-api-acl-manager", "^/manager",
+        "-api-acl-user", "^/user",
         "-api-acl-allow1", "^/allow1",
-        "-api-acl-allow2", "^/allow2",
-        "-api-deny-account-manager", "^/useronly",
-        "-api-deny-account-user", "^/manageronly",
-        "-api-deny-acl-user", "deny1",
-        "-api-acl-deny1", "^/deny1",
-        "-api-acl-deny2", "^/deny2",
-        "-api-deny-authenticated", "^/authdeny",
-        "-api-deny-acl-authenticated", "deny2",
-        "-api-acl-only1", "^/user/only",
-        "-api-acl-errmsg-only1", "only1 allowed",
-        "-api-acl-errmsg-manager", "managers only",
-        "-api-path-errmsg-/allow2", "not allowed",
+        "-api-acl-userdeny", "^/userdeny",
+        "-api-acl-useronly", "^/useronly",
+        "-api-acl-manageronly", "^/manageronly",
     ];
+
+    var checks = [
+        { status: 403, path: "/system" },
+        { status: 403, path: "/system", type: "admin" },
+
+        { status: 200, path: "/auth" },
+        { status: 200, path: "/auth", type: "admin" },
+        { status: 200, path: "/auth", type: "user" },
+
+        { status: 403, path: "/admin" },
+        { status: 403, path: "/admin", type: "user" },
+        { status: 403, path: "/admin", type: "manager" },
+        { status: 200, path: "/admin", type: "admin" },
+
+        { status: 403, path: "/allow1" },
+        { status: 200, path: "/allow1", type: "user" },
+        { status: 403, path: "/allow1", type: "manager" },
+        { status: 200, path: "/allow1", type: "admin" },
+
+        { status: 200, path: "/user", type: "user" },
+        { status: 403, path: "/user", type: "admin" },
+        { status: 200, path: "/user", type: "manager" },
+
+        { status: 200, path: "/useronly", type: "user" },
+        { status: 403, path: "/useronly", type: "manager" },
+
+        { status: 200, path: "/userdeny", type: "manager" },
+        { status: 403, path: "/userdeny", type: "user", code: "DENY" },
+        { status: 403, path: "/useronly", type: "manager", code: "DENY" },
+
+        { status: 403, path: "/manager" },
+        { status: 403, path: "/manager", type: "user" },
+        { status: 200, path: "/manager", type: "manager" },
+        { status: 200, path: "/manager", type: "admin" },
+
+        { status: 200, path: "/manageronly", type: "manager" },
+        { status: 403, path: "/manageronly", type: "admin", code: "DENY" },
+        { status: 403, path: "/manageronly", type: "user", code: "DENY" },
+
+    ];
+    test.req = req;
+
     api.resetAcl();
     core.parseArgs(argv);
     for (const p in api) {
-        if (/^(allow|deny|acl|only)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") logger.info(p, "=", api[p]);
+        if (/^(allow|deny|acl)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") logger.info(p, "=", api[p]);
     }
-
     var req = { account: {}, options: {} };
-    var checks = [
-        { status: 401, path: "/system" },
-        { status: 401, path: "/system", type: "user" },
-        { status: 401, path: "/system", type: "manager" },
-        { status: 417, path: "/authonly" },
-        { status: 417, path: "/allow2" },
-        { status: 200, path: "/allow2", type: "user" },
-        { status: 200, path: "/authonly", type: "user" },
-        { status: 200, path: "/allow2", type: "user" },
-        { status: 401, path: "/manager" },
-        { status: 401, path: "/manager", type: "user" },
-        { status: 200, path: "/manager", type: "manager" },
-        { status: 200, path: "/allow1", type: "manager" },
-        { status: 401, path: "/user" },
-        { status: 401, path: "/allow1" },
-        { status: 200, path: "/user", type: "user" },
-        { status: 200, path: "/allow1", type: "user" },
-        { status: 401, path: "/useronly", type: "manager" },
-        { status: 401, path: "/manageronly", type: "user" },
-        { status: 401, path: "/deny2", type: "user" },
-        { status: 401, path: "/authdeny", type: "user" },
-        { status: 401, path: "/deny1", type: "user" },
-        { status: 200, path: "/deny1", type: "manager" },
-        { status: 200, path: "/user/only", type: "manager" },
-        { status: 401, path: "/user/only", type: "user" },
-        { status: 200, path: "/user/only", type: "only" },
-    ];
 
     lib.forEachSeries(checks, (check, next) => {
-        req.account.id = req.account.type = check.type;
+        req.account.id = check.type || "anon";
+        req.account.type = lib.strSplit(check.type);
         req.options.path = check.path;
-        api.checkAuthorization(req, { status: check.type ? 200 : 417 }, (err) => {
-            if (err.status != 200) logger.info(check, err);
-            expect(err.status == check.status, err, check);
+        api.checkAuthorization(req, (err) => {
+            if (err && err?.status != 200) logger.info(check, err);
+            expect((err?.status || 200) === check.status, err || "no error", check);
+            if (err && check.code !== undefined) {
+                expect((err.code || "") === check.code, err, check);
+            }
             next();
         });
     }, callback);

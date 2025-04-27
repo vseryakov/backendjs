@@ -68,9 +68,7 @@ tests.test_config = function(callback)
 {
     var argv = ["-force-uid", "1,1",
                 "-api-allow-path", "^/a",
-                "-api-allow-admin", "^/a",
-                "-api-allow-account-dev=^/a",
-                "-api-allow-anonymous=^/a",
+                "-api-allow-acl-admin", "a",
                 "-api-redirect-url", '{ "^a/$": "a", "^b": "b" }',
                 "-logwatcher-send-error", "a",
                 "-logwatcher-files-error", "a",
@@ -155,8 +153,8 @@ tests.test_config = function(callback)
 
     describe("API parameters");
 
-    assert(!api.allow.list.some(function(x) { return x == "^/a"}), "invalid allow path", api.allow);
-    assert(!api.allowAdmin.list.some(function(x) { return x == "^/a"}), "invalid allow admin", api.allowAdmin);
+    assert(!api.allowPath.list.some((x) => (x == "^/a")), "invalid allow path", api.allowPath);
+    assert(api.allowAcl.admin?.indexOf("a") == -1, "invalid allow acl admin", api.allowAcl.admin);
 
     assert(api.cleanupRules.aaa?.one != 1 || api.cleanupRules.aaa?.two != 2 || api.cleanupRules.aaa?.three != 3, "invalid api cleanup rules", api.cleanupRules);
 
