@@ -60,12 +60,13 @@
 <li><a href="#authentication-and-sessions"> Authentication and sessions</a></li>
 <li><a href="#signature"> Signature</a></li>
 <li><a href="#authentication-api"> Authentication API</a></li>
-<li><a href="#accounts"> Accounts</a></li>
 <li><a href="#health-enquiry"> Health enquiry</a></li>
 <li><a href="#author"> Author</a></li>
 <li>Javascript Modules<ul>
-<li><a href="#module-accounts">accounts</a></li>
 <li><a href="#module-api">api</a></li>
+<li><a href="#module-passkeys">passkeys</a></li>
+<li><a href="#module-users">users</a></li>
+<li><a href="#module-ws">ws</a></li>
 <li><a href="#module-app">app</a></li>
 <li><a href="#module-aws">aws</a></li>
 <li><a href="#module-cache">cache</a></li>
@@ -91,6 +92,7 @@
 <li><a href="#module-server">server</a></li>
 <li><a href="#module-shell">shell</a></li>
 <li><a href="#module-stats">stats</a></li>
+<li><a href="#module-users">users</a></li>
 <li><a href="#module-watch">watch</a></li>
 </ul>
 </li>
@@ -144,12 +146,12 @@ described below and serve static assets from the web/ folder.</p>
 </code></pre>
 </li>
 <li><p>By default access is allowed only with valid session or signature, to see all public urls type in the node shell above:</p>
-<pre><code>  &gt; api.allow
+<pre><code>  &gt; api.allowPath
 </code></pre>
-<p>This property of the api module corresponds to the the <code>-api-allow</code> config parameter, see it in your browser
+<p>This property of the api module corresponds to the the <code>-api-allow-path</code> config parameter, see it in your browser
 at <a href="http://localhost:8000/doc.html#module-api">docs</a>.</p>
 </li>
-<li><p>No database driver is enabled by default so here are examples to load local PostgreSQL, dynamoDB or Elasticsearch</p>
+<li><p>No database driver is enabled by default so here are examples to load local PostgreSQL, DynamoDB or ElasticSearch</p>
 <pre><code>  bkjs run -api -db-pool sqlite -db-sqlite-pool
   bkjs run -api -db-pool pg -db-pg-pool
   bkjs run -api -db-pool dynamodb -db-dynamodb-pool
@@ -418,34 +420,23 @@ databases the composite primary key can consist of more than 2 columns.</p>
 default API functionality and some are required for backend operations. Refer below for the JavaScript modules documentation
 that described which tables are created by default. In the custom applications the <code>db.describeTables</code> method can modify columns
 in the default table and add more columns if needed.</p>
-<p>For example, to make age and some other columns in the accounts table public and visible by other users with additional columns
-the following can be done in the <code>api.initApplication</code> method. It will extend the bk_user table and the application can use new
-columns the same way as the already existing columns.</p>
-<p>Using the birthday column we make &#39;age&#39; property automatically calculated and visible in the result, this is done by the
-internal method <code>api.processAccountRow</code> which is registered as post process callback for the bk_user table. The computed
-property <code>age</code> will be returned because it is not present in the table definition and all properties not defined and
-configured are passed as is.</p>
-<p>The cleanup of the public columns is done by the <code>api.sendJSON</code> which is used by all API routes when ready to send data back
+<p>The cleanup of the public columns is done by the <code>api.cleanupResult</code> inside <code>api.sendJSON</code> which is used by all API routes when ready to send data back
 to the client. If any post-process hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.</p>
 <pre><code class="language-javascript">    db.describeTables({
         bk_user: {
-            birthday: {},
-            ssn: {},
-            salary: { type: &quot;int&quot; },
-            occupation: {},
-            home_phone: {},
-            work_phone: {},
+            birthday: { pub: 1 },
+            occupation: { pub: 1 },
         });
 
     app.configureWeb = function(options, callback)
     {
-       db.setProcessRow(&quot;post&quot;, &quot;bk_user&quot;, this.processAccountRow);
-       ...
-       callback();
-    }
-    app.processAccountRow = function(req, row, options)
-    {
-       if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+        db.setProcessRow(&quot;post&quot;, &quot;bk_user&quot;, (req, row, options) =&gt; {
+            if (row.birthday) {
+                row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
+            }
+        }
+        ...
+        callback();
     }
 </code></pre>
 <p>To define tables inside a module just provide a <code>tables</code> property in the module object, it will be picked up by database initialization automatically.</p>
@@ -594,7 +585,7 @@ operations like add/update/delete a record, show all records.</p>
 
      server.start();
 </code></pre>
-<p>Now run it with an option to allow API access without an account:</p>
+<p>Now run it with an option to allow API access without a user:</p>
 <pre><code>node app.js -log debug -api -api-allow-path /todo -db-create-tables
 </code></pre>
 <p>To use a different database, for example PostgresSQL(running localy) or DynamoDB(assuming EC2 instance),
@@ -723,15 +714,15 @@ process with <code>-jobs-workers 2</code> will launch 2 worker processes which w
     ]);
     app.queue = &quot;somequeue&quot;;
 
-    app.processAccounts = function(options, callback) {
+    app.processUsers = function(options, callback) {
         db.select(&quot;bk_user&quot;, { type: options.type || &quot;user&quot; }, (err, rows) =&gt; {
           ...
           callback();
         });
     }
 
-    api.all(&quot;/process/accounts&quot;, (req, res) =&gt; {
-        jobs.submitJob({ job: { &quot;app.processAccounts&quot;: { type: req.query.type } } }, { queueName: app.queue }, (err) =&gt; {
+    api.all(&quot;/process/users&quot;, (req, res) =&gt; {
+        jobs.submitJob({ job: { &quot;app.processUsers&quot;: { type: req.query.type } } }, { queueName: app.queue }, (err) =&gt; {
             api.sendReply(res, err);
         });
     });
@@ -777,8 +768,8 @@ in case of error will be redirected to the login page by the server.</p>
 <li>We disable all allowed paths to the html and registration:</li>
 </ol>
 <pre><code class="language-javascript">   app.configureMiddleware = function(options, callback) {
-       this.allow.splice(this.allow.indexOf(&#39;^/$&#39;), 1);
-       this.allow.splice(this.allow.indexOf(&#39;\\.html$&#39;), 1);
+       this.allowPath.splice(this.allow.indexOf(&#39;^/$&#39;), 1);
+       this.allowPath.splice(this.allow.indexOf(&#39;\\.html$&#39;), 1);
        callback();
    }
 </code></pre>
@@ -805,12 +796,12 @@ share the same route handlers between HTTP and Websockets requests, the handlers
 only in the Websockets case the response will arrived in the message listener (see an example below)</p>
 </li>
 </ul>
-<pre><code class="language-javascript">    app.wsConnect({ path: &quot;/project/ws?id=1&quot; });
+<pre><code class="language-javascript">    app.wsConnect({ path: &quot;/ws?id=1&quot; });
 
     app.on(&quot;ws:message&quot;, (msg) =&gt; {
         switch (msg.op) {
-        case &quot;/account/update&quot;:
-            app.wsSend(&quot;/account/ws/account&quot;);
+        case &quot;/users/update&quot;:
+            app.wsSend(&quot;/ws/user&quot;);
             break;
 
         case &quot;/project/update&quot;:
@@ -835,7 +826,7 @@ only in the Websockets case the response will arrived in the message listener (s
         switch (req.query.op) {
         case &quot;/project/update&quot;:
            //  some code ....
-           api.wsNotify({ query: { id: req.query.project.id } }, { op: &quot;/project/update&quot;, project: req.query.project });
+           ws.notify({ query: { id: req.query.project.id } }, { op: &quot;/project/update&quot;, project: req.query.project });
            break;
        }
        res.send(&quot;&quot;);
@@ -843,13 +834,13 @@ only in the Websockets case the response will arrived in the message listener (s
 </code></pre>
 <p>In any case all Websocket messages sent from the server will arrive in the event handler and must be formatted properly in order to distinguish what is what, this is
 the application logic. If the server needs to send a message to all or some specific clients for example due to some updates in the DB, it must use the
-<code>api.wsNotify</code> function.</p>
-<pre><code class="language-javascript">    // Received a new message for a user from external API service, notify all websocket clients by account id
+<code>ws.notify</code> function.</p>
+<pre><code class="language-javascript">    // Received a new message for a user from external API service, notify all websocket clients by user id
     api.app.post(&quot;/api/message&quot;, (req, res) =&gt; {
         ....
         ... processing logic
         ....
-        api.wsNotify({ account_id: req.query.uid }, { op: &quot;/message/new&quot;, msg: req.query.msg });
+        ws.notify({ user_id: req.query.uid }, { op: &quot;/message/new&quot;, msg: req.query.msg });
     });
 </code></pre>
 <h1 id="the-backend-tool-bkjs">The backend tool: bkjs</h1>
@@ -1097,7 +1088,7 @@ parameters or JSON or any other format supported by any particular endpoint. Thi
 environment, not just a Web browser. Request signature can be passed in the query so it does not require HTTP headers at all.</p>
 <h2 id="authentication-and-sessions">Authentication and sessions</h2>
 <h3 id="signature">Signature</h3>
-<p>All requests to the API server must be signed with account login/secret pair.</p>
+<p>All requests to the API server must be signed with user login/secret pair.</p>
 <ul>
 <li>The algorithm how to sign HTTP requests (Version 1, 2):<ul>
 <li>Split url to path and query parameters with &quot;?&quot;</li>
@@ -1131,7 +1122,7 @@ environment, not just a Web browser. Request signature can be passed in the quer
 </ul>
 </li>
 <li>Field2: Application tag or other app specific data</li>
-<li>Field3: account login or whatever it might be in the login column</li>
+<li>Field3: user login or whatever it might be in the login column</li>
 <li>Field4: HMAC-SHA digest from the canonical string, version 1 uses SHA1, other SHA256</li>
 <li>Field5: expiration value in milliseconds, same as in the canonical string</li>
 <li>Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query parameters</li>
@@ -1159,17 +1150,18 @@ this is the only way to ensure the body is not modified when not using query par
 <li><code>_session=1</code> - if the call is authenticated a cookie with the session signature is returned, from now on
  all requests with such cookie will be authenticated, the primary use for this is Web apps</li>
 </ul>
+<p> On successful login, the result contains full user record</p>
 </li>
 <li><p><code>/login</code></p>
 <p> Same as the /auth but it uses secret for user authentication, this request does not need a signature, just simple
  login and secret query parameters to be sent to the backend. This must be sent over SSL.</p>
 <p> Parameters:</p>
 <ul>
-<li><code>login</code> - account login</li>
-<li><code>secret</code> - account secret</li>
+<li><code>login</code> - user login</li>
+<li><code>secret</code> - user secret</li>
 <li><code>_session=1</code> - same as in /auth request</li>
 </ul>
-<p> On successful login, the result contains full account record including the secret, this is the only time when the secret is returned back</p>
+<p> On successful login, the result contains full user record</p>
 <p> Example:</p>
 </li>
 </ul>
@@ -1183,178 +1175,11 @@ this is the only way to ensure the body is not modified when not using query par
 <p> Logout the current user, clear session cookies if exist. For pure API access with the signature this will not do anything on the backend side.</p>
 </li>
 </ul>
-<h2 id="accounts">Accounts</h2>
-<p>The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.</p>
-<ul>
-<li><p><code>/account/get</code></p>
-<p>Returns information about the current account, all account columns are returned except the secret and other table columns with the property <code>priv</code></p>
-<p>Response:</p>
-<pre><code>      { &quot;id&quot;: &quot;57d07a4e28fc4f33bdca9f6c8e04d6c3&quot;,
-        &quot;name&quot;: &quot;Test User&quot;,
-        &quot;mtime&quot;: 1391824028,
-        &quot;login&quot;: &quot;testuser&quot;,
-        &quot;type&quot;: [&quot;admin&quot;],
-      }
-</code></pre>
-<p>How to make an account as admin</p>
-<pre><code>      # Run backend shell
-      bkjs shell
-
-      # Update record by login
-      &gt; db.update(&quot;bk_user&quot;, { login: &#39;login@name&#39;, type: &#39;admin&#39; });
-</code></pre>
-</li>
-<li><p><code>/account/update</code></p>
-<p>Update current account with new values, the parameters are columns of the table <code>bk_user</code>, only columns with non empty values will be updated.</p>
-<p>Example:</p>
-<pre><code>      /account/update?name=New%2BName
-</code></pre>
-</li>
-</ul>
 <h3 id="health-enquiry">Health enquiry</h3>
 <p>When running with AWS load balancer there should be a url that a load balancer polls all the time and this must be very quick and lightweight request. For this
 purpose there is an API endpoint <code>/ping</code> that just responds with status 200. It is open by default in the default <code>api-allow-path</code> config parameter.</p>
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
-
-<h2 id="module-accounts">Module: accounts</h2>
-<p>  User account management</p>
-
-<ul>
-<li><p><code>Config parameters</code></p>
-<ul>
-<li><code>accounts-table</code>, descr: &quot;Table to use for user users&quot;</li>
-<li><code>accounts-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
-<li><code>accounts-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
-<li><code>accounts-sigversion</code>, type: &quot;int&quot;, descr: &quot;Signature version for secrets&quot;</li>
-<li><code>accounts-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
-<li><code>accounts-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
-<li><code>accounts-file</code>, descr: &quot;A JSON file with users&quot;</li>
-<li><code>accounts-passkey-(.+)</code>, obj: &quot;passkey&quot;, autotype: 1, descr: &quot;Passkey numeric parameters: path, secret, cache, max, ttl, disabled&quot;</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.configureAccountAPI(options)</code></p>
-<p>  Account methods below use request context and fire bk...Account hooks</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.get(req, options, callback)</code></p>
-<p>  Returns current account, used in /account/get API call, req.account will be filled with the properties from the db</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.add(req, options, callback)</code></p>
-<p>  Register new account, may be used an API call, but the req does not have to be an Express request, it just
-need to have query and options objects.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.update(req, options, callback)</code></p>
-<p>  Update existing account, used in /account/update API call</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.del(req, callback)</code></p>
-<p>  Delete account specified by the obj.
-The options may contain <code>keep</code> array with tables to be kept, for example
-delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,&quot;bk_location&quot;]</p>
-<p>This methods is suitable for background jobs</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.configurePasskeyAPI(options)</code></p>
-<p>  Passkey management</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.passkey.get(user)</code></p>
-<p>  Return a list of all passkyes for the account</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.passkey.read(user, passkeyId, callback)</code></p>
-<p>  Read a user and passkey, user can be id/login or an user object</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.passkey.update(options, callback)</code></p>
-<p>  Add/delete a passkey,</p>
-<ul>
-<li>account - full user record</li>
-<li>passkey - a registration credential object to add or just { id: id } to remove</li>
-<li>query - optional additional fields to update</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.getUser(query, options, callback)</code></p>
-<p>  Returns a user record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.addUser(query, options, callback)</code></p>
-<p>  Registers a new user, returns new record in the callback,
-if <code>options.isInternal</code> is true then allow to set all properties
-<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
-otherwise internal properties will not be added</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.updateUser(query, options, callback)</code></p>
-<p>  Updates an existing user by login or id,
-if <code>options.isInternal</code> is true then allow to update all properties,
-<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
-returns a new record in the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.delUser(query, options, callback)</code></p>
-<p>  Deletes an existing user by login or id, no admin checks, returns the old record in the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.isUid(id)</code></p>
-<p>  Returns true of the given id is a valid user uuid</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.prepareSecret(query, options, callback)</code></p>
-<p>  If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.checkSecret(user, password, callback)</code></p>
-<p>  Verify an existing user record with given password,</p>
-<ul>
-<li>user - if a string it is a hashed secret from an existing user record, otherwise must be an user object</li>
-<li>password - plain text password or other secret passed to be verified</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>accounts.loadFile(callback)</code></p>
-<p>  Load users from a JSON file, only add or update records</p>
-</li>
-</ul>
 
 <h2 id="module-api">Module: api</h2>
 <p>  HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
@@ -1363,7 +1188,7 @@ returns a new record in the callback</p>
 <p>  When an HTTP request arrives it goes over Express middleware, but before processing any registered routes there are several steps performed:</p>
 <ul>
 <li>the <code>req</code> object which is by convention is a Request object, assigned with common backend properties to be used later:<ul>
-<li>account - an empty object which will be filled after by signature verification method, if successful, properties from the <code>bk_user</code> table will be set</li>
+<li>user - an empty object which will be filled after by signature verification method, if successful, properties from the <code>bk_user</code> table will be set</li>
 <li>options - an object with internal state and control parameters. Every request always has an options object attached very
 early with some properties always present:<ul>
 <li>ip - cached IP address</li>
@@ -1377,7 +1202,7 @@ early with some properties always present:<ul>
 </ul>
 </li>
 <li>access verification, can the request be satisfied without proper signature, i.e. is this a public request</li>
-<li>autherization, check the signature and other global or account specific checks</li>
+<li>autherization, check the signature and other global or user specific checks</li>
 <li>when a API route found by the request url, it is called as any regular Connect middlware<ul>
 <li>if there are registered pre processing callback they will be called during access or autherization phases</li>
 <li>if inside the route a response was returned using <code>api.sendJSON</code> method, registered post process callbacks will be called for such response</li>
@@ -1393,18 +1218,18 @@ early with some properties always present:<ul>
 <li><code>api-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
 <li><code>api-images-url</code>, descr: &quot;URL where images are stored, for cases of central image server(s), must be full URL with optional path&quot;</li>
 <li><code>api-images-s3</code>, descr: &quot;S3 bucket name where to store and retrieve images&quot;</li>
-<li><code>api-images-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and account id in the image name&quot;</li>
+<li><code>api-images-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and user id in the image name&quot;</li>
 <li><code>api-images-s3-options</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;S3 options to sign images urls, may have expires:, key:, secret: properties&quot;</li>
 <li><code>api-images-ext</code>, descr: &quot;Default image extension to use when saving images&quot;</li>
 <li><code>api-images-mod</code>, descr: &quot;Images scaling module, sharp&quot;</li>
-<li><code>api-files-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and account id in the file name&quot;</li>
+<li><code>api-files-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and user id in the file name&quot;</li>
 <li><code>api-files-url</code>, descr: &quot;URL where files are stored, for cases of central file server(s), must be full URL with optional path&quot;</li>
 <li><code>api-files-s3</code>, descr: &quot;S3 bucket name where to store files uploaded with the File API&quot;</li>
 <li><code>api-max-request-queue</code>, type: &quot;number&quot;, min: 0, descr: &quot;Max number of requests in the processing queue, if exceeds this value server returns too busy error&quot;</li>
 <li><code>api-no-access-log</code>, type: &quot;bool&quot;, descr: &quot;Disable access logging in both file or syslog&quot;</li>
 <li><code>api-access-log-file</code>, descr: &quot;File for access logging&quot;</li>
 <li><code>api-access-log-level</code>, type: &quot;int&quot;, descr: &quot;Syslog level priority, default is local5.info, 21 * 8 + 6&quot;</li>
-<li><code>api-access-log-fields</code>, array: 1, type: &quot;list&quot;, descr: &quot;Additional fields from the request or account to put in the access log, prefix defines where the field is lcoated: q: - query, h: - headers, a: - account otherwise from the request, Example: -api-log-fields h:Referer,a:name,q:action&quot;</li>
+<li><code>api-access-log-fields</code>, array: 1, type: &quot;list&quot;, descr: &quot;Additional fields from the request or user to put in the access log, prefix defines where the field is lcoated: q: - query, h: - headers, u: - user otherwise from the request, Example: -api-log-fields h:Referer,u:name,q:action&quot;</li>
 <li><code>api-salt</code>, descr: &quot;Salt to be used for scrambling credentials or other hashing activities&quot;</li>
 <li><code>api-qs-options-(.+)</code>, autotype: 1, obj: &quot;qsOptions&quot;, strip: &quot;qs-options-&quot;, nocamel: 1, descr: &quot;Options to pass to qs.parse: depth, arrayLimit, allowDots, comma, plainObjects, allowPrototypes, parseArrays&quot;</li>
 <li><code>api-no-static</code>, type: &quot;bool&quot;, descr: &quot;Disable static files from /web folder, no .js or .html files will be served by the server&quot;</li>
@@ -1431,7 +1256,7 @@ early with some properties always present:<ul>
 <li><code>api-deny-acl-([a-z0-9_]+)</code>, type: &quot;list&quot;, obj: &quot;deny-acl&quot;, descr: &quot;Combine regexps from the specified acls for deny checks for the specified role&quot;</li>
 <li><code>api-acl-([a-z0-9_]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;acl&quot;, descr: &quot;Add URLs to the named ACL which can be used in allow/deny rules per role&quot;</li>
 <li><code>api-allow-acl-anonymous</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls to alllow access any kind of users, with or without authentication&quot;</li>
-<li><code>api-allow-acl-authenticated</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls to allow access by any authenticated user account, this is only checked if no other acls matched&quot;</li>
+<li><code>api-allow-acl-authenticated</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls to allow access by any authenticated user, this is only checked if no other acls matched&quot;</li>
 <li><code>api-allow-acl-([a-z0-9_]+)</code>, type: &quot;rlist&quot;, obj: &quot;allow-acl&quot;, descr: &quot;Combine regexps from the specified acls for allow checks for the specified role&quot;</li>
 <li><code>api-allow-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of allowed URL paths without authentication&quot;</li>
 <li><code>api-allow-empty</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs that should return empty responses if not found, for example return nothing for non-existent javascript files or css files&quot;</li>
@@ -1468,9 +1293,9 @@ early with some properties always present:<ul>
 <li><code>api-errlog-limiter-max</code>, type: &quot;int&quot;, descr: &quot;How many error messages to put in the log before throttling kicks in&quot;</li>
 <li><code>api-errlog-limiter-interval</code>, type: &quot;int&quot;, descr: &quot;Interval for error log limiter, max errors per this interval&quot;</li>
 <li><code>api-errlog-limiter-ignore</code>, type: &quot;regexpobj&quot;, descr: &quot;Do not show errors that match the regexp&quot;</li>
-<li><code>api-routing-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;routing&#39;, descr: &quot;Locations to be re-routed to other path, this is done inside the server at the beginning, only the path is replaced, same format and placeholders as in redirect-url, use ! in front of regexp to remove particular redirect from the list, example: -api-routing-^/account/get /acount/read&quot;</li>
+<li><code>api-routing-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;routing&#39;, descr: &quot;Locations to be re-routed to other path, this is done inside the server at the beginning, only the path is replaced, same format and placeholders as in redirect-url, use ! in front of regexp to remove particular redirect from the list, example: -api-routing-^/user/get /user/read&quot;</li>
 <li><code>api-ignore-routing</code>, type: &quot;regexpobj&quot;, descr: &quot;Ignore locations from the routing&quot;</li>
-<li><code>api-auth-routing-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;auth-routing&#39;, descr: &quot;URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url, example: -api-routing-auth-^/account/get /acount/read&quot;</li>
+<li><code>api-auth-routing-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;auth-routing&#39;, descr: &quot;URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url, example: -api-routing-auth-^/user/get /user/read&quot;</li>
 <li><code>api-redirect-url</code>, type: &quot;regexpmap&quot;, descr: &quot;Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;301:@PATH@/index.html&#39; } &quot;</li>
 <li><code>api-login-redirect-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &quot;login-redirect&quot;, descr: &quot;Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url, example: api-login-redirect-^/admin/=/login.html&quot;</li>
 <li><code>api-response-headers</code>, type: &quot;regexpmap&quot;, json: 1, descr: &quot;An JSON object with list of regexps to match against the location and set response headers defined as a ist of pairs name, value..., -api-response-headers={ &quot;^/&quot;: [&quot;x-frame-options&quot;,&quot;sameorigin&quot;,&quot;x-xss-protection&quot;,&quot;1; mode=block&quot;] }&quot;</li>
@@ -1478,7 +1303,7 @@ early with some properties always present:<ul>
 <li><code>api-cleanup-strict</code>, type: &quot;bool&quot;, descr: &quot;Default mode for cleanup results&quot;</li>
 <li><code>api-request-cleanup</code>, type: &quot;list&quot;, array: 1, descr: &quot;List of fields to explicitely cleanup on request end&quot;</li>
 <li><code>api-query-defaults-([a-z0-9_]+)-(.+)</code>, obj: &quot;queryDefaults.$2&quot;, make: &quot;$1&quot;, autotype: 1, descr: &quot;Global query defaults for getQuery, can be path specific, ex. -api-query-defaults-max-name 128 -api-query-defaults-max-/endpoint-name 255&quot;</li>
-<li><code>api-csrf-set-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set CSRF token for all methods, token type(account|pub) is based on the current session&quot;</li>
+<li><code>api-csrf-set-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set CSRF token for all methods, token type(user|pub) is based on the current session&quot;</li>
 <li><code>api-csrf-pub-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set public CSRF token only if no valid CSRF token detected&quot;</li>
 <li><code>api-csrf-check-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set CSRF token for skip methods and verify for others&quot;</li>
 <li><code>api-csrf-skip-method</code>, type: &quot;regexp&quot;, descr: &quot;Do not check for CSRF token for specified methods&quot;</li>
@@ -1630,7 +1455,7 @@ The options is expected to contain the following cached request properties:</p>
 <p>  Perform rate limiting by specified property, if not given no limiting is done.</p>
 <p>The following options properties can be used:</p>
 <ul>
-<li><p>type - predefined: <code>ip,  path, opath</code>, determines by which property to perform rate limiting, when using account properties
+<li><p>type - predefined: <code>ip,  path, opath</code>, determines by which property to perform rate limiting, when using user properties
  the rate limiter should be called after the request signature has been parsed. Any other value is treated as
  custom type and used as is. If it is an array all items will be checked sequentially.
  <strong>This property is required.</strong></p>
@@ -1764,7 +1589,7 @@ subject to log throttling configuration.</p>
 
 <ul>
 <li><p><code>api.checkAuthorization(req, callback)</code></p>
-<p>  Perform authorization checks after the account been checked for valid signature.</p>
+<p>  Perform authorization checks after the user been checked for valid signature.</p>
 <p>At least once acl must match to proceed.</p>
 <ul>
 <li>req is Express request object</li>
@@ -1790,7 +1615,7 @@ subject to log throttling configuration.</p>
 <p>  CSRF token format: TYPE,RANDOM_INT,EXPIRE_MS,[UID]</p>
 <p><code>type`` is </code>h<code>for header or</code>c`` for cookie</p>
 <p>Implements double cookie protection using HTTP and cookie tokens, both must be present.</p>
-<p>In addition a token may contain the account id which must be the same as logged in user.</p>
+<p>In addition a token may contain the user id which must be the same as logged in user.</p>
 <p>Return HTTP CSRF token, can be used in templates or forms, the cookie token will reuse the same token</p>
 </li>
 </ul>
@@ -1956,7 +1781,7 @@ can do it in the code if needed.</p>
 <ul>
 <li><p><code>api.registerAccessCheck(method, path, callback)</code></p>
 <p>  Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before
-validating the signature or session cookies. No account information is available at this point yet.</p>
+validating the signature or session cookies. No user information is available at this point yet.</p>
 <p>To continue to next hoook return nothing in the <code>cb</code>,
 any returned status will be final, an error status will be immediately returned in the response,
 status 200 will continue to the authentication step</p>
@@ -1967,9 +1792,9 @@ status 200 will continue to the authentication step</p>
 <li>callback is a function function(req, cb) {}</li>
 </ul>
 <p>Example:</p>
-<pre><code>     api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, (req, cb) =&gt; { cb({ status: 500, message: &quot;access disabled&quot;}) }))
+<pre><code>     api.registerAccessCheck(&#39;&#39;, &#39;user&#39;, (req, cb) =&gt; { cb({ status: 500, message: &quot;access disabled&quot;}) }))
 
-     api.registerAccessCheck(&#39;POST&#39;, &#39;/account/add&#39;, (req, cb) =&gt; {
+     api.registerAccessCheck(&#39;POST&#39;, &#39;/user/add&#39;, (req, cb) =&gt; {
         if (!req.query.invitecode) return cb({ status: 400, message: &quot;invitation code is required&quot; });
         cb();
      });
@@ -1980,7 +1805,7 @@ status 200 will continue to the authentication step</p>
 <ul>
 <li><p><code>api.registerAuthCheck(method, path, callback)</code></p>
 <p>  This callback will be called after the signature or session is verified but before
-the ACL authorizaton is called. The <code>req.account</code> object will always exist at this point but may not contain the user in case of an error.</p>
+the ACL authorizaton is called. The <code>req.user</code> object will always exist at this point but may not contain the user in case of an error.</p>
 <p>The purpose of this hook is to perform alternative authentication like API access with keys. Because it is called before the authorization it is
 also possible to customize user roles.</p>
 <ul>
@@ -2001,7 +1826,7 @@ also possible to customize user roles.</p>
 <ul>
 <li><p><code>api.registerPreProcess(method, path, callback)</code></p>
 <p>  Similar to <code>registerAuthCheck</code>, this callback will be called after the signature or session is verified and ACL authorization performed but before
-the API route method is called. The <code>req.account</code> object will always exist at this point.</p>
+the API route method is called. The <code>req.user</code> object will always exist at this point.</p>
 <p>The purpose of this hook is to perform some preparations or check permissions of a valid user to resources or in case of error perform alternative
 authorization.</p>
 <ul>
@@ -2017,14 +1842,14 @@ authorization.</p>
 <li>callback is a function(req, status, cb)</li>
 </ul>
 <p>Example:</p>
-<pre><code>      api.registerPreProcess(&#39;GET&#39;, &#39;/account/get&#39;, (req, status, cb) =&gt; {
+<pre><code>      api.registerPreProcess(&#39;GET&#39;, &#39;/user/get&#39;, (req, status, cb) =&gt; {
            if (status.status != 200) status = { status: 302, url: &#39;/error.html&#39; };
            cb(status)
       });
 </code></pre>
 <p>Example with admin access only:</p>
 <pre><code>     api.registerPreProcess(&#39;POST&#39;, &#39;/data/&#39;, function(req, status, cb) {
-         if (req.account.type != &quot;admin&quot;) return cb({ status: 401, message: &quot;access denied, admins only&quot; });
+         if (req.user.type != &quot;admin&quot;) return cb({ status: 401, message: &quot;access denied, admins only&quot; });
          cb();
      });
 </code></pre>
@@ -2043,7 +1868,7 @@ results using <code>api.sendJSON</code> or <code>api.sendFormatted</code> method
 the callback may not return data back to the client, in this case next post-process hook will be called and eventually the result will be sent back to the client.
 <strong>To indicate that this hook will send the result eventually it must return true, otherwise the rows will be sent afer all hooks are called</strong></li>
 </ul>
-<p>Note: the <code>req.account,req.options,req.query</code> objects may become empty if any callback decided to do some async action, they are explicitly emptied at the end of the request,
+<p>Note: the <code>req.user, req.options, req.query</code> objects may become empty if any callback decided to do some async action, they are explicitly emptied at the end of the request,
 in such cases make a copy of the needed objects if it will needed</p>
 <p>Example, just update the rows, it will be sent at the end of processing all post hooks</p>
 <pre><code>     api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, (req, res, rows) =&gt; {
@@ -2065,7 +1890,7 @@ in such cases make a copy of the needed objects if it will needed</p>
 <ul>
 <li><p><code>api.registerCleanup(method, path, callback)</code></p>
 <p>  Register a cleanup callback that will be called at the end of a request, all registered cleanup callbacks will be called in the order
-of registration. At this time the result has been sent so connection is not valid anymore but the request and account objects are still available.</p>
+of registration. At this time the result has been sent so connection is not valid anymore but the request and user objects are still available.</p>
 <p>Example, do custom logging of all requests</p>
 <pre><code>     api.registerCleanup(&#39;&#39;, &#39;/data/&#39;, (req, next) =&gt; {
          db.add(&quot;log&quot;, req.query, next);
@@ -2094,16 +1919,16 @@ still valid and can be changed. The callback behavior is similar to the <code>ap
 <ul>
 <li>method can be &#39;&#39; in such case all methods will be matched</li>
 <li>path is a string or regexp of the request URL similr to registering Express routes</li>
-<li>callback is a function(req, account, sig, cb) where<ul>
-<li>if sig is null it means to generate a new signature for the given account and return in the callback, if multiple hooks are registered the processing
+<li>callback is a function(req, user, sig, cb) where<ul>
+<li>if sig is null it means to generate a new signature for the given user and return in the callback, if multiple hooks are registered the processing
 stops on first signature returned</li>
-<li>if sig is provided that means to verify the signature against given account and return it if valid or return null if it is invalid or
+<li>if sig is provided that means to verify the signature against given user and return it if valid or return null if it is invalid or
 cannot be verified by current hook, multiple hooks can be supported and it stops on first signature returned in the callback</li>
 </ul>
 </li>
 </ul>
 <p>Example:</p>
-<pre><code>      api.registerSignature(&#39;&#39;, &#39;/&#39;, (req, account, sig, cb) =&gt; {
+<pre><code>      api.registerSignature(&#39;&#39;, &#39;/&#39;, (req, user, sig, cb) =&gt; {
            if (sig) {
                if (invalid) sig = null;
            } else {
@@ -2112,16 +1937,6 @@ cannot be verified by current hook, multiple hooks can be supported and it stops
            cb(sig)
       });
 </code></pre>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.registerSecret(login, callback)</code></p>
-<p>  Register a secret generation method.</p>
-<ul>
-<li>login is a regexp for logins to have a special secret encryption method</li>
-<li>callback is a function(account, options, cb)</li>
-</ul>
 </li>
 </ul>
 
@@ -2182,7 +1997,7 @@ cannot be verified by current hook, multiple hooks can be supported and it stops
 
 <ul>
 <li><p><code>api.putIcon(req, name, id, options, callback)</code></p>
-<p>  Store an icon for account, the options are the same as for the <code>iconPath</code> method</p>
+<p>  Store an icon for user, the options are the same as for the <code>iconPath</code> method</p>
 <ul>
 <li>name is the name property to look for in the multipart body or in the request body or query</li>
 <li>id is used in <code>iconPath</code> along with the options to build the icon absolute path</li>
@@ -2220,7 +2035,7 @@ Valid properties in the options:</p>
 
 <ul>
 <li><p><code>api.delIcon(id, options, callback)</code></p>
-<p>  Delete an icon for account, .type defines icon prefix</p>
+<p>  Delete an icon for user, .type defines icon prefix</p>
 </li>
 </ul>
 
@@ -2233,6 +2048,45 @@ Valid properties in the options:</p>
 <ul>
 <li><p><code>api.isIcon(buf)</code></p>
 <p>  Returns detected image type if the given buffer contains an image, it checks the header only</p>
+</li>
+</ul>
+
+<h3 id="module-passkeys">Module: passkeys</h3>
+<p>  Passkey management</p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>passkeys-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
+<li><code>passkeys-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
+<li><code>passkeys-path</code>, descr: &quot;Cookies path&quot;</li>
+<li><code>passkeys-secret</code>, descr: &quot;Cookies secret&quot;</li>
+<li><code>passkeys-cache</code>, descr: &quot;Cache for challenges&quot;</li>
+<li><code>passkeys-domain</code>, descr: &quot;Explicit domain to use instead of host&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>passkeys.get(user)</code></p>
+<p>  Return a list of all passkyes for the user</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>passkeys.read(user, passkeyId, callback)</code></p>
+<p>  Read a user and passkey, user can be id/login or an user object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>passkeys.update(options, callback)</code></p>
+<p>  Add/delete a passkey,</p>
+<ul>
+<li>user - full user record</li>
+<li>passkey - a registration credential object to add or just { id: id } to remove</li>
+<li>query - optional additional fields to update</li>
+</ul>
 </li>
 </ul>
 
@@ -2276,8 +2130,8 @@ it always returns a signature object, a new one or existing</p>
 </ul>
 
 <ul>
-<li><p><code>api.verifySignature(req, sig, account, callback)</code></p>
-<p>  Returns true if the signature <code>sig</code> matches given account secret. <code>account</code> object must be a <code>bk_user</code> record.</p>
+<li><p><code>api.verifySignature(req, sig, user, callback)</code></p>
+<p>  Returns true if the signature <code>sig</code> matches given user secret. <code>user</code> object must be a <code>bk_user</code> record.</p>
 </li>
 </ul>
 
@@ -2289,18 +2143,31 @@ it always returns a signature object, a new one or existing</p>
 <li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
 <li>version a version number defining how the signature will be signed</li>
 <li>type - content-type header, may be omitted</li>
-<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
+<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional user or session information</li>
 <li>checksum - SHA1 digest of the whole content body, may be omitted</li>
 <li>query - on object with query parameters to use instead of parameters in the uri</li>
 </ul>
 </li>
 </ul>
 
+<h3 id="module-users">Module: users</h3>
+<p>  User management</p>
+<p>  use -api.users-cap-noweb 1 to disable default endpoints</p>
+
 <ul>
-<li><p><code>api.setCurrentAccount(req, account)</code></p>
-<p>  Assign or clear the current account record for the given request, if account is null the account is cleared.
-All columns in the auth table marked with the <code>auth</code> property will be also set in the <code>req.options.account</code> which is used
-for permissions when the full account record is not available and only the options are passed.</p>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>users-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
+<li><code>users-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.setCurrentUser(req, user)</code></p>
+<p>  Assign or clear the current user record for the given request, if user is null the current is cleared.
+All columns in the auth table marked with the <code>auth</code> property will be also set in the <code>req.options.user</code> which is used
+for permissions when the full user record is not available and only the options are passed.</p>
 </li>
 </ul>
 
@@ -2334,7 +2201,7 @@ all the supported options are defined in the <code>api.controls</code> and can b
 
 <ul>
 <li><p><code>api.getTokenSecret(req)</code></p>
-<p>  Return a secret to be used for enrypting tokens, it uses the account property if configured or the global API token
+<p>  Return a secret to be used for enrypting tokens, it uses the user property if configured or the global API token
 to be used to encrypt data and pass it to the clients. <code>-api-query-token-secret</code> can be configured and if a column in the <code>bk_user</code>
 with such name exists it is used as a secret, otherwise the value of this property is used as a secret.</p>
 </li>
@@ -2378,8 +2245,8 @@ is kept in the <code>req.options.cleanup</code> which by default is empty.</p>
 <p>If any column is marked with <code>priv</code> property this means never return that column in the result even for the owner of the record</p>
 <p>The <code>options.isInternal</code> allows to return everything except secure columns</p>
 <p>Columns with the <code>pub_admin</code> property will be returned only if the options contains <code>isAdmin</code>, same with the <code>pub_staff</code> property, it requires <code>options.isStaff</code>.</p>
-<p>To return data based on the current account roles a special property in the format <code>pub_types</code> must be set as a string or an array
-with roles to be present in the current account <code>type`` field. This is checked only if the column is allowed, this is an additional restriction, i.e. a column must be allowed by the </code>pub` property or other way.</p>
+<p>To return data based on the current user roles a special property in the format <code>pub_types</code> must be set as a string or an array
+with roles to be present in the current user <code>type`` field. This is checked only if the column is allowed, this is an additional restriction, i.e. a column must be allowed by the </code>pub` property or other way.</p>
 <p>To retstrict by role define <code>priv_types</code> in a column with a list of roles which should be denied access to the field.</p>
 <p>The <code>options.pool</code> property must match the actual rowset to be applied properly, in case the records
 have been retrieved for the different database pool.</p>
@@ -2390,88 +2257,80 @@ new columns or columns created on the fly are returned to the client. <code>api.
 </li>
 </ul>
 
+<h3 id="module-ws">Module: ws</h3>
+
 <ul>
-<li><p><code>api.clearQuery(table, query, options)</code></p>
-<p>  Clear request query properties specified in the table definition or in custom schema.</p>
-<p>The <code>table</code> argument can be a table name or an object with properties as columns.</p>
-<p>If <code>options.filter</code> is not specified the <code>query</code> will only keep existing columns for the given table.</p>
-<p>If <code>options.filter</code> is a list then the <code>query</code> will delete properties for columns that contain any specified
-property from the filter list. This is used for the <code>bk_user</code> table to remove properties that supposed to be updated by admins only.
-The filter will keep non-existent columns in the <code>query</code>. To remove such columns when using the filter specify <code>options.force</code>.</p>
-<p>If a name in the filter is prefixed with ! then the logic is reversed, keep all except this property</p>
-<p>If <code>options.keep</code> is a regexp it will be used to keep matched properties by name in the <code>query</code> regardless of any condition.</p>
-<p>If <code>options.clear</code> is a regexp it will be used to remove matched properties by name in the <code>query</code>.</p>
-<p> Example:</p>
-<pre><code>   api.clearQuery(&quot;bk_user&quot;, req.query)
-   api.clearQuery(&quot;bk_user&quot;, req.query, &quot;internal&quot;)
-   api.clearQuery(&quot;bk_user&quot;, req.query, { filter: &quot;internal&quot; })
-   api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;internal&quot;] })
-   api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;!pub&quot;] })
-   api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;internal&quot;,&quot;priv&quot;] })
-   api.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;internal&quot;,&quot;!priv&quot;], keep: /^__/ })
-   api.clearQuery({ name: {}, id: { admin: 1 } }, req.query, { filter: [&quot;internal&quot;] })
-</code></pre>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>ws-port</code>, type: &quot;number&quot;, min: 0, descr: &quot;Port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers&quot;</li>
+<li><code>ws-bind</code>, descr: &quot;Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports&quot;</li>
+<li><code>ws-ping</code>, type: &quot;number&quot;, min: 0, descr: &quot;How often to ping Websocket connections&quot;</li>
+<li><code>ws-path</code>, type: &quot;regexp&quot;, descr: &quot;Websockets will be accepted only if request matches this pattern&quot;</li>
+<li><code>ws-origin</code>, type: &quot;regexp&quot;, descr: &quot;Websockets will be accepted only if request Origin: header maches the pattern&quot;</li>
+<li><code>ws-queue</code>, descr: &quot;A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets &quot;</li>
+</ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.handleWebSocketUpgrade(req, socket, head)</code></p>
+<li><p><code>ws.handleWebSocketUpgrade(req, socket, head)</code></p>
 <p>  Check if the request is allowed to upgrade to Websocket</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.handleWebSocketConnect(ws, req)</code></p>
+<li><p><code>ws.handleWebSocketConnect(ws, req)</code></p>
 <p>  Wrap external WebSocket connection into the Express routing, respond on backend command</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.handleWebSocketRequest(ws, data)</code></p>
+<li><p><code>ws.handleWebSocketRequest(ws, data)</code></p>
 <p>  Wrap WebSocket into HTTP request to be proceses by the Express routes</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.wsSet(type, req, value)</code></p>
-<p>  Update a Websocket connection properties:</p>
+<li><p><code>ws.set(type, req, value)</code></p>
+<p>  Update a Websocket connection properties, it is used with the <code>path</code> config and must end with <code>/query</code> or <code>/user</code> to reset the connection
+object. This is useful in case when the user is updated with new properties and WS connection need to use it for matching in <code>broadcast</code>.</p>
 <ul>
-<li>query - set query with a new object, this is used in the wsNotify broadcasts to match who can receive messages. Initially it is set to the
+<li>query - set query with a new object, this is used in the broadcasts to match who can receive messages. Initially it is set to the
  query from the first connection.</li>
-<li>account - update the current socket account object with new properties</li>
+<li>user - update the current socket user object with new properties</li>
 </ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.wsSend(wsid, msg)</code></p>
+<li><p><code>ws.send(wsid, msg)</code></p>
 <p>  Send to a websocket inside an api server directly</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.wsNotify(options, msg, callback)</code></p>
-<p>  Broadcast a message according to the options, if no websocket queue is defined send directly using <code>wsBroadcast</code></p>
+<li><p><code>ws.notify(options, msg, callback)</code></p>
+<p>  Broadcast a message according to the options, if no websocket queue is defined send directly using <code>broadcast</code></p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.wsBroadcast(options, msg)</code></p>
+<li><p><code>ws.broadcast(options, msg)</code></p>
 <p>  Send a message to all websockets inside an api process that match the criteria from the options:</p>
 <ul>
 <li>path - a regexp to match initial Websocket connection url</li>
-<li>account_id - send to websockets belonginh to the account, can be a list as well to notify multiple accounts</li>
-<li>account - an object to  be used for condition against Websocket&#39;s accounts, <code>lib.isMatched</code> is used for comparison</li>
+<li>user_id - send to websockets belonging to the user, can be a list as well to notify multiple user</li>
+<li>user - an object to  be used for condition against Websocket&#39;s user, <code>lib.isMatched</code> is used for comparison</li>
 <li>wsid - send to the specific websocket(s), can be a list</li>
 <li>query - an object to be used for condition against Websocket&#39;s query, <code>lib.isMatched</code> is used for comparison</li>
 <li>cleanup - a table name to be used for message cleanup using <code>api.cleanupResult</code>, if it is an array then
 the first item is a table and the second item is the property name inside the <code>msg</code> to be cleanup only, eg. cleanup: [&quot;bk_user&quot;,&quot;user&quot;].
 All properties starting with <code>is`` or </code>cleanup_`` will be passed to the cleanupResult.</li>
 <li>preprocess - a function(ws, options, msg) to be called before sending in order to possibly modify the message for this
- particular account, i.e. for permissions checks, if it needs to be modified return a copy otherwise the original will be used, returning
+ particular user, i.e. for permissions checks, if it needs to be modified return a copy otherwise the original will be used, returning
  null will skip this socket</li>
 <li>method - a string in the format <code>module.method</code> to run the same way as the <code>preprocess</code> function, this is a more
- reliable way to be use preprocess with <code>wsNotify</code></li>
+ reliable way to be use preprocess with <code>notify</code></li>
 </ul>
 </li>
 </ul>
@@ -2517,6 +2376,12 @@ is not ready for incoming requests yet. This handler can setup additional API en
 </ul>
 
 <ul>
+<li><p><code>app.configureServer(options, callback) </code></p>
+<p>  This handler is called during the Web server startup to create additional servers like websocket in addition to the default HTTP(s) servers</p>
+</li>
+</ul>
+
+<ul>
 <li><p><code>app.shutdownWeb(options, callback) </code></p>
 <p>  Perform shutdown sequence when a Web process is about to exit</p>
 <p>NOTE: <code>api.app</code> refers to the Express instance</p>
@@ -2526,13 +2391,6 @@ is not ready for incoming requests yet. This handler can setup additional API en
 <ul>
 <li><p><code>app.configureMaster(options, callback) </code></p>
 <p>  This handler is called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>app.configureServer(options, callback) </code></p>
-<p>  This handler is called during the Web server startup, this is the master process that creates Web workers for handling Web requests, this process
-interacts with the Web workers via IPC sockets between processes and relaunches them if any Web worker dies.</p>
 </li>
 </ul>
 
@@ -3993,12 +3851,6 @@ otherwise it is already locked by other instance. In case of an error the lock i
 <li><code>port</code>, type: &quot;number&quot;, min: 0, descr: &quot;port to listen for the HTTP server, this is global default&quot;</li>
 <li><code>bind</code>, descr: &quot;Bind to this address only, if not specified listen on all interfaces&quot;</li>
 <li><code>backlog</code>, type: &quot;int&quot;, descr: &quot;The maximum length of the queue of pending connections, used by HTTP server in listen.&quot;</li>
-<li><code>ws-port</code>, type: &quot;number&quot;, obj: &#39;ws&#39;, min: 0, descr: &quot;Port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers&quot;</li>
-<li><code>ws-bind</code>, obj: &#39;ws&#39;, descr: &quot;Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports&quot;</li>
-<li><code>ws-ping</code>, type: &quot;number&quot;, obj: &#39;ws&#39;, min: 0, descr: &quot;How often to ping Websocket connections&quot;</li>
-<li><code>ws-path</code>, type: &quot;regexp&quot;, obj: &#39;ws&#39;, descr: &quot;Websockets will be accepted only if request path maches the pattern&quot;</li>
-<li><code>ws-origin</code>, type: &quot;regexp&quot;, obj: &#39;ws&#39;, descr: &quot;Websockets will be accepted only if request Origin: header maches the pattern&quot;</li>
-<li><code>ws-queue</code>, obj: &quot;ws&quot;, descr: &quot;A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets &quot;</li>
 <li><code>ssl-port</code>, type: &quot;number&quot;, obj: &#39;ssl&#39;, min: 0, descr: &quot;port to listen for HTTPS server, this is global default&quot;</li>
 <li><code>ssl-bind</code>, obj: &#39;ssl&#39;, descr: &quot;Bind to this address only for HTTPS server, if not specified listen on all interfaces&quot;</li>
 <li><code>ssl-key</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, descr: &quot;Path to SSL prvate key&quot;</li>
@@ -4731,7 +4583,7 @@ the top level column must be defined to work, this is for DBs that support JSON 
 
    });
 </code></pre>
-<p>Example: allow all accounts icons to be visible</p>
+<p>Example: allow all user icons to be visible</p>
 <pre><code>   db.select(&quot;bk_user&quot;, {}, (err, rows) =&gt; {
        rows.forEach(function(row) {
            row.acl_allow = &#39;auth&#39;;
@@ -4739,17 +4591,17 @@ the top level column must be defined to work, this is for DBs that support JSON 
        });
    });
 </code></pre>
-<p>Example: scan accounts with custom filter, not by primary key: by exact zipcode</p>
+<p>Example: scan userс with custom filter, not by primary key: by exact zipcode</p>
 <pre><code>   db.select(&quot;bk_user&quot;, { zipcode: &#39;20000&#39; }, (err, rows) =&gt; {
 
    });
 </code></pre>
-<p>Example: select accounts by type for the last day</p>
+<p>Example: select userс by type for the last day</p>
 <pre><code>   db.select(&quot;bk_user&quot;, { type: &#39;admin&#39;, mtime: Date.now()-86400000 }, { ops: { type: &quot;contains&quot;, mtime: &quot;gt&quot; } }, (err, rows) =&gt; {
 
    });
 </code></pre>
-<p>Example: select accounts by JSON sub property using Elasticsearch</p>
+<p>Example: select userс by JSON sub property using Elasticsearch</p>
 <pre><code>   db.select(&quot;bk_user&quot;, { &quot;settings.status&quot;: &quot;ok&quot; }, { pool: &quot;elasticsearch&quot; }, (err, rows) =&gt; {
 
    });
@@ -5061,7 +4913,7 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
 </ul>
 <p> Example:</p>
 <pre><code>     db.scan(&quot;bk_user&quot;, {}, { count: 10, pool: &quot;dynamodb&quot; }, function(row, next) {
-         // Copy all accounts from one db into another
+         // Copy all userс from one db into another
          db.add(&quot;bk_user&quot;, row, { pool: &quot;pg&quot; }, next);
      }, function(err) { });
 </code></pre>
@@ -5141,14 +4993,14 @@ contain the following properties:</p>
 <li><code>trunc</code> - truncate the column value, the value will be truncated before saving into the DB, uses the <code>max</code> as the limit</li>
 <li><code>maxlist</code> - max number of items in the <code>list</code> or <code>array</code> column types</li>
 <li><code>pub</code> - columns is public, <em>this is very important property because it allows anybody to see it when used in the default API functions, i.e. anybody with valid
- credentials can retrieve all public columns from all other tables, and if one of the other tables is account table this may expose some personal information,
+ credentials can retrieve all public columns from all other tables, and if one of the other tables is user table this may expose some personal information,
  so by default only a few columns are marked as public in the <code>bk_user</code> table</em></li>
 <li><code>pub_admin</code> - a generic read permission requires <code>options.isAdmin</code> when used with <code>api.cleanResult</code></li>
 <li><code>pub_staff</code> - a generic read permission requires <code>options.isStaff</code> when used with <code>api.cleanResult</code></li>
 <li><code>pub_types</code> - a role or a list of roles which further restrict access to a public column to only users with specified roles</li>
 <li><code>priv_types</code> - a role or a list of roles which excplicitely deny access to a column for users with specified roles</li>
 <li><code>priv</code> - an opposite for the pub property, if defined this property should never be returned to the client by the API handlers</li>
-<li><code>auth</code> - this property will be set in <code>req.options.account</code> for access permissions checks when only options are available</li>
+<li><code>auth</code> - this property will be set in <code>req.options.user</code> for access permissions checks when only options are available</li>
 <li><code>internal</code> - if set then this property can only be updated by admin/root or with <code>isInternal`` property, implemented by the </code>auth` module only</li>
 <li><code>hidden</code> - completely ignored by all update operations but could be used by the public columns cleaning procedure, if it is computed and not stored in the db
  it can contain pub property to be returned to the client</li>
@@ -5191,8 +5043,8 @@ because of the <code>index:</code> property value being not the same. If all ind
 <li><code>uuid</code> - autogenerate the column value with UUID, optional <code>prefix</code> property will be prepended, <code>{ type: &quot;uuid&quot;, prefix: &quot;u_&quot; }</code></li>
 <li><code>now</code> - defines a column to be automatically filled with the current timestamp, <code>{ type: &quot;now&quot; }</code></li>
 <li><code>counter</code> - defines a columns that will be automatically incremented by the <code>db.incr</code> command, on creation it is set with 0</li>
-<li><code>uid</code> - defines a columns to be automatically filled with the current user id, this assumes that account object is passed in the options from the API level</li>
-<li><code>uname</code> - defines a columns to be automatically filled with the current user name, this assumes that account object is passed in the options from the API level</li>
+<li><code>uid</code> - defines a columns to be automatically filled with the current user id, this assumes that user object is passed in the options from the API level</li>
+<li><code>uname</code> - defines a columns to be automatically filled with the current user name, this assumes that user object is passed in the options from the API level</li>
 <li><code>ttl</code> - mark the column to be auto expired, can be set directly to time in the future or use one of: <code>days</code>, <code>hours</code>, <code>minutes</code> as a interval in the future</li>
 </ul>
 <p>NOTE: Index creation is not required and all index properties can be omitted, it can be done more effectively using native tools for any specific database,
@@ -5688,7 +5540,7 @@ callbacks to keep the record consistent.</p>
  });
 
  db.setProcessRow(&quot;post&quot;, &quot;bk_icon&quot;, function(req, row) {
-     if (row.type == &quot;private&quot; &amp;&amp; row.id != req.options.account.id) return true;
+     if (row.type == &quot;private&quot; &amp;&amp; row.id != req.options.user.id) return true;
  });
 </code></pre>
 </li>
@@ -6126,6 +5978,30 @@ will be returned in the query object</p>
 <li><p><code>db.getQueryForKeys(keys, obj, options)</code></p>
 <p>  Returns an object based on the list of keys, basically returns a subset of properties.
 <code>options.keysMap</code> defines an object to map record properties with the actual names to be returned.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>db.clearQuery(table, query, options)</code></p>
+<p>  Clear request query properties specified in the table definition or in custom schema.</p>
+<p>The <code>table</code> argument can be a table name or an object with properties as columns.</p>
+<p>If <code>options.filter</code> is not specified the <code>query</code> will only keep existing columns for the given table.</p>
+<p>If <code>options.filter</code> is a list then the <code>query</code> will delete properties for columns that contain any specified
+property from the filter list. This is used for the <code>bk_user</code> table to remove properties that supposed to be updated by admins only.
+The filter will keep non-existent columns in the <code>query</code>. To remove such columns when using the filter specify <code>options.force</code>.</p>
+<p>If a name in the filter is prefixed with ! then the logic is reversed, keep all except this property</p>
+<p>If <code>options.keep</code> is a regexp it will be used to keep matched properties by name in the <code>query</code> regardless of any condition.</p>
+<p>If <code>options.clear</code> is a regexp it will be used to remove matched properties by name in the <code>query</code>.</p>
+<p> Example:</p>
+<pre><code>   db.clearQuery(&quot;bk_user&quot;, req.query)
+   db.clearQuery(&quot;bk_user&quot;, req.query, &quot;internal&quot;)
+   db.clearQuery(&quot;bk_user&quot;, req.query, { filter: &quot;internal&quot; })
+   db.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;internal&quot;] })
+   db.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;!pub&quot;] })
+   db.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;internal&quot;,&quot;priv&quot;] })
+   db.clearQuery(&quot;bk_user&quot;, req.query, { filter: [&quot;internal&quot;,&quot;!priv&quot;], keep: /^__/ })
+   db.clearQuery({ name: {}, id: { admin: 1 } }, req.query, { filter: [&quot;internal&quot;] })
+</code></pre>
 </li>
 </ul>
 
@@ -6907,10 +6783,10 @@ validate incoming data. It is an object with property names and definitoons that
            phone: { type: &quot;list&quot;, datatype: &quot;number&quot; },
    }, {
            defaults: {
-               start: { secret: req.account.secret },
+               start: { secret: req.user.secret },
                name: { dflt: &quot;test&quot; },
                count: { max: 100 },
-               email: { ignore: req.account.type != &quot;admin&quot; },
+               email: { ignore: req.user.type != &quot;admin&quot; },
                &quot;*.string&quot;: { max: 255 },
                &#39;*&#39;: { maxlist: 255 },
    })
@@ -9546,7 +9422,7 @@ bkjs test-db
 
 <ul>
 <li><p><code>shell.cmdUserGet(options)</code></p>
-<p>  Show account records by id or login</p>
+<p>  Show user records by id or login</p>
 </li>
 </ul>
 
@@ -9590,6 +9466,79 @@ bkjs test-db
 <ul>
 <li><p><code>stats.collect(options, callback)</code></p>
 <p>  Collect process stats</p>
+</li>
+</ul>
+
+<h2 id="module-users">Module: users</h2>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>users-table</code>, descr: &quot;Table to use for users&quot;</li>
+<li><code>users-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
+<li><code>users-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
+<li><code>users-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
+<li><code>users-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
+<li><code>users-file</code>, descr: &quot;A JSON file with users&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.get(query, options, callback)</code></p>
+<p>  Returns a user record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.add(query, options, callback)</code></p>
+<p>  Registers a new user, returns new record in the callback,
+if <code>options.isInternal</code> is true then allow to set all properties
+<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
+otherwise internal properties will not be added</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.update(query, options, callback)</code></p>
+<p>  Updates an existing user by login or id,
+if <code>options.isInternal</code> is true then allow to update all properties,
+<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
+returns a new record in the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.del(query, options, callback)</code></p>
+<p>  Deletes an existing user by login or id, no admin checks, returns the old record in the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.isUid(id)</code></p>
+<p>  Returns true of the given id is a valid user uuid</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.prepareSecret(query, options, callback)</code></p>
+<p>  If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.checkSecret(user, password, callback)</code></p>
+<p>  Verify an existing user record with given password,</p>
+<ul>
+<li>user - if a string it is a hashed secret from an existing user record, otherwise must be an user object</li>
+<li>password - plain text password or other secret passed to be verified</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.loadFile(callback)</code></p>
+<p>  Load users from a JSON file, only add or update records</p>
 </li>
 </ul>
 
