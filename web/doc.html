@@ -64,7 +64,7 @@
 <li><a href="#health-enquiry"> Health enquiry</a></li>
 <li><a href="#author"> Author</a></li>
 <li>Javascript Modules<ul>
-<li><a href="#module-account">account</a></li>
+<li><a href="#module-accounts">accounts</a></li>
 <li><a href="#module-api">api</a></li>
 <li><a href="#module-app">app</a></li>
 <li><a href="#module-aws">aws</a></li>
@@ -218,7 +218,6 @@ it is possible to install all optional dependencies for development purposes.</p
 <li><code>@parse/node-apn</code> - for Apple push notifications</li>
 <li><code>sharp</code> - scaling images in uploads using VPS imaging</li>
 <li><code>nats</code> - NATS driver for queue and events</li>
-<li><code>mmmagic</code> - file detection in uploads, only used when <code>allow</code> is passed to the <code>api.putFile</code></li>
 </ul>
 <p>The command below will show all core and optional dependencies, <code>npm install</code> will install only the core dependencies</p>
 <pre><code>bkjs deps -dry-run -mods
@@ -1218,52 +1217,51 @@ purpose there is an API endpoint <code>/ping</code> that just responds with stat
 <h1 id="author">Author</h1>
 <p>  Vlad Seryakov</p>
 
-<h2 id="module-account">Module: account</h2>
-<p>  User and account management</p>
+<h2 id="module-accounts">Module: accounts</h2>
+<p>  User account management</p>
 
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
-<li><code>account-table</code>, descr: &quot;Table to use for user accounts&quot;</li>
-<li><code>account-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
-<li><code>account-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
-<li><code>account-admin-roles</code>, type: &quot;list&quot;, descr: &quot;List of special super admin roles&quot;</li>
-<li><code>account-sigversion</code>, type: &quot;int&quot;, descr: &quot;Signature version for secrets&quot;</li>
-<li><code>account-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
-<li><code>account-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
-<li><code>account-file</code>, descr: &quot;A JSON file with users&quot;</li>
-<li><code>account-passkey-(.+)</code>, obj: &quot;passkey&quot;, autotype: 1, descr: &quot;Passkey numeric parameters: path, secret, cache, max, ttl, disabled&quot;</li>
+<li><code>accounts-table</code>, descr: &quot;Table to use for user users&quot;</li>
+<li><code>accounts-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
+<li><code>accounts-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
+<li><code>accounts-sigversion</code>, type: &quot;int&quot;, descr: &quot;Signature version for secrets&quot;</li>
+<li><code>accounts-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
+<li><code>accounts-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
+<li><code>accounts-file</code>, descr: &quot;A JSON file with users&quot;</li>
+<li><code>accounts-passkey-(.+)</code>, obj: &quot;passkey&quot;, autotype: 1, descr: &quot;Passkey numeric parameters: path, secret, cache, max, ttl, disabled&quot;</li>
 </ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.configureAccountAPI(options)</code></p>
+<li><p><code>accounts.configureAccountAPI(options)</code></p>
 <p>  Account methods below use request context and fire bk...Account hooks</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.getAccount(req, options, callback)</code></p>
+<li><p><code>accounts.get(req, options, callback)</code></p>
 <p>  Returns current account, used in /account/get API call, req.account will be filled with the properties from the db</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.addAccount(req, options, callback)</code></p>
+<li><p><code>accounts.add(req, options, callback)</code></p>
 <p>  Register new account, may be used an API call, but the req does not have to be an Express request, it just
 need to have query and options objects.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.updateAccount(req, options, callback)</code></p>
+<li><p><code>accounts.update(req, options, callback)</code></p>
 <p>  Update existing account, used in /account/update API call</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.deleteAccount(req, callback)</code></p>
+<li><p><code>accounts.del(req, callback)</code></p>
 <p>  Delete account specified by the obj.
 The options may contain <code>keep</code> array with tables to be kept, for example
 delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,&quot;bk_location&quot;]</p>
@@ -1272,25 +1270,25 @@ delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,
 </ul>
 
 <ul>
-<li><p><code>account.configurePasskeyAPI(options)</code></p>
+<li><p><code>accounts.configurePasskeyAPI(options)</code></p>
 <p>  Passkey management</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.passkey.get(user)</code></p>
+<li><p><code>accounts.passkey.get(user)</code></p>
 <p>  Return a list of all passkyes for the account</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.passkey.read(user, passkeyId, callback)</code></p>
+<li><p><code>accounts.passkey.read(user, passkeyId, callback)</code></p>
 <p>  Read a user and passkey, user can be id/login or an user object</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.passkey.update(options, callback)</code></p>
+<li><p><code>accounts.passkey.update(options, callback)</code></p>
 <p>  Add/delete a passkey,</p>
 <ul>
 <li>account - full user record</li>
@@ -1301,14 +1299,14 @@ delete an account but keep all messages and location: keep:[&quot;bk_user&quot;,
 </ul>
 
 <ul>
-<li><p><code>account.get(query, options, callback)</code></p>
-<p>  Returns an account record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
+<li><p><code>accounts.getUser(query, options, callback)</code></p>
+<p>  Returns a user record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.add(query, options, callback)</code></p>
-<p>  Registers a new account, returns new record in the callback,
+<li><p><code>accounts.addUser(query, options, callback)</code></p>
+<p>  Registers a new user, returns new record in the callback,
 if <code>options.isInternal</code> is true then allow to set all properties
 <code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
 otherwise internal properties will not be added</p>
@@ -1316,8 +1314,8 @@ otherwise internal properties will not be added</p>
 </ul>
 
 <ul>
-<li><p><code>account.update(query, options, callback)</code></p>
-<p>  Updates an existing account by login or id,
+<li><p><code>accounts.updateUser(query, options, callback)</code></p>
+<p>  Updates an existing user by login or id,
 if <code>options.isInternal</code> is true then allow to update all properties,
 <code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
 returns a new record in the callback</p>
@@ -1325,25 +1323,25 @@ returns a new record in the callback</p>
 </ul>
 
 <ul>
-<li><p><code>account.del(query, options, callback)</code></p>
-<p>  Deletes an existing account by login or id, no admin checks, returns the old record in the callback</p>
+<li><p><code>accounts.delUser(query, options, callback)</code></p>
+<p>  Deletes an existing user by login or id, no admin checks, returns the old record in the callback</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.isUid(id)</code></p>
+<li><p><code>accounts.isUid(id)</code></p>
 <p>  Returns true of the given id is a valid user uuid</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.prepareSecret(query, options, callback)</code></p>
+<li><p><code>accounts.prepareSecret(query, options, callback)</code></p>
 <p>  If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>account.checkSecret(user, password, callback)</code></p>
+<li><p><code>accounts.checkSecret(user, password, callback)</code></p>
 <p>  Verify an existing user record with given password,</p>
 <ul>
 <li>user - if a string it is a hashed secret from an existing user record, otherwise must be an user object</li>
@@ -1353,7 +1351,7 @@ returns a new record in the callback</p>
 </ul>
 
 <ul>
-<li><p><code>account.loadFile(callback)</code></p>
+<li><p><code>accounts.loadFile(callback)</code></p>
 <p>  Load users from a JSON file, only add or update records</p>
 </li>
 </ul>
@@ -1402,7 +1400,6 @@ early with some properties always present:<ul>
 <li><code>api-files-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and account id in the file name&quot;</li>
 <li><code>api-files-url</code>, descr: &quot;URL where files are stored, for cases of central file server(s), must be full URL with optional path&quot;</li>
 <li><code>api-files-s3</code>, descr: &quot;S3 bucket name where to store files uploaded with the File API&quot;</li>
-<li><code>api-files-detect</code>, descr: &quot;File mime type detection method: file, default is mmmagic&quot;</li>
 <li><code>api-max-request-queue</code>, type: &quot;number&quot;, min: 0, descr: &quot;Max number of requests in the processing queue, if exceeds this value server returns too busy error&quot;</li>
 <li><code>api-no-access-log</code>, type: &quot;bool&quot;, descr: &quot;Disable access logging in both file or syslog&quot;</li>
 <li><code>api-access-log-file</code>, descr: &quot;File for access logging&quot;</li>
@@ -1430,37 +1427,22 @@ early with some properties always present:<ul>
 <li><code>api-lang-header-name</code>, descr: &quot;Name for the language query parameter, header and session cookie, primary language for a client&quot;</li>
 <li><code>api-signature-age</code>, type: &quot;int&quot;, descr: &quot;Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts&quot;</li>
 <li><code>api-access-token-secret</code>, descr: &quot;A generic secret to be used for API access or signatures&quot;</li>
-<li><code>api-allow-authenticated</code>, type: &quot;regexpobj&quot;, descr: &quot;Add URLs which can be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the allow-account-...)&quot;</li>
-<li><code>api-allow-acl-authenticated</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-allow-authenticated</code> parameter&quot;</li>
-<li><code>api-allow-admin</code>, type: &quot;regexpobj&quot;, descr: &quot;Add URLs which can be accessed by admin accounts only, can be partial urls or Regexp&quot;</li>
-<li><code>api-allow-acl-admin</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-allow-admin</code> parameter&quot;</li>
-<li><code>api-allow-account-([a-z0-9_]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;allow-account&quot;, descr: &quot;Add URLs which can be accessed by specific account type, can be partial urls or Regexp&quot;</li>
-<li><code>api-allow-acl-([a-z0-9_]+)</code>, type: &quot;rlist&quot;, obj: &quot;allow-acl&quot;, descr: &quot;Combine regexps from the specified acls for allow checks for the specified account type&quot;</li>
-<li><code>api-only-account-([a-z0-9_,]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;only-account&quot;, descr: &quot;Add URLs which can be accessed by specific account type only, can be partial urls or Regexp&quot;</li>
-<li><code>api-only-acl-([a-z0-9_,]+)</code>, type: &quot;rlist&quot;, obj: &quot;only-acl&quot;, descr: &quot;Combine regexps from the specified acls allowed for the specified account type only&quot;</li>
-<li><code>api-deny-authenticated</code>, type: &quot;regexpobj&quot;, descr: &quot;Add URLs which CAN NOT be accessed by any authenticated user account, can be partial urls or Regexp, it is checked before any other account types, if matched then no account specific paths will be checked anymore(any of the deny-account-...)&quot;</li>
-<li><code>api-deny-acl-authenticated</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-deny-authenticated</code> parameter&quot;</li>
-<li><code>api-deny-account-([a-z0-9_]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;deny-account&quot;, descr: &quot;Add URLs which CAN NOT be accessed by specific account type, can be partial urls or Regexp, this is checked before any allow parameters&quot;</li>
-<li><code>api-deny-acl-([a-z0-9_]+)</code>, type: &quot;list&quot;, obj: &quot;deny-acl&quot;, descr: &quot;Combine regexps from the specified acls for deny checks for the specified account type&quot;</li>
-<li><code>api-acl-([a-z0-9_]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;acl&quot;, descr: &quot;Add URLs to the named ACL which can be used in allow/deny rules per account&quot;</li>
-<li><code>api-allow</code>, type: &quot;regexpobj&quot;, set: 1, descr: &quot;Regexp for URLs that dont need credentials, replaces the whole access list&quot;</li>
-<li><code>api-allow-path</code>, type: &quot;regexpobj&quot;, key: &quot;allow&quot;, descr: &quot;Add to the list of allowed URL paths without authentication, adds to the <code>-api-allow</code> parameter&quot;</li>
-<li><code>api-allow-acl</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-allow</code> parameter&quot;</li>
-<li><code>api-deny</code>, type: &quot;regexpobj&quot;, set: 1, descr: &quot;Regexp for URLs that will be denied access, replaces the whole access list&quot;</li>
-<li><code>api-deny-path</code>, type: &quot;regexpobj&quot;, key: &quot;deny&quot;, descr: &quot;Add to the list of URL paths to be denied without authentication, adds to the <code>-api-deny</code> parameter&quot;</li>
-<li><code>api-deny-acl</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-api-deny</code> parameter&quot;</li>
-<li><code>api-allow-anonymous</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of allowed URL paths that can be served with or without valid account, the difference with <code>-api-allow-path</code> is that it will check for signature and an account but will continue if no login is provided, return error in case of wrong account or not account found&quot;</li>
-<li><code>api-allow-acl-anonymous</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-allow-anonymous</code> parameter&quot;</li>
+<li><code>api-deny-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of URL paths to be denied without authentication&quot;</li>
+<li><code>api-deny-acl-([a-z0-9_]+)</code>, type: &quot;list&quot;, obj: &quot;deny-acl&quot;, descr: &quot;Combine regexps from the specified acls for deny checks for the specified role&quot;</li>
+<li><code>api-acl-([a-z0-9_]+)</code>, type: &quot;regexpobj&quot;, obj: &quot;acl&quot;, descr: &quot;Add URLs to the named ACL which can be used in allow/deny rules per role&quot;</li>
+<li><code>api-allow-acl-anonymous</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls to alllow access any kind of users, with or without authentication&quot;</li>
+<li><code>api-allow-acl-authenticated</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls to allow access by any authenticated user account, this is only checked if no other acls matched&quot;</li>
+<li><code>api-allow-acl-([a-z0-9_]+)</code>, type: &quot;rlist&quot;, obj: &quot;allow-acl&quot;, descr: &quot;Combine regexps from the specified acls for allow checks for the specified role&quot;</li>
+<li><code>api-allow-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of allowed URL paths without authentication&quot;</li>
 <li><code>api-allow-empty</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs that should return empty responses if not found, for example return nothing for non-existent javascript files or css files&quot;</li>
-<li><code>api-ignore-allow</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs that should be ignored by the allow rules, the processing will continue&quot;</li>
-<li><code>api-ignore-allow-path</code>, type: &quot;regexpobj&quot;, key: &quot;ignore-allow&quot;, descr: &quot;Add to the list of URL paths which should be ignored by the allow rules, in order to keep allow/deny rules simple, for example to keep some js files from open to all: -allow-path \.js -ignore-allow-path /secure/&quot;</li>
-<li><code>api-ignore-allow-acl</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-ignore-allow-path</code> parameter&quot;</li>
 <li><code>api-allow-ip</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of regexps for IPs that only allowed access from. It is checked before endpoint access list&quot;</li>
 <li><code>api-deny-ip</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of regexps for IPs that will be denied access. It is checked before endpoint access list.&quot;</li>
 <li><code>api-allow-ssl</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of allowed locations using HTTPs only, plain HTTP requests to these urls will be refused&quot;</li>
+<li><code>api-ignore-allow-path</code>, type: &quot;regexpobj&quot;, key: &quot;ignore-allow&quot;, descr: &quot;Add to the list of URL paths which should be ignored by the allow rules, in order to keep allow/deny rules simple, for example to keep some js files from open to all: -allow-path \.js -ignore-allow-path /secure/&quot;</li>
+<li><code>api-ignore-allow-acl</code>, type: &quot;list&quot;, descr: &quot;Combine regexps from the specified acls for the check explained by <code>-ignore-allow-path</code> parameter&quot;</li>
 <li><code>api-ignore-ssl</code>, type: &quot;regexpobj&quot;, descr: &quot;Allow plain HTTP from matched IP addresss or locations&quot;</li>
 <li><code>api-redirect-ssl</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of the locations to be redirected to the same path but using HTTPS protocol&quot;</li>
-<li><code>api-express-options</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;Set Express config options during initialization, ex: <code>-api-express-options { \&quot;trust proxy\&quot;: 1, \&quot;strict routing\&quot;: true }</code>&quot;</li>
+<li><code>api-express-options</code>, type: &quot;json&quot;, obj: &quot;express-options&quot;, merge: 1, logger: &quot;warn&quot;, descr: &quot;Set Express config options during initialization, ex: <code>-api-express-options { \&quot;trust proxy\&quot;: 1, \&quot;strict routing\&quot;: true }</code>&quot;</li>
 <li><code>api-body-methods</code>, type: &quot;list&quot;, upper: 1, descr: &quot;HTTP methods allowed to have body&quot;</li>
 <li><code>api-body-types</code>, type: &quot;regexpobj&quot;, descr: &quot;Collect full request body in the req.body property for the given MIME types in addition to default json/form posts, this is for custom body processing&quot;</li>
 <li><code>api-body-raw</code>, type: &quot;regexpobj&quot;, descr: &quot;Do not parse the collected body for the following MIME content types, keep it as a string&quot;</li>
@@ -1491,9 +1473,6 @@ early with some properties always present:<ul>
 <li><code>api-auth-routing-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;auth-routing&#39;, descr: &quot;URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url, example: -api-routing-auth-^/account/get /acount/read&quot;</li>
 <li><code>api-redirect-url</code>, type: &quot;regexpmap&quot;, descr: &quot;Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location, example: { &#39;^[^/]+/path/$&#39;: &#39;/path2/index.html&#39;, &#39;.+/$&#39;: &#39;301:@PATH@/index.html&#39; } &quot;</li>
 <li><code>api-login-redirect-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &quot;login-redirect&quot;, descr: &quot;Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url, example: api-login-redirect-^/admin/=/login.html&quot;</li>
-<li><code>api-default-auth-status</code>, type: &quot;int&quot;, descr: &quot;Default authenticated status, if no auth rules matched but valid signature this is the status returned&quot;</li>
-<li><code>api-default-auth-message</code>, descr: &quot;Default authenticated message to be returned with default auth status&quot;</li>
-<li><code>api-reset-acl</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.resetAcl()  descr: &quot;Reset all ACL, auth, routing and login properties in the api module&quot;</li>
 <li><code>api-response-headers</code>, type: &quot;regexpmap&quot;, json: 1, descr: &quot;An JSON object with list of regexps to match against the location and set response headers defined as a ist of pairs name, value..., -api-response-headers={ &quot;^/&quot;: [&quot;x-frame-options&quot;,&quot;sameorigin&quot;,&quot;x-xss-protection&quot;,&quot;1; mode=block&quot;] }&quot;</li>
 <li><code>api-cleanup-rules-(.+)</code>, obj: &quot;cleanupRules.$1&quot;, type: &quot;map&quot;, maptype: &quot;auto&quot;, merge: 1, nocamel: 1, descr: &quot;Rules for the cleanupResult per table, ex. api-cleanup-rules-bk_user=email:0,phone:1&quot;</li>
 <li><code>api-cleanup-strict</code>, type: &quot;bool&quot;, descr: &quot;Default mode for cleanup results&quot;</li>
@@ -1511,6 +1490,7 @@ early with some properties always present:<ul>
 <li><code>api-allow-configure-(web|middleware)</code>, type: &quot;regexp&quot;, descr: &quot;Modules allowed to call configureWeb or Middleware, i.e. only allowed endpoints&quot;</li>
 <li><code>api-restart-hours</code>, type: &quot;list&quot;, datatype: &quot;int&quot;, descr: &quot;List of hours when to restart api workers, only done once for each hour&quot;</li>
 <li><code>api-trace-options</code>, type: &quot;map&quot;, maptype: &quot;auto&quot;, descr: &quot;Options for tracing, path:regexp for URLs to be traced, interval:Interval in ms how often to trace requests, must be &gt; 0 to enable tracing&quot;</li>
+<li><code>api-reset-acl</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.resetAcl()  descr: &quot;Reset all ACL, auth, routing and login properties in the api module&quot;</li>
 </ul>
 </li>
 </ul>
@@ -1752,61 +1732,8 @@ subject to log throttling configuration.</p>
 </ul>
 
 <ul>
-<li><p><code>api.handleLogout(req)</code></p>
-<p>  Clear the session and all cookies</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.handleSignature(req, res, callback)</code></p>
-<p>  Perform authorization of the incoming request for access and permissions</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkAuthHooks(req, status, callback)</code></p>
-<p>  Run authentication hooks for alternative credentials, to proceed it must return the same status or 200</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.newSignature(req)</code></p>
-<p>  Returns a new signature object with all required properties filled form the request object</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.getSignature(req)</code></p>
-<p>  Parse incoming request for signature and return all pieces wrapped in an object, this object will be used by <code>verifySignature</code> function.</p>
-<p>If the signature successfully recognized it is saved in the request as <code>req.signature</code>,
-it always returns a signature object, a new one or existing</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.verifySignature(req, sig, account, callback)</code></p>
-<p>  Returns true if the signature <code>sig</code> matches given account secret. <code>account</code> object must be a <code>bk_user</code> record.</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.createSignature(login, secret, method, host, uri, options)</code></p>
-<p>  Create secure signature for an HTTP request. Returns an object with HTTP headers to be sent in the response.</p>
-<p>The options may contains the following:</p>
-<ul>
-<li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
-<li>version a version number defining how the signature will be signed</li>
-<li>type - content-type header, may be omitted</li>
-<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
-<li>checksum - SHA1 digest of the whole content body, may be omitted</li>
-<li>query - on object with query parameters to use instead of parameters in the uri</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.checkRequestSignature(req, callback)</code></p>
-<p>  Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
+<li><p><code>api.bkCollectStats(options)</code></p>
+<p>  API stats if running</p>
 </li>
 </ul>
 
@@ -1815,9 +1742,8 @@ it always returns a signature object, a new one or existing</p>
 <p>  Perform URL based access checks, this is called before the signature verification, very early in the request processing step.</p>
 <p>Checks access permissions, calls the callback with the following argument:</p>
 <ul>
-<li>nothing if checkRequestSignature needs to be called</li>
-<li>an object with status: 200 to skip authorization and proceed with other routes</li>
-<li>an object with status: 0 means response has been sent, just stop</li>
+<li>null or undefined to proceed with authentication</li>
+<li>an object with status: 200 to skip authentication and proceed with other routes</li>
 <li>an object with status other than 0 or 200 to return the status and stop request processing,
  for statuses 301,302 there should be url property in the object returned</li>
 </ul>
@@ -1825,18 +1751,37 @@ it always returns a signature object, a new one or existing</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkAuthorization(req, status, callback)</code></p>
-<p>  Perform authorization checks after the account been checked for valid signature, this is called even if the signature verification failed,
-in case of a custom authentication middlware this must be called at the end and use the status object returned in the callback to
-return an error or proceed with the request. In any case the result of this function is final.</p>
-<p>If a user has valid login by default access to all API endpoints is granted, to restrict access to specific APIs use any combinations of
-<code>api-allow</code> or <code>api-deny</code> config parameters.</p>
+<li><p><code>api.checkAuthHooks(req, status, callback)</code></p>
+<p>  Run authentication hooks for alternative credentials, to proceed it must return nothing or status 200</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleAccess(req, res, callback)</code></p>
+<p>  Perform authorization of the incoming request for access and permissions</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAuthorization(req, callback)</code></p>
+<p>  Perform authorization checks after the account been checked for valid signature.</p>
+<p>At least once acl must match to proceed.</p>
 <ul>
 <li>req is Express request object</li>
-<li>status contains the signature verification status, an object with status: and message: properties, can not be null.
- The status property is passed to each hook in the chain, the result status will be returned to the client.</li>
-<li>callback is a function(status) to be called with the resulted status where status must be an object with status and message properties as well</li>
+<li>callback is a function(status) to be called with the final status</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.checkAuthentication(req, callback)</code></p>
+<p>  Verify request signature from the request object, uses properties: .host, .method, .url or .originalUrl, .headers</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.handleLogout(req)</code></p>
+<p>  Clear the session and all cookies</p>
 </li>
 </ul>
 
@@ -1921,7 +1866,7 @@ see <code>lib.readFile</code> or <code>aws.s3GetFile</code> for specific options
 <li>extmap - an object which extensions must be replaced</li>
 <li>namekeep - keep the name of the uploaded file if present in the multipart form</li>
 <li>encoding - encoding of the body, default is base64</li>
-<li>allow - a Regexp with allowed MIME types, this will use detectFile method to discover file type by the contents, make sure `mmmagic`` package is installed</li>
+<li>allow - a Regexp with allowed MIME types, this will use detectFile method to discover file type by the contents</li>
 <li>maxsize - refuse to save if the payload exceeds the given size</li>
 </ul>
 <p>On return the options may have the following properties set:</p>
@@ -1947,8 +1892,8 @@ see <code>lib.readFile</code> or <code>aws.s3GetFile</code> for specific options
 
 <ul>
 <li><p><code>api.detectFile(file, flags, callback)</code></p>
-<p>  Returns detected mime type and ext for a file, requires <code>mmmagic</code> package,
-if no flags given uses MAGIC_MIME_TYPE by default</p>
+<p>  Returns detected mime type and ext for a file,
+flags can be passed to the <code>file</code> utility to customize the output</p>
 </li>
 </ul>
 
@@ -1998,7 +1943,7 @@ can do it in the code if needed.</p>
 
  mod.configureWeb = function(options, callback) {
 
-    api.app.all(&quot;/send&quot;, function(req, res) {
+    api.app.all(&quot;/send&quot;, (req, res) =&gt; {
         if (req.options.notify) { ... }
         if (req.options.level &gt; 5) { ... }
     });
@@ -2012,17 +1957,19 @@ can do it in the code if needed.</p>
 <li><p><code>api.registerAccessCheck(method, path, callback)</code></p>
 <p>  Register a handler to check access for any given endpoint, it works the same way as the global accessCheck function and is called before
 validating the signature or session cookies. No account information is available at this point yet.</p>
+<p>To continue to next hoook return nothing in the <code>cb</code>,
+any returned status will be final, an error status will be immediately returned in the response,
+status 200 will continue to the authentication step</p>
+<p>Parameters:</p>
 <ul>
 <li>method can be &#39;&#39; in such case all methods will be matched</li>
 <li>path is a string or regexp of the request URL similar to registering Express routes</li>
-<li>callback is a function with the following parameters: function(req, cb) {}, to indicate an error condition pass an object
-with the callback with status: and message: properties, status != 200 means error,
-status == 0 means continue processing, ignore this match</li>
+<li>callback is a function function(req, cb) {}</li>
 </ul>
 <p>Example:</p>
-<pre><code>     api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, function(req, cb) { cb({ status: 500, message: &quot;access disabled&quot;}) }))
+<pre><code>     api.registerAccessCheck(&#39;&#39;, &#39;account&#39;, (req, cb) =&gt; { cb({ status: 500, message: &quot;access disabled&quot;}) }))
 
-     api.registerAccessCheck(&#39;POST&#39;, &#39;/account/add&#39;, function(req, cb) {
+     api.registerAccessCheck(&#39;POST&#39;, &#39;/account/add&#39;, (req, cb) =&gt; {
         if (!req.query.invitecode) return cb({ status: 400, message: &quot;invitation code is required&quot; });
         cb();
      });
@@ -2036,13 +1983,16 @@ status == 0 means continue processing, ignore this match</li>
 the ACL authorizaton is called. The <code>req.account</code> object will always exist at this point but may not contain the user in case of an error.</p>
 <p>The purpose of this hook is to perform alternative authentication like API access with keys. Because it is called before the authorization it is
 also possible to customize user roles.</p>
-<p>To just continue to next hoook or step return nothing in the <code>cb</code>,
-any returned status will be final, an error status will be immediately returned in the response,
-status 200 will continue to the authorization step</p>
+<ul>
+<li>To continue to next hoook return nothing in the <code>cb</code></li>
+<li>any returned status will be final, an error status will be immediately returned in the response</li>
+<li>status 200 will continue to the authorization step</li>
+</ul>
+<p>Parameters:</p>
 <ul>
 <li>method can be &#39;&#39; in such case all methods will be matched</li>
 <li>path is a string or regexp of the request URL similr to registering Express routes</li>
-<li>callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkRequestSignature call</li>
+<li>callback is a function(req, status, cb) where status is empty or an error from the authentication or previous hook</li>
 </ul>
 <p>Example:</p>
 </li>
@@ -2051,17 +2001,23 @@ status 200 will continue to the authorization step</p>
 <ul>
 <li><p><code>api.registerPreProcess(method, path, callback)</code></p>
 <p>  Similar to <code>registerAuthCheck</code>, this callback will be called after the signature or session is verified and ACL authorization performed but before
-the API route method is called. The <code>req.account</code> object will always exist at this point but may not contain the user in case of an error.</p>
-<p>The purpose of this hook is to perform some preparations or check permissions of a valid user to resources or in case of error perform any other action
-like redirection or returning something explaining what to do in case of failure.</p>
+the API route method is called. The <code>req.account</code> object will always exist at this point.</p>
+<p>The purpose of this hook is to perform some preparations or check permissions of a valid user to resources or in case of error perform alternative
+authorization.</p>
+<ul>
+<li>All hooks will be called regardless if they return an error or not, any error will be assumed as current and will be passed to the next hook</li>
+<li>The status parameter may be empty or status == 200 in case of successful authorization or an error if status != 200</li>
+<li>After all hooks called and the final status != 200 the request will stop processing and return that error immediately</li>
+<li>no error or status == 200 means authorization succeded and ready to proceed to the routing phase.</li>
+</ul>
+<p>Parameters:</p>
 <ul>
 <li>method can be &#39;&#39; in such case all methods will be matched</li>
 <li>path is a string or regexp of the request URL similr to registering Express routes</li>
-<li>callback is a function(req, status, cb) where status is an object { status:..., message: ..} passed from the checkRequestSignature call, if status != 200 it means
-an error condition, the callback must pass the same or modified status object in its own <code>cb</code> callback</li>
+<li>callback is a function(req, status, cb)</li>
 </ul>
 <p>Example:</p>
-<pre><code>      api.registerPreProcess(&#39;GET&#39;, &#39;/account/get&#39;, function(req, status, cb) {
+<pre><code>      api.registerPreProcess(&#39;GET&#39;, &#39;/account/get&#39;, (req, status, cb) =&gt; {
            if (status.status != 200) status = { status: 302, url: &#39;/error.html&#39; };
            cb(status)
       });
@@ -2090,13 +2046,13 @@ the callback may not return data back to the client, in this case next post-proc
 <p>Note: the <code>req.account,req.options,req.query</code> objects may become empty if any callback decided to do some async action, they are explicitly emptied at the end of the request,
 in such cases make a copy of the needed objects if it will needed</p>
 <p>Example, just update the rows, it will be sent at the end of processing all post hooks</p>
-<pre><code>     api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, function(req, res, rows) {
-         rows.forEach(function(row) { ...});
+<pre><code>     api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, (req, res, rows) =&gt; {
+         rows.forEach((row) =&gt; { ...});
      });
 </code></pre>
 <p>Example, add data to the rows and return result after it</p>
-<pre><code>     api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, function(req, res, row) {
-         db.get(&quot;bk_user&quot;, { id: row.id }, function(err, rec) {
+<pre><code>     api.registerPostProcess(&#39;&#39;, &#39;/data/&#39;, (req, res, row) =&gt; {
+         db.get(&quot;bk_user&quot;, { id: row.id }, (err, rec) =&gt; {
              row.name = rec.name;
              res.json(row);
          });
@@ -2111,7 +2067,7 @@ in such cases make a copy of the needed objects if it will needed</p>
 <p>  Register a cleanup callback that will be called at the end of a request, all registered cleanup callbacks will be called in the order
 of registration. At this time the result has been sent so connection is not valid anymore but the request and account objects are still available.</p>
 <p>Example, do custom logging of all requests</p>
-<pre><code>     api.registerCleanup(&#39;&#39;, &#39;/data/&#39;, function(req, next) {
+<pre><code>     api.registerCleanup(&#39;&#39;, &#39;/data/&#39;, (req, next) =&gt; {
          db.add(&quot;log&quot;, req.query, next);
      });
 </code></pre>
@@ -2125,7 +2081,7 @@ all registered callbacks will be called in the order of registration. At this ti
 still valid and can be changed. The callback behavior is similar to the <code>api.registerPostProcess</code>.
   <strong>To indicate that this hook will send the result eventually it must return true, otherwise the result will be sent afer all hooks are called</strong></p>
 <p>Example, do custom logging of all requests</p>
-<pre><code>     api.registerSendStatus(&#39;&#39;, &#39;/data/&#39;, function(req, res, data) {
+<pre><code>     api.registerSendStatus(&#39;&#39;, &#39;/data/&#39;, (req, res, data) =&gt; {
          logger.info(&quot;response&quot;, req.path, data);
      });
 </code></pre>
@@ -2147,7 +2103,7 @@ cannot be verified by current hook, multiple hooks can be supported and it stops
 </li>
 </ul>
 <p>Example:</p>
-<pre><code>      api.registerSignature(&#39;&#39;, &#39;/&#39;, function(req, account, sig, cb) {
+<pre><code>      api.registerSignature(&#39;&#39;, &#39;/&#39;, (req, account, sig, cb) =&gt; {
            if (sig) {
                if (invalid) sig = null;
            } else {
@@ -2175,12 +2131,6 @@ cannot be verified by current hook, multiple hooks can be supported and it stops
 <ul>
 <li>callback is a function(req, res, statusCode)</li>
 </ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>api.bkCollectStats(options)</code></p>
-<p>  API stats if running</p>
 </li>
 </ul>
 
@@ -2312,9 +2262,37 @@ properties after successful authorization.</p>
 </ul>
 
 <ul>
-<li><p><code>api.checkAccountType(account, type)</code></p>
-<p>  Return true if the current user belong to the specified type, account type may contain more than one type.
-NOTE: after this call the <code>type</code> property is converted into an array</p>
+<li><p><code>api.newSignature(req)</code></p>
+<p>  Returns a new signature object with all required properties filled form the request object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.getSignature(req)</code></p>
+<p>  Parse incoming request for signature and return all pieces wrapped in an object, this object will be used by <code>verifySignature</code> function.</p>
+<p>If the signature successfully recognized it is saved in the request as <code>req.signature</code>,
+it always returns a signature object, a new one or existing</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.verifySignature(req, sig, account, callback)</code></p>
+<p>  Returns true if the signature <code>sig</code> matches given account secret. <code>account</code> object must be a <code>bk_user</code> record.</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>api.createSignature(login, secret, method, host, uri, options)</code></p>
+<p>  Create secure signature for an HTTP request. Returns an object with HTTP headers to be sent in the response.</p>
+<p>The options may contains the following:</p>
+<ul>
+<li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
+<li>version a version number defining how the signature will be signed</li>
+<li>type - content-type header, may be omitted</li>
+<li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional account or session inforamtion</li>
+<li>checksum - SHA1 digest of the whole content body, may be omitted</li>
+<li>query - on object with query parameters to use instead of parameters in the uri</li>
+</ul>
 </li>
 </ul>
 
@@ -3878,7 +3856,7 @@ error and the new value will be returned.</p>
 <li><code>options.ttl</code> in milliseconds can be used if the driver supports it</li>
 <li><code>options.mapName</code> defines a map where the counter will be stored if the cache supports maps</li>
 <li><code>options.returning</code> - return old or new map object, if <code>new or *</code> it will be the first item in the result array, if `old`` the last,
- to return all values for multi updates must be provided, otherwise only first result by default.</li>
+ to return all values for multi updates it must be provided, otherwise only first result by default.</li>
 <li>if <code>val</code> is an object then all numeric properties will be incremented, other properties just set.</li>
 <li>if <code>val</code> is an object then either <code>mapName</code> or non empty <code>key</code> is used for map</li>
 <li>if <code>val</code> is an object and the <code>key</code> is empty then all properties are treated as standalone items</li>
@@ -4105,6 +4083,10 @@ the database config may have overrides or other dynamic parameters that can be c
 <p>  Run a method for every module, a method must conform to the following signature: <code>function(options, callback)</code> and
 call the callback when finished. The callback second argument will be the parameters passed to each method, the options if provided can
 specify the conditions or parameters which wil be used by the `runMethods`` only.</p>
+<p>The modules&#39;s <code>deps</code> property defines the position in the modules list and thus determines the order of calling methods.
+The property contains other module name this module depend on, i.e. it must be placed after it.
+if <code>deps</code> starts with <code>-</code> it means place this module before the other module.
+A single <code>-</code> means place it at the beginningh of the list.</p>
 <p>The following properties can be specified in the options or params:</p>
 <ul>
 <li>allow - regexp with allowed modules, in options only</li>
@@ -4117,7 +4099,7 @@ specify the conditions or parameters which wil be used by the `runMethods`` only
 <li>parallel - if true run methods for all modules in parallel using lib.forEach</li>
 <li>concurrency - if a number greater than 1 run that many methods in parallel using lib.forEachLimit</li>
 <li>sync - if true treat methods as simple functions without callbacks, methods MUST NOT call the second callback argument but simply return</li>
-<li>direct - if true call all methods directly othwerwise via setImmediate</li>
+<li>direct - if true call all methods directly otherwise via setImmediate</li>
 </ul>
 </li>
 </ul>
@@ -4127,8 +4109,8 @@ specify the conditions or parameters which wil be used by the `runMethods`` only
 <p>  Adds reference to the objects in the core for further access.
 This is used in the core to register all internal modules and makes it available in the shell and in the <code>core.modules</code> object.</p>
 <p>If module name starts with underscore it is silently ignored. Empty names are not allowed and reported.</p>
-<p>Module name can dontain dots, meaning to place the module under hierarchy of namespaces.
-Intermediate objects must not be existing modules.</p>
+<p>Module name can contain dots, meaning to place the module under hierarchy of namespaces. Modules can be placed under existing
+modules, the context is still separate for each module.</p>
 <pre><code> const { modules } = require(&quot;backendjs&quot;);
  const mymod = { name: &quot;billing.invoices&quot;, request: () =&gt; { ... } }
  core.addModule(mymod);
@@ -4166,15 +4148,20 @@ modules with the core it makes the module a first class citizen in the backendjs
 <p>The modules are loaded using <code>require</code> as a normal nodejs module but in addition if the module exports
 <code>init</code> method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
 called on startup, not dynamically during a request processing.</p>
-<p>Only .js files from top level are loaded by default unless the depth is provided. <code>core.addModule</code> is called automatically.</p>
+<p>Only .js files from top level are loaded by default unless the depth is provided. <code>core.addModule</code> is called automatically,
+it uses lib.findFileSync to locate the modules, options <code>depth</code>, <code>include or </code>exclude` can be provided</p>
 <p>Each module is put in the top level <code>modules</code> registry or legacy <code>core.modules</code> by name, the name can
 be a property <code>name</code> or the module base file name. Module names starting with underscore will not be added to the registry.</p>
 <p>If a module name contains dots it means nested hierarchy, all intermediate objects will be created automatically. Nested
 names allow a better separation of modules and name collisions.</p>
-<p>Modules can be sorted by a priority, if .priority property is defined in the module it will be used to sort the modules, the higher priority the
-closer to the top the module will be. The position of a module in the <code>modules</code> registry will define the order of <code>runMethod</code> call.</p>
-<p>it uses lib.findFileSync to locate the modules, options <code>depth</code>, <code>include or </code>exclude` can be provided</p>
 <p><strong>Caution must be taken for module naming, it is possible to override any default bkjs module which will result in unexpected behaviour</strong></p>
+<p>The following properties are reserved and used by the backendjs:</p>
+<ul>
+<li><code>name</code> - module name</li>
+<li><code>deps</code> - dependent module name be placed after, -M to be placed before, a single - means place at the beginning</li>
+<li><code>args</code> - list of config parameters</li>
+<li><code>tables</code> - table definitions</li>
+</ul>
 <p> Example, to load all modules from the local relative directory</p>
 <pre><code>  core.loadModules(&quot;modules&quot;)
 </code></pre>
@@ -4217,7 +4204,7 @@ like <a href="http://localhost:8000">http://localhost:8000</a>, this is when <co
 <li><p><code>core.parseConfig(data, pass, file)</code></p>
 <p>  Parse config lines for the file or other place,
 Examples of sections from modules:</p>
-<pre><code>tag=T, instance.tag=T, runMode=M, appName=N, role=R, roles=dev, aws.region=R, aws.tags=T
+<pre><code>tag=T, instance.tag=T, runMode=M, appName=N, role=R, roles=dev, aws.region=R, aws.tags=T, env.NAME=V
 </code></pre>
 </li>
 </ul>
@@ -4415,6 +4402,12 @@ Options properties:</p>
 </li>
 </ul>
 
+<ul>
+<li><p><code>core.sortModules()</code></p>
+<p>  Sort modules according to dependencies in <code>deps</code> property.</p>
+</li>
+</ul>
+
 <h2 id="module-db">Module: db</h2>
 <p>  The Database API, a thin abstraction layer on top of SQLite, PostgreSQL, DynamoDB, Elasticsearch.</p>
 <p>  The idea is not to introduce new abstraction layer on top of all databases but to make
@@ -4431,7 +4424,7 @@ Options properties:</p>
   modify or delete existing properties, so the same options object can be reused in subsequent operations.</p>
 <p>  All queries and update operations ignore properties that starts with underscore.</p>
 <p>  Before the DB functions can be used the <code>core.init</code> MUST be called first, the typical usage:</p>
-<pre><code>     var backend = require(&quot;backendjs&quot;), core = backend.core, db = backend.db;
+<pre><code>     const { core, db } = require(&quot;backendjs&quot;);
      core.init((err) =&gt; {
          db.add(...
          ...
@@ -4984,21 +4977,23 @@ Example</p>
 <p>  Perform a batch of operations at the same time, all operations for the same table will be run
  together one by one but different tables will be updated in parallel.</p>
 <ul>
-<li><code>list</code> an array of objects to put/delete from the database in the format:<ul>
-<li>op - is one of add, incr, put, update, del</li>
+<li><code>list</code> an array of objects to get/put/delete from the database in the format:<ul>
+<li>op - is one of get, add, incr, put, update, del</li>
 <li>table - which table to use</li>
 <li>obj - an object with data</li>
 <li>options - params for the operation, optional</li>
 </ul>
 </li>
-<li>options can have the follwoing:<ul>
+<li>options can have the following:<ul>
 <li>concurrency - number of how many operations to run at the same time, 1 means sequential</li>
 <li>no_errors - will stop on first error, because operations will be run in parallel some operations still may be performed</li>
 <li>factorCapacity - a capacity factor to apply to the write capacity if present, by default it is used write capacity at 100%</li>
 </ul>
 </li>
 </ul>
-<p>On return the second arg to the callback is a list of records with errors, same input record with added property <code>errstatus</code> and <code>errmsg</code></p>
+<p>On return the second arg to the callback is a list of records with errors as the input record with added property <code>errstatus</code> and <code>errmsg</code>,
+for get ops the result will be retrieved record if exists.</p>
+<p>One advantage using this with op: get over db.list is caching, db.get may use both local and remote caches but db.list always hits the database.</p>
 <p> Example:</p>
 <pre><code>     var ops = [ { op: &quot;add&quot;, table: &quot;bk_counter&quot;, obj: { id:1, like:1 } },
                  { op: &quot;add&quot;, table: &quot;bk_user&quot;, obj: { login: &quot;test&quot;, id:1, name:&quot;test&quot; }]
@@ -6829,7 +6824,7 @@ validate incoming data. It is an object with property names and definitoons that
 <li>dprefix - prefix to use when checking for defaults, defaults are checks in this order: dprefix+name, name, *.type, *</li>
 <li>defaults - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition,
  this is the place to customize/add/override global parameter conditions without changing it. Exact parameter name is used or a wildcard in the format
- <code>*.type</code> where type id any valid type supported or just <code>*</code> for all parameters.</li>
+ <code>*.type</code> where type id any valid type supported or just <code>*</code> for all parameters. Special default &#39;**&#39; is always applied to all parameters.</li>
 </ul>
 <p>Schema parameter properties:</p>
 <ul>
@@ -6849,7 +6844,9 @@ validate incoming data. It is an object with property names and definitoons that
 <li>noregexp - validate the input against this regexp and return an error if matched, for list type skip items matched</li>
 <li>datatype - convert each value or item into this type, used by string/list types</li>
 <li>maptype - for maps convert each value to this type</li>
-<li>novalue - if the target value equals this ignore the parameter, can be a list of values to be ignored or an object { name, value }</li>
+<li>novalue - if the target value equals then ignore the parameter,
+   can be a list of values to be ignored or an object { name, value }.
+   For lists this is a number of items in the list, if less or equal the list is ignored or reset.</li>
 <li>ignore - if true skip this parameter</li>
 <li>optional - for date types, if true do not assign the current time for empty values</li>
 <li>value - assign this value unconditionally</li>
@@ -6857,6 +6854,7 @@ validate incoming data. It is an object with property names and definitoons that
 <li>values_map - an object map for values, replace matching values with a new one</li>
 <li>params - an object with schema to validate for json/obj/array types</li>
 <li>empty - if true and the target value is empty return as empty, by default empty values are ignored</li>
+<li>setempty - to be used with <code>empty</code>, instead of skipping set with this value at the end</li>
 <li>keepempty - for list type keep empty items in the list, default is skip empty items</li>
 <li>minlist - min allowed length of the target array for list/map types, returns error if less</li>
 <li>maxlist - max allowed length of the target array for list/map types, returns error if longer</li>
@@ -9482,7 +9480,8 @@ The following properties can be used:</p>
 <li>headers/cookies - extra headers and cookies to send</li>
 <li>user - a user record with login and secret, a signature is send</li>
 <li>status - status to expect, 200 is default</li>
-<li>match - an object to checked against the response, uses lib.isMatched</li>
+<li>match - an object to checked against the response, uses lib.isMatched OR it is a function to be called
+ as match(rc, conf), must return true to pass</li>
 <li>nocsrf/nosig - do not use CSRF or signature in request</li>
 <li>preprocess - function(conf, cb) to be called before making request</li>
 <li>postprocess - function(conf, rc, cb) to be called after the request, rc is the response object from the request</li>

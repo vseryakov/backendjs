@@ -18,7 +18,6 @@ var core = bkjs.core;
 var lib = bkjs.lib;
 var logger = bkjs.logger;
 
-// Account management
 var files = {
     name: "bk_file",
 };

@@ -114,7 +114,7 @@ client.send = function(dev, options, callback)
     if (options.id) msg.payload.id = options.id;
     if (options.type) msg.payload.type = options.type;
     if (options.url) msg.payload.url = options.url;
-    if (options.account_id) msg.payload.account_id = options.account_id;
+    if (options.user_id) msg.payload.user_id = options.user_id;
     for (var p in options.payload) msg.payload[p] = options.payload[p];
     agent.send(msg, lib.strSplit(dev.id)).then(function(result) {
         logger.debug("send:", client.name, agent._app, dev, msg, result);

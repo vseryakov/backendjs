@@ -1,5 +1,5 @@
 {
-  "version": "0.182.0",
+  "version": "0.183.0",
   "type": "commonjs",
   "author": "Vlad Seryakov",
   "name": "backendjs",
@@ -15,13 +15,13 @@
     "cookie-parser": "1.4.7",
     "croner": "9.0.0",
     "express": "4.21.2",
-    "formidable": "3.5.2",
+    "formidable": "3.5.4",
     "hashids": "2.3.0",
     "microtime": "3.1.1",
     "mime-types": "3.0.1",
     "nodemailer": "6.10.0",
     "qs": "6.14.0",
-    "ws": "8.18.1",
+    "ws": "8.18.2",
     "xml2json": "0.12.0"
   },
   "devDependencies": {
@@ -30,9 +30,9 @@
   "modDependencies": {
     "bcrypt": "5.1.1",
     "nats": "2.29.3",
-    "pg": "8.14.1",
+    "pg": "8.15.6",
     "redis": "3.1.2",
-    "sharp": "0.33.5",
+    "sharp": "0.34.1",
     "unix-dgram": "2.0.6",
     "web-push": "3.6.7"
   },
@@ -88,7 +88,7 @@
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ws.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-account.js",
+          "web/js/bkjs-user.js",
           "web/js/bkjs-passkey.js",
           "web/js/bkjs-bootstrap.js",
           "web/js/alpine.js"
@@ -105,7 +105,7 @@
           "web/js/bkjs-conv.js",
           "web/js/bkjs-ws.js",
           "web/js/bkjs-ko.js",
-          "web/js/bkjs-account.js",
+          "web/js/bkjs-user.js",
           "web/js/bkjs-passkey.js",
           "web/js/bkjs-bootstrap.js",
           "web/js/alpine.js"

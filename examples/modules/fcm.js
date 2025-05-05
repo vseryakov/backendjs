@@ -79,7 +79,7 @@ client.send = function(dev, options, callback)
     if (options.badge) msg.data.badge = lib.toBool(options.badge);
     if (options.sound) msg.data.sound = lib.toBool(options.sound);
     if (options.vibrate) msg.data.vibrate = lib.toBool(options.vibrate);
-    if (options.account_id) msg.data.account_id = options.account_id;
+    if (options.user_id) msg.data.user_id = options.user_id;
     for (var p in options.payload) msg.data[p] = options.payload[p];
 
     var opts = {
@@ -96,7 +96,7 @@ client.send = function(dev, options, callback)
         if (params.obj) {
             for (var i in params.obj.results) {
                 if (params.obj.results[i].error == "NotRegistered") {
-                    Msg.emit("uninstall", client, params.obj.results[i].registration_id, options.account_id);
+                    Msg.emit("uninstall", client, params.obj.results[i].registration_id, options.user_id);
                 }
             }
         }

@@ -68,11 +68,11 @@ tests.test_auth = function(callback, test)
     for (const p in api) {
         if (/^(allow|deny|acl)/.test(p) && !lib.isEmpty(api[p]) && typeof api[p] == "object") logger.info(p, "=", api[p]);
     }
-    var req = { account: {}, options: {} };
+    var req = { user: {}, options: {} };
 
     lib.forEachSeries(checks, (check, next) => {
-        req.account.id = check.type || "anon";
-        req.account.type = lib.strSplit(check.type);
+        req.user.id = check.type || "anon";
+        req.user.type = lib.strSplit(check.type);
         req.options.path = check.path;
         api.checkAuthorization(req, (err) => {
             if (err && err?.status != 200) logger.info(check, err);

@@ -73,13 +73,13 @@ tests.test_cleanup = function(callback)
     logger.log("pub_admin and pub_staff:", res = api.cleanupResult("cleanup", lib.objClone(row), { isAdmin: 1, isStaff: 1 }),
            "status=", res.pub_admin && res.pub_staff && !res.priv ? "ok" : ++failed);
 
-    logger.log("billing:", res = api.cleanupResult("cleanup", lib.objClone(row), { isAdmin: 1, account: { type: ["billing"] } }),
+    logger.log("billing:", res = api.cleanupResult("cleanup", lib.objClone(row), { isAdmin: 1, user: { type: ["billing"] } }),
            "status=", res.billing && !res.priv ? "ok" : ++failed);
 
-    logger.log("nobilling:", res = api.cleanupResult("cleanup", lib.objClone(row), { isAdmin: 1, account: { type: ["billing"] } }),
+    logger.log("nobilling:", res = api.cleanupResult("cleanup", lib.objClone(row), { isAdmin: 1, user: { type: ["billing"] } }),
            "status=", !res.nobilling && !res.priv ? "ok" : ++failed);
 
-    logger.log("billing_staff:", res = api.cleanupResult("cleanup", lib.objClone(row), { isAdmin: 1, account: { type: ["staff"] } }),
+    logger.log("billing_staff:", res = api.cleanupResult("cleanup", lib.objClone(row), { isAdmin: 1, user: { type: ["staff"] } }),
            "status=", res.billing_staff && !res.priv ? "ok" : ++failed);
 
     api.cleanupStrict = 0;

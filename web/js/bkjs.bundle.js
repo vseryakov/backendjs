@@ -16634,8 +16634,8 @@ app.loggedIn = false;
     // HTTP headers to be sent with every request
 app.headers = {};
 
-// Current account record
-app.account = {};
+// Current user record
+app.user = {};
 
 // Secret policy for plain text passwords
 app.passwordPolicy = {
@@ -16645,7 +16645,7 @@ app.passwordPolicy = {
     '.{9,}': 'requires at least 9 characters',
 };
 
-// Verify account secret against the policy
+// Verify user secret against the policy
 app.checkPassword = function(secret, policy, options)
 {
     secret = secret || "";
@@ -16668,12 +16668,12 @@ app.login = function(options, callback)
     if (typeof options == "function") callback = options, options = null;
     app.send({ url: options?.url || "/auth", data: options?.data }, (data) => {
         app.loggedIn = true;
-        Object.assign(app.account, data);
+        Object.assign(app.user, data);
         app.call(callback);
         app.emit("login", options?.path);
     }, (err) => {
         app.loggedIn = false;
-        for (const p in app.account) delete app.account[p];
+        for (const p in app.user) delete app.user[p];
         app.call(callback, err);
         app.emit("nologin", err);
     });
@@ -16683,7 +16683,7 @@ app.login = function(options, callback)
 app.logout = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
-    for (const p in app.account) delete app.account[p];
+    for (const p in app.user) delete app.user[p];
     app.loggedIn = false;
     app.sendRequest({ url: options?.url || "/logout" }, (err) => {
         app.call(callback, err);
@@ -16691,21 +16691,14 @@ app.logout = function(options, callback)
     });
 }
 
-// Retrieve current account record, call the callback with the object or error
-app.getAccount = function(query, callback)
+// Retrieve current user record, call the callback with the object or error
+app.getUser = function(query, callback)
 {
     if (typeof query == "function") callback = query, query = null;
-    app.sendRequest({ url: "/account/get", data: query }, (err, data) => {
-        if (!err) Object.assign(app.account, data);
+    app.sendRequest({ url: "/auth", data: query }, (err, data) => {
+        if (!err) Object.assign(app.user, data);
         app.call(callback, err, data);
     });
-}
-
-// Update current account
-app.updateAccount = function(obj, callback)
-{
-    delete obj.secret2;
-    app.sendRequest({ url: '/account/update', data: obj }, callback);
 }
 
 })();

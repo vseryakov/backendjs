@@ -56,12 +56,12 @@ To install from the git because NPM versions are always behind the cutting edge:
 
 * By default access is allowed only with valid session or signature, to see all public urls type in the node shell above:
 
-        > api.allow
+        > api.allowPath
 
-  This property of the api module corresponds to the the `-api-allow` config parameter, see it in your browser
+  This property of the api module corresponds to the the `-api-allow-path` config parameter, see it in your browser
   at [docs](http://localhost:8000/doc.html#module-api).
 
-* No database driver is enabled by default so here are examples to load local PostgreSQL, dynamoDB or Elasticsearch
+* No database driver is enabled by default so here are examples to load local PostgreSQL, DynamoDB or ElasticSearch
 
         bkjs run -api -db-pool sqlite -db-sqlite-pool
         bkjs run -api -db-pool pg -db-pg-pool
@@ -371,38 +371,25 @@ default API functionality and some are required for backend operations. Refer be
 that described which tables are created by default. In the custom applications the `db.describeTables` method can modify columns
 in the default table and add more columns if needed.
 
-For example, to make age and some other columns in the accounts table public and visible by other users with additional columns
-the following can be done in the `api.initApplication` method. It will extend the bk_user table and the application can use new
-columns the same way as the already existing columns.
-
-Using the birthday column we make 'age' property automatically calculated and visible in the result, this is done by the
-internal method `api.processAccountRow` which is registered as post process callback for the bk_user table. The computed
-property `age` will be returned because it is not present in the table definition and all properties not defined and
-configured are passed as is.
-
-The cleanup of the public columns is done by the `api.sendJSON` which is used by all API routes when ready to send data back
+The cleanup of the public columns is done by the `api.cleanupResult` inside `api.sendJSON` which is used by all API routes when ready to send data back
 to the client. If any post-process hooks are registered and return data itself then it is the hook responsibility to cleanup non-public columns.
 
 ```javascript
     db.describeTables({
         bk_user: {
-            birthday: {},
-            ssn: {},
-            salary: { type: "int" },
-            occupation: {},
-            home_phone: {},
-            work_phone: {},
+            birthday: { pub: 1 },
+            occupation: { pub: 1 },
         });
 
     app.configureWeb = function(options, callback)
     {
-       db.setProcessRow("post", "bk_user", this.processAccountRow);
-       ...
-       callback();
-    }
-    app.processAccountRow = function(req, row, options)
-    {
-       if (row.birthday) row.age = Math.floor((Date.now() - core.toDate(row.birthday))/(86400000*365));
+        db.setProcessRow("post", "bk_user", (req, row, options) => {
+            if (row.birthday) {
+                row.age = Math.floor((Date.now() - lib.toDate(row.birthday))/(86400000*365));
+            }
+        }
+        ...
+        callback();
     }
 ```
 
@@ -571,7 +558,7 @@ Create a file named `app.js` with the code below.
      server.start();
 ```
 
-Now run it with an option to allow API access without an account:
+Now run it with an option to allow API access without a user:
 
     node app.js -log debug -api -api-allow-path /todo -db-create-tables
 
@@ -715,15 +702,15 @@ An example of how to perform jobs in the API routes:
     ]);
     app.queue = "somequeue";
 
-    app.processAccounts = function(options, callback) {
+    app.processUsers = function(options, callback) {
         db.select("bk_user", { type: options.type || "user" }, (err, rows) => {
           ...
           callback();
         });
     }
 
-    api.all("/process/accounts", (req, res) => {
-        jobs.submitJob({ job: { "app.processAccounts": { type: req.query.type } } }, { queueName: app.queue }, (err) => {
+    api.all("/process/users", (req, res) => {
+        jobs.submitJob({ job: { "app.processUsers": { type: req.query.type } } }, { queueName: app.queue }, (err) => {
             api.sendReply(res, err);
         });
     });
@@ -786,8 +773,8 @@ in case of error will be redirected to the login page by the server.
 
 ```javascript
    app.configureMiddleware = function(options, callback) {
-       this.allow.splice(this.allow.indexOf('^/$'), 1);
-       this.allow.splice(this.allow.indexOf('\\.html$'), 1);
+       this.allowPath.splice(this.allow.indexOf('^/$'), 1);
+       this.allowPath.splice(this.allow.indexOf('\\.html$'), 1);
        callback();
    }
 ```
@@ -820,12 +807,12 @@ There are two ways to send messages via Websockets to the server from a browser:
   only in the Websockets case the response will arrived in the message listener (see an example below)
 
 ```javascript
-    app.wsConnect({ path: "/project/ws?id=1" });
+    app.wsConnect({ path: "/ws?id=1" });
 
     app.on("ws:message", (msg) => {
         switch (msg.op) {
-        case "/account/update":
-            app.wsSend("/account/ws/account");
+        case "/users/update":
+            app.wsSend("/ws/user");
             break;
 
         case "/project/update":
@@ -851,7 +838,7 @@ There are two ways to send messages via Websockets to the server from a browser:
         switch (req.query.op) {
         case "/project/update":
            //  some code ....
-           api.wsNotify({ query: { id: req.query.project.id } }, { op: "/project/update", project: req.query.project });
+           ws.notify({ query: { id: req.query.project.id } }, { op: "/project/update", project: req.query.project });
            break;
        }
        res.send("");
@@ -860,15 +847,15 @@ There are two ways to send messages via Websockets to the server from a browser:
 
 In any case all Websocket messages sent from the server will arrive in the event handler and must be formatted properly in order to distinguish what is what, this is
 the application logic. If the server needs to send a message to all or some specific clients for example due to some updates in the DB, it must use the
-`api.wsNotify` function.
+`ws.notify` function.
 
 ```javascript
-    // Received a new message for a user from external API service, notify all websocket clients by account id
+    // Received a new message for a user from external API service, notify all websocket clients by user id
     api.app.post("/api/message", (req, res) => {
         ....
         ... processing logic
         ....
-        api.wsNotify({ account_id: req.query.uid }, { op: "/message/new", msg: req.query.msg });
+        ws.notify({ user_id: req.query.uid }, { op: "/message/new", msg: req.query.msg });
     });
 ```
 
@@ -1172,7 +1159,7 @@ environment, not just a Web browser. Request signature can be passed in the quer
 
 ### Signature
 
-All requests to the API server must be signed with account login/secret pair.
+All requests to the API server must be signed with user login/secret pair.
 
 - The algorithm how to sign HTTP requests (Version 1, 2):
     * Split url to path and query parameters with "?"
@@ -1200,7 +1187,7 @@ All requests to the API server must be signed with account login/secret pair.
                 - version 2,3 to be used in session cookies only
                 - version 4
             - Field2: Application tag or other app specific data
-            - Field3: account login or whatever it might be in the login column
+            - Field3: user login or whatever it might be in the login column
             - Field4: HMAC-SHA digest from the canonical string, version 1 uses SHA1, other SHA256
             - Field5: expiration value in milliseconds, same as in the canonical string
             - Field6: SHA1 checksum of the body content, optional, for JSON and other forms of requests not supported by query parameters
@@ -1228,6 +1215,8 @@ See [api.js](https://github.com/vseryakov/backendjs/blob/master/api/auth.js) fun
    - `_session=1` - if the call is authenticated a cookie with the session signature is returned, from now on
       all requests with such cookie will be authenticated, the primary use for this is Web apps
 
+   On successful login, the result contains full user record
+
 - `/login`
 
    Same as the /auth but it uses secret for user authentication, this request does not need a signature, just simple
@@ -1235,11 +1224,11 @@ See [api.js](https://github.com/vseryakov/backendjs/blob/master/api/auth.js) fun
 
    Parameters:
 
-     - `login` - account login
-     - `secret` - account secret
+     - `login` - user login
+     - `secret` - user secret
      - `_session=1` - same as in /auth request
 
-   On successful login, the result contains full account record including the secret, this is the only time when the secret is returned back
+   On successful login, the result contains full user record
 
    Example:
 
@@ -1253,39 +1242,6 @@ See [api.js](https://github.com/vseryakov/backendjs/blob/master/api/auth.js) fun
 - `/logout`
 
    Logout the current user, clear session cookies if exist. For pure API access with the signature this will not do anything on the backend side.
-
-## Accounts
-
-The accounts API manages accounts and authentication, it provides basic user account features with common fields like email, name, address.
-
-- `/account/get`
-
-  Returns information about the current account, all account columns are returned except the secret and other table columns with the property `priv`
-
-  Response:
-
-            { "id": "57d07a4e28fc4f33bdca9f6c8e04d6c3",
-              "name": "Test User",
-              "mtime": 1391824028,
-              "login": "testuser",
-              "type": ["admin"],
-            }
-
-  How to make an account as admin
-
-            # Run backend shell
-            bkjs shell
-
-            # Update record by login
-            > db.update("bk_user", { login: 'login@name', type: 'admin' });
-
-- `/account/update`
-
-  Update current account with new values, the parameters are columns of the table `bk_user`, only columns with non empty values will be updated.
-
-  Example:
-
-            /account/update?name=New%2BName
 
 
 ### Health enquiry

@@ -2,14 +2,7 @@
 // Blog app
 // Created by vlad on Thu Sep 28 12:48:54 EDT 2014
 //
-var bkjs = require('backendjs');
-var core = bkjs.core;
-var lib = bkjs.lib;
-var db = bkjs.db;
-var api = bkjs.api;
-var app = bkjs.app;
-var logger = bkjs.logger;
-var server = bkjs.server;
+var { db, api, app, server } = require('backendjs');
 
 // Add custom properties to the existing table
 db.describeTables({
@@ -25,7 +18,7 @@ app.configureModule = function(options, callback)
 {
     db.setProcessRow("post", "bk_message", function(req, row, options) {
        if (!row.sender) return;
-       row.avatar = '/image/account/' + row.sender + "/0";
+       row.avatar = '/image/user/' + row.sender + "/0";
        if (row.icon) row.icon = '/image/blog/' + row.id + '/' + row.mtime + ':' + row.sender;
     });
     callback();
@@ -33,16 +26,12 @@ app.configureModule = function(options, callback)
 
 app.configureWeb = function(options, callback)
 {
-    var self = this;
-
     this.initBlogAPI();
     callback();
 }
 
 app.initBlogAPI = function()
 {
-    var self = this;
-
     // Return images by prefix, id and possibly type
     api.app.all(/^\/image\/([a-zA-Z0-9_.:-]+)\/([^/ ]+)\/?([^/ ]+)?$/, (req, res) => {
         var options = api.getOptions(req);
@@ -80,7 +69,7 @@ app.initBlogAPI = function()
 
         case "get":
             if (!req.query.mtime) return api.sendReply(res, 400, "no mtime provided");
-            req.query.sender = req.account.id;
+            req.query.sender = req.user.id;
             req.query.mtime += ":" + req.query.sender;
 
             db.get("bk_message", { id: req.query.id, mtime: req.query.mtime }, options, function(err, row) {
@@ -90,10 +79,10 @@ app.initBlogAPI = function()
             break;
 
         case "put":
-            if (!req.query.sender) req.query.sender = req.account.id;
+            if (!req.query.sender) req.query.sender = req.user.id;
             if (!req.query.mtime) req.query.mtime = Date.now();
             req.query.mtime += ":" + req.query.sender;
-            req.query.name = req.account.name;
+            req.query.name = req.user.name;
 
             api.putIcon(req, "icon", req.query.id, { prefix: 'blog', type: req.query.mtime }, function(err, icon) {
                 if (err) return api.sendReply(res, err);
@@ -125,13 +114,11 @@ app.initBlogAPI = function()
     });
 }
 
-// It is called before processing all requests, just after the account was verified
+// It is called before processing all requests, just after the user was verified
 api.registerPreProcess('', /^\//, function(req, status, callback)
 {
-    var self = this;
-
     if (status && status.status != 200) {
-        // Allow access to blog list without an account
+        // Allow access to blog list without an user
         if (status.status == 404 && req.path.match(/^\/blog\/select/)) status = null;
         return callback(status);
     }

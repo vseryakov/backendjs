@@ -64,7 +64,7 @@ client.send = function(dev, options, callback)
         if (options.id) pkt.id = options.id;
         if (options.type) pkt.type = options.type;
         if (options.url) pkt.url = options.url;
-        if (options.account_id) pkt.account_id = options.account_id;
+        if (options.user_id) pkt.user_id = options.user_id;
         pkt = { APNS: lib.stringify(pkt) };
     } else
     if (dev.id.match("/GCM/")) {
@@ -76,7 +76,7 @@ client.send = function(dev, options, callback)
         if (options.id) pkt.data.url = String(options.url);
         if (options.url) pkt.data.url = String(options.url);
         if (options.type) pkt.data.type = String(options.type);
-        if (options.account_id) pkt.data.account_id = options.account_id;
+        if (options.user_id) pkt.data.user_id = options.user_id;
 
         if (options.msg) pkt.data.msg = options.msg;
         if (options.badge) pkt.data.badge = lib.toBool(options.badge);
