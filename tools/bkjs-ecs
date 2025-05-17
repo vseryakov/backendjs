@@ -8,15 +8,16 @@ case "$BKJS_CMD" in
 
   help|ecs-help)
     echo ""
-    echo "  ecs-ip - show IP for running tasks"
-    echo "  ecs-ls [-cluser $BKJS_CLUSTER] [-service SN] [-status RUNNING|STOPPED] - show running tasks in the cluster for a service"
-    echo "  ecs-ps [-cluser $BKJS_CLUSTER] [-task ID] [-service S] [-index I] - show task details"
-    echo "  ecs-sh [-cluser $BKJS_CLUSTER] [-service SN] [-task ID] [-index I] - run shell in the given task for the given service, for multiple tasks -index can use specific task"
+    echo "  ecs-ip [-cluster $BKJS_CLUSTER] - show IP and service for running tasks"
+    echo "  ecs-lt [-cluster $BKJS_CLUSTER] [-service SN] [-status RUNNING|STOPPED] - list running tasks in the cluster for a service"
+    echo "  ecs-ls [-cluster $BKJS_CLUSTER] - list service names for a cluster"
+    echo "  ecs-t [-cluster $BKJS_CLUSTER] [-task ID] [-service S] [-index I] - show task details"
+    echo "  ecs-sh [-cluster $BKJS_CLUSTER] [-service SN] [-task ID] [-index I] - run shell in the given task for the given service, for multiple tasks -index can use specific task"
     echo "  ecs-run -task NAME [-cluser $BKJS_CLUSTER] [-type EC2|FARGATE] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-cpu N] [-memory N] [-tag T] [-arm64] [-exec] [-tag T] [-env VARS] [-name N] [-dry-tun] - run an ECS task in subnets with security groups, overrides cpu/mem, pass tag to bkjs process as instance tag"
     echo "  ecs-update -service NAME [-cluser $BKJS_CLUSTER] [-force] [-healthcheck SECS] [-placement LIST] [-constraints LIST] [-max-percent P] [-min-healthy P] [-circuit-breaker true|false] [-rollback true|false] [-provider FARGATE_SPOT] [-ip] [-gid ID] [-group NAME] [-sid ID] [-subnet NAME] [-dry-tun] - update an ECS service deployment"
     ;;
 
-  ecs-ls)
+  ecs-lt)
     cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
     status=$(get_arg -status RUNNING)
     service=$(get_arg -service)
@@ -25,17 +26,26 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  ecs-ps)
+  ecs-ls)
+    cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
+    aws ecs list-services --cluster $cluster --output yaml|cut -s -d/ -f3
+    exit
+    ;;
+
+  ecs-t)
     cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
     task=$(get_arg -task)
     service=$(get_arg -service)
-    [ -z "$task" ] && task=$($BKJS_BIN ecs-ls -service $service|cut -s -d/ -f3|head -$(get_arg -index 1)|tail -1)
+    [ -z "$task" ] && task=$($BKJS_BIN ecs-lt -service $service|cut -s -d/ -f3|head -$(get_arg -index 1)|tail -1)
     aws ecs describe-tasks --tasks "$task" --cluster "$cluster" --output $(get_arg -output yaml)
     exit
     ;;
 
   ecs-ip)
-    aws ec2 describe-network-interfaces $region --filters "Name=tag-key,Values=aws:ecs:clusterName" --query 'NetworkInterfaces[*].[NetworkInterfaceId,PrivateIpAddresses[*].PrivateIpAddress,Association.PublicIp,TagSet[*].Value]' --output yaml|sed -E 's/- //g'|awk '{if($1~"^eni-")printf "\n%s\t",$1;else printf "%-10s\t",$1;}'|grep -v '^$'
+    cluster=$(get_arg -cluster $BKJS_ECS_CLUSTER)
+    filters="--filters Name=tag-key,Values=aws:ecs:clusterName"
+    [ -n "$cluster" ] && filters="$filters --filters Name=tag-value,Values=$cluster"
+    aws ec2 describe-network-interfaces $region $filters --query 'NetworkInterfaces[*].[NetworkInterfaceId,PrivateIpAddresses[*].PrivateIpAddress,Association.PublicIp,TagSet[?Key==`aws:ecs:serviceName`].Value]' --output yaml|sed -E 's/- //g'|awk '{if($1~"^eni-")printf "\n%s\t",$1;else printf "%-10s\t",$1;}'|grep -v '^$'
     exit
     ;;
 
@@ -188,7 +198,7 @@ case "$BKJS_CMD" in
     fi
 
     debug $cmd
-    [ -n "$(get_flag -dry-run)" ] && echo $cmd && exit
+    [ -n "$(get_flag -dry-run)" ] && echo $cmd && exit 0
 
     $cmd
     exit
