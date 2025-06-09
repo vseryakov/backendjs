@@ -3,10 +3,7 @@
 //  backendjs 2018
 //
 
-const bkjs = require('backendjs');
-const db = bkjs.db;
-const api = bkjs.api;
-const lib = bkjs.lib;
+const { db, api, lib } = require('backendjs');
 
 // Data management
 const mod = {

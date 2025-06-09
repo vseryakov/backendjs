@@ -65,7 +65,9 @@ case "$BKJS_CMD" in
 
     config="$config, \"logs\": { \"logs_collected\": { \"files\": { \"collect_list\": [ $logs ] } }, \"log_stream_name\": \"$tag\" }"
 
-    config="$config, \"traces\": { \"local_mode\": true, \"traces_collected\": { \"xray\": {} } }"
+    xray_bind=$(get_arg -xray-bind)
+    [ -n "$xray_bind" ] && xray_bind="\"bind_address\": \"$xray_bind\""
+    config="$config, \"traces\": { \"local_mode\": true, \"traces_collected\": { \"xray\": {$xray_bind} } }"    
 
     tmp=$root/etc/cwagent.json
     echo "{ $config }" > $tmp

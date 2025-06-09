@@ -64,7 +64,12 @@
 <li><a href="#author"> Author</a></li>
 <li>Javascript Modules<ul>
 <li><a href="#module-api">api</a></li>
+<li><a href="#module-csrf">csrf</a></li>
+<li><a href="#module-files">files</a></li>
+<li><a href="#module-images">images</a></li>
 <li><a href="#module-passkeys">passkeys</a></li>
+<li><a href="#module-session">session</a></li>
+<li><a href="#module-signature">signature</a></li>
 <li><a href="#module-users">users</a></li>
 <li><a href="#module-ws">ws</a></li>
 <li><a href="#module-app">app</a></li>
@@ -81,6 +86,7 @@
 <li><a href="#module-logger">logger</a></li>
 <li><a href="#module-syslog">syslog</a></li>
 <li><a href="#module-logwatcher">logwatcher</a></li>
+<li><a href="#module-main">main</a></li>
 <li><a href="#module-metrics">metrics</a></li>
 <li><a href="#module-pool">pool</a></li>
 <li><a href="#module-push">push</a></li>
@@ -88,12 +94,9 @@
 <li><a href="#module-queue">queue</a></li>
 <li><a href="#module-nats">nats</a></li>
 <li><a href="#module-redis">redis</a></li>
-<li><a href="#module-run">run</a></li>
 <li><a href="#module-server">server</a></li>
-<li><a href="#module-shell">shell</a></li>
+<li><a href="#module-watcher">watcher</a></li>
 <li><a href="#module-stats">stats</a></li>
-<li><a href="#module-users">users</a></li>
-<li><a href="#module-watch">watch</a></li>
 </ul>
 </li>
 </ul>
@@ -786,7 +789,7 @@ will never end up in this callback because it is called after the signature chec
    });
 </code></pre>
 <h1 id="websockets-connections">WebSockets connections</h1>
-<p>The simplest way is to configure <code>ws-port</code> to the same value as the HTTP port. This will run WebSockets server along the regular Web server.</p>
+<p>The simplest way is to configure <code>api-ws-port</code> to the same value as the HTTP port. This will run WebSockets server along the regular Web server.</p>
 <p>In the browser the connection config is stored in the <code>app.wsconf</code> and by default it connects to the local server on port 8000.</p>
 <p>There are two ways to send messages via Websockets to the server from a browser:</p>
 <ul>
@@ -826,7 +829,7 @@ only in the Websockets case the response will arrived in the message listener (s
         switch (req.query.op) {
         case &quot;/project/update&quot;:
            //  some code ....
-           ws.notify({ query: { id: req.query.project.id } }, { op: &quot;/project/update&quot;, project: req.query.project });
+           api.ws.notify({ query: { id: req.query.project.id } }, { op: &quot;/project/update&quot;, project: req.query.project });
            break;
        }
        res.send(&quot;&quot;);
@@ -840,7 +843,7 @@ the application logic. If the server needs to send a message to all or some spec
         ....
         ... processing logic
         ....
-        ws.notify({ user_id: req.query.uid }, { op: &quot;/message/new&quot;, msg: req.query.msg });
+        api.ws.notify({ user_id: req.query.uid }, { op: &quot;/message/new&quot;, msg: req.query.msg });
     });
 </code></pre>
 <h1 id="the-backend-tool-bkjs">The backend tool: bkjs</h1>
@@ -958,9 +961,9 @@ esac
 <p>The list of files to be used in bundles is in the package.json under <code>config.bundles</code>.</p>
 <p>To enable auto bundler in your project just add to the local config <code>~/.bkjs/etc/config.local</code> a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support</p>
-<pre><code>watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
-watch-ignore=.bundle.(js|css)$
-watch-build=bkjs bundle -dev
+<pre><code>server-watcher-web=web/js,web/css,$HOME/src/js,$HOME/src/css
+server-watcher-ignore=.bundle.(js|css)$
+server-watcher-build=bkjs bundle -dev
 </code></pre>
 <p>The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:</p>
 <pre><code>#!/bin/sh
@@ -969,7 +972,7 @@ bkjs bundle -dev -file $2
 osascript -e &quot;tell application \&quot;Google Chrome\&quot; to reload (tabs of window 1 whose URL contains \&quot;$1\&quot;)&quot;
 </code></pre>
 <p>To use it, call this script instead in the config.local:</p>
-<pre><code>watch-build=bundle.sh /website
+<pre><code>server-watcher-build=bundle.sh /website
 </code></pre>
 <p>NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
 repository when the bundle build may not be called or called too early. To force rebuild run the command:</p>
@@ -1145,11 +1148,6 @@ this is the only way to ensure the body is not modified when not using query par
 <p> This API request returns the current user record from the <code>bk_user</code> table if the request is verified and the signature provided
  is valid. If no signature or it is invalid the result will be an error with the corresponding error code and message.</p>
 <p> By default this endpoint is secured, i.e. requires a valid signature.</p>
-<p> Parameters:</p>
-<ul>
-<li><code>_session=1</code> - if the call is authenticated a cookie with the session signature is returned, from now on
- all requests with such cookie will be authenticated, the primary use for this is Web apps</li>
-</ul>
 <p> On successful login, the result contains full user record</p>
 </li>
 <li><p><code>/login</code></p>
@@ -1159,13 +1157,12 @@ this is the only way to ensure the body is not modified when not using query par
 <ul>
 <li><code>login</code> - user login</li>
 <li><code>secret</code> - user secret</li>
-<li><code>_session=1</code> - same as in /auth request</li>
 </ul>
 <p> On successful login, the result contains full user record</p>
 <p> Example:</p>
 </li>
 </ul>
-<pre><code class="language-javascript">    var res = await fetch(&quot;/login&quot;, { metod: &quot;POST&quot;, body: &quot;login=test123&amp;secret=test123&amp;_session=1&quot; });
+<pre><code class="language-javascript">    var res = await fetch(&quot;/login&quot;, { metod: &quot;POST&quot;, body: &quot;login=test123&amp;secret=test123&quot; });
     await res.json()
 
     &gt; { id: &quot;XXXX...&quot;, name: &quot;Test User&quot;, login: &quot;test123&quot;, ...}
@@ -1216,20 +1213,18 @@ early with some properties always present:<ul>
 <ul>
 <li><code>api-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
 <li><code>api-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
-<li><code>api-images-url</code>, descr: &quot;URL where images are stored, for cases of central image server(s), must be full URL with optional path&quot;</li>
-<li><code>api-images-s3</code>, descr: &quot;S3 bucket name where to store and retrieve images&quot;</li>
-<li><code>api-images-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and user id in the image name&quot;</li>
-<li><code>api-images-s3-options</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;S3 options to sign images urls, may have expires:, key:, secret: properties&quot;</li>
-<li><code>api-images-ext</code>, descr: &quot;Default image extension to use when saving images&quot;</li>
-<li><code>api-images-mod</code>, descr: &quot;Images scaling module, sharp&quot;</li>
-<li><code>api-files-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and user id in the file name&quot;</li>
-<li><code>api-files-url</code>, descr: &quot;URL where files are stored, for cases of central file server(s), must be full URL with optional path&quot;</li>
-<li><code>api-files-s3</code>, descr: &quot;S3 bucket name where to store files uploaded with the File API&quot;</li>
 <li><code>api-max-request-queue</code>, type: &quot;number&quot;, min: 0, descr: &quot;Max number of requests in the processing queue, if exceeds this value server returns too busy error&quot;</li>
+<li><code>api-timeout</code>, type: &quot;number&quot;, min: 0, max: 3600000, descr: &quot;HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests&quot;</li>
+<li><code>api-keep-alive-timeout</code>, type: &quot;int&quot;, descr: &quot;Number of milliseconds to keep the HTTP conection alive&quot;</li>
+<li><code>api-request-timeout</code>, type: &quot;int&quot;, min: 0, descr: &quot;Number of milliseconds to receive the entire request from the client&quot;</li>
+<li><code>api-max-requests-per-socket</code>, type: &quot;int&quot;, min: 0, descr: &quot;The maximum number of requests a socket can handle before closing keep alive connection&quot;</li>
 <li><code>api-no-access-log</code>, type: &quot;bool&quot;, descr: &quot;Disable access logging in both file or syslog&quot;</li>
 <li><code>api-access-log-file</code>, descr: &quot;File for access logging&quot;</li>
 <li><code>api-access-log-level</code>, type: &quot;int&quot;, descr: &quot;Syslog level priority, default is local5.info, 21 * 8 + 6&quot;</li>
 <li><code>api-access-log-fields</code>, array: 1, type: &quot;list&quot;, descr: &quot;Additional fields from the request or user to put in the access log, prefix defines where the field is lcoated: q: - query, h: - headers, u: - user otherwise from the request, Example: -api-log-fields h:Referer,u:name,q:action&quot;</li>
+<li><code>api-errlog-limiter-max</code>, type: &quot;int&quot;, descr: &quot;How many error messages to put in the log before throttling kicks in&quot;</li>
+<li><code>api-errlog-limiter-interval</code>, type: &quot;int&quot;, descr: &quot;Interval for error log limiter, max errors per this interval&quot;</li>
+<li><code>api-errlog-limiter-ignore</code>, type: &quot;regexpobj&quot;, descr: &quot;Do not show errors that match the regexp&quot;</li>
 <li><code>api-salt</code>, descr: &quot;Salt to be used for scrambling credentials or other hashing activities&quot;</li>
 <li><code>api-qs-options-(.+)</code>, autotype: 1, obj: &quot;qsOptions&quot;, strip: &quot;qs-options-&quot;, nocamel: 1, descr: &quot;Options to pass to qs.parse: depth, arrayLimit, allowDots, comma, plainObjects, allowPrototypes, parseArrays&quot;</li>
 <li><code>api-no-static</code>, type: &quot;bool&quot;, descr: &quot;Disable static files from /web folder, no .js or .html files will be served by the server&quot;</li>
@@ -1237,20 +1232,8 @@ early with some properties always present:<ul>
 <li><code>api-vhost-path-([^/]+)</code>, type: &quot;regexp&quot;, obj: &quot;vhostPath&quot;, nocamel: 1, strip: &quot;vhost-path-&quot;, regexp: &quot;i&quot;, descr: &quot;Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match, example: api-vhost-path-test_dir=test.com$&quot;</li>
 <li><code>api-no-vhost-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of URL paths that should be served for all virtual hosts&quot;</li>
 <li><code>api-templating</code>, descr: &quot;Templating engine package to use, it assumes it supports Expres by exposing __express or renderfile methods&quot;</li>
-<li><code>api-no-session</code>, type: &quot;bool&quot;, descr: &quot;Disable cookie session support, all requests must be signed for Web clients&quot;</li>
-<li><code>api-session-cache</code>, descr: &quot;Cache name for session control&quot;</li>
-<li><code>api-session-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;Session age in milliseconds, for cookie based authentication&quot;</li>
-<li><code>api-session-same-site</code>, descr: &quot;Session SameSite option, for cookie based authentication&quot;</li>
-<li><code>api-session-secure</code>, type: &quot;bool&quot;, descr: &quot;Set cookie Secure flag&quot;</li>
-<li><code>api-session-cookie-(.+)</code>, obj: &quot;session-cookie&quot;, type: &quot;map&quot;, maptype: &quot;auto&quot;, nocamel: 1, descr: &quot;Cookie values for requests that match beginning of the path, ex -api-session-cookie-/testing secure:false,sameSite:None&quot;</li>
 <li><code>api-query-token-secret</code>, descr: &quot;Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_user can be used, if empty no secret is used, if not a valid property then it is used as the secret&quot;</li>
-<li><code>api-app-header-name</code>, descr: &quot;Name for the app name/version query parameter or header, it is can be used to tell the server about the application version&quot;</li>
-<li><code>api-version-header-name</code>, descr: &quot;Name for the access version query parameter or header, this is the core protocol version that can be sent to specify which core functionality a client expects&quot;</li>
 <li><code>api-no-cache-files</code>, type: &quot;regexpobj&quot;, descr: &quot;Set cache-control=no-cache header for matching static files&quot;,</li>
-<li><code>api-tz-header-name</code>, descr: &quot;Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset&quot;</li>
-<li><code>api-signature-header-name</code>, descr: &quot;Name for the access signature query parameter, header and session cookie&quot;</li>
-<li><code>api-lang-header-name</code>, descr: &quot;Name for the language query parameter, header and session cookie, primary language for a client&quot;</li>
-<li><code>api-signature-age</code>, type: &quot;int&quot;, descr: &quot;Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts&quot;</li>
 <li><code>api-access-token-secret</code>, descr: &quot;A generic secret to be used for API access or signatures&quot;</li>
 <li><code>api-deny-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Add to the list of URL paths to be denied without authentication&quot;</li>
 <li><code>api-deny-acl-([a-z0-9_]+)</code>, type: &quot;list&quot;, obj: &quot;deny-acl&quot;, descr: &quot;Combine regexps from the specified acls for deny checks for the specified role&quot;</li>
@@ -1275,24 +1258,15 @@ early with some properties always present:<ul>
 <li><code>api-mime-map-(.+)</code>, obj: &quot;mime-map&quot;, descr: &quot;File extension to MIME content type mapping, this is used by static-serve, ex: -api-mime-map-mobileconfig application/x-apple-aspen-config&quot;</li>
 <li><code>api-cors-origin</code>, descr: &quot;Origin header for CORS requests&quot;</li>
 <li><code>api-cors-allow</code>, type: &quot;regexpobj&quot;, descr: &quot;Enable CORS requests if a request host/path matches the given regexp&quot;</li>
+<li><code>api-tz-header</code>, descr: &quot;Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset&quot;</li>
 <li><code>api-server-header</code>, descr: &quot;Custom Server: header to return for all requests&quot;</li>
 <li><code>api-error-message</code>, descr: &quot;Default error message to return in case of exceptions&quot;</li>
-<li><code>api-restart</code>, descr: &quot;On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts&quot;</li>
-<li><code>api-allow-error-code</code>, type: &quot;regexpobj&quot;, descr: &quot;Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned&quot;</li>
 <li><code>api-rlimits-([a-z]+)$</code>, obj: &quot;rlimits&quot;, make: &quot;$1&quot;, autotype: 1, descr: &quot;Default rate limiter parameters, default interval is 1s, <code>ttl</code> is to expire old cache entries, message for error&quot;</li>
-<li><code>api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+)</code>, autotype: 1, obj: &quot;rlimitsMap.$2&quot;, make: &quot;$1&quot;, descr: &quot;Rate limiter parameters for Token Bucket algorithm. <code>queue</code> to use specific queue, ttl<code>is to expire cache entries,</code>ip` is to limit by IP address as well, ex. -api-rlimits-ip-ip=10, -api-rlimits-rate-/path=1, , -api-rlimits-rate-GET/path=1&quot;</li>
+<li><code>api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+)</code>, autotype: 1, obj: &quot;rlimitsMap.$2&quot;, make: &quot;$1&quot;, descr: &quot;Rate limiter parameters by type for Token Bucket algorithm. <code>queue</code> to use specific queue, ttl<code>is to expire cache entries,</code>ip` is to limit by IP address as well, ex. -api-rlimits-ip-ip=10, -api-rlimits-rate-/path=1, , -api-rlimits-rate-GET/path=1&quot;</li>
 <li><code>api-rlimits-map-(.+)</code>, type: &quot;map&quot;, obj: &quot;rlimitsMap.$1&quot;, maptype: &quot;auto&quot;, merge: 1, descr: &quot;Rate limiter parameters for Token Bucket algorithm. set all at once, ex. -api-rlimits-map-/url=rate:1,interval:2000 -api-rlimits-map-GET/url=rate:10&quot;</li>
-<li><code>api-exit-on-error</code>, type: &quot;bool&quot;, descr: &quot;Exit on uncaught exception in the route handler&quot;</li>
-<li><code>api-timeout</code>, type: &quot;number&quot;, min: 0, max: 3600000, descr: &quot;HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests&quot;</li>
-<li><code>api-keep-alive-timeout</code>, type: &quot;int&quot;, descr: &quot;Number of milliseconds to keep the HTTP conection alive&quot;</li>
-<li><code>api-request-timeout</code>, type: &quot;int&quot;, min: 0, descr: &quot;Number of milliseconds to receive the entire request from the client&quot;</li>
-<li><code>api-max-requests-per-socket</code>, type: &quot;int&quot;, min: 0, descr: &quot;The maximum number of requests a socket can handle before closing keep alive connection&quot;</li>
 <li><code>api-(query|header|upload)-limit</code>, type: &quot;number&quot;, descr: &quot;Max size for query/headers/uploads, bytes&quot;</li>
 <li><code>api-(files|fields)-limit</code>, type: &quot;number&quot;, descr: &quot;Max number of files or fields in uploads&quot;</li>
 <li><code>api-limiter-cache</code>, descr: &quot;Name of a cache for API rate limiting&quot;</li>
-<li><code>api-errlog-limiter-max</code>, type: &quot;int&quot;, descr: &quot;How many error messages to put in the log before throttling kicks in&quot;</li>
-<li><code>api-errlog-limiter-interval</code>, type: &quot;int&quot;, descr: &quot;Interval for error log limiter, max errors per this interval&quot;</li>
-<li><code>api-errlog-limiter-ignore</code>, type: &quot;regexpobj&quot;, descr: &quot;Do not show errors that match the regexp&quot;</li>
 <li><code>api-routing-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;routing&#39;, descr: &quot;Locations to be re-routed to other path, this is done inside the server at the beginning, only the path is replaced, same format and placeholders as in redirect-url, use ! in front of regexp to remove particular redirect from the list, example: -api-routing-^/user/get /user/read&quot;</li>
 <li><code>api-ignore-routing</code>, type: &quot;regexpobj&quot;, descr: &quot;Ignore locations from the routing&quot;</li>
 <li><code>api-auth-routing-(.+)</code>, type: &quot;regexpobj&quot;, reverse: 1, nocamel: 1, obj: &#39;auth-routing&#39;, descr: &quot;URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url, example: -api-routing-auth-^/user/get /user/read&quot;</li>
@@ -1303,19 +1277,15 @@ early with some properties always present:<ul>
 <li><code>api-cleanup-strict</code>, type: &quot;bool&quot;, descr: &quot;Default mode for cleanup results&quot;</li>
 <li><code>api-request-cleanup</code>, type: &quot;list&quot;, array: 1, descr: &quot;List of fields to explicitely cleanup on request end&quot;</li>
 <li><code>api-query-defaults-([a-z0-9_]+)-(.+)</code>, obj: &quot;queryDefaults.$2&quot;, make: &quot;$1&quot;, autotype: 1, descr: &quot;Global query defaults for getQuery, can be path specific, ex. -api-query-defaults-max-name 128 -api-query-defaults-max-/endpoint-name 255&quot;</li>
-<li><code>api-csrf-set-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set CSRF token for all methods, token type(user|pub) is based on the current session&quot;</li>
-<li><code>api-csrf-pub-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set public CSRF token only if no valid CSRF token detected&quot;</li>
-<li><code>api-csrf-check-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set CSRF token for skip methods and verify for others&quot;</li>
-<li><code>api-csrf-skip-method</code>, type: &quot;regexp&quot;, descr: &quot;Do not check for CSRF token for specified methods&quot;</li>
-<li><code>api-csrf-skip-status</code>, type: &quot;regexp&quot;, descr: &quot;Do not return CSRF token for specified status codes&quot;</li>
-<li><code>api-csrf-header-name</code>, descr: &quot;Name for the CSRF header&quot;</li>
-<li><code>api-csrf-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;CSRF token age in milliseconds&quot;</li>
 <li><code>api-delays-(.+)</code>, type: &quot;int&quot;, obj: &quot;delays&quot;, nocamel: 1, descr: &quot;Delays in ms by status and code, useful for delaying error responses to slow down brute force attacks, ex. -api-delays-401 1000 -api-delays-403:DENY -1&quot;</li>
 <li><code>api-compressed-([^/]+)</code>, type: &quot;regexp&quot;, obj: &quot;compressed&quot;, nocamel: 1, strip: &quot;compressed-&quot;, reverse: 1, regexp: &quot;i&quot;, descr: &quot;Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention , example: -api-compress-bundle.js gz&quot;</li>
 <li><code>api-allow-configure-(web|middleware)</code>, type: &quot;regexp&quot;, descr: &quot;Modules allowed to call configureWeb or Middleware, i.e. only allowed endpoints&quot;</li>
+<li><code>api-allow-error-code</code>, type: &quot;regexpobj&quot;, descr: &quot;Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned&quot;</li>
 <li><code>api-restart-hours</code>, type: &quot;list&quot;, datatype: &quot;int&quot;, descr: &quot;List of hours when to restart api workers, only done once for each hour&quot;</li>
-<li><code>api-trace-options</code>, type: &quot;map&quot;, maptype: &quot;auto&quot;, descr: &quot;Options for tracing, path:regexp for URLs to be traced, interval:Interval in ms how often to trace requests, must be &gt; 0 to enable tracing&quot;</li>
+<li><code>api-trace-options</code>, type: &quot;map&quot;, obj: &quot;trace-options&quot;, merge: 1, maptype: &quot;auto&quot;, descr: &quot;Options for tracing, host where to send if not local, path:regexp for URLs to be traced, interval:Interval in ms how often to trace requests, must be &gt; 0 to enable tracing&quot;</li>
 <li><code>api-reset-acl</code>, type: &quot;callback&quot;, callback: function(v) { if (v) this.resetAcl()  descr: &quot;Reset all ACL, auth, routing and login properties in the api module&quot;</li>
+<li><code>api-exit-on-error</code>, type: &quot;bool&quot;, descr: &quot;Exit on uncaught exception in the route handler&quot;</li>
+<li><code>api-restart</code>, descr: &quot;On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts&quot;</li>
 </ul>
 </li>
 </ul>
@@ -1455,7 +1425,7 @@ The options is expected to contain the following cached request properties:</p>
 <p>  Perform rate limiting by specified property, if not given no limiting is done.</p>
 <p>The following options properties can be used:</p>
 <ul>
-<li><p>type - predefined: <code>ip,  path, opath</code>, determines by which property to perform rate limiting, when using user properties
+<li><p>type - determines by which property to perform rate limiting, when using user properties
  the rate limiter should be called after the request signature has been parsed. Any other value is treated as
  custom type and used as is. If it is an array all items will be checked sequentially.
  <strong>This property is required.</strong></p>
@@ -1463,16 +1433,14 @@ The options is expected to contain the following cached request properties:</p>
 <ul>
 <li><p>ip - check every IP address</p>
 </li>
-<li><p>opath - same as path but uses original path before routing</p>
-</li>
-<li><p>path - limit number of requests for an API path by IP address, * can be used at the end to match only the beginning,
+<li><p>path - limit by path and IP address, * can be used at the end to match only the beginning,
   method can be placed before the path to use different rates for the same path by request method</p>
 <p>  -api-rlimits-rate-ip=100
   -api-rlimits-rate-/api/path=2
   -api-rlimits-rate-GET/api/path=10
-  -api-rlimits-ip-/api/path=1
-  -api-rlimits-rate-/api/path/*=1
-  -api-rlimits-ip-/api/path/127.0.0.1=100</p>
+  -api-rlimits-rate-/api/path/<em>=1
+  -api-rlimits-rate-/api/path/127.0.0.1=100
+  -api-rlimits-map-/api/</em>=rate:100,interval:1000</p>
 </li>
 </ul>
 </li>
@@ -1610,37 +1578,69 @@ subject to log throttling configuration.</p>
 </li>
 </ul>
 
-<ul>
-<li><p><code>api.getCsrfToken(req)</code></p>
+<h3 id="module-csrf">Module: csrf</h3>
 <p>  CSRF token format: TYPE,RANDOM_INT,EXPIRE_MS,[UID]</p>
-<p><code>type`` is </code>h<code>for header or</code>c`` for cookie</p>
-<p>Implements double cookie protection using HTTP and cookie tokens, both must be present.</p>
-<p>In addition a token may contain the user id which must be the same as logged in user.</p>
-<p>Return HTTP CSRF token, can be used in templates or forms, the cookie token will reuse the same token</p>
+<p>  <code>type`` is </code>h<code>for header or</code>c`` for cookie</p>
+<p>  Implements double cookie protection using HTTP and cookie tokens, both must be present.</p>
+<p>  In addition a token may contain the user id which must be the same as logged in user.</p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>csrf-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
+<li><code>csrf-set-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set CSRF token for all methods, token type(user|pub) is based on the current session&quot;</li>
+<li><code>csrf-pub-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set public CSRF token only if no valid CSRF token detected&quot;</li>
+<li><code>csrf-check-path</code>, type: &quot;regexpobj&quot;, descr: &quot;Regexp for URLs to set CSRF token for skip methods and verify for others&quot;</li>
+<li><code>csrf-skip-method</code>, type: &quot;regexp&quot;, descr: &quot;Do not check for CSRF token for specified methods&quot;</li>
+<li><code>csrf-skip-status</code>, type: &quot;regexp&quot;, descr: &quot;Do not return CSRF token for specified status codes&quot;</li>
+<li><code>csrf-header</code>, descr: &quot;Name for the CSRF header&quot;</li>
+<li><code>csrf-secret</code>, descr: &quot;Secret for encryption&quot;</li>
+<li><code>csrf-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;CSRF token age in milliseconds&quot;</li>
+<li><code>csrf-same-site</code>, descr: &quot;Session SameSite option, for cookie based authentication&quot;</li>
+<li><code>csrf-secure</code>, type: &quot;bool&quot;, descr: &quot;Set cookie Secure flag&quot;</li>
+</ul>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.verifyCsrfToken(req)</code></p>
+<li><p><code>csrf.get(req)</code></p>
+<p>  Return HTTP CSRF token, can be used in templates or forms, the cookie token will reuse the same token</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>csrf.verify(req)</code></p>
 <p>  Returns .ok == false if CSRF token verification fails, both header and cookie are checked and retuned as .h and .c</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.checkCsrfToken(req, options)</code></p>
+<li><p><code>csrf.check(req, options)</code></p>
 <p>  For configured endpoints check for a token and fail if not present or invalid</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.skipCsrfToken(req)</code></p>
+<li><p><code>csrf.skip(req)</code></p>
 <p>  Do not return CSRF token in cooies or headers</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.clearCsrfToken(req)</code></p>
+<li><p><code>csrf.clear(req)</code></p>
 <p>  Reset CSRF tokens from cookies and headers</p>
+</li>
+</ul>
+
+<h3 id="module-files">Module: files</h3>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>files-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and user id in the file name&quot;</li>
+<li><code>files-url</code>, descr: &quot;URL where files are stored, for cases of central file server(s), must be full URL with optional path&quot;</li>
+<li><code>files-s3</code>, descr: &quot;S3 bucket name where to store files uploaded with the File API&quot;</li>
+</ul>
 </li>
 </ul>
 
@@ -1750,7 +1750,7 @@ it needs to be defined as { type: &quot;string&quot; }.</p>
 conflict with the existing ones.</p>
 <p>These are default common parameters that can be used by any module:</p>
 <ul>
-<li><code>_count, _page, _tm, _sort, _select, _ext, _start, _token, _session, _format, _total, _encoding, _ops</code></li>
+<li><code>_count, _page, _tm, _sort, _select, _ext, _start, _token, _format, _total, _encoding, _ops</code></li>
 </ul>
 <p>These are the reserved names that cannot be used for parameters, they are defined by the engine for every request:</p>
 <ul>
@@ -1949,6 +1949,21 @@ cannot be verified by current hook, multiple hooks can be supported and it stops
 </li>
 </ul>
 
+<h3 id="module-images">Module: images</h3>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>images-url</code>, descr: &quot;URL where images are stored, for cases of central image server(s), must be full URL with optional path&quot;</li>
+<li><code>images-s3</code>, descr: &quot;S3 bucket name where to store and retrieve images&quot;</li>
+<li><code>images-raw</code>, type: &quot;bool&quot;, descr: &quot;Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and user id in the image name&quot;</li>
+<li><code>images-s3-options</code>, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;S3 options to sign images urls, may have expires:, key:, secret: properties&quot;</li>
+<li><code>images-ext</code>, descr: &quot;Default image extension to use when saving images&quot;</li>
+<li><code>images-mod</code>, descr: &quot;Images scaling module, sharp&quot;</li>
+</ul>
+</li>
+</ul>
+
 <ul>
 <li><p><code>api.scaleIcon(infile, options, callback)</code></p>
 <p>  Scale image return err if failed.</p>
@@ -2068,13 +2083,13 @@ Valid properties in the options:</p>
 </ul>
 
 <ul>
-<li><p><code>passkeys.get(user)</code></p>
+<li><p><code>passkeys.get(options)</code></p>
 <p>  Return a list of all passkyes for the user</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>passkeys.read(user, passkeyId, callback)</code></p>
+<li><p><code>passkeys.read(options, passkeyId, callback)</code></p>
 <p>  Read a user and passkey, user can be id/login or an user object</p>
 </li>
 </ul>
@@ -2090,39 +2105,65 @@ Valid properties in the options:</p>
 </li>
 </ul>
 
+<h3 id="module-session">Module: session</h3>
+
 <ul>
-<li><p><code>api.makeSessionCookie(req, options)</code></p>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>session-disabled</code>, type: &quot;bool&quot;, descr: &quot;Disable cookie session support, all requests must be signed for Web clients&quot;</li>
+<li><code>session-cache</code>, descr: &quot;Cache name for session control&quot;</li>
+<li><code>session-age</code>, type: &quot;int&quot;, min: 0, descr: &quot;Session age in milliseconds, for cookie based authentication&quot;</li>
+<li><code>session-same-site</code>, descr: &quot;Session SameSite option, for cookie based authentication&quot;</li>
+<li><code>session-secure</code>, type: &quot;bool&quot;, descr: &quot;Set cookie Secure flag&quot;</li>
+<li><code>session-cookie-(.+)</code>, obj: &quot;session-cookie&quot;, type: &quot;map&quot;, maptype: &quot;auto&quot;, nocamel: 1, descr: &quot;Cookie values for requests that match beginning of the path, ex -api-session-cookie-/testing secure:false,sameSite:None&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>session.makeCookie(req, options)</code></p>
 <p>  Find a closest cookie by host/domain/path, longest takes precedence, returns found cookie merged with the options</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.getSessionCookie(req, name)</code></p>
+<li><p><code>session.getCookie(req)</code></p>
 <p>  Return named encrypted cookie</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.setSessionCookie(req, name, value)</code></p>
+<li><p><code>session.setCookie(req, name, value)</code></p>
 <p>  Set a cookie by name and domain, the value is always encrypted</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.handleSessionSignature(req, callback)</code></p>
+<li><p><code>session.setup(req, callback)</code></p>
 <p>  Setup session cookies or access token for automatic authentication without signing, req must be complete with all required
 properties after successful authorization.</p>
 </li>
 </ul>
 
+<h3 id="module-signature">Module: signature</h3>
+
 <ul>
-<li><p><code>api.newSignature(req)</code></p>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>signature-header</code>, descr: &quot;Header name to sotee signature&quot;</li>
+<li><code>signature-age</code>, type: &quot;int&quot;, descr: &quot;Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the &#39;expires&#39; field in the signature must be less than current time plus this age, this is to support time drifts&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>signature.fromRequest(req, options)</code></p>
 <p>  Returns a new signature object with all required properties filled form the request object</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.getSignature(req)</code></p>
+<li><p><code>signature.get(req)</code></p>
 <p>  Parse incoming request for signature and return all pieces wrapped in an object, this object will be used by <code>verifySignature</code> function.</p>
 <p>If the signature successfully recognized it is saved in the request as <code>req.signature</code>,
 it always returns a signature object, a new one or existing</p>
@@ -2130,36 +2171,108 @@ it always returns a signature object, a new one or existing</p>
 </ul>
 
 <ul>
-<li><p><code>api.verifySignature(req, sig, user, callback)</code></p>
+<li><p><code>signature.verify(req, sig, user, callback)</code></p>
 <p>  Returns true if the signature <code>sig</code> matches given user secret. <code>user</code> object must be a <code>bk_user</code> record.</p>
 </li>
 </ul>
 
 <ul>
-<li><p><code>api.createSignature(login, secret, method, host, uri, options)</code></p>
+<li><p><code>signature.create(login, secret, options)</code></p>
 <p>  Create secure signature for an HTTP request. Returns an object with HTTP headers to be sent in the response.</p>
 <p>The options may contains the following:</p>
 <ul>
+<li>host or hostname - request host</li>
+<li>url - path and query params as full URL</li>
+<li>path - request path</li>
+<li>query - an object with query params</li>
+<li>method - GET, POST, ...</li>
 <li>expires is absolute time in milliseconds when this request will expire, default is 30 seconds from now</li>
 <li>version a version number defining how the signature will be signed</li>
-<li>type - content-type header, may be omitted</li>
+<li>type or contentType - content-type header, may be omitted</li>
 <li>tag - a custom tag, vendor specific, opaque to the bkjs, can be used for passing additional user or session information</li>
 <li>checksum - SHA1 digest of the whole content body, may be omitted</li>
 <li>query - on object with query parameters to use instead of parameters in the uri</li>
+</ul>
+<p>Returns:</p>
+<ul>
+<li>value - signature string to be returned</li>
+<li>header - HTTP header or cookie name to be used</li>
 </ul>
 </li>
 </ul>
 
 <h3 id="module-users">Module: users</h3>
 <p>  User management</p>
-<p>  use -api.users-cap-noweb 1 to disable default endpoints</p>
+<p>  use -api-users-cap-noweb 1 to disable default endpoints</p>
 
 <ul>
 <li><p><code>Config parameters</code></p>
 <ul>
+<li><code>users-table</code>, descr: &quot;Table to use for users&quot;</li>
 <li><code>users-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
 <li><code>users-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
+<li><code>users-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
+<li><code>users-users</code>, obj: &quot;users&quot;, type: &quot;json&quot;, merge: 1, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
+<li><code>users-file</code>, descr: &quot;A JSON file with users&quot;</li>
 </ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.get(query, options, callback)</code></p>
+<p>  Returns a user record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.add(query, options, callback)</code></p>
+<p>  Registers a new user, returns new record in the callback,
+if <code>options.isInternal</code> is true then allow to set all properties
+<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
+otherwise internal properties will not be added</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.update(query, options, callback)</code></p>
+<p>  Updates an existing user by login or id,
+if <code>options.isInternal</code> is true then allow to update all properties,
+<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
+returns a new record in the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.del(query, options, callback)</code></p>
+<p>  Deletes an existing user by login or id, no admin checks, returns the old record in the callback</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.isUid(id)</code></p>
+<p>  Returns true of the given id is a valid user uuid</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.prepareSecret(query, options, callback)</code></p>
+<p>  If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.checkSecret(user, password, callback)</code></p>
+<p>  Verify an existing user record with given password,</p>
+<ul>
+<li>user - if a string it is a hashed secret from an existing user record, otherwise must be an user object</li>
+<li>password - plain text password or other secret passed to be verified</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>users.loadFile(callback)</code></p>
+<p>  Load users from a JSON file, only add or update records</p>
 </li>
 </ul>
 
@@ -3851,17 +3964,7 @@ otherwise it is already locked by other instance. In case of an error the lock i
 <li><code>port</code>, type: &quot;number&quot;, min: 0, descr: &quot;port to listen for the HTTP server, this is global default&quot;</li>
 <li><code>bind</code>, descr: &quot;Bind to this address only, if not specified listen on all interfaces&quot;</li>
 <li><code>backlog</code>, type: &quot;int&quot;, descr: &quot;The maximum length of the queue of pending connections, used by HTTP server in listen.&quot;</li>
-<li><code>ssl-port</code>, type: &quot;number&quot;, obj: &#39;ssl&#39;, min: 0, descr: &quot;port to listen for HTTPS server, this is global default&quot;</li>
-<li><code>ssl-bind</code>, obj: &#39;ssl&#39;, descr: &quot;Bind to this address only for HTTPS server, if not specified listen on all interfaces&quot;</li>
-<li><code>ssl-key</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, descr: &quot;Path to SSL prvate key&quot;</li>
-<li><code>ssl-cert</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, descr: &quot;Path to SSL certificate&quot;</li>
-<li><code>ssl-pfx</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, descr: &quot;A string or Buffer containing the private key, certificate and CA certs of the server in PFX or PKCS12 format. (Mutually exclusive with the key, cert and ca options.)&quot;</li>
-<li><code>ssl-ca</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, array: 1, descr: &quot;An array of strings or Buffers of trusted certificates in PEM format. If this is omitted several well known root CAs will be used, like VeriSign. These are used to authorize connections.&quot;</li>
-<li><code>ssl-passphrase</code>, obj: &#39;ssl&#39;, descr: &quot;A string of passphrase for the private key or pfx&quot;</li>
-<li><code>ssl-crl</code>, type: &quot;file&quot;, obj: &#39;ssl&#39;, array: 1, descr: &quot;Either a string or list of strings of PEM encoded CRLs (Certificate Revocation List)&quot;</li>
-<li><code>ssl-ciphers</code>, obj: &#39;ssl&#39;, descr: &quot;A string describing the ciphers to use or exclude. Consult <a href="http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT">http://www.openssl.org/docs/apps/ciphers.html#CIPHER_LIST_FORMAT</a> for details on the format&quot;</li>
-<li><code>ssl-request-cert</code>, type: &quot;bool&quot;, obj: &#39;ssl&#39;, descr: &quot;If true the server will request a certificate from clients that connect and attempt to verify that certificate. &quot;</li>
-<li><code>ssl-reject-unauthorized</code>, type: &quot;bool&quot;, obj: &#39;ssl&#39;, decr: &quot;If true the server will reject any connection which is not authorized with the list of supplied CAs. This option only has an effect if ssl-request-cert is true&quot;</li>
+<li><code>ssl</code>, type: &quot;map&quot;, obj: &#39;ssl&#39;, merge: 1, mapType: &quot;auto&quot;, descr: &quot;SSL params: port, bind, key, cert, pfx, ca, passphrase, crl, ciphers&quot;</li>
 <li><code>concurrency</code>, type: &quot;number&quot;, min: 1, max: 4, descr: &quot;How many simultaneous tasks to run at the same time inside one process, this is used by async module only to perform several tasks at once, this is not multithreading but and only makes sense for I/O related tasks&quot;</li>
 <li><code>salt</code>, type: &quot;callback&quot;, callback: function(v) { this.salt=lib.salt=v;  descr: &quot;Set random or specific salt value to be used for consistent suuid generation&quot;, pass: 1</li>
 <li><code>app-name</code>, type: &quot;callback&quot;, callback: function(v) { if (!v) return;v = v.split(/[/-]/);this.appName=v[0].trim();if (v[1]) this.appVersion=v[1].trim(); descr: &quot;Set appName and version explicitely an skip reading it from package.json, it can be just a name or name-version&quot;, pass: 1</li>
@@ -4081,7 +4184,7 @@ a string which defines text parameter or an object with the properties:</p>
 <li>pass - process only args that match the pass value</li>
 <li>env - env variable name to apply before parsing config files</li>
 <li>merge - if true merge properties with existing object, &#39;obj&#39; must be provided</li>
-<li>maptype - usually <code>auto</code> to parse map values or can be any valie type, for type <code>map</code></li>
+<li>maptype - usually <code>auto</code> to parse map values or can be any value type, for type <code>map</code></li>
 <li>make - works with regexp names like <code>name-([a-z]+)-(.+)</code> to build the final parameter name, can use $1, $2, $3...placeholders</li>
 <li>novalue - skip if value is equal or included in the list, also works for merges</li>
 </ul>
@@ -4370,6 +4473,7 @@ Options properties:</p>
 <li><code>db-([a-z0-9]+)-pool-connect$</code>, obj: &#39;_config.$1.connectOptions&#39;, type: &quot;json&quot;, logger: &quot;warn&quot;, descr: &quot;Connect options for a DB pool driver for new connection, driver specific&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-options$</code>, obj: &#39;_config.$1.configOptions&#39;, type: &quot;map&quot;, maptype: &quot;auto&quot;, merge: 1, onupdate: &quot;applyPoolOptions&quot;, descr: &quot;General options for a DB pool&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$</code>, obj: &#39;_config.$1.configOptions&#39;, camel: &#39;-&#39;, autotype: 1, make: &quot;$2&quot;, onupdate: &quot;applyPoolOptions&quot;, descr: &quot;General options for a DB pool&quot;</li>
+<li><code>db-([a-z0-9]+)-pool-table-map</code>, obj: &#39;_config.$1.configOptions.tableMap&#39;, type: &quot;map&quot;, maptype: &quot;auto&quot;, merge: 1, onupdate: &quot;applyPoolOptions&quot;, descr: &quot;Table mapping, aliases&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-(create-tables)$</code>, master: 1, obj: &#39;_config.$1.configOptions&#39;, make: &quot;$2&quot;, type: &quot;bool&quot;, descr: &quot;Create tables for this pool on startup&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-(skip-tables)$</code>, obj: &#39;_config.$1.configOptions&#39;, make: &quot;$2&quot;, array: 1, type: &quot;list&quot;, descr: &quot;Tables not to be created in this pool&quot;</li>
 <li><code>db-([a-z0-9]+)-pool-(metrics-tables)$</code>, obj: &#39;_config.$1.configOptions&#39;, make: &quot;$2&quot;, array: 1, type: &quot;list&quot;, descr: &quot;Tables to collect metrics in this pool&quot;</li>
@@ -8519,6 +8623,7 @@ the default is to use the <code>error</code> level.</li>
 </li>
 </ul>
 
+<h2 id="module-main">Module: main</h2>
 <h2 id="module-metrics">Module: metrics</h2>
 <ul>
 <li><p><code>exports.toJSON(obj, options)</code></p>
@@ -8923,7 +9028,6 @@ the options is the message passed to the listener</p>
 
 <p>  Client that uses master process rate limiter and workers for jobs.</p>
 
-<h2 id="module-run">Module: run</h2>
 <h2 id="module-server">Module: server</h2>
 <p>  The main server class that starts various processes</p>
 
@@ -8970,7 +9074,6 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
 </li>
 </ul>
 
-<h2 id="module-shell">Module: shell</h2>
 <ul>
 <li><p><code>module.exports(options)</code></p>
 <p>  Shell command interface for <code>bksh</code></p>
@@ -8999,6 +9102,31 @@ it runs <code>shutdown[Role]</code> methods before exiting</p>
  - `-exit-timeout MS` - will be set to ms to wait before exit
  - `-shell-delay MS` - will wait before running the command
 </code></pre>
+
+<h3 id="module-watcher">Module: watcher</h3>
+<p>  Watch the sources for changes and restart the server</p>
+
+<ul>
+<li><p><code>Config parameters</code></p>
+<ul>
+<li><code>watcher-dir</code>, type: &quot;list&quot;, array: 1, descr: &quot;Watch sources directories for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added.&quot;</li>
+<li><code>watcher-ignore</code>, type: &quot;regexp&quot;, descr: &quot;Files to be ignored by the watcher&quot;</li>
+<li><code>watcher-match</code>, type: &quot;regexp&quot;, descr: &quot;Files to be watched, .js and .css is the default&quot;</li>
+<li><code>watcher-web</code>, type: &quot;list&quot;, array: 1, descr: &quot;List of directories to be watched for file modifications and execute a <code>build-web</code> command to produce bundles, apps, etc... Relative paths will be applied to all packages, example: web/js,web/css&quot;</li>
+<li><code>watcher-build</code>, descr: &quot;Command to run on web files modifications, to be used with tools like minify/uglify&quot;</li>
+<li><code>watcher-mode</code>, descr: &quot;How to serialize web build launches for multiple files chnaged at the same time, if empty run one build per file, <code>dir</code> to run every launch per config directory, <code>dir1</code> to run by next top dir, <code>dir3</code> to run by thid directory from the file....&quot;</li>
+<li><code>watcher-delay</code>, type: &quot;int&quot;, descr: &quot;Delay in ms before triggering the build web command to allow multiple files saved&quot;</li>
+<li><code>watcher-restart-delay</code>, type: &quot;number&quot;, max: 30000, descr: &quot;Delay between respawning the server after changes&quot;</li>
+<li><code>watcher-no-restart</code>, type: &quot;bool&quot;, descr: &quot;Do not restart any processes terminated, for debugging crashes only&quot;</li>
+</ul>
+</li>
+</ul>
+
+<ul>
+<li><p><code>watcher.startProcess()</code></p>
+<p>  Restart the main process with the same arguments and setup as a monitor for the spawn child</p>
+</li>
+</ul>
 
 <ul>
 <li><p><code>shell.awsCheckTags(obj, name)</code></p>
@@ -9466,104 +9594,6 @@ bkjs test-db
 <ul>
 <li><p><code>stats.collect(options, callback)</code></p>
 <p>  Collect process stats</p>
-</li>
-</ul>
-
-<h2 id="module-users">Module: users</h2>
-
-<ul>
-<li><p><code>Config parameters</code></p>
-<ul>
-<li><code>users-table</code>, descr: &quot;Table to use for users&quot;</li>
-<li><code>users-err-(.+)</code>, descr: &quot;Error messages for various cases&quot;</li>
-<li><code>users-cap-(.+)</code>, type: &quot;int&quot;, strip: &quot;cap-&quot;, descr: &quot;Capability parameters&quot;</li>
-<li><code>users-max-length</code>, type: &quot;int&quot;, descr: &quot;Max login and name length&quot;</li>
-<li><code>users-users</code>, type: &quot;json&quot;, logger: &quot;error&quot;, descr: &quot;An object with users&quot;</li>
-<li><code>users-file</code>, descr: &quot;A JSON file with users&quot;</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>users.get(query, options, callback)</code></p>
-<p>  Returns a user record by login or id, to make use of a cache add to the config <code>db-cache-keys-bk_user-id=id</code></p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>users.add(query, options, callback)</code></p>
-<p>  Registers a new user, returns new record in the callback,
-if <code>options.isInternal</code> is true then allow to set all properties
-<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
-otherwise internal properties will not be added</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>users.update(query, options, callback)</code></p>
-<p>  Updates an existing user by login or id,
-if <code>options.isInternal</code> is true then allow to update all properties,
-<code>options.internalQuery</code> can be used to add restricted properties if not in isInternal mode
-returns a new record in the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>users.del(query, options, callback)</code></p>
-<p>  Deletes an existing user by login or id, no admin checks, returns the old record in the callback</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>users.isUid(id)</code></p>
-<p>  Returns true of the given id is a valid user uuid</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>users.prepareSecret(query, options, callback)</code></p>
-<p>  If specified in the options, prepare credentials to be stored in the db, if no error occurred return null, otherwise an error object</p>
-</li>
-</ul>
-
-<ul>
-<li><p><code>users.checkSecret(user, password, callback)</code></p>
-<p>  Verify an existing user record with given password,</p>
-<ul>
-<li>user - if a string it is a hashed secret from an existing user record, otherwise must be an user object</li>
-<li>password - plain text password or other secret passed to be verified</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>users.loadFile(callback)</code></p>
-<p>  Load users from a JSON file, only add or update records</p>
-</li>
-</ul>
-
-<h2 id="module-watch">Module: watch</h2>
-<p>  Watch the sources for changes and restart the server</p>
-
-<ul>
-<li><p><code>Config parameters</code></p>
-<ul>
-<li><code>watch-dir</code>, type: &quot;list&quot;, array: 1, descr: &quot;Watch sources directories for file changes to restart the server, for development only, the backend module files will be added to the watch list automatically, so only app specific directores should be added.&quot;</li>
-<li><code>watch-ignore</code>, type: &quot;regexp&quot;, descr: &quot;Files to be ignored by the watcher&quot;</li>
-<li><code>watch-match</code>, type: &quot;regexp&quot;, descr: &quot;Files to be watched, .js and .css is the default&quot;</li>
-<li><code>watch-web</code>, type: &quot;list&quot;, array: 1, descr: &quot;List of directories to be watched for file modifications and execute a <code>build-web</code> command to produce bundles, apps, etc... Relative paths will be applied to all packages, example: web/js,web/css&quot;</li>
-<li><code>watch-build</code>, descr: &quot;Command to run on web files modifications, to be used with tools like minify/uglify&quot;</li>
-<li><code>watch-mode</code>, descr: &quot;How to serialize web build launches for multiple files chnaged at the same time, if empty run one build per file, <code>dir</code> to run every launch per config directory, <code>dir1</code> to run by next top dir, <code>dir3</code> to run by thid directory from the file....&quot;</li>
-<li><code>watch-delay</code>, type: &quot;int&quot;, descr: &quot;Delay in ms before triggering the build web command to allow multiple files saved&quot;</li>
-<li><code>watch-restart-delay</code>, type: &quot;number&quot;, max: 30000, descr: &quot;Delay between respawning the server after changes&quot;</li>
-<li><code>watch-no-restart</code>, type: &quot;bool&quot;, descr: &quot;Do not restart any processes terminated, for debugging crashes only&quot;</li>
-</ul>
-</li>
-</ul>
-
-<ul>
-<li><p><code>watch.startProcess()</code></p>
-<p>  Restart the main process with the same arguments and setup as a monitor for the spawn child</p>
 </li>
 </ul>
 

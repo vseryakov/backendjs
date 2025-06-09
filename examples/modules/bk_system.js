@@ -3,12 +3,7 @@
 //  backendjs 2018
 //
 
-var bkjs = require('backendjs');
-var api = bkjs.api;
-var ipc = bkjs.ipc;
-var core = bkjs.core;
-var lib = bkjs.lib;
-var logger = bkjs.logger;
+const { api, ipc, core, lib, logger } = require('backendjs');
 
 // System management
 const mod = {
@@ -21,13 +16,6 @@ module.exports = mod;
 
 // Create API endpoints and routes
 mod.configureWeb = function(options, callback)
-{
-    this.configureSystemAPI();
-    callback()
-}
-
-// API for internal provisioning and configuration
-mod.configureSystemAPI = function()
 {
     api.app.post(/^\/system\/([^/]+)\/?(.+)?/, (req, res) => {
         if (mod.perms && !lib.isFlag(mod.perms[req.params[0]], req.params[1] || "*")) {

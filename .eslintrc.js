@@ -1,26 +1,20 @@
-{
+module.exports = {
     "root": true,
     "env": {
         "es2022": true,
-        "browser": true,
         "es6": true,
         "node": true
     },
+    "parserOptions": {
+        "ecmaVersion": 2022
+    },
     "globals": {
-        "app": false,
-        "bkjs": false,
+        "test": false,
         "tests": false,
         "assert": false,
         "expect": false,
-        "$": false,
-        "Alpine": false,
-        "jQuery": false,
-        "bootstrap": false,
-        "bootpopup": false,
-        "ko": false
-    },
-    "parserOptions": {
-        "ecmaVersion": 2022
+        "sleep": false,
+        "promisify": false
     },
     "extends": "eslint:recommended",
     "rules": {
@@ -106,7 +100,10 @@
         "max-params": "off",
         "max-statements": "off",
         "max-statements-per-line": "off",
-        "multiline-comment-style": "off",
+        "multiline-comment-style": [
+            "error",
+            "separate-lines"
+        ],
         "multiline-ternary": "off",
         "new-cap": "off",
         "new-parens": "error",
@@ -120,7 +117,7 @@
         "no-buffer-constructor": "off",
         "no-caller": "error",
         "no-catch-shadow": "error",
-        "no-confusing-arrow": ["error", {"allowParens": true}],
+        "no-confusing-arrow": ["error", { "allowParens": true }],
         "no-constant-condition": [
             "error",
             {
@@ -142,12 +139,12 @@
         "no-eq-null": "off",
         "no-fallthrough": "off",
         "no-eval": "error",
-        "no-extend-native": "off",
+        "no-extend-native": "error",
         "no-extra-bind": "error",
         "no-extra-label": "error",
         "no-extra-parens": "off",
         "no-floating-decimal": "error",
-        "no-implicit-globals": "off",
+        "no-implicit-globals": "error",
         "no-implied-eval": "error",
         "no-inline-comments": "off",
         "no-inner-declarations": "off",
@@ -162,7 +159,7 @@
         "no-mixed-operators": "off",
         "no-mixed-requires": "error",
         "no-multi-assign": "off",
-        "no-multi-spaces": ["error", { "ignoreEOLComments": true }],
+        "no-multi-spaces": ["error", { ignoreEOLComments: true }],
         "no-multi-str": "error",
         "no-multiple-empty-lines": "error",
         "no-native-reassign": "error",
@@ -202,6 +199,7 @@
         "no-ternary": "off",
         "no-throw-literal": "error",
         "no-trailing-spaces": "off",
+        "no-undef": "error",
         "no-undef-init": "error",
         "no-undefined": "off",
         "no-underscore-dangle": "off",
@@ -251,6 +249,7 @@
         "require-await": "error",
         "require-jsdoc": "off",
         "rest-spread-spacing": "error",
+        "no-extra-semi": "off",
         "semi": "off",
         "semi-spacing": "off",
         "semi-style": [
@@ -274,9 +273,12 @@
                 "words": false
             }
         ],
-        "spaced-comment": "off",
-        "strict": [
+        "spaced-comment": [
             "error",
+            "always"
+        ],
+        "strict": [
+            "off",
             "never"
         ],
         "switch-colon-spacing": [
@@ -293,7 +295,7 @@
             "error",
             "never"
         ],
-        "valid-jsdoc": "error",
+        "valid-jsdoc": "off",
         "vars-on-top": "off",
         "wrap-iife": "off",
         "wrap-regex": "off",
@@ -303,4 +305,4 @@
             "never"
         ]
     }
-}
+};

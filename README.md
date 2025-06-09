@@ -794,7 +794,7 @@ will never end up in this callback because it is called after the signature chec
 
 # WebSockets connections
 
-The simplest way is to configure `ws-port` to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
+The simplest way is to configure `api-ws-port` to the same value as the HTTP port. This will run WebSockets server along the regular Web server.
 
 In the browser the connection config is stored in the `app.wsconf` and by default it connects to the local server on port 8000.
 
@@ -838,7 +838,7 @@ There are two ways to send messages via Websockets to the server from a browser:
         switch (req.query.op) {
         case "/project/update":
            //  some code ....
-           ws.notify({ query: { id: req.query.project.id } }, { op: "/project/update", project: req.query.project });
+           api.ws.notify({ query: { id: req.query.project.id } }, { op: "/project/update", project: req.query.project });
            break;
        }
        res.send("");
@@ -855,7 +855,7 @@ the application logic. If the server needs to send a message to all or some spec
         ....
         ... processing logic
         ....
-        ws.notify({ user_id: req.query.uid }, { op: "/message/new", msg: req.query.msg });
+        api.ws.notify({ user_id: req.query.uid }, { op: "/message/new", msg: req.query.msg });
     });
 ```
 
@@ -999,9 +999,9 @@ The list of files to be used in bundles is in the package.json under `config.bun
 To enable auto bundler in your project just add to the local config `~/.bkjs/etc/config.local` a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support
 
-    watch-web=web/js,web/css,$HOME/src/js,$HOME/src/css
-    watch-ignore=.bundle.(js|css)$
-    watch-build=bkjs bundle -dev
+    server-watcher-web=web/js,web/css,$HOME/src/js,$HOME/src/css
+    server-watcher-ignore=.bundle.(js|css)$
+    server-watcher-build=bkjs bundle -dev
 
 
 The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:
@@ -1014,7 +1014,7 @@ The simple script below allows to build the bundle and refresh Chrome tab automa
 
 To use it, call this script instead in the config.local:
 
-    watch-build=bundle.sh /website
+    server-watcher-build=bundle.sh /website
 
 NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
 repository when the bundle build may not be called or called too early. To force rebuild run the command:
@@ -1210,11 +1210,6 @@ See [api.js](https://github.com/vseryakov/backendjs/blob/master/api/auth.js) fun
 
    By default this endpoint is secured, i.e. requires a valid signature.
 
-   Parameters:
-
-   - `_session=1` - if the call is authenticated a cookie with the session signature is returned, from now on
-      all requests with such cookie will be authenticated, the primary use for this is Web apps
-
    On successful login, the result contains full user record
 
 - `/login`
@@ -1226,14 +1221,13 @@ See [api.js](https://github.com/vseryakov/backendjs/blob/master/api/auth.js) fun
 
      - `login` - user login
      - `secret` - user secret
-     - `_session=1` - same as in /auth request
 
    On successful login, the result contains full user record
 
    Example:
 
 ```javascript
-    var res = await fetch("/login", { metod: "POST", body: "login=test123&secret=test123&_session=1" });
+    var res = await fetch("/login", { metod: "POST", body: "login=test123&secret=test123" });
     await res.json()
 
     > { id: "XXXX...", name: "Test User", login: "test123", ...}

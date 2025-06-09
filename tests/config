@@ -5,3 +5,13 @@ no=packages
 
 db-elasticsearch-pool-tables=test1,test2,test3
 db-elasticsearch-pool-options-defaultParams={"refresh":true}
+
+api-users-users={ "test": { "id": "test", "name": "test", "login": "test", "secret": "test" } }
+
+api-allow-acl-authenticated=auth
+
+api-acl-auth=^/auth$
+
+api-csrf-set-path=^/login$
+
+api-csrf-check-path=^/auth$
