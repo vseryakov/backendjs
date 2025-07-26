@@ -1025,7 +1025,7 @@ repository when the bundle build may not be called or called too early. To force
 
 ## AWS instance setup with node and backendjs
 
-- start new AWS instance via AWS console, use Alpine 3.21 or later
+- start new AWS instance via AWS console, use Alpine 3.22 or later
 - login as `alpine`
 - install commands
 
