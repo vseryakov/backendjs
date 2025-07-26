@@ -141,7 +141,7 @@ case "$BKJS_CMD" in
                     debug $bundle.$type: $f
 
                     case $f in
-                    *.min.js)
+                    *.min.js|*.bundle.js)
                         cat $f >> $dir/web/js/$bundle.bundle.js
                         ;;
 
@@ -162,6 +162,9 @@ case "$BKJS_CMD" in
 
                 if [ -z "$dev" ]; then
                     if [ -n "$jsfiles" ]; then
+
+                        debug $dir/web/$type/$bundle.bundle.$type minifying: $jsfiles
+
                         if [ -n "$(get_flag -esbuild)" ]; then
                             esbuildargs="--minify $(get_arg -esbuildargs)"
                             esbuild $esbuildargs $jsfiles >> $dir/web/js/$bundle.bundle.js
@@ -172,17 +175,15 @@ case "$BKJS_CMD" in
                             [ "$?" != "0" ] && exit 1
                         fi
                     fi
-                    [ -n "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.js > $dir/web/js/$bundle.bundle.js.gz
                 fi
+                [ -n "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.js > $dir/web/js/$bundle.bundle.js.gz
                 ;;
 
             *.css)
                 mkdir -p $dir/web/css
                 (cd $dir && cat $files > web/css/$bundle.bundle.css)
                 [ "$?" != "0" ] && exit 1
-                if [ -z "$dev" ]; then
-                    [ -n "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
-                fi
+                [ -n "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
                 ;;
             esac
 

@@ -43,36 +43,42 @@
     if (obj && isFunction(obj[method])) return obj[method].call(obj, ...arg);
   };
   var _events = {};
-  app.on = (event, callback) => {
+  app.on = (event, callback, namespace) => {
     if (!isFunction(callback)) return;
     if (!_events[event]) _events[event] = [];
-    _events[event].push(callback);
+    _events[event].push([callback, isString(namespace)]);
   };
-  app.once = (event, callback) => {
+  app.once = (event, callback, namespace) => {
     if (!isFunction(callback)) return;
     const cb = (...args) => {
       app.off(event, cb);
       callback(...args);
     };
-    app.on(event, cb);
+    app.on(event, cb, namespace);
   };
-  app.only = (event, callback) => {
-    _events[event] = isFunction(callback) ? [callback] : [];
+  app.only = (event, callback, namespace) => {
+    _events[event] = isFunction(callback) ? [callback, isString(namespace)] : [];
   };
   app.off = (event, callback) => {
-    if (!_events[event] || !callback) return;
-    const i = _events[event].indexOf(callback);
-    if (i > -1) return _events[event].splice(i, 1);
+    if (event && callback) {
+      if (!_events[event]) return;
+      const i = isFunction(callback) ? 0 : isString(callback) ? 1 : -1;
+      if (i >= 0) _events[event] = _events[event].filter((x) => x[i] !== callback);
+    } else if (isString(event)) {
+      for (const ev in _events) {
+        _events[ev] = _events[ev].filter((x) => x[1] !== event);
+      }
+    }
   };
   app.emit = (event, ...args) => {
     app.trace("emit:", event, ...args, app.debug > 1 && _events[event]);
     if (_events[event]) {
-      for (const cb of _events[event]) cb(...args);
+      for (const cb of _events[event]) cb[0](...args);
     } else if (isString(event) && event.endsWith(":*")) {
       event = event.slice(0, -1);
       for (const p in _events) {
         if (p.startsWith(event)) {
-          for (const cb of _events[p]) cb(...args);
+          for (const cb of _events[p]) cb[0](...args);
         }
       }
     }
@@ -85,7 +91,7 @@
   var esc = (selector) => selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`);
   app.$ = (selector, doc) => isString(selector) ? (isElement(doc) || document).querySelector(esc(selector)) : null;
   app.$all = (selector, doc) => isString(selector) ? (isElement(doc) || document).querySelectorAll(esc(selector)) : null;
-  app.$event = (element, name, detail = {}) => isElement(element) && element.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true, cancelable: true }));
+  app.$event = (element, name, detail = {}) => element instanceof EventTarget && element.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true, cancelable: true }));
   app.$on = (element, event, callback, ...arg) => {
     return isFunction(callback) && element.addEventListener(event, callback, ...arg);
   };
@@ -405,8 +411,11 @@
     Alpine.magic("app", (el) => app);
     Alpine.directive("render", (el, { modifiers, expression }, { evaluate, cleanup }) => {
       const click = (e) => {
+        const name = evaluate(expression);
+        if (!name) return;
         e.preventDefault();
-        app.render(evaluate(expression));
+        e.stopPropagation();
+        app.render(name);
       };
       app.$on(el, "click", click);
       el.style.cursor = "pointer";
@@ -429,16 +438,30 @@
       effect(() => evaluate((value) => {
         if (!value) return empty();
         if (value !== template) {
-          if (render(el, value)) {
-            if (modifiers.includes("show")) {
-              if (modifiers.includes("nonempty") && !el.firstChild) {
-                el.style.setProperty("display", "none", modifiers.includes("important") ? "important" : void 0);
+          const tmpl = app.resolve(value);
+          if (!tmpl) return;
+          const mods = {};
+          for (let i = 0; i < modifiers.length; i++) {
+            const mod = modifiers[i];
+            switch (mod) {
+              case "params":
+                var scope = Alpine.$data(el);
+                if (!isObj(scope[modifiers[i + 1]])) break;
+                tmpl.params = Object.assign(scope[modifiers[i + 1]], tmpl.params);
+                break;
+              case "inline":
+                mods.inline = "inline-block";
+                break;
+              default:
+                mods[mod] = mod;
+            }
+          }
+          if (render(el, tmpl)) {
+            if (mods.show) {
+              if (mods.nonempty && !el.firstChild) {
+                el.style.setProperty("display", "none", mods.important);
               } else {
-                el.style.setProperty(
-                  "display",
-                  modifiers.includes("flex") ? "flex" : modifiers.includes("inline") ? "inline-block" : "block",
-                  modifiers.includes("important") ? "important" : void 0
-                );
+                el.style.setProperty("display", mods.flex || mods.inline || "block", mods.important);
               }
             }
           }

@@ -3,33 +3,47 @@
 //  Jan 2018
 //
 
-var fs = require('fs')
-var path = require("path");
+const fs = require('fs')
+const path = require("path");
+const { lib } = require('backendjs');
 
-var files = fs.readdirSync(".").filter(function(x) { return fs.statSync(x).isFile() && x.match(/\.js$/); });
-
-try {
-    files = files.concat(fs.readdirSync("lib/").filter(function(x) { return fs.statSync("lib/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "lib/" + x }));
-} catch (e) {}
-try {
-    files = files.concat(fs.readdirSync("modules/").filter(function(x) { return fs.statSync("modules/" + x).isFile() && x.match(/\.js$/); }).map(function(x) { return "modules/" + x }));
-} catch (e) {}
+function readDir(dir) {
+    try {
+        if (dir.endsWith("examples")) return;
+        if (dir.slice(-1) !== "/") dir += "/";
+        fs.readdirSync(dir).forEach((x) => {
+            var fullPath = path.join(dir, x);
+            var s = fs.statSync(fullPath);
+            if (s.isFile() && x.slice(-3) === ".js") {
+                files.push(fullPath);
+            } else
+            if (s.isDirectory()) {
+                readDir(fullPath); // Recursive call for subdirectories
+            }
+        });
+    } catch (e) {}
+}
+var files = [];
+lib.strSplit(lib.getArg("-dirs", ".")).forEach(readDir);
 
 var text = "";
 
-files.forEach(function(file) {
+files.forEach((file) => {
     if (process.argv.length > 2 && !file.match(process.argv[2])) return;
     var state, pos;
-    var data = fs.readFileSync(file).toString().split("\n");
-    for (var i = 0; i < data.length; i++) {
+    var data = lib.readFileSync(file).split("\n");
+    var name = "### " + file;
+
+    for (let i = 0; i < data.length; i++) {
         var line = data[i];
         if (!line) continue;
 
         // express endpoint
         var d = line.match(/^ +api.app.(all|get|post)/);
         if (d) {
-            text += "\n" + path.basename(file, '.js') + "\n  " + line.replace(/(^[^/]+|, function.+)/g, "").replace(/\\\//g, "/") + "\n    ";
+            text += "\n\n" + name + "\n\n`" + line.replace(/(^[^/]+|, (\(|function).+)/g, "").replace(/\\\//g, "/") + "`\n";
             state = 1;
+            name = "";
             continue;
         }
         // switch
@@ -54,7 +68,7 @@ files.forEach(function(file) {
         // case
         d = line.match(/^ +case ["']/);
         if (d && state == 2) {
-            text += line.replace(/case |['":]/g, "").trim() + " ";
+            text += "  - " + line.replace(/case |['":]/g, "").trim() + "\n";
             continue;
         }
         // default, end of switch
@@ -71,6 +85,6 @@ files.forEach(function(file) {
     }
 });
 
-console.log(text);
+console.log(text.replace(/\n{3,}/g, "\n\n"));
 process.exit(0);
 

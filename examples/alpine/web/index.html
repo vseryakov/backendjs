@@ -10,7 +10,6 @@
 
     <script src="/index.js"></script>
     <script src="/config.js"></script>
-    <script src="/config3.js"></script>
 
 </head>
 
@@ -46,13 +45,6 @@
             <a role=button class="nav-link my-2" @click="$app.render({ name: 'config2', params: { $target: '#section', mobile: app.isMobile }})"><i class="fa fa-cog fa-fw"></i> Render Config2 below</a>
 
             <a class="nav-link my-2" x-render="'test?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Test HTML plugin below</a>
-
-            <hr>
-
-            <a class="nav-link my-2" x-render="'config3/1/2?a=1'"><i class="fa fa-cog fa-fw"></i> Show KO Config </a>
-
-            <a class="nav-link my-2" x-render="'config3/1/2?a=1&$target=#section'"><i class="fa fa-cog fa-fw"></i> Show KO Config below</a>
-
 
         </div>
     </div>
@@ -121,51 +113,6 @@
 
         <div class="py-1">
             <div x-template="'test'"></div>
-        </div>
-    </div>
-</template>
-
-<template id=config3>
-    <div class="card border-0 p-2 p-lg-3">
-        <div class="d-flex justify-content-between align-items-top">
-            <div class="d-flex flex-row align-items-center">
-                <img class="h5 me-2" src=/img/logo.png>
-                <span class="h5 font-slab fw-bold">System Config3</span> <span data-bind="text: refreshed"></span>
-            </div>
-            <div class="nav pt-3">
-                <a role="button" class="nav-link my-2" data-bind='click: show'><i class="fa fa-database fa-fw"></i> Refresh</a>
-                <a role="button" class="nav-link my-2" data-bind="click: close"><i class="fa fa-database fa-fw"></i> Close</a>
-            </div>
-        </div>
-
-        <div class="card-body">
-            <div class="row pt-1 pb-3">
-                <div class="col-6 d-flex justify-content-left">
-                    <input type="text" class="form-control custom max-vw-35" placeholder="Search" data-bind='textInput: query, hasFocus: true'/>
-                    <button type="button" class="btn btn-default" title="Clear search" data-bind="click: function(){query('')}"><span class="fa fa-fw fa-times"></span> </button>
-                </div>
-            </div>
-
-            <div class="py-2" data-bind="foreach: types">
-                <div>
-                    <button class="btn" data-bind="attr: { 'data-bs-target': '#' + type }" data-bs-toggle="collapse" aria-expanded="false">
-                        <i class="fa fa-fw fa-folder m-1"></i>
-                        <span data-bind="text: type"></span>
-                    </button>
-
-                    <div class="ms-4 collapse" data-bind="css: q ? 'show': '', foreach: rows, attr: { id: type }">
-                        <div class="py-1" role=button data-bind="click: $component.edit.bind($component)">
-                            <i class="fa fa-fw m-1" data-bind="class: icon"></i>
-                            <span class="m-1" data-bind="text: text"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="py-1">
-                <kotest></kotest>
-            </div>
-
         </div>
     </div>
 </template>

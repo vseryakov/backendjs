@@ -18,6 +18,7 @@ app.setBreakpoint = function()
 {
     app.isMobile = /xs|sm|md/.test(app.getBreakpoint());
     document.documentElement.style.setProperty('--height', (window.innerHeight * 0.01) + "px");
+    app.emit("breakpoint");
 }
 
 app.setColorScheme = function()

@@ -18,7 +18,6 @@ app.components.index = class extends app.AlpineComponent {
 
 app.$ready(() => {
     app.setColorScheme();
-    ko.applyBindings(app);
     app.restorePath();
 });
 
