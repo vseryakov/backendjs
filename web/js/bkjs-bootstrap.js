@@ -200,7 +200,8 @@ app.showToast = function(element, type, text, options)
         <div class="toast-header ${o.css_header || ""}">
             <span class="fa fa-fw ${icon} me-2 text-${o.type}" aria-hidden="true"></span>
             <strong class="me-auto toast-title">${o.title || app.toTitle(type)}</strong>
-            <small class="timer" aria-hidden="true">${o.countdown ? Math.round(delay/1000)+"s" : !o.notimer ? "just now" : ""}</small>
+            <small class="timer px-1" aria-hidden="true">${o.countdown ? Math.round(delay/1000)+"s" : !o.notimer ? "just now" : ""}</small>
+            <small>${app.strftime(o.now, " (%I:%M%p)")}</small>
             <button type="button" class="btn-close ms-2" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
         <div class="toast-body ${o.css_body || ""}">

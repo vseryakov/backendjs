@@ -7371,13 +7371,14 @@ bootpopup.inputs = [];
     if (!tmpl) return;
     var params = tmpl.params;
     Object.assign(params, options?.params);
+    params.$target = params.$target || app.main;
     app.trace("render:", options, tmpl.name, tmpl.params);
-    const element = app.$(params.$target || app.main);
+    const element = app.$(params.$target);
     if (!element) return;
     var plugin = tmpl.component?.$type || options?.plugin || params.$plugin;
     plugin = _plugins[plugin] || _default_plugin;
     if (!plugin?.render) return;
-    if (!params.$target || params.$target == app.main) {
+    if (params.$target == app.main) {
       var ev = { name: tmpl.name, params };
       app.emit(app.event, "prepare:delete", ev);
       if (ev.stop) return;
@@ -7414,11 +7415,11 @@ bootpopup.inputs = [];
     init(params) {
       app.trace("init:", this.$type, this.$name);
       Object.assign(this.params, params);
+      app.emit("component:create", { type: this.$type, name: this.$name, component: this, element: this.$el, params: this.params });
       if (!this.params.$noevents) {
         app.on(app.event, this._handleEvent);
       }
       app.call(this._onCreate?.bind(this, this.params));
-      app.emit("component:create", { type: this.$type, name: this.$name, component: this, element: this.$el, params: this.params });
     }
     destroy() {
       app.trace("destroy:", this.$type, this.$name);
@@ -7502,6 +7503,8 @@ bootpopup.inputs = [];
   app.$on(document, "alpine:init", () => {
     app.emit("alpine:init");
     Alpine.magic("app", (el) => app);
+    Alpine.magic("component", (el) => Alpine.closestDataStack(el).find((x) => x.$type == _alpine && x.$name));
+    Alpine.magic("parent", (el) => Alpine.closestDataStack(el).filter((x) => x.$type == _alpine && x.$name)[1]);
     Alpine.directive("render", (el, { modifiers, expression }, { evaluate, cleanup }) => {
       const click = (e) => {
         const name = evaluate(expression);
@@ -7565,7 +7568,7 @@ bootpopup.inputs = [];
     });
     Alpine.directive("scope-level", (el, { expression }, { evaluate }) => {
       const scope = Alpine.closestDataStack(el);
-      el._x_dataStack = scope.slice(0, parseInt(evaluate(expression)) || 0);
+      el._x_dataStack = scope.slice(0, parseInt(evaluate(expression || "")) || 0);
     });
   });
 
@@ -10158,7 +10161,8 @@ app.showToast = function(element, type, text, options)
         <div class="toast-header ${o.css_header || ""}">
             <span class="fa fa-fw ${icon} me-2 text-${o.type}" aria-hidden="true"></span>
             <strong class="me-auto toast-title">${o.title || app.toTitle(type)}</strong>
-            <small class="timer" aria-hidden="true">${o.countdown ? Math.round(delay/1000)+"s" : !o.notimer ? "just now" : ""}</small>
+            <small class="timer px-1" aria-hidden="true">${o.countdown ? Math.round(delay/1000)+"s" : !o.notimer ? "just now" : ""}</small>
+            <small>${app.strftime(o.now, " (%I:%M%p)")}</small>
             <button type="button" class="btn-close ms-2" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
         <div class="toast-body ${o.css_body || ""}">
