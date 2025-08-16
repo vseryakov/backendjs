@@ -6745,16 +6745,19 @@ function bootpopup(...args)
 
             case "select":
                 if (type == "select" && Array.isArray(attrs.options)) {
+                    if (attrs.caption) {
+                        children.push(app.$elem("option", { text: attrs.caption }));
+                    }
                     for (const j in attrs.options) {
                         const option = {}, opt = attrs.options[j];
                         if (typeof opt == "string") {
-                            if (attrs.value && attrs.value == opt) option.selected = true;
+                            if (attrs.value === opt) option.selected = true;
                             option.text = this.escape(opt);
                             children.push(app.$elem("option", option));
                         } else
                         if (opt?.name) {
                             option.value = attrs.options[j].value || "";
-                            option.selected = typeof opt.selected == "boolean" ? opt.selected : attrs.value && attrs.value == option.value ? true : false;
+                            if (opt.selected || attrs.value === option.value) option.selected = true;
                             if (opt.label) option.label = opt.label;
                             if (typeof opt.disabled == "boolean") option.disabled = opt.disabled;
                             option.text = this.escape(opt.name);
