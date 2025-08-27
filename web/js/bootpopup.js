@@ -427,7 +427,7 @@ function bootpopup(...args)
             case "select":
                 if (type == "select" && Array.isArray(attrs.options)) {
                     if (attrs.caption) {
-                        children.push(app.$elem("option", { text: attrs.caption }));
+                        children.push(app.$elem("option", { text: attrs.caption, value: "" }));
                     }
                     for (const j in attrs.options) {
                         const option = {}, opt = attrs.options[j];

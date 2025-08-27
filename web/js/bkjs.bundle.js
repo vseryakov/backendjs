@@ -6746,7 +6746,7 @@ function bootpopup(...args)
             case "select":
                 if (type == "select" && Array.isArray(attrs.options)) {
                     if (attrs.caption) {
-                        children.push(app.$elem("option", { text: attrs.caption }));
+                        children.push(app.$elem("option", { text: attrs.caption, value: "" }));
                     }
                     for (const j in attrs.options) {
                         const option = {}, opt = attrs.options[j];
@@ -7358,14 +7358,16 @@ bootpopup.inputs = [];
       if (template) rc.name = dflt;
     }
     if (isString(template) && template.startsWith("#")) {
-      template = document.getElementById(template.substr(1));
+      template = document.getElementById(rc.otemplate = template.substr(1));
     } else if (isString(template) && template.startsWith("$")) {
-      template = templates[template.substr(1)];
+      template = templates[rc.otemplate = template.substr(1)];
     }
     if (!template) return;
     rc.template = template;
     var component = components[name] || components[rc.name];
-    if (isString(component)) component = components[component];
+    if (isString(component)) {
+      component = components[rc.ocomponent = component];
+    }
     rc.component = component;
     return rc;
   };
