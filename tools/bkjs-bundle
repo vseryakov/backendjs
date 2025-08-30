@@ -55,7 +55,7 @@ case "$BKJS_CMD" in
         done
 
         if [ -n "$gzip" ]; then
-            for f in $(find web -name '*.min.js' -or -name '*.min.css'); do
+            for f in $(find web -name '*.min.js' -or -name '*.min.css' -or -name '*.bundle.js' -or -name '*.bundle.css'); do
                 gzip -9 -c $f > $f.gz
             done
         fi
