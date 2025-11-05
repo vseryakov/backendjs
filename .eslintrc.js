@@ -8,14 +8,6 @@ module.exports = {
     "parserOptions": {
         "ecmaVersion": 2022
     },
-    "globals": {
-        "test": false,
-        "tests": false,
-        "assert": false,
-        "expect": false,
-        "sleep": false,
-        "promisify": false
-    },
     "extends": "eslint:recommended",
     "rules": {
         "accessor-pairs": "error",
@@ -100,10 +92,7 @@ module.exports = {
         "max-params": "off",
         "max-statements": "off",
         "max-statements-per-line": "off",
-        "multiline-comment-style": [
-            "error",
-            "separate-lines"
-        ],
+        "multiline-comment-style": "off",
         "multiline-ternary": "off",
         "new-cap": "off",
         "new-parens": "error",
@@ -273,10 +262,7 @@ module.exports = {
                 "words": false
             }
         ],
-        "spaced-comment": [
-            "error",
-            "always"
-        ],
+        "spaced-comment": "off",
         "strict": [
             "off",
             "never"

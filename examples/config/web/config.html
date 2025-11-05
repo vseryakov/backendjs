@@ -1,0 +1,44 @@
+
+<div class="card border p-2">
+    <div class="d-flex justify-content-between align-items-top">
+        <div class="d-flex flex-row align-items-center">
+            <i class="fa fa-fw fa-cogs mx-1"></i>
+            <span class="h5 font-slab fw-bold mx-1">System Config</span>
+        </div>
+
+        <div class="nav pt-3">
+            <a role="button" class="nav-link my-2" @click="edit"><i class="fa fa-plus fa-fw"></i> Create</a>
+            <a role="button" class="nav-link my-2" @click="refresh"><i class="fa fa-database fa-fw"></i> Refresh</a>
+            <a role="button" class="nav-link my-2" @click="close"><i class="fa fa-database fa-fw"></i> Close</a>
+        </div>
+
+        <div class="card-body">
+            <div class="row pt-1 pb-3">
+                <div class="col-6 d-flex justify-content-left">
+                    <input type="text" class="form-control custom max-vw-35" placeholder="Search" x-model.debounce="query"/>
+                    <button type="button" class="btn btn-default" title="Clear search" @click="query=''"><span class="fa fa-fw fa-times"></span> </button>
+                </div>
+            </div>
+
+            <div class="py-2">
+                <template x-for="type in filter">
+                    <div>
+                        <button class="btn" :data-bs-target="'#' + type.type" data-bs-toggle="collapse" aria-expanded="false">
+                            <i class="fa fa-fw fa-folder m-1"></i>
+                            <span x-text="type.type"></span>
+                        </button>
+
+                        <div class="ms-4 collapse" :class="{ 'show': type.q }" :id="type.type">
+                            <template x-for="row in type.rows">
+                                <div class="py-1" role="button" @click="edit(row)">
+                                    <i class="fa fa-fw m-1" :class="row.icon"></i>
+                                    <span class="m-1" x-text="row.text"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>

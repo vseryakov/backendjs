@@ -594,12 +594,12 @@ tests.test_dynamodb = function(callback)
 
 tests.test_dbconfig = async function(callback)
 {
-    core.appName = "app";
-    core.appVersion = "1.0.0";
-    core.runMode = "test";
-    core.role = "shell";
-    core.tag = "qa";
-    core.region = "us-east-1";
+    app.appName = "app";
+    app.appVersion = "1.0.0";
+    app.runMode = "test";
+    app.role = "shell";
+    app.tag = "qa";
+    app.region = "us-east-1";
 
     db.configMap = {
         top: "runMode",
@@ -609,26 +609,26 @@ tests.test_dbconfig = async function(callback)
 
     var types = db.configTypes();
 
-    expect(types.includes(core.runMode), "expect runMode", types);
-    expect(types.includes(core.runMode+"-"+core.role), "expect runMode-role", types);
-    expect(types.includes(core.runMode+"-"+core.role+"-"+core.role), "expect runMode-role-role", types);
-    expect(types.includes(core.runMode+"-"+core.role+"-"+core.region), "expect runMode-role-region", types);
-    expect(types.includes(core.runMode+"-"+core.tag), "expect runMode-tag", types);
-    expect(types.includes(core.runMode+"-"+core.tag+"-"+core.role), "expect runMode-tag-role", types);
-    expect(types.includes(core.runMode+"-"+core.tag+"-"+core.region), "expect runMode-tag-region", types);
+    expect(types.includes(app.runMode), "expect runMode", types);
+    expect(types.includes(app.runMode+"-"+app.role), "expect runMode-role", types);
+    expect(types.includes(app.runMode+"-"+app.role+"-"+app.role), "expect runMode-role-role", types);
+    expect(types.includes(app.runMode+"-"+app.role+"-"+app.region), "expect runMode-role-region", types);
+    expect(types.includes(app.runMode+"-"+app.tag), "expect runMode-tag", types);
+    expect(types.includes(app.runMode+"-"+app.tag+"-"+app.role), "expect runMode-tag-role", types);
+    expect(types.includes(app.runMode+"-"+app.tag+"-"+app.region), "expect runMode-tag-region", types);
 
     db.configMap.top = "runMode,appName";
     types = db.configTypes();
 
-    expect(types.includes(core.appName), "expect appName", types);
-    expect(types.includes(core.appName+"-"+core.role+"-"+core.region), "expect appName-role-region", types);
-    expect(types.includes(core.appName+"-"+core.tag+"-"+core.region), "expect appName-tag-region", types);
+    expect(types.includes(app.appName), "expect appName", types);
+    expect(types.includes(app.appName+"-"+app.role+"-"+app.region), "expect appName-role-region", types);
+    expect(types.includes(app.appName+"-"+app.tag+"-"+app.region), "expect appName-tag-region", types);
 
     const getConfig = promisify(db.getConfig.bind(db));
 
-    var type1 = core.runMode+"-"+core.role;
-    var type2 = core.runMode+"-"+core.tag;
-    var type3 = type1+"-"+core.role;
+    var type1 = app.runMode+"-"+app.role;
+    var type2 = app.runMode+"-"+app.tag;
+    var type3 = type1+"-"+app.role;
 
     await db.adelAll("bk_config", { type: [type1, type2, type3] }, { ops: { type: "in" } });
 
@@ -643,13 +643,13 @@ tests.test_dbconfig = async function(callback)
     var rows = await getConfig();
     expect(rows?.length == 2 && rows[0].name == "param1" && rows[1].name == "param3" && rows[1].value == "etime", "expect 2 rows, param1, param3", rows);
 
-    core.appVersion = "1.1.0";
+    app.appVersion = "1.1.0";
     rows = await getConfig();
     expect(rows?.length == 3 && rows[0].name == "param1" && rows[1].name == "param2", "expect 3 rows, param1 and param2, param3/etime", rows);
 
     await sleep(2000);
 
-    core.appVersion = "1.0.0";
+    app.appVersion = "1.0.0";
     rows = await getConfig();
     expect(rows?.length == 2 && rows[0].name == "param1" && rows[1].name == "param3" && rows[1].value == "stime", "expect 2 rows, param1, param3/stime", rows);
 

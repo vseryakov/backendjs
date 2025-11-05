@@ -8,35 +8,36 @@ case "$BKJS_CMD" in
 
   help|install-help)
     echo ""
-    echo "  install-node [-prefix PATH] [-force] [-clean] [-tgz TGZ] - install binary release of the node into $BKJS_HOME or specified path"
+    echo "  install-node [-path PATH] [-version V] [-force] [-clean] [-tgz TGZ] - install binary release of the node into ./nodejs or specified path"
     ;;
 
   install-node)
-    if [ -n "$(get_flag -force)" -a -f $BKJS_HOME/bin/node ]; then
-        echo "Uninstalling node from $BKJS_HOME ..."
-        rm -rf $BKJS_HOME/bin/node $BKJS_HOME/bin/npm $BKJS_HOME/bin/npx $BKJS_HOME/lib/node_modules/npm $BKJS_HOME/include/node
-        [ -n "$(get_flag -clean)" ] && rm -rf $BKJS_HOME/lib/node_modules
+    path=$(get_arg -path nodejs)
+    if [ -n "$(get_flag -force)" -a -f $path/bin/node ]; then
+        echo "Uninstalling node from $path ..."
+        rm -rf $path/bin/node $path/bin/npm $path/bin/npx $path/lib/node_modules/npm $path/include/node
+        [ -n "$(get_flag -clean)" ] && rm -rf $path/lib/node_modules
     fi
-    [ -f $BKJS_HOME/bin/node ] && echo "already installed as $BKJS_HOME/bin/node" && exit 1
+    [ -f $path/bin/node ] && echo "already installed as $path/bin/node" && exit
 
-    mkdir -p $BKJS_HOME
-    [ "$?" != "0" ] && exit "echo failed to create $BKJS_HOME" && exit 1
-    echo "Installing node into $BKJS_HOME ..."
+    mkdir -p $path
+    [ "$?" != "0" ] && exit "echo failed to create $path" && exit 1
+    echo "Installing node into $path ..."
 
     tgz=$(get_arg -tgz)
     if [ -n "$tgz" ]; then
-        tar -C $BKJS_HOME --strip-components=1 -xzf $tgz
+        tar -C $path --strip-components=1 -xzf $tgz
         [ "$?" != "0" ] && exit 1
     else
-        ver=$(get_arg -version v22.18.0)
+        ver=$(get_arg -version v24.10.0)
         [ "$OS_ARCH" = "amd64" ] && arch=x64 || arch=$OS_ARCH
         platform=$(to_lower $PLATFORM)
         curl -L -o node.tgz https://nodejs.org/dist/$ver/node-$ver-$platform-$arch.tar.gz
         [ "$?" != "0" ] && exit 1
-        tar -C $BKJS_HOME --strip-components=1 -xzf node.tgz
+        tar -C $path --strip-components=1 -xzf node.tgz
         rm -rf node.tgz
     fi
-    mv $BKJS_HOME/README.md $BKJS_HOME/LICENSE $BKJS_HOME/CHANGELOG.md $BKJS_HOME/share/doc
+    mv $path/README.md $path/LICENSE $path/CHANGELOG.md $path/share/doc
     exit
     ;;
 

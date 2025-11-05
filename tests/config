@@ -8,9 +8,9 @@ db-elasticsearch-pool-options-defaultParams={"refresh":true}
 
 api-users-users={ "test": { "id": "test", "name": "test", "login": "test", "secret": "test" } }
 
-api-allow-acl-authenticated=auth
+api-acl-authenticated=auth
 
-api-acl-auth=^/auth$
+api-acl-add-auth=^/auth$
 
 api-csrf-set-path=^/login$
 

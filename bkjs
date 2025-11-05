@@ -31,7 +31,7 @@ done
 # Run the command $1 by sourcing all scripts from tools folders for the module if $2 is not empty or for all, the rest of
 # of arguments are appended to the global args list, last arg takes precedence
 run_bkjs_cmd() {
-    local _cmddir= _cmdseen= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_HOME/tools $BKJS_DIR/tools"
+    local _cmddir= _cmdseen= _cmdscope= _cmdtools="$(get_arg -tools) ./tools $BKJS_TOOLS $BKJS_ENV/../tools $BKJS_HOME/tools $BKJS_DIR/tools"
     BKJS_CMD=$1
     BKJS_RUNCMD=1
     [ -z "$2" ] && _cmdscope='bkjs-*' || _cmdscope="bkjs-$(echo "$BKJS_CMD"|cut -d- -f1)*"
@@ -228,29 +228,20 @@ get_ec2_meta() {
     echo $v
 }
 
+get_pids() {
+    echo $(/bin/ps ax|grep "bkjs: $1"|grep -v grep|awk '{print $1}')
+}
+
 # Main program
 # Detect platforms
 PLATFORM=$(uname -s)
 case "$PLATFORM" in
 Linux)
     export OS_NAME=$(grep -s PRETTY_NAME /etc/os-release)
-    case "$OS_NAME" in
-    *Amazon*)
-        export OS_TYPE=amazon
-        ;;
-
-    *Alpine*)
-        export OS_TYPE=alpine
-        ;;
-    esac
-    for d in /etc/conf.d /etc/sysconfig; do
-        [ -f $d/bkjs ] && . $d/bkjs
-    done
     SED="sed -r -i"
     ;;
 
 Darwin)
-    export OS_TYPE=macosx
     SED="sed -E -i .orig"
     ;;
 esac
@@ -259,32 +250,32 @@ MACHINE=$(uname -m)
 export OS_ARCH=$(to_docker_arch $MACHINE)
 
 # Detect our home
-whoami=$(whoami)
-export BKJS_HOME=$(get_arg -home ${BKJS_HOME:-~/.bkjs})
-export BKJS_USER=$(get_arg -user ${BKJS_USER:-$whoami})
+BKJS_HOME=$(get_arg -home $BKJS_HOME)
+BKJS_ENV="$(cd "${0%/*}" ; pwd -P)"
 
-# Load user profiles
-for f in profile profile.local; do
-    [ -f $BKJS_HOME/etc/$f ] && . $BKJS_HOME/etc/$f
-done
+# Load local profiles
+[ -f $BKJS_ENV/.bkjsrc ] && . $BKJS_ENV/.bkjsrc
+[ -f $BKJS_ENV/../.bkjsrc ] && . $BKJS_ENV/../.bkjsrc
+[ -n "$BKJS_HOME" -a -f $BKJS_HOME/.bkjsrc ] && . $BKJS_HOME/.bkjsrc
+[ -f $HOME/.bkjsrc ] && . $BKJS_HOME/.bkjsrc
 
 # Start trace as soon as possible
 BKJS_TRACE=$(get_arg -trace $BKJS_TRACE)
 [ -n "$BKJS_TRACE" ] && exec >>$BKJS_TRACE 2>&1
 
 # Setup the logger level
-[ -n "$(get_flag -syslog)" -o "$whoami" = "root" ] && export BKJS_ECHO="logger -s --" || export BKJS_ECHO=echo
+[ -n "$(get_flag -syslog)" ] && export BKJS_ECHO="logger -s --" || export BKJS_ECHO=echo
 export BKJS_DEBUG=$(get_flag -debug $BKJS_DEBUG)
 
-export PATH=$BKJS_HOME/bin:$BKJS_HOME/node_modules/.bin:/app/bin:/usr/local/bin:/opt/local/bin:/sbin:/usr/sbin:$PATH
+# Use local node and modules
+export PATH=$BKJS_ENV/nodejs/bin:$BKJS_ENV/node_modules/.bin:$BKJS_ENV/../nodejs/bin:$BKJS_ENV/../node_modules/.bin:$PATH
 
-debug HOME=$BKJS_HOME, USER=$BKJS_USER, ARGS=$@
+debug ENV=$BKJS_ENV, HOME=$BKJS_HOME, ARGS=$@
 
 case "$BKJS_CMD" in
 
   start)
-    cd $BKJS_HOME
-    if [ "$whoami" = "root" ]; then
+    if [ "$(whoami)" = "root" ]; then
         msg Running start hook...
         run_bkjs_cmd start-hook
     fi
@@ -293,68 +284,51 @@ case "$BKJS_CMD" in
     ;;
 
   stop)
-    pkill $1 -f "bkjs:"
-    sleep 1
-    pkill $1 -f "bkjs:"
-    exit 0
+    pids=$(get_pids)
+    [ -n "$pids" ] && kill -s ${1:-TERM} $pids
+    exit
     ;;
 
   stop-api)
-    pkill -USR2 -f "bkjs: master"
-    exit 0
+    pids=$(get_pids master)
+    [ -n "$pids" ] && kill -s USR2 $pids
+    exit
     ;;
 
   stop-web|stop-master|stop-worker)
     name=${BKJS_CMD:5}
     [ -z "$name" ] && exit 0
-    pkill $1 -f "bkjs: $name"
-    exit 0
+    pids=$(get_pids $name)
+    [ -n "$pids" ] && kill -s ${1:-TERM} $pids
+    exit
     ;;
 
-  run|run-master|master|watch|shell|bksh|run-none|none)
+  run|run-master|master|watch|sh|shell|bksh|run-none|none)
     [ -f app.js ] && SCRIPT=app.js
-    [ -z "$SCRIPT" -a -f lib/main.js ] && SCRIPT=lib/main.js
-    [ -z "$SCRIPT" -a -f $BKJS_HOME/app.js ] && SCRIPT=$BKJS_HOME/app.js
-    [ -z "$SCRIPT" -a -f $BKJS_HOME/lib/main.js ] && SCRIPT=$BKJS_HOME/lib/main.js
-    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/main.js
+    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/index.js
 
-    debug Starting $NODE_ARGS $SCRIPT $BKJS_HOME $BKJS_RUN_ARGS $@
+    debug Starting $NODE_ARGS $SCRIPT $BKJS_RUN_ARGS $@
 
     case "$BKJS_CMD" in
      run-none|none)
         ;;
 
      run-master|master)
-        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME -syslog -daemon -master $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $SCRIPT -syslog -daemon -master $BKJS_RUN_ARGS "$@"
         ;;
 
      watch)
-        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME -master -watch $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $SCRIPT -master -watch $BKJS_RUN_ARGS "$@"
         ;;
 
-     shell|bksh)
-        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME -shell "$@"
+     sh|shell|bksh)
+        exec node $NODE_ARGS $SCRIPT -shell "$@"
         ;;
 
      *)
-        exec node $NODE_ARGS $SCRIPT -home $BKJS_HOME $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $SCRIPT $BKJS_RUN_ARGS "$@"
         ;;
     esac
-    exit
-    ;;
-
-  bkrsync)
-    logger -p local0.notice -t bkrsync -- $@
-    cmd=$(get_arg -bkcmd)
-    rsync $(get_all_args "-bkcmd")
-    rc=$?
-    [ "$rc" != "0" ] && exit $rc
-    [ -n "$cmd" ] && $BKJS_BIN $(echo $cmd|sed 's/%20/ /g') 1>&2
-    exit 0
-    ;;
-
-  bkhelp)
-    node -e "require('backendjs').core.showHelp()"
     exit
     ;;
 
@@ -366,9 +340,9 @@ case "$BKJS_CMD" in
     echo "Available commands:"
     echo
     echo "  start - run on instance start, processed by all scripts as start-hook"
-    echo "  stop - kill the backend service"
+    echo "  stop - kill all backend processes"
     echo "  stop-web - kill web processes at once so they will restart with possibly updated modules"
-    echo "  stop-worker - kill job worker processes at once so they will restart with possibly updated modules"
+    echo "  stop-worker - kill worker processes at once so they will restart with possibly updated modules"
     echo "  stop-api - graceful API servers restart, drain all connections and restart one at a time, workers will restart after finishing jobs"
     echo ""
     echo "  shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
@@ -376,13 +350,11 @@ case "$BKJS_CMD" in
     echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
     echo "  run - run local backend with provided arguments"
     echo ""
-    echo "  help - show all bkjs commands"
-    echo "  bkhelp - show all backendjs module config parameters"
+    echo "  help - show shell commands"
     echo "  env - show all environment variables"
     echo ""
     echo "Common options:"
-    echo "  -home path - path to the backend home directory, default is $BKJS_HOME"
-    echo "  -user name - set backend user on the remote or local side, default is ${BKJS_USER:-`whoami`}"
+    echo "  -home path - path to the backend home directory"
     echo "  -debug - show debugging messages in stderr"
     echo "  -trace file - redirect all output to a file"
     echo "  -syslog - use logger -s for all messages "

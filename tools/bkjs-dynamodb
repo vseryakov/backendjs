@@ -38,7 +38,7 @@ case "$BKJS_CMD" in
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     params="-Xmx$(get_arg -memmax 256M)"
     export DDB_LOCAL_TELEMETRY=0
-    (cd $BKJS_HOME/var && exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -disableTelemetry -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/ddb.log 2>&1 &)
+    (cd $BKJS_HOME/var && exec nohup java $params -Djava.library.path=$DYNAMODB_PREFIX/DynamoDBLocal_lib -jar $DYNAMODB_PREFIX/DynamoDBLocal.jar -sharedDb -disableTelemetry -dbPath $BKJS_HOME/var -port 8181 >>$BKJS_HOME/log/ddb.log 2>&1 &)
     exit
     ;;
 

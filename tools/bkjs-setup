@@ -4,6 +4,8 @@
 #  Sep 2013
 #
 
+BKJS_USER=$(get_arg -user ${BKJS_USER:-$(whoami)})
+
 case "$BKJS_CMD" in
 
   help|setup-help)
@@ -55,8 +57,8 @@ case "$BKJS_CMD" in
   setup-boot)
     # Post setup actions
 
-    case $OS_TYPE in
-      alpine)
+    case $OS_NAME in
+      *Alpine*)
         rc-update add crond
 
         # Monit will start after all openrc levels
@@ -101,13 +103,13 @@ case "$BKJS_CMD" in
 
    setup-profile)
     # Create global profile
-    sysconf=/etc/conf.d
-    [ ! -d $sysconf -a -d /etc/sysconfig ] && sysconf=/etc/sysconfig
-    echo "export NODE_ENV=production" > $sysconf/bkjs
-    echo "BKJS_HOME=$BKJS_HOME" >> $sysconf/bkjs
+    [ -z "$BKJS_HOME" ] && exit
+
+    RC=$BKJS_HOME/.bkjsrc
+    echo "export NODE_ENV=production" > $RC
     domain=$(get_arg -domain)
-    [ -n "$domain" ] && echo "BKJS_DOMAIN=$domain" >> $sysconf/bkjs
-    [ "$BKJS_USER" != "root" ] && echo "BKJS_USER=$BKJS_USER" >> $sysconf/bkjs
+    [ -n "$domain" ] && echo "BKJS_DOMAIN=$domain" >> $RC
+    [ "$BKJS_USER" != "root" ] && echo "BKJS_USER=$BKJS_USER" >> $RC
     exit
     ;;
 
@@ -306,10 +308,12 @@ case "$BKJS_CMD" in
         touch /var/log/messages
         chown -R $BKJS_USER /var/log/messages
 
-        if [ "$OS_TYPE" = "alpine" ]; then
+        case "$OS_NAME" in
+        *Alpine*)
             rc-update -a del syslog
             rc-update add rsyslog boot
-        fi
+            ;;
+        esac
     fi
 
     log=/etc/rsyslog.d/bkjs.conf
@@ -393,11 +397,11 @@ case "$BKJS_CMD" in
     echo 'kernel.core_uses_pid=0' >> $conf
     echo 'vm.max_map_count=262144' >> $conf
     echo 'vm.min_free_kbytes=65536' >> $conf
-    echo 'net.core.somaxconn=65536' >> $conf
-    echo 'net.core.netdev_max_backlog=65536' >> $conf
-    echo 'net.core.rmem_max=26214400' >> $conf
-    echo 'net.core.wmem_max=26214400' >> $conf
-    echo 'net.core.optmem_max=26214400' >> $conf
+    echo 'net.app.somaxconn=65536' >> $conf
+    echo 'net.app.netdev_max_backlog=65536' >> $conf
+    echo 'net.app.rmem_max=26214400' >> $conf
+    echo 'net.app.wmem_max=26214400' >> $conf
+    echo 'net.app.optmem_max=26214400' >> $conf
     echo 'net.ipv4.tcp_rfc1337=1' >> $conf
     echo 'net.ipv4.ip_local_port_range=2000 65000' >> $conf
     echo 'net.ipv4.tcp_max_tw_buckets=1440000' >> $conf
@@ -433,8 +437,8 @@ case "$BKJS_CMD" in
 
         msg "Starting service bkjs with $bin"
 
-        case $OS_TYPE in
-          alpine)
+        case $OS_NAME in
+          *Alpine*)
             conf=/etc/init.d/bkjs
             echo -e "#!/sbin/openrc-run\nname=\"bkjs\"\ncommand=$bin\ncommand_args=start\ndepend() {\nafter net\nbefore sshd\n}" > $conf
             chmod 755 $conf
@@ -449,8 +453,8 @@ case "$BKJS_CMD" in
         esac
     else
         msg "Stopping service bkjs"
-        case $OS_TYPE in
-          alpine)
+        case $OS_NAME in
+          *Alpine*)
             rc-update -a del bkjs
             ;;
 
@@ -467,12 +471,12 @@ case "$BKJS_CMD" in
     # Install required development and runtime packages
 
     # Linux distro specific actions
-    case "$OS_TYPE" in
-    alpine)
+    case "$OS_NAME" in
+    *Alpine*)
         ver=$(cat /etc/alpine-release|cut -d. -f1,2)
         $SED "s/^# *(.+v$ver\/community)\$/\1/" /etc/apk/repositories
         apk update
-        apk add bash curl curl-doc wget nano mc procps docker logrotate
+        apk add bash curl curl-doc wget nano mc docker logrotate
         apk add make git gcc g++ cmake autoconf automake libtool man-pages go
         apk add shadow doas doas-sudo-shim rsync socat
         apk add nodejs npm python3 openrc openrc-doc openssh monit rsyslog rsyslog-openrc redis
@@ -484,8 +488,8 @@ case "$BKJS_CMD" in
 
   setup-mfa)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
-    case "$OS_TYPE" in
-      alpine)
+    case "$OS_NAME" in
+      *Alpine*))
         apk add google-authenticator openssh-server-pam
 
         echo -e "auth required pam_env.so" > /etc/pam.d/sshd
@@ -497,7 +501,7 @@ case "$BKJS_CMD" in
         $BKJS_BIN setup-limits
         ;;
 
-      amazon)
+      *Amazon*)
         yum install google-authenticator –y
         if [ "$(egrep -s 'pam_google_authenticator' /etc/pam.d/sshd)" = "" ]; then
             $SED 's/^auth[ \t]+substack[ \t]+password-auth/auth required pam_google_authenticator.so\n#auth substack password-auth/' /etc/pam.d/sshd

@@ -3,14 +3,11 @@
 //  backendjs 2018
 //
 
-const { api, ipc, core, lib, logger } = require('backendjs');
+const { modules, api, ipc, core, lib, logger } = require('backendjs');
 
 // System management
 const mod = {
     name: "bk_system",
-    args: [
-        { name: "perms", type: "map", maptype: "list", descr: "Allowed operations, ex: -bk_system-perms restart:api,init:queue;config;db" },
-    ],
 };
 module.exports = mod;
 
@@ -18,11 +15,7 @@ module.exports = mod;
 mod.configureWeb = function(options, callback)
 {
     api.app.post(/^\/system\/([^/]+)\/?(.+)?/, (req, res) => {
-        if (mod.perms && !lib.isFlag(mod.perms[req.params[0]], req.params[1] || "*")) {
-            return res.status(403).send("not allowed");
-        }
 
-        var options = api.getOptions(req);
         switch (req.params[0]) {
         case "restart":
             ipc.sendMsg(`${req.params[1] || "api"}:restart`);
@@ -31,27 +24,27 @@ mod.configureWeb = function(options, callback)
 
         case "init":
             if (req.params[1]) {
-                ipc.broadcast(core.name + ":master", req.params[1] + ":" + req.params[0]);
+                ipc.broadcast(app.id + ":master", req.params[1] + ":" + req.params[0]);
             }
             res.json({});
             break;
 
         case "params":
-            var args = [ [ '', core.args ] ];
-            Object.keys(core.modules).forEach((n) => {
-                if (core.modules[n].args) args.push([n, core.modules[n].args]);
+            var args = [];
+            Object.keys(modules).forEach((n) => {
+                if (modules[n].args) args.push([n, app.modules[n].args]);
             });
             switch (req.params[1]) {
             case 'get':
                 res.json(args.reduce((data, x) => {
                     x[1].forEach((y) => {
                         if (!y._name) return;
-                        var val = lib.objGet(x[0] ? core.modules[x[0]] : core, y._name);
+                        var val = lib.objGet(modules[x[0]], y._name);
                         if (val == null && !options.total) return;
                         data[y._key] = typeof val == "undefined" ? null : val;
                     });
                     return data;
-                }, { "-home": core.home, "-log": logger.level }));
+                }, { "-home": app.home, "-log": logger.level }));
                 break;
 
             case "info":

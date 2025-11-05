@@ -6,6 +6,7 @@
 
 CWAGENT=amazon-cloudwatch-agent
 CWAROOT=/opt/aws/$CWAGENT
+BKJS_USER=$(get_arg -user ${BKJS_USER:-$(whoami)})
 
 case "$BKJS_CMD" in
 
@@ -20,8 +21,8 @@ case "$BKJS_CMD" in
   ec2-cwagent-get)
     root=$(get_arg -root $CWAROOT)
     if [ ! -d $root ]; then
-        case "$OS_TYPE" in
-          alpine)
+        case "$OS_NAME" in
+          *Alpine*)
             mkdir -p $root/bin $root/etc/$CWAGENT.d $root/logs $root/var
             (cd $root/bin &&
                 curl -OL https://amazoncloudwatch-agent.s3.amazonaws.com/nightly-build/latest/linux_$OS_ARCH/amazon-cloudwatch-agent &&
@@ -29,7 +30,7 @@ case "$BKJS_CMD" in
                 chmod 755 $root/bin/*)
             ;;
 
-          amazon)
+          *Amazon*)
             curl -OL https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/$OS_ARCH/latest/amazon-cloudwatch-agent.rpm
             rpm -i amazon-cloudwatch-agent.rpm
             rm amazon-cloudwatch-agent.rpm

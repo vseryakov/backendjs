@@ -10,7 +10,7 @@ tests.test_jobs = async function(callback, test)
     var q = queue.getClient(queueName);
     q.options.interval = q.options.retryInterval = 50;
 
-    var file = core.path.tmp + "/" + process.pid + ".test";
+    var file = app.tmpDir + "/" + process.pid + ".test";
     var opts = { queueName };
 
     await jobs.submitJob({ job: { "shell.testJob": { file, data: "job" } } }, opts);
@@ -23,7 +23,7 @@ tests.test_jobs = async function(callback, test)
     await sleep(1000)
 
     // jobs.cancelJob only sends to workers so we send to all shells explicitly
-    ipc.broadcast(":" + core.role, ipc.newMsg("jobs:cancel", { key: process.pid }));
+    ipc.broadcast(":" + app.role, ipc.newMsg("jobs:cancel", { key: process.pid }));
     await sleep(1000);
 
     data = lib.readFileSync(file);
@@ -40,7 +40,7 @@ tests.test_jobs = async function(callback, test)
 
 tests.test_master_worker = async function(callback, test)
 {
-    var file = core.path.tmp + "/" + process.pid + ".test";
+    var file = app.tmpDir + "/" + process.pid + ".test";
 
     await submitJob({ job: { "shell.testJob": { file, data: "worker" } } }, { queueName: "worker" });
     await sleep(2000)

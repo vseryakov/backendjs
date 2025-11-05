@@ -1,0 +1,59 @@
+<head>
+    <title>Backendjs Config Example</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
+    <link rel="icon" href="/img/logo.png" type="image/png" />
+
+    <link href="/css/bootstrap.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container h-100 w-100">
+        <div class="alerts"></div>
+        <div id="app-main"></div>
+    </div>
+
+    <!-- These scripts below are included in backendjs, we only load what we need -->
+
+    <script src="/js/bootstrap.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/app-util.js"></script>
+    <script src="/js/app-send.js"></script>
+    <script src="/js/app-bootstrap.js"></script>
+    <script src="/js/bootpopup.js"></script>
+    <script src="/js/alpine.js"></script>
+
+    <!-- Our example scripts -->
+
+    <script src="/index.js"></script>
+    <script src="/config.js"></script>
+
+</body>
+
+<template id=index>
+    <div class="card border-0">
+        <div class="d-flex justify-content-center align-items-top">
+            <div class="d-flex flex-row align-items-center">
+                <img class="h5 me-2" src=/img/logo.png>
+                <span class="h5 font-slab fw-bold">Backendjs Config Example</span>
+            </div>
+        </div>
+    </div>
+
+    <div x-template="$user.id?'/config.html':'login'"></div>
+</template>
+
+<template id=login>
+    <div class="d-flex justify-content-center align-items-center">
+        <div class="p-3">
+            You need top login in order to manage the config.
+        </div>
+
+        <a class="btn btn-primary" x-show="!$user.id" @click="app.ui.showLogin">
+            <i class="fa fa-user fa-fw"></i>
+            Login
+        </a>
+
+    </div>
+</template>

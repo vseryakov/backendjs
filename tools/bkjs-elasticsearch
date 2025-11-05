@@ -4,6 +4,8 @@
 #  Sep 2013
 #
 
+BKJS_USER=$(get_arg -user ${BKJS_USER:-$(whoami)})
+
 case "$BKJS_CMD" in
 
   help|elasticsearch-help)
@@ -20,49 +22,57 @@ case "$BKJS_CMD" in
   elasticsearch-get)
     [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_HOME/elasticsearch
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
-    if [ ! -d $ELASTICSEARCH_PREFIX ]; then
-        mkdir -p $ELASTICSEARCH_PREFIX
-        platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
-        case $OS_ARCH in
-          arm64)
-            platform="$platform-aarch64"
-            ;;
-          *)
-            platform="$platform-x86_64"
-            ;;
-        esac
-        ver=$(get_arg -version 7.17.25)
-        tar=elasticsearch-$ver-$platform.tar.gz
-        if [ ! -f $tar ]; then
-            curl -OL https://artifacts.elastic.co/downloads/elasticsearch/$tar
-        fi
-        tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf $tar
-        [ "$?" != "0" ] && exit 1
-        rm -rf $tar
+    [ -d $ELASTICSEARCH_PREFIX ] && exit
+    mkdir -p $ELASTICSEARCH_PREFIX
+    platform=$(echo $PLATFORM | tr [:upper:] [:lower:])
+    case $OS_ARCH in
+      arm64)
+        platform="$platform-aarch64"
+        ;;
+      *)
+        platform="$platform-x86_64"
+        ;;
+    esac
+    ver=$(get_arg -version 7.17.25)
+    tar=elasticsearch-$ver-$platform.tar.gz
+    if [ ! -f $tar ]; then
+        curl -OL https://artifacts.elastic.co/downloads/elasticsearch/$tar
+    fi
+    tar -C $ELASTICSEARCH_PREFIX --strip-components=1 -xzf $tar
+    [ "$?" != "0" ] && exit 1
+    rm -rf $tar
+    $BKJS_BIN elasticsearch-config
+    exit
+    ;;
 
-        cd $ELASTICSEARCH_PREFIX
-        cfg=config/elasticsearch.yml
-        echo "node.roles: [master,data]" >> $cfg
-        echo "path.data: $BKJS_HOME/var" >> $cfg
-        echo "path.logs: $BKJS_HOME/log" >> $cfg
-        echo "action.destructive_requires_name: true" >> $cfg
-        echo 'xpack.security.enabled: false' >> $cfg
+  elasticsearch-config)
+    [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_HOME/elasticsearch
 
-        if [ "$OS_TYPE" = "alpine" ]; then
-            echo "xpack.ml.enabled: false" >> $cfg
-            rm -rf jdk modules/x-pack-ml
-            export ES_JAVA_HOME=/usr
-        fi
+    echo "-Dlog4j2.formatMsgNoLookups=true" >> $ELASTICSEARCH_PREFIX/config/jvm.options
 
-        if [ -n "$(get_flag -ec2)" ]; then
-            echo 'network.host: ["_ec2_","_local_"]' >> $cfg
-            echo 'discovery.seed_providers: ec2' >> $cfg
-            echo 'cloud.node.auto_attributes: true' >> $cfg
-            echo 'cluster.routing.allocation.awareness.attributes: aws_availability_zone' >> $cfg
-            bin/elasticsearch-plugin install discovery-ec2 -b
-            bin/elasticsearch-plugin install repository-s3 -b
-        fi
-        echo "-Dlog4j2.formatMsgNoLookups=true" >> config/jvm.options
+    cfg=$ELASTICSEARCH_PREFIX/config/elasticsearch.yml
+
+    echo "node.roles: [master,data]" >> $cfg
+    echo "path.data: $BKJS_HOME/var" >> $cfg
+    echo "path.logs: $BKJS_HOME/log" >> $cfg
+    echo "action.destructive_requires_name: true" >> $cfg
+    echo 'xpack.security.enabled: false' >> $cfg
+
+    case "$OS_NAME" in
+    *Alpine*)
+        echo "xpack.ml.enabled: false" >> $cfg
+        rm -rf jdk modules/x-pack-ml
+        export ES_JAVA_HOME=/usr
+        ;;
+    esac
+
+    if [ -n "$(get_flag -ec2)" ]; then
+        echo 'network.host: ["_ec2_","_local_"]' >> $cfg
+        echo 'discovery.seed_providers: ec2' >> $cfg
+        echo 'cloud.node.auto_attributes: true' >> $cfg
+        echo 'cluster.routing.allocation.awareness.attributes: aws_availability_zone' >> $cfg
+        bin/elasticsearch-plugin install discovery-ec2 -b
+        bin/elasticsearch-plugin install repository-s3 -b
     fi
     exit
     ;;
@@ -106,7 +116,11 @@ case "$BKJS_CMD" in
       $SED -e "s/^node.roles.+$/node.roles: [master,data,ingest,ml,transform]/" $ELASTICSEARCH_PREFIX/config/elasticsearch.yml
       ;;
     esac
-    [ "$OS_TYPE" = "alpine" ] && export ES_JAVA_HOME=/usr
+    case "$OS_NAME" in
+    *Alpine*)
+       export ES_JAVA_HOME=/usr
+       ;;
+    esac
     $ELASTICSEARCH_PREFIX/bin/elasticsearch -p $BKJS_HOME/var/elasticsearch.pid -d >>$BKJS_HOME/log/message.log 2>&1
     exit
     ;;

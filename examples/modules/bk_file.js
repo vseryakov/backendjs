@@ -5,38 +5,36 @@
 
 const { api } = require('backendjs');
 
-var files = {
+const mod = {
     name: "bk_file",
 };
-module.exports = files;
+module.exports = mod;
 
 // Create API endpoints and routes
-files.configureWeb = function(options, callback)
+mod.configureWeb = function(options, callback)
 {
     api.app.all(/^\/file\/([a-z]+)$/, function(req, res) {
-        var options = api.getOptions(req);
+        var query = api.toParams(req, {
+            name: { required: 1 },
+            prefix: { required: 1 },
+        }, { query: 1 });
+        if (typeof query == "string") return api.sendReply(res, 400, query);
 
-        if (!req.query.name) return api.sendReply(res, 400, "name is required");
-        if (!req.query.prefix) return api.sendReply(res, 400, "prefix is required");
-        var file = req.query.prefix.replace("/", "") + "/" + req.query.name.replace("/", "");
-        if (options.tm) file += options.tm;
+        var file = query.prefix.replace("/", "") + "/" + query.name.replace("/", "");
 
         switch (req.params[0]) {
         case "get":
-            api.files.send(req, file, options);
+            api.files.send(req, file);
             break;
 
-        case "add":
         case "put":
-            options.name = req.query.name;
-            options.prefix = req.query.prefix;
-            api.files.put(req, req.query._name || "data", options, function(err) {
+            api.files.put(req, "file", query, (err) => {
                 api.sendReply(res, err);
             });
             break;
 
         case "del":
-            api.files.del(file, options, function(err) {
+            api.files.del(file, (err) => {
                 api.sendReply(res, err);
             });
             break;

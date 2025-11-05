@@ -1,9 +1,9 @@
 {
-  "version": "0.184.0",
+  "version": "0.200.0",
   "type": "commonjs",
   "author": "Vlad Seryakov",
   "name": "backendjs",
-  "description": "A platform for building backends",
+  "description": "A library for building backends",
   "main": "lib/index",
   "homepage": "https://github.com/vseryakov/backendjs",
   "repository": {
@@ -13,30 +13,31 @@
   "dependencies": {
     "cookie": "1.0.2",
     "cookie-parser": "1.4.7",
-    "croner": "9.1.0",
-    "express": "4.21.2",
+    "express": "5.1.0",
     "formidable": "3.5.4",
     "hashids": "2.3.0",
     "microtime": "3.1.1",
     "mime-types": "3.0.1",
-    "nodemailer": "7.0.5",
     "qs": "6.14.0",
     "ws": "8.18.3",
-    "xml2json": "0.12.0"
+    "fast-xml-parser": "5.3.0"
   },
   "devDependencies": {
-    "uglify-js": "3.19.3"
+    "eslint": "8.57.1",
+    "esbuild": "^0.25.0",
+    "docdash": "2.0.2"
   },
-  "modDependencies": {
+  "optionalDependencies": {
+    "croner": "9.1.0",
+    "nodemailer": "7.0.9",
     "nats": "2.29.3",
     "pg": "8.16.3",
     "redis": "3.1.2",
-    "sharp": "0.34.3",
+    "sharp": "0.34.4",
     "unix-dgram": "2.0.7",
     "web-push": "3.6.7"
   },
   "keywords": [
-    "bkjs",
     "webservice",
     "websockets",
     "aws",
@@ -49,80 +50,28 @@
     "NATS",
     "Redis",
     "pubsub",
-    "account",
-    "messaging",
-    "instance",
     "jobs",
     "cron"
   ],
   "engines": {
-    "node": ">=20.0"
+    "node": ">=22.0"
   },
   "license": "BSD-3-Clause",
   "bin": {
     "bkjs": "./bkjs",
     "bksh": "./bkjs"
   },
-  "config": {
-    "sync": {
-      "path": "node_modules",
-      "include": [
-        "*.gz",
-        "*.js.map",
-        "*.bundle.js",
-        "*.bundle.css"
-      ]
-    },
-    "bundles": {
-      "bkjs": {
-        "js": [
-          "web/js/popper2.min.js",
-          "web/js/bootstrap.min.js",
-          "web/js/bootpopup.js",
-          "web/js/app.js",
-          "web/js/bkjs-lib.js",
-          "web/js/bkjs-send.js",
-          "web/js/bkjs-conv.js",
-          "web/js/bkjs-ws.js",
-          "web/js/bkjs-user.js",
-          "web/js/bkjs-passkey.js",
-          "web/js/bkjs-bootstrap.js",
-          "web/js/alpine.js"
-        ],
-        "js.dev": [
-          "web/js/popper2.js",
-          "web/js/bootstrap.js",
-          "web/js/bootpopup.js",
-          "web/js/app.js",
-          "web/js/bkjs-lib.js",
-          "web/js/bkjs-send.js",
-          "web/js/bkjs-conv.js",
-          "web/js/bkjs-ws.js",
-          "web/js/bkjs-user.js",
-          "web/js/bkjs-passkey.js",
-          "web/js/bkjs-bootstrap.js",
-          "web/js/alpine.js"
-        ],
-        "css": [
-          "web/css/bootstrap.css",
-          "web/css/font-awesome.css"
-        ]
-      }
-    }
-  },
   "files": [
+    "LICENSE",
     "bkjs",
     "lib/",
     "web/",
-    "tools/",
-    "modules/"
+    "tools/"
   ],
   "scripts": {
-    "start": "./bkjs run-backend",
-    "stop": "./bkjs stop",
-    "doc": "node tools/doc.js > web/doc.html",
-    "build": "./bkjs bundle -all -gzip",
-    "devbuild": "./bkjs bundle -all -dev",
-    "test": "./bkjs test-all"
+    "node": "./bkjs install-node",
+    "deps": "PATH=$(pwd)/nodejs/bin:$PATH npm install",
+    "test": "node --test --test-concurrency=1 tests/**/*.test.js tests/**/*-test.js",
+    "docs": "rm -rf docs/dist && jsdoc -c docs/jsdoc.js"
   }
 }

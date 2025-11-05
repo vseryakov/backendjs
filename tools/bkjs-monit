@@ -4,6 +4,8 @@
 #  Sep 2013
 #
 
+BKJS_USER=$(get_arg -user ${BKJS_USER:-$(whoami)})
+
 case "$BKJS_CMD" in
 
   help|monit-help)

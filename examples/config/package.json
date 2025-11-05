@@ -1,0 +1,30 @@
+{
+ "version": "0.1.0",
+ "author": "vlad",
+ "name": "app",
+ "description": "The backend",
+ "repository": { "type": "git", "url": "http://github.com/vseryakov/backendjs.git" },
+ "main": "app.js",
+ "dependencies": {
+    "backendjs": ">=0.9.0"
+ },
+ "engines": { "node": ">= 0.10" },
+ "eslintConfig": {
+    "env": {
+        "browser": true
+    },
+    "globals": {
+        "app": false,
+        "Alpine": false,
+        "bootstrap": false,
+        "bootpopup": false,
+        "window": false,
+        "document": false
+    }
+ },
+ "scripts": {
+    "init": "app.sh -shell -db-create-tables -user-add roles admin login admin secret admin name admin",
+    "start": "app.sh"
+ },
+ "license": "BSD-3-Clause"
+}

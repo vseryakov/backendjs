@@ -5,115 +5,44 @@
     <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
     <link rel="icon" href="/img/logo.png" type="image/png" />
 
-    <link href="/css/bkjs.bundle.css" rel="stylesheet">
-    <script src="/js/bkjs.bundle.js"></script>
-
-    <script src="/index.js"></script>
-    <script src="/config.js"></script>
-
+    <link href="/css/bootstrap.css" rel="stylesheet">
 </head>
 
 <body>
-    <div class="h-100 w-100">
+    <div class="container h-100 w-100">
         <div class="alerts"></div>
         <div id="app-main"></div>
     </div>
+
+    <script src="/js/bootstrap.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/alpine.js"></script>
+
+    <script src="/index.js"></script>
 </body>
 
 <template id=index>
     <div class="card border-0">
-        <div class="d-flex justify-content-between align-items-top">
+        <div class="d-flex justify-content-center align-items-top">
             <div class="d-flex flex-row align-items-center">
                 <img class="h5 me-2" src=/img/logo.png>
-                <span class="h5 font-slab fw-bold">Alpine Components Playground</span>
+                <span class="h5 font-slab fw-bold">Alpinejs-app Components and Backendjs Playground</span>
             </div>
         </div>
-        <div class="py-3 text-center">
-            <a class="nav-link my-2" x-render="template"><i class="fa fa-cog fa-fw"></i> Replace index from `index.template`</a>
 
+        <div class="py-3 text-center">
             <a class="nav-link my-2" role=button @click="toggle" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Click to go over templates">
                 <i class="fa fa-cog fa-fw"></i> Toggle `index.template` ->
                 (Template is set to <span x-text="template||'none'"></span>)
             </a>
 
-            <a class="nav-link my-2" x-render="'config/1/2?a=1'"><i class="fa fa-cog fa-fw"></i> Show Config with static x-render</a>
-
-            <br>
-
-            <a class="nav-link my-2" x-render="'config/1?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Config below</a>
-
-            <a role=button class="nav-link my-2" @click="$app.render({ name: 'config2', params: { $target: '#section', mobile: app.isMobile }})"><i class="fa fa-cog fa-fw"></i> Render Config2 below</a>
-
-            <a class="nav-link my-2" x-render="'test?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Test HTML plugin below</a>
+            <a class="nav-link my-2" x-render="'/test.html?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Test HTML plugin below</a>
 
         </div>
     </div>
 
-    <div x-template></div>
+    <div x-template.cache="template"></div>
 
     <div class="py-2" id=section></div>
-</template>
-
-<template id=config>
-    <div class="card border-0">
-        <div class="d-flex justify-content-between align-items-top">
-            <div class="d-flex flex-row align-items-center">
-                <template x-if="!params.$target">
-                    <img class="h5 me-2" src=/img/logo.png>
-                </template>
-                <template x-if="params.$target">
-                    <i class="fa fa-fw fa-cogs mx-1"></i>
-                </template>
-                <span class="h5 font-slab fw-bold mx-1" x-text=title></span> <span x-text="refreshed"></span>
-            </div>
-            <div class="nav pt-3">
-                <a role="button" class="nav-link my-2" @click="edit"><i class="fa fa-plus fa-fw"></i> Create</a>
-                <a role="button" class="nav-link my-2" @click="refresh"><i class="fa fa-database fa-fw"></i> Refresh</a>
-                <a role="button" class="nav-link my-2" @click="close"><i class="fa fa-database fa-fw"></i> Close</a>
-                <a role="button" class="nav-link my-2" @click="visible=!visible"><i class="fa fa-database fa-fw"></i> Toggle</a>
-
-                <template x-if="$name=='config2'">
-                    <a role="button" class="nav-link my-2" @click="$app.render('test?$target=#section')">
-                        <i class="fa fa-database fa-fw"></i>
-                        Test
-                        <span x-text=visible></span>
-                    </a>
-                </template>
-            </div>
-        </div>
-
-        <div class="card-body" x-show=visible x-transition>
-            <div class="row pt-1 pb-3">
-                <div class="col-6 d-flex justify-content-left">
-                    <input type="text" class="form-control custom max-vw-35" placeholder="Search" x-model.debounce="query"/>
-                    <button type="button" class="btn btn-default" title="Clear search" @click="query=''"><span class="fa fa-fw fa-times"></span> </button>
-                </div>
-            </div>
-
-            <div class="py-2">
-                <template x-for="type in filter">
-                    <div>
-                        <button class="btn" :data-bs-target="'#' + type.type" data-bs-toggle="collapse" aria-expanded="false">
-                            <i class="fa fa-fw fa-folder m-1"></i>
-                            <span x-text="type.type"></span>
-                        </button>
-
-                        <div class="ms-4 collapse" :class="{ 'show': type.q }" :id="type.type">
-                            <template x-for="row in type.rows">
-                                <div class="py-1" role="button" @click="edit">
-                                    <i class="fa fa-fw m-1" :class="row.icon"></i>
-                                    <span class="m-1" x-text="row.text"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <div class="py-1">
-            <div x-template="'test'"></div>
-        </div>
-    </div>
 </template>
 

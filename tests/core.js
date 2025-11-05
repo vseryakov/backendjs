@@ -50,12 +50,12 @@ line2=line2
     expect(args.includes("-line4"), "runMode: expects line4", args)
     expect(args.includes("-line5"), "runMode: expects line5", args)
 
-    core.instance.tag = "tag";
-    core.roles = ["dev", "staging", "prod"];
+    app.instance.tag = "tag";
+    app.roles = ["dev", "staging", "prod"];
     args = lib.configParse(data, core);
-    expect(args.includes("-line6"), "instance tag: expects line6", args, core.instance)
+    expect(args.includes("-line6"), "instance tag: expects line6", args, app.instance)
     expect(!args.includes("-line8"), "no aws key: not expects line8", args, aws.key)
-    expect(args.includes("-line9"), "instance tag not empty: expects line9", args, core.instance)
+    expect(args.includes("-line9"), "instance tag not empty: expects line9", args, app.instance)
     expect(!args.includes("-line10"), "bad module: not expects line10", args)
     expect(args.includes("-line11"), "instance tags != aaa: not expects line11", args)
     expect(args.includes("-line12"), "config roles = dev: expects line12", args)
@@ -66,7 +66,7 @@ line2=line2
 
 tests.test_config = function(callback)
 {
-    var argv = ["-force-uid", "1,1",
+    var argv = [
                 "-api-allow-path", "^/a",
                 "-api-allow-acl-admin", "a",
                 "-api-redirect-url", '{ "^a/$": "a", "^b": "b" }',
@@ -96,13 +96,12 @@ tests.test_config = function(callback)
     cache._config = {};
     db._config = {};
 
-    core.parseArgs(argv);
+    app.parseArgs(argv);
     logger.debug("config:", db._config);
 
     describe("core parameters");
 
-    assert(core.forceUid[0] != 1, "invalid force-uid", core.forceUid)
-    assert(!core.workerId && !db._createTables, "invalid db-create-tables");
+    assert(!app.workerId && !db._createTables, "invalid db-create-tables");
 
     describe("DB parameters");
 
@@ -131,17 +130,17 @@ tests.test_config = function(callback)
     var q = cache.getClient("");
     assert(q.options.count != 2, "invalid default queue count", q, cache._config)
 
-    core.parseArgs(["-cache-default-options-visibilityTimeout", "99", "-cache-default", "local://default?bk-count=10"]);
+    app.parseArgs(["-cache-default-options-visibilityTimeout", "99", "-cache-default", "local://default?bk-count=10"]);
     assert(q.options.visibilityTimeout != 99 || q.options.count != 10, "invalid default queue options", q.options, cache._config)
 
-    core.parseArgs(["-cache-fake-options-visibilityTimeout", "11"]);
+    app.parseArgs(["-cache-fake-options-visibilityTimeout", "11"]);
     assert(q.options.visibilityTimeout == 11, "fake queue should be ignored", q.options, cache._config)
 
     describe("default cache parameters");
 
     q = cache.getClient("q");
     assert(q.options.test != 10, "invalid queue url options", q.options, cache._config)
-    core.parseArgs(["-cache-q-options-visibilityTimeout", "99", "-cache-q-options", "count:99"]);
+    app.parseArgs(["-cache-q-options-visibilityTimeout", "99", "-cache-q-options", "count:99"]);
     assert(q.options.visibilityTimeout != 99 || q.options.count != 99, "invalid q queue options", q.options, cache._config)
 
     describe("logwatcher parameters");
@@ -158,10 +157,10 @@ tests.test_config = function(callback)
 
     assert(api.cleanupRules.aaa?.one != 1 || api.cleanupRules.aaa?.two != 2 || api.cleanupRules.aaa?.three != 3, "invalid api cleanup rules", api.cleanupRules);
 
-    expect(core.logInspect.length === 222, "Expect logInspect.length 222", core.logInspect)
-    expect(core.logInspect.b === true, "Expect logInspect.b true", core.logInspect)
-    expect(core.logInspect.s === "s :,", "Expect logInspect.s 's :,'", core.logInspect)
-    expect(String(core.logInspect.ignore) === "/test/", "Expect logInspect.ignore '/test/", core.logInspect)
+    expect(app.logInspect.length === 222, "Expect logInspect.length 222", app.logInspect)
+    expect(app.logInspect.b === true, "Expect logInspect.b true", app.logInspect)
+    expect(app.logInspect.s === "s :,", "Expect logInspect.s 's :,'", app.logInspect)
+    expect(String(app.logInspect.ignore) === "/test/", "Expect logInspect.ignore '/test/", app.logInspect)
     callback();
 }
 
@@ -203,9 +202,9 @@ tests._test_logwatcher = function(callback)
 
     logwatcher.files = logwatcher.files.filter((x) => (x.name));
 
-    core.parseArgs(argv);
-    fs.writeFileSync(core.errFile, lines.join("\n"));
-    fs.writeFileSync(core.logFile, lines.join("\n"));
+    app.parseArgs(argv);
+    fs.writeFileSync(app.errfile, lines.join("\n"));
+    fs.writeFileSync(app.logfile, lines.join("\n"));
     logwatcher.run((err, rc) => {
         expect(lib.objKeys(rc.errors).length == 4, "no errors matched", rc);
         callback(err);

@@ -8,8 +8,7 @@ Included features:
 * Database operations like Get, Put, Del, Update, Select for supported databases (SQLite, PostreSQL, DynamoDB, ElasticSearch) using the same DB API,
   a simple layer no full ORM,  SQL can be used directly if needed.
 * Authentication is based on signed requests using API key and secret, similar to Amazon AWS signing requests.
-* Supports Web sessions with CSRF protection
-* Supports Webauthn/Passkeys
+* Supports Web sessions with CSRF protection, Webauthn/Passkeys
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Supports WebSockets connections and process them with the same Express routes as HTTP requests
 * Supports cron and on-demand jobs running is separate worker processes.
@@ -18,10 +17,9 @@ Included features:
 * Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS.
 * REPL (command line) interface for debugging and looking into server internals.
 * Supports push notifications via Webpush, APN and FCM.
-* Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with, the Express server.
+* Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with the included Express server.
 * AWS support is very well integrated including EC2, S3, DynamoDB, SQS, CloudWatch and more, not using AWS SDK.
 * Includes simple log watcher to monitor the log files including system errors.
-* Integrated very light unit testing facility which can be used to test modules and API requests.
 * Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control, AWS X-Ray spans
 * Hosted on [github](https://github.com/vseryakov/backendjs), BSD licensed.
 
@@ -41,7 +39,7 @@ To install from the git because NPM versions are always behind the cutting edge:
 
 * To start a bare-bone server
 
-        bkjs watch
+        npm run watch
 
   Now point your browser to http://localhost:8000/doc.html
 
@@ -118,7 +116,7 @@ in web/js and web/css directories, all scripts are available from the browser wi
 
 Only core required dependencies are installed but there are many modules which require a module to work correctly.
 
-All optional dependencies are listed in the package.json under "modDependencies" so npm cannot use it, only manual install of required modules is supported or
+All optional dependencies are listed in the package.json under "optionalDependencies" so npm cannot use it, only manual install of required modules is supported or
 it is possible to install all optional dependencies for development purposes.
 
 Here is the list of modules for each internal feature:
@@ -133,7 +131,7 @@ Here is the list of modules for each internal feature:
 
 The command below will show all core and optional dependencies, `npm install` will install only the core dependencies
 
-    bkjs deps -dry-run -mods
+    npm install --include=optional
 
 # Configuration
 
@@ -220,7 +218,7 @@ An example structure of a generic single file application, app.js
         }
     };
     exports.module = mymod;
-    core.addModule(mymod);
+    app.addModule(mymod);
 
     mymod.configureWeb = function(options, callback)
     {
@@ -255,7 +253,7 @@ home subdirectory `modules/`. The format is the same as for regular Node.js modu
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup.
 
-All modules are exposed in the top level `modules` module or legacy `core.modules`. This is a way for global access to modules by name.
+All modules are exposed in the top level `modules` module. This is a way for global access to modules by name.
 
 By having module names contain dots it is possible to create a module hierarchy, for example
 modules with names `billing.invoices`, `billing.payable`, `billing.stripe` can be accessed like this:
@@ -283,7 +281,7 @@ Let's assume the `modules/` contains file facebook.js which implements custom FB
     }
 
     mod.makeRequest = function(options, callback) {
-         core.sendRequest({ url: options.path, query: { access_token: fb.token } }, callback);
+         app.sendRequest({ url: options.path, query: { access_token: fb.token } }, callback);
     }
 ```
 
@@ -312,13 +310,12 @@ To run:
 In case different modules is better keep separately for maintenance or development purposes they can be split into
 separate NPM packages, the structure is the same, modules must be in the `modules/` folder and the package must be loadable
 via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
-by the backendjs `core.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
+by the backendjs `app.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
 
 The config parameter `import-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:
 
   - modules will be loaded from the modules/ folder
-  - locales from the locales/ folder
   - files in the web/ folder will be added to the static search path
   - all templates from views/ folder will be used for rendering
 
@@ -575,13 +572,13 @@ API commands can be executed in the browser or using `curl`:
 
 # Backend directory structure
 
-When the backend server starts and no -home argument passed in the command line the backend makes its home environment in the `~/.bkjs` directory.
+When the backend server starts and no -home argument passed in the command line the backend uses the current directory.
 It is also possible to set the default home using BKJS_HOME environment variable.
 
 The backend directory structure is the following:
 
 * `etc` - configuration directory, all config files are there
-    * `etc/profile` - shell script loaded by the bkjs utility to customize env variables
+    * `etc/bkjs.local` - shell script loaded by the bkjs utility to customize env variables
 
     * `etc/config` - config parameters, same as specified in the command line but without leading -, each config parameter per line:
 
@@ -623,7 +620,6 @@ The backend directory structure is the following:
     * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
 
 * `modules` - loadable modules with specific functionality
-* `images` - all images to be served by the API server, every subfolder represent naming space with lots of subfolders for images
 * `var` - database files created by the server
 * `tmp` - temporary files
 * `web` - Web pages served by the static Express middleware
@@ -634,7 +630,7 @@ On startup some env variable will be used for initial configuration:
 
   - BKJS_HOME - home directory where to cd and find files, `-home` config parameter overrides it
   - BKJS_RUNMODE - initial run mode, `-run-mode` overrides it
-  - BKJS_CONFFILE - config file to use instead of 'config', `-conf-file` overrides it
+  - BKJS_CONFIG - config file to use instead of 'etc/config', `-config` overrides it
   - BKJS_PACKAGES - packags to use, `-import-packages` overrieds it
   - BKJS_DB_POOL - default db pool, `-db-pool` overrides it
   - BKJS_DB_CONFIG - config db pool, `-db-config` overrides it
@@ -697,7 +693,7 @@ An example of how to perform jobs in the API routes:
 
 ```javascript
 
-    core.describeArgs('app', [
+    app.describeArgs('app', [
         { name: "queue", descr: "Queue for jobs" },
     ]);
     app.queue = "somequeue";
@@ -742,9 +738,7 @@ are available to everyone. This mode assumes that Web development will be based 
 
 To see current default config parameters run any of the following commands:
 
-        bkjs bkhelp | grep api-allow
-
-        node -e 'require("backendjs").core.showHelp()'
+        bkjs sh -help
 
 ## Secure Web site, client verification
 
@@ -876,7 +870,9 @@ On Linux, when started the bkjs tries to load and source the following global co
 
 Then it try to source all local config files:
 
+        $BKJS_ENV/../etc/profile
         $BKJS_HOME/etc/profile
+        $BKJS_ENV/../etc/profile.local
         $BKJS_HOME/etc/profile.local
 
 Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
@@ -943,6 +939,7 @@ The file are loaded from following directories in this particular order:
 - in the filder specified by the `-tools` command line argument
 - $(pwd)/tools
 - `$BKJS_TOOLS`,
+- `BKJS_ENV/../tools`
 - `$BKJS_HOME/tools`
 - `$BKJS_DIR/tools`
 
@@ -999,9 +996,7 @@ The list of files to be used in bundles is in the package.json under `config.bun
 To enable auto bundler in your project just add to the local config `~/.bkjs/etc/config.local` a list of directories to be
 watched for changes. For example adding these lines to the local config will enable the watcher and bundle support
 
-    server-watcher-web=web/js,web/css,$HOME/src/js,$HOME/src/css
-    server-watcher-ignore=.bundle.(js|css)$
-    server-watcher-build=bkjs bundle -dev
+    watcher-web=web/js,web/css,$HOME/src/js,$HOME/src/css
 
 
 The simple script below allows to build the bundle and refresh Chrome tab automatically, saves several clicks:
@@ -1014,7 +1009,7 @@ The simple script below allows to build the bundle and refresh Chrome tab automa
 
 To use it, call this script instead in the config.local:
 
-    server-watcher-build=bundle.sh /website
+    watcher-build=bundle.sh /website
 
 NOTE: Because the rebuild happens while the watcher is running there are cases like the server is restarting or pulling a large update from the
 repository when the bundle build may not be called or called too early. To force rebuild run the command:
@@ -1091,24 +1086,18 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
 
 * if Node.js is already installed skip to the next section
 
-    * to install binary release run the command, it will install it into ~/.bkjs on Darwin
+    * to install binary release run the command, it will install it into ~.bkjs/bin on Darwin
 
         ```
         bkjs install-node
+
         # To install into different path
         bkjs install-node -home ~/.local
         ```
 
-    * **Important**: Add NODE_PATH=$BKJS_HOME/lib/node_modules to your environment in .profile or .bash_profile so
-      node can find global modules, replace $BKJS_HOME with the actual path unless this variable is also set in the .profile
-
-* to install all dependencies and make backendjs module and bkjs globally available:
-
-    ```npm link backendjs```
-
 * to run local server on port 8000 run command:
 
-    ```bkjs web```
+    ```./bkjs watch```
 
 * to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server
@@ -1116,44 +1105,10 @@ how the environment is setup it is ultimately 2 ways to specify the port for HTT
 
     ```
     $ ./bkjs shell
-    > core.version
+    > app.version
     '0.70.0'
     > logger.setLevel('info')
     ```
-
-# Simple testing facility
-
-Included a simple testing tool, it is used for internal bkjs testing but can be used for other applications as well.
-
-The convention is to create a test file in the tests/ folder, each test file can define one or more test
-functions named in the form `tests.test_NAME` where NAME is any custom name for the test, for example:
-
-File `tests/example.js`:
-
-```javascript
-tests.test_example = function(callback)
-{
-    expect(1 == 2, "expect 1 eq 2")
-
-    callback();
-}
-```
-
-Then to run all tests
-
-    bkjs test-all
-
-More details are in the documentation or `doc.html`
-
-# API endpoints provided by the backend
-
-All API endpoints are optional and can be disabled or replaced easily. By default the naming convention is:
-
-     /namespace/command[/subname[/subcommand]]
-
-Any HTTP methods can be used because its the command in the URL that defines the operation. The payload can be url-encoded query
-parameters or JSON or any other format supported by any particular endpoint. This makes the backend universal and usable with any
-environment, not just a Web browser. Request signature can be passed in the query so it does not require HTTP headers at all.
 
 ## Authentication and sessions
 
