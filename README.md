@@ -24,7 +24,7 @@ A Node.js library to create Web backends with minimal dependencies.
 
 ## Documentation
 
-Visit the [Docs](https://vseryakov.github.io/backendjs/docs/web/index.html)
+Visit the [Documentation](https://vseryakov.github.io/backendjs/docs/web/index.html)
 
 ## Installation
 

@@ -24,7 +24,7 @@ tests.test_db = function(callback)
             mtime: { type: "now" },
             skipcol: { pub: 1, allow_pools: ["elasticsearch"] },
             skipjoin: { pub: 1, join: ["id","num"], join_pools: ["elasticsearch"] },
-            nojoin: { pub: 1, join: ["id","num"], nojoin_pools: ["elasticsearch"] },
+            nojoin: { pub: 1, join: ["id","num"], join_nopools: ["elasticsearch"] },
         },
         test2: {
             id: { primary: 1, pub: 1, index: 1 },
@@ -159,7 +159,7 @@ tests.test_db = function(callback)
             });
         },
         function(next) {
-            db.delAll("test1", { id: id, fake: 1 }, { skip_join: ["num3"] }, next);
+            db.delAll("test1", { id: id, fake: 1 }, { join_skip: ["num3"] }, next);
         },
         function(next) {
             db.get("test1", { id: id }, function(err, row) {
