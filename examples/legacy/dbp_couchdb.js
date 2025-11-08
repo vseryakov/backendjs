@@ -45,7 +45,7 @@ Pool.prototype.doQuery = function(op, method, path, obj, options, callback)
     var params = { method: method, postdata: method != "GET" ? obj : "", query: {}, datatype: "obj" };
     if (pool.query[op]) pool.query[op].forEach(function(x) { if (options[x]) params.query[x] = options[x] });
 
-    app.httpGet(uri, params, function(err, params) {
+    app.fetch(uri, params, function(err, params) {
         if (err) {
             logger.error("couchdb:", method, path, err);
             return callback(err, {});

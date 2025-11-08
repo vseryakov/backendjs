@@ -1,0 +1,2674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>aws - Documentation</title>
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    
+    <input type="text" id="nav-search" placeholder="Search" />
+    
+    
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Counter.html">Counter</a><ul class='typedefs'></ul></li><li><a href="Pool.html">Pool</a><ul class='typedefs'></ul></li><li><a href="WebpushClient.html">WebpushClient</a><ul class='typedefs'></ul></li><li><a href="module-Fetch.FetchRequest.html">FetchRequest</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-Fetch.FetchRequest.html#parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="module-Fetch.FetchRequest.html#toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.CacheClient.html">CacheClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#get">get</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#limiter">limiter</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li><li><a href="module-db.db.Pool.html">db.Pool</a><ul class='typedefs'></ul></li><li><a href="module-db.db.SqlPool.html">db.SqlPool</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.ElasticsearchPool.html">ElasticsearchPool</a><ul class='typedefs'></ul></li><li><a href="module-queue.EventBridgeClient.html">EventBridgeClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.JSONClient.html">JSONClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.NatsClient.html">NatsClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.QueueClient.html">QueueClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#channel">channel</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#monitor">monitor</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#schedule">schedule</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-queue.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SNSClient.html">SNSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SQSClient.html">SQSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li></ul><h3>Modules</h3><ul><li><a href="module-Fetch.html">Fetch</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-Fetch.html#~Fetch">Fetch</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api.html">api</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api.html#.api.checkProxy">api.checkProxy</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.checkRateLimits">api.checkRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.checkRedirectPlaceholders">api.checkRedirectPlaceholders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.cleanupHeaders">api.cleanupHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.cleanupResult">api.cleanupResult</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.createServer">api.createServer</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.getResultPage">api.getResultPage</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.getTokenSecret">api.getTokenSecret</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleBody">api.handleBody</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleCleanup">api.handleCleanup</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleMetrics">api.handleMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleMultipart">api.handleMultipart</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.init">api.init</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.prepareOptions">api.prepareOptions</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.prepareRequest">api.prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.registerPreHeaders">api.registerPreHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.registerRateLimits">api.registerRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendFile">api.sendFile</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendFormatted">api.sendFormatted</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendJSON">api.sendJSON</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendReply">api.sendReply</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendStatus">api.sendStatus</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.shutdown">api.shutdown</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.startMetrics">api.startMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.toParams">api.toParams</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-app.html">app</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-app.html#.app.addModule">app.addModule</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.checkConfig">app.checkConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.createRepl">app.createRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.fetch">app.fetch</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.init">app.init</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.isOk">app.isOk</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.killBackend">app.killBackend</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.loadModules">app.loadModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.loadPackages">app.loadPackages</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.parseArgs">app.parseArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.parseConfig">app.parseConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processArg">app.processArg</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processArgs">app.processArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processEnvArgs">app.processEnvArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processName">app.processName</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.runMethods">app.runMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.setHome">app.setHome</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.setHost">app.setHost</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.setLogInspect">app.setLogInspect</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.showHelp">app.showHelp</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.shutdown">app.shutdown</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.sortModules">app.sortModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.start">app.start</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.startRepl">app.startRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.watchTmp">app.watchTmp</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-aws.html">aws</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwGetMetricData">aws.cwGetMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwListMetrics">aws.cwListMetrics</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutLogEvents">aws.cwPutLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricAlarm">aws.cwPutMetricAlarm</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricData">aws.cwPutMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwlFilterLogEvents">aws.cwlFilterLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchGetItem">aws.ddbBatchGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchWriteItem">aws.ddbBatchWriteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbCreateTable">aws.ddbCreateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteItem">aws.ddbDeleteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteTable">aws.ddbDeleteTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDescribeTable">aws.ddbDescribeTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbGetItem">aws.ddbGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbPutItem">aws.ddbPutItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbQueryTable">aws.ddbQueryTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbScanTable">aws.ddbScanTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbTransactWriteItems">aws.ddbTransactWriteItems</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbUpdateItem">aws.ddbUpdateItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbUpdateTable">aws.ddbUpdateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbUpdateTimeToLive">aws.ddbUpdateTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbWaitForTable">aws.ddbWaitForTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCW">aws.queryCW</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCWL">aws.queryCWL</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.querySQS">aws.querySQS</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsReceiveMessage">aws.sqsReceiveMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsSendMessage">aws.sqsSendMessage</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.html">cache</a><ul class='typedefs'></ul></li><li><a href="module-db.html">db</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-db.html#.aquery">aquery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.add">db.add</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.batch">db.batch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.bulk">db.bulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.cacheColumns">db.cacheColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.configTypes">db.configTypes</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.copy">db.copy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.create">db.create</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.createTables">db.createTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.del">db.del</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.delAll">db.delAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.describeTables">db.describeTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.drop">db.drop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.dropTables">db.dropTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.get">db.get</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.getPool">db.getPool</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.incr">db.incr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.init">db.init</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.initColumns">db.initColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.initConfig">db.initConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.initTables">db.initTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.join">db.join</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.list">db.list</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepare">db.prepare</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepareColumn">db.prepareColumn</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepareForUpdate">db.prepareForUpdate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepareReq">db.prepareReq</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.put">db.put</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.queryProcessSync">db.queryProcessSync</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.refreshColumns">db.refreshColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.scan">db.scan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.search">db.search</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.select">db.select</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.setConfig">db.setConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sql">db.sql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sqlCreate">db.sqlCreate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sqlExpr">db.sqlExpr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sqlWhere">db.sqlWhere</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.transaction">db.transaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.update">db.update</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.updateAll">db.updateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.upgrade">db.upgrade</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.query">query</a></li></ul><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-db.html#~DBRequest">DBRequest</a></li><li data-type='typedef' style='display: none;'><a href="module-db.html#~DBRequestOptions">DBRequestOptions</a></li><li data-type='typedef' style='display: none;'><a href="module-db.html#~DBResultCallback">DBResultCallback</a></li></ul></li><li><a href="module-db_elasticsearch.html">db/elasticsearch</a><ul class='typedefs'></ul></li><li><a href="module-events.html">events</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-events.html#.events.putEvent">events.putEvent</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-ipc.html">ipc</a><ul class='typedefs'></ul></li><li><a href="module-jobs.html">jobs</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-jobs.html#~_badJob">_badJob</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-lib.html">lib</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib.html#.lib.configParse">lib.configParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.lib.jsonParse">lib.jsonParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.lib.xmlParse">lib.xmlParse</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logger.html">logger</a><ul class='typedefs'></ul></li><li><a href="module-logwatcher.html">logwatcher</a><ul class='typedefs'></ul></li><li><a href="module-metrics.html">metrics</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-metrics.html#.toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-push.html">push</a><ul class='typedefs'></ul></li><li><a href="module-queue.html">queue</a><ul class='typedefs'></ul></li><li><a href="module-sendmail.html">sendmail</a><ul class='typedefs'></ul></li><li><a href="module-stats.html">stats</a><ul class='typedefs'></ul></li><li><a href="module-ws.html">ws</a><ul class='typedefs'></ul></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-README.html">README</a><ul class='typedefs'></ul></li><li><a href="tutorial-configureModules.html">configureModules</a><ul class='typedefs'></ul></li></ul><h3>Global</h3><ul><li><a href="global.html#ExponentiallyMovingWeightedAverage">ExponentiallyMovingWeightedAverage</a></li><li><a href="global.html#Meter">Meter</a></li><li><a href="global.html#_skip32table">_skip32table</a></li><li><a href="global.html#lib">lib</a></li><li><a href="global.html#mod">mod</a></li><li><a href="global.html#net">net</a></li><li><a href="global.html#perf_hooks">perf_hooks</a></li><li><a href="global.html#runMethod">runMethod</a></li></ul>
+    
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">aws</h1>
+    
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        
+            
+        
+    
+</header>
+
+<article>
+    
+        <div class="container-overview">
+        
+            
+
+            
+                
+
+    
+
+    <h4 class="name" id="module:aws"><span class="type-signature"></span>module:aws<span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>AWS Cloud API interface</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            
+        
+        </div>
+    
+
+    
+
+    
+
+    
+
+    
+    
+    
+
+     
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.cwGetMetricData"><span class="type-signature type-signature-static">(static) </span>aws.cwGetMetricData<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return collected metric statistics</p>
+<p>Options:</p>
+<ul>
+<li>start_time - starting timestamp</li>
+<li>end_time - ending timestamp</li>
+<li>period - aggregation period in seconds, default is 60, if &lt; 0 then dunamically set it for the time range</li>
+<li>age - number of ms to go back in case start_time is not specified, fraction can be used, default is 30 secs if no timestamp are given</li>
+<li>namespace - namespace for all metrics, default is AWS/EC2</li>
+<li>desc - return data in descending order</li>
+<li>metrics - a list with metrics to retrieve:
+{ name: &quot;..&quot;,
+stat: &quot;..&quot;,
+dimensions: { key: val, ...},
+[namespace: &quot;..&quot;],
+[label: &quot;..&quot;&quot;],
+[hidden: 1],
+[expression: &quot;..&quot;]
+}</li>
+</ul>
+<p>Returns an object: { data: [{ id, label, timestamps: [], data: [] }], errors: [] }</p>
+<p>Example:</p>
+<pre><code>aws.cwGetMetricData({ age: 300000, metrics: [{ name: &quot;NetworkOut&quot;, label: &quot;Traffic&quot;, stat: &quot;Average&quot;, dimensions: { InstanceId: &quot;i-1234567&quot; } } ] }, lib.log)
+</code></pre></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.cwListMetrics"><span class="type-signature type-signature-static">(static) </span>aws.cwListMetrics<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return metrics for the given query, the options can be specified:</p>
+<ul>
+<li>name - a metric name</li>
+<li>namespace - limit by namespace: AWS/AutoScaling, AWS Billing, AWS/CloudFront, AWS/DynamoDB, AWS/ElastiCache, AWS/EBS, AWS/EC2, AWS/ELB, AWS/ElasticMapReduce, AWS/Kinesis, AWS/OpsWorks, AWS/Redshift, AWS/RDS, AWS/Route53, AWS/SNS, AWS/SQS, AWS/SWF, AWS/StorageGateway</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.cwPutLogEvents"><span class="type-signature type-signature-static">(static) </span>aws.cwPutLogEvents<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Store events in the Cloudwatch Logs.
+Options:</p>
+<ul>
+<li>name - log group name, required</li>
+<li>stream - log stream name, required</li>
+<li>events - a list of strings, or objects { timestamp, message }, required</li>
+<li>tm_pos - position in the message where the timestamp starts, default is 0</li>
+<li>tm_sep - separator after the timestamp, default is space</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.cwPutMetricAlarm"><span class="type-signature type-signature-static">(static) </span>aws.cwPutMetricAlarm<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Creates or updates an alarm and associates it with the specified Amazon CloudWatch metric.
+The options specify the following:</p>
+<ul>
+<li>name - alarm name, if not specified metric name and dimensions will be used to generate alarm name</li>
+<li>metric - metric name, default is <code>CPUUtilization</code></li>
+<li>namespace - AWS namespace, default is <code>AWS/EC2</code></li>
+<li>op - comparison operator, one of =&gt; | &lt;= | &gt; | &lt; | GreaterThanOrEqualToThreshold | GreaterThanThreshold | LessThanThreshold | LessThanOrEqualToThreshold. Default is <code>&gt;=</code>.</li>
+<li>statistic - one of SampleCount | Average | Sum | Minimum | Maximum, default is <code>Average</code></li>
+<li>period - collection period in seconds, default is <code>60</code></li>
+<li>evaluationPeriods - the number of periods over which data is compared to the specified threshold, default is <code>15</code></li>
+<li>threshold - the value against which the specified statistic is compared, default is <code>90</code></li>
+<li>ok - ARN(s) to be notified on OK state</li>
+<li>alarm - ARN(s) to be notified on ALARM state</li>
+<li>insufficient_data - ARN(s) to be notified on INSUFFICIENT_DATA state</li>
+<li>dimensions - the dimensions for the alarm's associated metric.</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.cwPutMetricData"><span class="type-signature type-signature-static">(static) </span>aws.cwPutMetricData<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Publishes metric data points to Amazon CloudWatch.
+The argumernts specify the following:</p>
+<ul>
+<li>namespace - custome namespace, cannot start with <code>AWS</code></li>
+<li>data - an object with metric data:
+{ metricName: value }, ...
+{ metricName: {
+value: Number,
+dimension1: name1,
+..
+},
+}, ...
+{ metricName: {
+value: [min, max, sum, sample],
+dimension1: ...
+},
+}, ...</li>
+</ul>
+<p>The options can specify the following:</p>
+<ul>
+<li>storageResolution - 1 to use 1 second resolution</li>
+<li>timestamp - ms to be used as the timestamp instead of the current time</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.cwlFilterLogEvents"><span class="type-signature type-signature-static">(static) </span>aws.cwlFilterLogEvents<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Lists log events from the specified log group. You can list all the log events or filter the results using a filter pattern,
+a time range, and the name of the log stream.
+Options:</p>
+<ul>
+<li>name - a group name, required</li>
+<li>count - how many events to retrieve in one batch, 10000</li>
+<li>limit - total number of events to return</li>
+<li>filter - filter pattern</li>
+<li>stime - start time in ms</li>
+<li>etime - end time in ms</li>
+<li>prefix - log stream prefix pattern</li>
+<li>names - list of log streams to filter</li>
+<li>token - a previous token to start with</li>
+<li>timeout - how long to keep reading or waiting, ms</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbBatchGetItem"><span class="type-signature type-signature-static">(static) </span>aws.ddbBatchGetItem<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Retrieve all items for given list of keys</p>
+<ul>
+<li>items is an object with table name as property name and list of options for GetItem request</li>
+<li>options may contain any valid native property if it starts with capital letter.</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>{ users: { keys: [{ id: 1, name: "john" },{ id: .., name: .. }], select: ['name','id'], consistent: true }, ... }</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbBatchWriteItem"><span class="type-signature type-signature-static">(static) </span>aws.ddbBatchWriteItem<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Update items from the list at the same time</p>
+<ul>
+<li>items is a list of objects with table name as property and list of operations, an operation can be PutRequest or DeleteRequest</li>
+<li>options may contain any valid native property if it starts with capital letter.</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>{ table: [ { put: { id: 1, name: "tt" } }, { del: { id: 2 } }] }</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbCreateTable"><span class="type-signature type-signature-static">(static) </span>aws.ddbCreateTable<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Create a table</p>
+<ul>
+<li>attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS</li>
+<li>options may contain any valid native property if it starts with capital letter and the following:
+<ul>
+<li>waitTimeout - number of milliseconds to wait for ACTIVE status</li>
+<li>waitDelay - how often to pool for table status, default is 250ms</li>
+<li>keys is an array of column ids used for the primary key or a string with the hash key. if omitted, the first attribute will be used for the primary key</li>
+<li>local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object</li>
+<li>global - an object for global secondary indexes, same format as for local indexes</li>
+<li>projections - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
+<li>readCapacity - read capacity units for provisioned throughput</li>
+<li>writeCapacity - write capacity units</li>
+<li>onDemand - billing mode, auto provision capacity and pay per request, if no read/write capacity is configured on-demand is the default</li>
+<li>stream - enable stream support</li>
+</ul>
+</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>ddbCreateTable('users', { id: 'S', mtime: 'N', name: 'S'},
+                                 { keys: ["id", "name"],
+                                   local: { mtime: { mtime: "HASH" } },
+                                   global: { name: { name: 'HASH', ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
+                                   projections: { mtime: ['gender','age'],
+                                                  name: ['name','gender'] },
+                                   stream: "NEW_IMAGE",
+                                   readCapacity: 10,
+                                   writeCapacity: 10 });</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbDeleteItem"><span class="type-signature type-signature-static">(static) </span>aws.ddbDeleteItem<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Delete an item from a table</p>
+<ul>
+<li>keys is an object with name: value for hash/range attributes</li>
+<li>options may contain any valid native property if it starts with capital letter and the following special options:
+<ul>
+<li>expr - condition expression</li>
+<li>values - an object with values map to be used for in the update and/or condition expressions, to be used
+for ExpressionAttributeValues parameters</li>
+<li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
+for ExpressionAttributeNames parameter</li>
+<li>returning - values to be returned on success, any value means ALL_OLD</li>
+</ul>
+</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>ddbDeleteItem("users", { id: 1, name: "john" }, {})</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbDeleteTable"><span class="type-signature type-signature-static">(static) </span>aws.ddbDeleteTable<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Remove a table from the database.
+By default the callback will ba callled only after the table is deleted, specifying <code>options.nowait</code> will return immediately</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbDescribeTable"><span class="type-signature type-signature-static">(static) </span>aws.ddbDescribeTable<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return table definition and parameters in the result structure with property of the given table name</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>{ name: { AttributeDefinitions: [], KeySchema: [] ...} }</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbGetItem"><span class="type-signature type-signature-static">(static) </span>aws.ddbGetItem<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Retrieve one item by primary key</p>
+<ul>
+<li>keys - an object with primary key attributes name and value.</li>
+<li>select - list of columns to return, otherwise all columns will be returned</li>
+<li>options may contain any native property allowed in the request or special properties:
+<ul>
+<li>consistent - set consistency level for the request</li>
+<li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
+for ExpressionAttributeNames parameter</li>
+</ul>
+</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>ddbGetItem("users", { id: 1, name: "john" }, { select: 'id,name' })</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbPutItem"><span class="type-signature type-signature-static">(static) </span>aws.ddbPutItem<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Put or add an item</p>
+<ul>
+<li>item is an object, type will be inferred from the native js type.</li>
+<li>options may contain any valid native property if it starts with capital letter or special properties:
+<ul>
+<li>expected - an object with column names to be used in Expected clause and value as null to set condition to { Exists: false } or
+any other exact value to be checked against which corresponds to { Exists: true, Value: value }</li>
+<li>expectedJoin - how to join conditions, default is AND</li>
+<li>expr - condition expression</li>
+<li>values - an object with values map to be used for in the update and/or condition expressions, to be used
+for ExpressionAttributeValues parameters</li>
+<li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
+for ExpressionAttributeNames parameter</li>
+<li>returning - values to be returned on success, any value means ALL_OLD</li>
+</ul>
+</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>ddbPutItem("users", { id: 1, name: "john", mtime: 11233434 }, { expected: { name: null } })</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbQueryTable"><span class="type-signature type-signature-static">(static) </span>aws.ddbQueryTable<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Query on a table, return all matching items</p>
+<ul>
+<li>condition is an object with name: value pairs, by default EQ opeartor is used for comparison</li>
+<li>options may contain any valid native property if it starts with capital letter or special property:
+<ul>
+<li>start - defines starting primary key when paginating, can be a string/number for hash or an object with hash/range properties</li>
+<li>consistent - set consistency level for the request</li>
+<li>select - list of attributes to get only</li>
+<li>total - return number of matching records</li>
+<li>count - limit number of record in result</li>
+<li>desc - descending order</li>
+<li>sort - index name to use, indexes are named the same as the corresponding column, with index primary keys for Keycondition will be used</li>
+<li>ops - an object with operators to be used for properties if other than EQ.</li>
+<li>keys - list of primary key columns, if there are other properties in the condition then they will be
+put into QueryFilter instead of KeyConditions. If keys are absent, all properties in the condition are treated as primary keys.</li>
+<li>projection - projection expression</li>
+<li>values - an object with values map to be used for in the update and/or condition expressions, to be used
+for ExpressionAttributeValues parameters</li>
+<li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
+for ExpressionAttributeNames parameter</li>
+<li>expr - filtering expression</li>
+</ul>
+</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>aws.ddbQueryTable("users", { id: 1, name: "john" }, { select: 'id,name', ops: { name: 'gt' } })
+         aws.ddbQueryTable("users", { id: 1, name: "john", status: "ok" }, { keys: ["id"], select: 'id,name', ops: { name: 'gt' } })
+         aws.ddbQueryTable("users", { id: 1 }, { expr: "status=:s", values: { s: "status" } })</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbScanTable"><span class="type-signature type-signature-static">(static) </span>aws.ddbScanTable<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Scan a table for all matching items</p>
+<ul>
+<li>condition is an object with name: value pairs or a string with FilterExpression</li>
+<li>options may contain any valid native property if it starts with capital letter or special property:
+<ul>
+<li>start - defines starting primary key</li>
+<li>ops - an object with operators to be used for properties if other than EQ.</li>
+<li>projection - projection expression</li>
+<li>values - an object with values map to be used for in the update and/or condition expressions, to be used
+for ExpressionAttributeValues parameters</li>
+<li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
+for ExpressionAttributeNames parameter</li>
+</ul>
+</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>aws.ddbScanTable("users", { id: 1, name: 'a' }, { ops: { name: 'gt' }})
+         aws.ddbScanTable("users", "id=:id AND name=:name", { values: { id: 1, name: 'a' } });</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbTransactWriteItems"><span class="type-signature type-signature-static">(static) </span>aws.ddbTransactWriteItems<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Update items from the list at the same time in one transaction, on any failure everything is rolled back</p>
+<ul>
+<li>items is a list of operations to be performed in the same format as for aws.ddbPutItem, aws.ddbUpdateItem, aws.ddbDeleteItem and aws.ddbQueryItem</li>
+<li>options may contain any valid native property if it starts with capital letter.</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>{ op: "put": table: "table-name", obj: { id: 1, name: "tt" } },
+         { op: "del": table: "table-name", obj: { id: 2 } },
+         { op: "update": table: "table-name", obj: { id: 1, name: "test" }, options: { expected: { status: "ok" } } },
+         { op: "check": table: "table-name", obj: { id: 1 }, options: { expected: { status: "ok" } } }</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbUpdateItem"><span class="type-signature type-signature-static">(static) </span>aws.ddbUpdateItem<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Update an item</p>
+<ul>
+<li>keys is an object with primary key attributes name and value.</li>
+<li>item is an object with properties where value can be:
+<ul>
+<li>number/string/array - action PUT, replace or add new value</li>
+<li>null/empty string - action DELETE</li>
+</ul>
+</li>
+<li>item can be a string with Update expression</li>
+<li>options may contain any valid native property if it starts with capital letter or special properties:
+<ul>
+<li>expr - condition expression</li>
+<li>values - an object with values map to be used for in the update and/or condition expressions, to be used
+for ExpressionAttributeValues parameters</li>
+<li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
+for ExpressionAttributeNames parameter</li>
+<li>updateOps - an object with operators to be used for properties, one of the: set, remove, unset, delete, incr, add, append, prepend, not_exists</li>
+<li>expected - an object with columns to be used in ConditionExpression, value null means the attribute does not exists,
+any other value to be checked against using regular compare rules. The conditional comparison operator is taken
+from <code>options.ops</code> the same way as for queries.</li>
+<li>returning - values to be returned on success, <code>*</code> or <code>new</code> means ALL_NEW, <code>old</code> means ALL_OLD,
+<code>updated</code> means UPDATED_NEW, <code>old_updated</code> means UPDATED_OLD</li>
+</ul>
+</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { action: { icons: 'add' }, expected: { id: 1 }, returning: "*" })
+         ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png' }, { action: { icons: 'incr' }, expected: { id: null } })
+         ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png', num: 1 }, { action: { num: 'add', icons: 'add' }, expected: { id: null, num: 0 }, ops: { num: "gt" } })</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbUpdateTable"><span class="type-signature type-signature-static">(static) </span>aws.ddbUpdateTable<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Update tables provisioned throughput settings, options is used instead of table name so this call can be used directly in the cron jobs to adjust
+provisionined throughput on demand.
+Options must provide the following properties:</p>
+<ul>
+<li>name - table name</li>
+<li>readCapacity and writeCapacity - new povisioned throughtput settings, both must be specified</li>
+<li>stream - null to disable or one of the NEW_IMAGE | OLD_IMAGE | NEW_AND_OLD_IMAGES | KEYS_ONLY</li>
+<li>add - an object with indexes to create</li>
+<li>del - delete a global secondary index by name, a string or a list with multiple indexes</li>
+<li>update - an object with indexes to update</li>
+<li>waitTimeout - how long to wait in ms until the table is active again</li>
+<li>onDemand - true to switch to pat per request mode, false to switch to provisioning mode</li>
+</ul>
+<p>Example</p>
+<pre><code>         aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name_id: { name: &quot;S&quot;, id: 'N', readCapacity: 20, writeCapacity: 20, projections: [&quot;mtime&quot;,&quot;email&quot;] } })
+         aws.ddbUpdateTable({ name: &quot;users&quot;, add: { name: { name: &quot;S&quot;, readCapacity: 20, writeCapacity: 20, projections: [&quot;mtime&quot;,&quot;email&quot;] } })
+         aws.ddbUpdateTable({ name: &quot;users&quot;, del: &quot;name&quot; })
+         aws.ddbUpdateTable({ name: &quot;users&quot;, update: { name: { readCapacity: 10, writeCapacity: 10 } })
+</code></pre></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>of crontab job in etc/crontab:
+
+             [
+             { "type": "server", "cron": "0 0 1 * * *", "job": { "aws.ddbUpdateTable": { "name": "bk_user", "readCapacity": 1000, "writeCapacity": 1000 } } },
+             { "type": "server", "cron": "0 0 6 * * *", "job": { "aws.ddbUpdateTable": { "name": "bk_user", "readCapacity": 2000, "writeCapacity": 2000 } } }
+             ]</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbUpdateTimeToLive"><span class="type-signature type-signature-static">(static) </span>aws.ddbUpdateTimeToLive<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Update TTL attribute.
+The options properties:</p>
+<ul>
+<li>name - table name</li>
+<li>attribute - the attribute name</li>
+<li>enabled - true or false</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.ddbWaitForTable"><span class="type-signature type-signature-static">(static) </span>aws.ddbWaitForTable<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Call the callback after specified period of time or when table status become different from the given waiting status.
+if options.waitTimeout is not specified calls the callback immediately. options.waitStatus is checked if given and keeps waiting
+while the status is equal to it. options.waitDelay can be specified how often to request new status, default is 250ms.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.queryCW"><span class="type-signature type-signature-static">(static) </span>aws.queryCW<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>AWS CloudWatch API request</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.queryCWL"><span class="type-signature type-signature-static">(static) </span>aws.queryCWL<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>AWS CloudWatch Log API request</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.querySQS"><span class="type-signature type-signature-static">(static) </span>aws.querySQS<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>AWS SQS API request</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.sqsReceiveMessage"><span class="type-signature type-signature-static">(static) </span>aws.sqsReceiveMessage<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Receive message(s) from the SQS queue, the callback will receive a list with messages if no error.
+The following options can be specified:</p>
+<ul>
+<li>count - how many messages to receive</li>
+<li>timeout - how long to wait, in milliseconds, this is for Long Poll</li>
+<li>visibilityTimeout - the duration (in milliseconds) that the received messages are hidden from subsequent retrieve requests</li>
+<li>attempt - request attempt id for FIFO queues
+after being retrieved by a ReceiveMessage request.</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".aws.sqsSendMessage"><span class="type-signature type-signature-static">(static) </span>aws.sqsSendMessage<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Send a message to the SQS queue.
+The options can specify the following:</p>
+<ul>
+<li>delay - how long to delay this message in milliseconds</li>
+<li>group - a group id for FIFO queues</li>
+<li>unique - deduplication id for FIFO queues</li>
+<li>attrs - an object with additional message attributes to send, use only string, numbers or binary values,
+all other types will be converted into strings</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+    
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+<script src="scripts/search.js" defer></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

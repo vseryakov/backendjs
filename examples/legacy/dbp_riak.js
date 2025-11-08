@@ -53,7 +53,7 @@ Pool.prototype.doQuery = function(op, method, path, obj, options, callback)
     if (pool.query[op]) pool.query[op].forEach(function(x) { if (options[x]) params.query[x] = options[x] });
     for (var p in options.headers) params.headers[p] = options.headers[p];
 
-    app.httpGet(uri, params, function(err, params) {
+    app.fetch(uri, params, function(err, params) {
         if (err) {
             logger.error("riak:", method, path, err);
             return callback(err, {});

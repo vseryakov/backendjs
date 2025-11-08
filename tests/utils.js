@@ -1,5 +1,5 @@
 
-const { core, api, lib, logger, modules } = require("../");
+const { app, api, lib, logger, modules } = require("../");
 const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
@@ -57,7 +57,7 @@ mod.checkAccess = function(options, callback)
                 conf.preprocess(conf, next2);
             },
             function(next2) {
-                app.sendRequest(q, (err, rc) => {
+                app.fetch(q, (err, rc) => {
                     assert.ok(rc.status == q._rc, util.inspect({ err: `${conf.user?.login || "pub"}: ${q.url}: expect ${q._rc} but got ${rc.status}`, data: rc.data, conf, options }));
 
                     if (rc.resheaders[api.csrf.header]) {

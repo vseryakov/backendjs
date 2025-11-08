@@ -18,9 +18,14 @@ module.exports = {
     },
     opts: {
         template: "node_modules/docdash",
-        destination: "./docs/dist",
+        destination: "./docs/web",
         recurse: true,
         readme: "README.md",
-        tutorials: "docs/tutorials"
+        tutorials: "docs/src"
+    },
+    docdash: {
+        search: true,
+        collapse: true,
+        typedefs: true,
     }
 };

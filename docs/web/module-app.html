@@ -1,0 +1,5278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>app - Documentation</title>
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    
+    <input type="text" id="nav-search" placeholder="Search" />
+    
+    
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Counter.html">Counter</a><ul class='typedefs'></ul></li><li><a href="Pool.html">Pool</a><ul class='typedefs'></ul></li><li><a href="WebpushClient.html">WebpushClient</a><ul class='typedefs'></ul></li><li><a href="module-Fetch.FetchRequest.html">FetchRequest</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-Fetch.FetchRequest.html#parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="module-Fetch.FetchRequest.html#toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.CacheClient.html">CacheClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#get">get</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#limiter">limiter</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li><li><a href="module-db.db.Pool.html">db.Pool</a><ul class='typedefs'></ul></li><li><a href="module-db.db.SqlPool.html">db.SqlPool</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.ElasticsearchPool.html">ElasticsearchPool</a><ul class='typedefs'></ul></li><li><a href="module-queue.EventBridgeClient.html">EventBridgeClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.JSONClient.html">JSONClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.NatsClient.html">NatsClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.QueueClient.html">QueueClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#channel">channel</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#monitor">monitor</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#schedule">schedule</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-queue.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SNSClient.html">SNSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SQSClient.html">SQSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li></ul><h3>Modules</h3><ul><li><a href="module-Fetch.html">Fetch</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-Fetch.html#~Fetch">Fetch</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api.html">api</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api.html#.api.checkProxy">api.checkProxy</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.checkRateLimits">api.checkRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.checkRedirectPlaceholders">api.checkRedirectPlaceholders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.cleanupHeaders">api.cleanupHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.cleanupResult">api.cleanupResult</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.createServer">api.createServer</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.getResultPage">api.getResultPage</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.getTokenSecret">api.getTokenSecret</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleBody">api.handleBody</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleCleanup">api.handleCleanup</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleMetrics">api.handleMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleMultipart">api.handleMultipart</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.init">api.init</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.prepareOptions">api.prepareOptions</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.prepareRequest">api.prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.registerPreHeaders">api.registerPreHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.registerRateLimits">api.registerRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendFile">api.sendFile</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendFormatted">api.sendFormatted</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendJSON">api.sendJSON</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendReply">api.sendReply</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendStatus">api.sendStatus</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.shutdown">api.shutdown</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.startMetrics">api.startMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.toParams">api.toParams</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-app.html">app</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-app.html#.app.addModule">app.addModule</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.checkConfig">app.checkConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.createRepl">app.createRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.fetch">app.fetch</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.init">app.init</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.isOk">app.isOk</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.killBackend">app.killBackend</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.loadModules">app.loadModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.loadPackages">app.loadPackages</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.parseArgs">app.parseArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.parseConfig">app.parseConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processArg">app.processArg</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processArgs">app.processArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processEnvArgs">app.processEnvArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processName">app.processName</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.runMethods">app.runMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.setHome">app.setHome</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.setHost">app.setHost</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.setLogInspect">app.setLogInspect</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.showHelp">app.showHelp</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.shutdown">app.shutdown</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.sortModules">app.sortModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.start">app.start</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.startRepl">app.startRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.watchTmp">app.watchTmp</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-aws.html">aws</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwGetMetricData">aws.cwGetMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwListMetrics">aws.cwListMetrics</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutLogEvents">aws.cwPutLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricAlarm">aws.cwPutMetricAlarm</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricData">aws.cwPutMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwlFilterLogEvents">aws.cwlFilterLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchGetItem">aws.ddbBatchGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchWriteItem">aws.ddbBatchWriteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbCreateTable">aws.ddbCreateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteItem">aws.ddbDeleteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteTable">aws.ddbDeleteTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDescribeTable">aws.ddbDescribeTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbGetItem">aws.ddbGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbPutItem">aws.ddbPutItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbQueryTable">aws.ddbQueryTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbScanTable">aws.ddbScanTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbTransactWriteItems">aws.ddbTransactWriteItems</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbUpdateItem">aws.ddbUpdateItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbUpdateTable">aws.ddbUpdateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbUpdateTimeToLive">aws.ddbUpdateTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbWaitForTable">aws.ddbWaitForTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCW">aws.queryCW</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCWL">aws.queryCWL</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.querySQS">aws.querySQS</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsReceiveMessage">aws.sqsReceiveMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsSendMessage">aws.sqsSendMessage</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.html">cache</a><ul class='typedefs'></ul></li><li><a href="module-db.html">db</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-db.html#.aquery">aquery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.add">db.add</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.batch">db.batch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.bulk">db.bulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.cacheColumns">db.cacheColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.configTypes">db.configTypes</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.copy">db.copy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.create">db.create</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.createTables">db.createTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.del">db.del</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.delAll">db.delAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.describeTables">db.describeTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.drop">db.drop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.dropTables">db.dropTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.get">db.get</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.getPool">db.getPool</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.incr">db.incr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.init">db.init</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.initColumns">db.initColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.initConfig">db.initConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.initTables">db.initTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.join">db.join</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.list">db.list</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepare">db.prepare</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepareColumn">db.prepareColumn</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepareForUpdate">db.prepareForUpdate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepareReq">db.prepareReq</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.put">db.put</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.queryProcessSync">db.queryProcessSync</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.refreshColumns">db.refreshColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.scan">db.scan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.search">db.search</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.select">db.select</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.setConfig">db.setConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sql">db.sql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sqlCreate">db.sqlCreate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sqlExpr">db.sqlExpr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sqlWhere">db.sqlWhere</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.transaction">db.transaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.update">db.update</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.updateAll">db.updateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.upgrade">db.upgrade</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.query">query</a></li></ul><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-db.html#~DBRequest">DBRequest</a></li><li data-type='typedef' style='display: none;'><a href="module-db.html#~DBRequestOptions">DBRequestOptions</a></li><li data-type='typedef' style='display: none;'><a href="module-db.html#~DBResultCallback">DBResultCallback</a></li></ul></li><li><a href="module-db_elasticsearch.html">db/elasticsearch</a><ul class='typedefs'></ul></li><li><a href="module-events.html">events</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-events.html#.events.putEvent">events.putEvent</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-ipc.html">ipc</a><ul class='typedefs'></ul></li><li><a href="module-jobs.html">jobs</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-jobs.html#~_badJob">_badJob</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-lib.html">lib</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib.html#.lib.configParse">lib.configParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.lib.jsonParse">lib.jsonParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.lib.xmlParse">lib.xmlParse</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logger.html">logger</a><ul class='typedefs'></ul></li><li><a href="module-logwatcher.html">logwatcher</a><ul class='typedefs'></ul></li><li><a href="module-metrics.html">metrics</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-metrics.html#.toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-push.html">push</a><ul class='typedefs'></ul></li><li><a href="module-queue.html">queue</a><ul class='typedefs'></ul></li><li><a href="module-sendmail.html">sendmail</a><ul class='typedefs'></ul></li><li><a href="module-stats.html">stats</a><ul class='typedefs'></ul></li><li><a href="module-ws.html">ws</a><ul class='typedefs'></ul></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-README.html">README</a><ul class='typedefs'></ul></li><li><a href="tutorial-configureModules.html">configureModules</a><ul class='typedefs'></ul></li></ul><h3>Global</h3><ul><li><a href="global.html#ExponentiallyMovingWeightedAverage">ExponentiallyMovingWeightedAverage</a></li><li><a href="global.html#Meter">Meter</a></li><li><a href="global.html#_skip32table">_skip32table</a></li><li><a href="global.html#lib">lib</a></li><li><a href="global.html#mod">mod</a></li><li><a href="global.html#net">net</a></li><li><a href="global.html#perf_hooks">perf_hooks</a></li><li><a href="global.html#runMethod">runMethod</a></li></ul>
+    
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">app</h1>
+    
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        
+            
+        
+    
+</header>
+
+<article>
+    
+        <div class="container-overview">
+        
+            
+
+            
+                
+
+    
+
+    <h4 class="name" id="module:app"><span class="type-signature"></span>module:app<span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>The primary application module containing all config options and common functions</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>version</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Application name/version from package.json or manually set</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>config</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Config file to load on startup, defaults to <code>bkjs.conf</code></p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>runMode</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Environment mode of the process or the application</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>packages</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Loaded packages</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>role</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>the primary proccess role</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>home</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>home folder, from config or env.BKJS_HOME</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>cwd</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>always current directory on start</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>ipaddr</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>host IP address, non-local interface</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>port</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">int</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>HTTP port to listen to for Express app</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>bind</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>listen on the specified local interfcae, 0.0.0.0 is default</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>isPrimary</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>is true if the process is primary</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>isWorker</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>is true if the process is a worker process</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>isMainThread</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Is true if this code is not running inside of a Worker thread.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>instance</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Current instance or container attributes gathered by other modules</p>
+                <h6>Properties</h6>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>type</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>&quot;aws&quot; for AWS</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>image</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>EC2 image id</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>container</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>ECS container name</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>container_id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>ECS container id</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>task_id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>ECS container task id</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>ip</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>EC2/ECS private IP address</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>tag</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Instance/container tag set manually or derived from AWS tags</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>roles</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Addirtional roles to use for configuration purposes</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>worker_id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>set from cluster.worker_id</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>region</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>AWS region</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>zone</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>AWS availability zone</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            
+        
+        </div>
+    
+
+    
+
+    
+
+    
+
+    
+    
+    
+
+     
+
+    
+
+    
+        <h3 class="subsection-title">Members</h3>
+
+        
+            
+<h4 class="name" id=".app.afetch"><span class="type-signature type-signature-static">(static) </span>app.afetch<span class="type-signature"></span></h4>
+
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Async version of fetch</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+<div class="description usertext">
+    <p>Async version of fetch</p>
+</div>
+
+
+
+
+
+
+
+
+        
+            
+<h4 class="name" id=".app.mime"><span class="type-signature type-signature-static">(static) </span>app.mime<span class="type-signature"></span></h4>
+
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Expose mime via core, compatibility with mime module, Express uses it anyway so
+our dependency is justified and reusing the same module</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>mime</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>mime module</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<div class="description usertext">
+    <p>Expose mime via core, compatibility with mime module, Express uses it anyway so
+our dependency is justified and reusing the same module</p>
+</div>
+
+
+
+
+
+
+
+
+        
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.addModule"><span class="type-signature type-signature-static">(static) </span>app.addModule<span class="signature">(any)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Adds reference to the objects in the core for further access.
+This is used in the core to register all internal modules and makes it available in the shell and in the module:modules object.</p>
+<p>If module name starts with underscore it is silently ignored. Empty names are not allowed and reported.</p>
+<p>Module name can contain dots, meaning to place the module under hierarchy of namespaces. Modules can be placed under existing
+modules, the context is still separate for each module.</p>
+<p>Also this is used when creating modular backend application by separating the logic into different modules, by registering such
+modules with the core it makes the module a first class citizen in the backendjs core and exposes all the callbacks and methods.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>any</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;object></span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>modules to add</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Examples</h5>
+    
+    <pre class="prettyprint"><code>const { modules } = require("backendjs");
+ const mymod = { name: "billing.invoices", request: () => { ... } }
+ app.addModule(mymod);
+
+ modules.billing.invoices.request({ ... });</code></pre>
+
+        <p class="code-caption">The module below will register API routes and some methods</p>
+    
+    <pre class="prettyprint"><code> const { api, core } = require("backendjs");
+ const mymod = { name: "mymod" }
+ exports.module = mymod;
+ app.addModule(mymod);
+
+ mymod.configureWeb = function(options, callback) {
+    api.app.all("/mymod", (req, res) => {
+         res.json({});
+    });
+ }</code></pre>
+
+    <pre class="prettyprint"><code>In the main app.js just load it and the rest will be done automatically, i.e. routes will be created ...
+
+      const mymod = require("./mymod.js");
+
+Running the shell will make the object `mymod` available
+
+      ./app.sh -shell
+      > mymod
+        { name: "mymod" }</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.checkConfig"><span class="type-signature type-signature-static">(static) </span>app.checkConfig<span class="signature">(callback<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {none}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Reload runtime config from the DB</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>callback</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>a function to call after the check</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5 class="h5-returns">Returns:</h5>
+
+        
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">none</span>
+
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.createRepl"><span class="type-signature type-signature-static">(static) </span>app.createRepl<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Create REPL interface with all modules available</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.fetch"><span class="type-signature type-signature-static">(static) </span>app.fetch<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Make a HTTP request using <a href="module-Fetch.html">module:Fetch</a></p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.init"><span class="type-signature type-signature-static">(static) </span>app.init<span class="signature">(options)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Main initialization, must be called prior to perform any actions.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>options for customization what to init</p>
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>role</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>set the process role</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>noDb</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>if true do not initialize database</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>noConfigure</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>do not run all configure methods</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>noModules</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>do not load modules</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>noPackages</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>do not load npm packages</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.isOk"><span class="type-signature type-signature-static">(static) </span>app.isOk<span class="signature">(name)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return true if the given service is not disabled</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>service name</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.killBackend"><span class="type-signature type-signature-static">(static) </span>app.killBackend<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Kill all backend processes that match name and not the current process</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.loadModules"><span class="type-signature type-signature-static">(static) </span>app.loadModules<span class="signature">(dir, include<span class="signature-attributes">opt</span>, exclude<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Array.&lt;string>}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Dynamically load services from the specified directory.</p>
+<p>The modules are loaded using <code>require</code> as a normal nodejs module but in addition if the module exports
+<code>init</code> method it is called immediately with options passed as an argument. This is a synchronous function so it is supposed to be
+called on startup, not dynamically during a request processing.</p>
+<p>Only .js files from top level are loaded by default unless the depth is provided. <a href="module-app.html#.app.addModule">addModule</a> is called automatically,
+it uses findFileSync to locate the modules, options <code>depth</code>, <code>include or </code>exclude` can be provided</p>
+<p>Each module is put in the top level <code>modules</code> registry by name, the name can
+be a property <code>name</code> or the module base file name. Module names starting with underscore will not be added to the registry.</p>
+<p>If a module name contains dots it means nested hierarchy, all intermediate objects will be created automatically. Nested
+names allow a better separation of modules and name collisions.</p>
+<p><strong>Caution must be taken for module naming, it is possible to override any default bkjs module which will result in unexpected behaviour</strong></p>
+<p>The following module properties are reserved and used by the backendjs:</p>
+<ul>
+<li><code>name</code> - module name</li>
+<li><code>deps</code> - dependent module name be placed after, -M to be placed before, a single - means place at the beginning</li>
+<li><code>args</code> - list of config parameters</li>
+<li><code>tables</code> - table definitions</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>dir</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>name of directory containing modules</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>options.depth</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>how deep to look for modules</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>include</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">regexp</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>regexp to match files or paths to load, default is .js</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>exclude</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">regexp</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>regexp what files or paths to exlude</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5 class="h5-returns">Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>a list of all loaded module names</p>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Array.&lt;string></span>
+
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>// load all modules from the local relative directory
+ app.loadModules("modules")</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.loadPackages"><span class="type-signature type-signature-static">(static) </span>app.loadPackages<span class="signature">(list, options)</span><span class="type-signature"> &rarr; {String}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Load NPM packages and auto configure paths from each package.
+<code>bkjs.conf</code> in the root of the package will be loaded as a config file.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>list</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">String</span>
+|
+
+<span class="param-type">Array</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>list of packages to load</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>an object with optional parameters</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5 class="h5-returns">Returns:</h5>
+
+        
+<div class="param-desc">
+    <p>all config files for all packages concatenated</p>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">String</span>
+
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.parseArgs"><span class="type-signature type-signature-static">(static) </span>app.parseArgs<span class="signature">(argv, pass, file<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Parse command line arguments</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>argv</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Array.&lt;string></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>a list of config parameters in the form [ &quot;-param&quot;, &quot;value&quot; ,...]</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>pass</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">int</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>a number representing a pass phase</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>file</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>file name where parameters came from</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.parseConfig"><span class="type-signature type-signature-static">(static) </span>app.parseConfig<span class="signature">(data, pass, file<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Parse config lines for the file or other place,</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>data</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>data from a config file</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>pass</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">int</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>a number representing a pass phase</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>file</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>file name where parameters came from</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.processArg"><span class="type-signature type-signature-static">(static) </span>app.processArg<span class="signature">(options)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Process a single argument</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>are supposed to be returned by _findArg or prepared accordingly</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.processArgs"><span class="type-signature type-signature-static">(static) </span>app.processArgs<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Config parameters defined in a module as a list of parameter names prefixed with module name, a parameters can be
+a string which defines text parameter or an object with the properties:</p>
+<ul>
+<li>name - parameter name, can be a string regexp</li>
+<li>type - a valid config type: bool, int, number, url, js, callback, set, list, json, map, regexp, regexpobj, regexpmap,</li>
+<li>descr - parameter description, it is show when run <code>bksh -help</code> command</li>
+<li>obj - object name in the module where to store the value</li>
+<li>array - if true prepend a value to the list, to remove an item prepend it with <code>!!</code></li>
+<li>push - for array: mode append a value</li>
+<li>pass - process only args that match the pass value</li>
+<li>env - env variable name to apply before parsing config files</li>
+<li>merge - if true merge properties with existing object, 'obj' must be provided</li>
+<li>maptype - usually <code>auto</code> to parse map values or can be any value type, for type <code>map</code></li>
+<li>make - works with regexp names like <code>name-([a-z]+)-(.+)</code> to build the final parameter name, can use $1, $2, $3...placeholders</li>
+<li>novalue - skip if value is equal or included in the list, also works for merges</li>
+<li>sort - sort array params</li>
+<li>unique - only keep unique items in lists</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.processEnvArgs"><span class="type-signature type-signature-static">(static) </span>app.processEnvArgs<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Process parameters from env variables</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.processName"><span class="type-signature type-signature-static">(static) </span>app.processName<span class="signature">()</span><span class="type-signature"> &rarr; {string}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return unique process name based on the cluster status, worker or master and the role. This is can be reused by other workers within the role thus
+making it usable for repeating environments or storage solutions.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5 class="h5-returns">Returns:</h5>
+
+        
+<div class="param-desc">
+    <ul>
+<li>process name</li>
+</ul>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">string</span>
+
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.runMethods"><span class="type-signature type-signature-static">(static) </span>app.runMethods<span class="signature">(name, params, options, callback<span class="signature-attributes">opt</span>, allow)</span><span class="type-signature"> &rarr; {undefined}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Run a method for every module, a method must conform to the following signature: <code>function(options, callback)</code> and
+call the callback when finished. The callback second argument will be the parameters passed to each method, the options if provided can
+specify the conditions or parameters which wil be used by the `runMethods`` only.</p>
+<p>The modules's <code>deps</code> property defines the position in the modules list and thus determines the order of calling methods.
+The property contains other module name this module depend on, i.e. it must be placed after it.
+if <code>deps</code> starts with <code>-</code> it means place this module before the other module.
+A single <code>-</code> means place it at the beginningh of the list.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>method name</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>params</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>parameters for the method</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>additional options to control method execution</p>
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>logger_allow</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">array</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>list of properties to be logged only on error instead of params</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>logger_error</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>logger level for error reporting</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>stopOnError</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>if true return an error in the callback to stop processing other methods</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>stopFilter</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>a function that must return true in order to stop execution other methods</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>callback</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>function to be called at the end</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>allow</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">regexp</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>regexp with allowed modules, in options only</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">regexp</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>allowModules - a regexp of the modules names to be called only</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>stopOnError - on first error stop and return, otherwise all errors are ignored and all modules are processed</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>stopFilter - a function to be called after each pass to check if the processing must be stopped, it must return true to stop</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>logger_error - logger level, if not specified an error with status 200 will be reported with log level 'info' and other errors with level 'error'</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>logger_inspect - an object with inspect options to override current inspect parameters</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">array</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>logger_allow - a list of properties allowed in the log on error, this is to prevent logging too much or sensitive data</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>parallel - if true run methods for all modules in parallel using lib.forEach</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>concurrency - if a number greater than 1 run that many methods in parallel using lib.forEachLimit</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>sync - if true treat methods as simple functions without callbacks, methods MUST NOT call the second callback argument but simply return</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code></code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>direct - if true call all methods directly otherwise via setImmediate</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5 class="h5-returns">Returns:</h5>
+
+        
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">undefined</span>
+
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.setHome"><span class="type-signature type-signature-static">(static) </span>app.setHome<span class="signature">(home)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Switch to new home directory, exit if we cannot, this is important for relative paths to work if used,
+no need to do this in worker because we already switched to home directory in the master and all child processes
+inherit current directory
+Important note: If run with combined server or as a daemon then this MUST be an absolute path, otherwise calling
+it in the spawned web master will fail due to the fact that we already set the home and relative path will not work after that.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>home</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>new home directory to chdir</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.setHost"><span class="type-signature type-signature-static">(static) </span>app.setHost<span class="signature">(host<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {string}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Set hostname and domain name</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>host</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>new host name to set</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5 class="h5-returns">Returns:</h5>
+
+        
+<div class="param-desc">
+    <ul>
+<li>current host name</li>
+</ul>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">string</span>
+
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.setLogInspect"><span class="type-signature type-signature-static">(static) </span>app.setLogInspect<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Install internal inspector for the logger, an alternative to the <code>util.inspect</code></p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.showHelp"><span class="type-signature type-signature-static">(static) </span>app.showHelp<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Print help about command line arguments and exit</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.shutdown"><span class="type-signature type-signature-static">(static) </span>app.shutdown<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Shutdown the machine now</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.sortModules"><span class="type-signature type-signature-static">(static) </span>app.sortModules<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Sort modules according to dependencies in <code>deps</code> property.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.start"><span class="type-signature type-signature-static">(static) </span>app.start<span class="signature">(options, shell, watch, nowatch, master, nomaster, api, worker)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Start the server process, runs <code>app.init</code> before switching to the requested role.
+The options can be used to set the role instead of command line args: shell, master, watch, api, worker</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>properties to customize initialization</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>shell</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>run the shell process</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>watch</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>run the watcher process</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>nowatch</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>ignore watcher mode</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>master</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>run the master process</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>nomaster</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>ignore master mode</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>api</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>run the standalone api process</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>worker</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>run the standalone worker process</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.startRepl"><span class="type-signature type-signature-static">(static) </span>app.startRepl<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Start command prompt on TCP socket, context can be an object with properties assigned with additional object to be accessible in the shell</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".app.watchTmp"><span class="type-signature type-signature-static">(static) </span>app.watchTmp<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Watch temp files and remove files that are older than given number of seconds since now, remove only files that match pattern if given
+Options properties:</p>
+<ul>
+<li>path - root folder, relative or absolute</li>
+<li>age - number of seconds a file to be older to be deleted, default 1 day</li>
+<li>include - a regexp that specifies only files to be watched</li>
+<li>exclude - a regexp of files to be ignored</li>
+<li>nodirs - if 1 skip deleting directories</li>
+<li>depth - how deep to go, default is 1</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+    
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+<script src="scripts/search.js" defer></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

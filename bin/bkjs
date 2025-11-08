@@ -305,7 +305,7 @@ case "$BKJS_CMD" in
 
   run|run-master|master|watch|sh|shell|bksh|run-none|none)
     [ -f app.js ] && SCRIPT=app.js
-    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/index.js
+    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/../lib/index.js
 
     debug Starting $NODE_ARGS $SCRIPT $BKJS_RUN_ARGS $@
 

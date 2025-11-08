@@ -58,12 +58,12 @@
   },
   "license": "BSD-3-Clause",
   "bin": {
-    "bkjs": "./bkjs",
-    "bksh": "./bkjs"
+    "bkjs": "./bin/bkjs",
+    "bksh": "./bin/bkjs"
   },
   "files": [
     "LICENSE",
-    "bkjs",
+    "bin",
     "lib/",
     "web/",
     "tools/"
@@ -72,6 +72,6 @@
     "node": "./bkjs install-node",
     "deps": "PATH=$(pwd)/nodejs/bin:$PATH npm install",
     "test": "node --test --test-concurrency=1 tests/**/*.test.js tests/**/*-test.js",
-    "docs": "rm -rf docs/dist && jsdoc -c docs/jsdoc.js"
+    "docs": "rm -rf docs/web && jsdoc -c docs/jsdoc.js"
   }
 }

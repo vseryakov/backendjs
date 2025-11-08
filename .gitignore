@@ -20,8 +20,5 @@
 .env*
 .bkjsrc
 .bkjs_history
-log/
-dist/
-build/
 nodejs
 node_modules

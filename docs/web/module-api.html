@@ -1,0 +1,2489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>api - Documentation</title>
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    
+    <input type="text" id="nav-search" placeholder="Search" />
+    
+    
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="Counter.html">Counter</a><ul class='typedefs'></ul></li><li><a href="Pool.html">Pool</a><ul class='typedefs'></ul></li><li><a href="WebpushClient.html">WebpushClient</a><ul class='typedefs'></ul></li><li><a href="module-Fetch.FetchRequest.html">FetchRequest</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-Fetch.FetchRequest.html#parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="module-Fetch.FetchRequest.html#toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.CacheClient.html">CacheClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#get">get</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#limiter">limiter</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li><li><a href="module-db.db.Pool.html">db.Pool</a><ul class='typedefs'></ul></li><li><a href="module-db.db.SqlPool.html">db.SqlPool</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.ElasticsearchPool.html">ElasticsearchPool</a><ul class='typedefs'></ul></li><li><a href="module-queue.EventBridgeClient.html">EventBridgeClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.JSONClient.html">JSONClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.NatsClient.html">NatsClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.QueueClient.html">QueueClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#channel">channel</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#monitor">monitor</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#schedule">schedule</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-queue.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SNSClient.html">SNSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SQSClient.html">SQSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li></ul><h3>Modules</h3><ul><li><a href="module-Fetch.html">Fetch</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-Fetch.html#~Fetch">Fetch</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api.html">api</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api.html#.api.checkProxy">api.checkProxy</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.checkRateLimits">api.checkRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.checkRedirectPlaceholders">api.checkRedirectPlaceholders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.cleanupHeaders">api.cleanupHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.cleanupResult">api.cleanupResult</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.createServer">api.createServer</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.getResultPage">api.getResultPage</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.getTokenSecret">api.getTokenSecret</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleBody">api.handleBody</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleCleanup">api.handleCleanup</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleMetrics">api.handleMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.handleMultipart">api.handleMultipart</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.init">api.init</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.prepareOptions">api.prepareOptions</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.prepareRequest">api.prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.registerPreHeaders">api.registerPreHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.registerRateLimits">api.registerRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendFile">api.sendFile</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendFormatted">api.sendFormatted</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendJSON">api.sendJSON</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendReply">api.sendReply</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.sendStatus">api.sendStatus</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.shutdown">api.shutdown</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.startMetrics">api.startMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.api.toParams">api.toParams</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-app.html">app</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-app.html#.app.addModule">app.addModule</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.checkConfig">app.checkConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.createRepl">app.createRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.fetch">app.fetch</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.init">app.init</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.isOk">app.isOk</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.killBackend">app.killBackend</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.loadModules">app.loadModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.loadPackages">app.loadPackages</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.parseArgs">app.parseArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.parseConfig">app.parseConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processArg">app.processArg</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processArgs">app.processArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processEnvArgs">app.processEnvArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.processName">app.processName</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.runMethods">app.runMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.setHome">app.setHome</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.setHost">app.setHost</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.setLogInspect">app.setLogInspect</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.showHelp">app.showHelp</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.shutdown">app.shutdown</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.sortModules">app.sortModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.start">app.start</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.startRepl">app.startRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.app.watchTmp">app.watchTmp</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-aws.html">aws</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwGetMetricData">aws.cwGetMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwListMetrics">aws.cwListMetrics</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutLogEvents">aws.cwPutLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricAlarm">aws.cwPutMetricAlarm</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricData">aws.cwPutMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwlFilterLogEvents">aws.cwlFilterLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchGetItem">aws.ddbBatchGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchWriteItem">aws.ddbBatchWriteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbCreateTable">aws.ddbCreateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteItem">aws.ddbDeleteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteTable">aws.ddbDeleteTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDescribeTable">aws.ddbDescribeTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbGetItem">aws.ddbGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbPutItem">aws.ddbPutItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbQueryTable">aws.ddbQueryTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbScanTable">aws.ddbScanTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbTransactWriteItems">aws.ddbTransactWriteItems</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbUpdateItem">aws.ddbUpdateItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbUpdateTable">aws.ddbUpdateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbUpdateTimeToLive">aws.ddbUpdateTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbWaitForTable">aws.ddbWaitForTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCW">aws.queryCW</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCWL">aws.queryCWL</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.querySQS">aws.querySQS</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsReceiveMessage">aws.sqsReceiveMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsSendMessage">aws.sqsSendMessage</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.html">cache</a><ul class='typedefs'></ul></li><li><a href="module-db.html">db</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-db.html#.aquery">aquery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.add">db.add</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.batch">db.batch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.bulk">db.bulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.cacheColumns">db.cacheColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.configTypes">db.configTypes</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.copy">db.copy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.create">db.create</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.createTables">db.createTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.del">db.del</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.delAll">db.delAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.describeTables">db.describeTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.drop">db.drop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.dropTables">db.dropTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.get">db.get</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.getPool">db.getPool</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.incr">db.incr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.init">db.init</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.initColumns">db.initColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.initConfig">db.initConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.initTables">db.initTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.join">db.join</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.list">db.list</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepare">db.prepare</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepareColumn">db.prepareColumn</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepareForUpdate">db.prepareForUpdate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.prepareReq">db.prepareReq</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.put">db.put</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.queryProcessSync">db.queryProcessSync</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.refreshColumns">db.refreshColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.scan">db.scan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.search">db.search</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.select">db.select</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.setConfig">db.setConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sql">db.sql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sqlCreate">db.sqlCreate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sqlExpr">db.sqlExpr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.sqlWhere">db.sqlWhere</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.transaction">db.transaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.update">db.update</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.updateAll">db.updateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.db.upgrade">db.upgrade</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.query">query</a></li></ul><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-db.html#~DBRequest">DBRequest</a></li><li data-type='typedef' style='display: none;'><a href="module-db.html#~DBRequestOptions">DBRequestOptions</a></li><li data-type='typedef' style='display: none;'><a href="module-db.html#~DBResultCallback">DBResultCallback</a></li></ul></li><li><a href="module-db_elasticsearch.html">db/elasticsearch</a><ul class='typedefs'></ul></li><li><a href="module-events.html">events</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-events.html#.events.putEvent">events.putEvent</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-ipc.html">ipc</a><ul class='typedefs'></ul></li><li><a href="module-jobs.html">jobs</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-jobs.html#~_badJob">_badJob</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-lib.html">lib</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib.html#.lib.configParse">lib.configParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.lib.jsonParse">lib.jsonParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.lib.xmlParse">lib.xmlParse</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logger.html">logger</a><ul class='typedefs'></ul></li><li><a href="module-logwatcher.html">logwatcher</a><ul class='typedefs'></ul></li><li><a href="module-metrics.html">metrics</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-metrics.html#.toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-push.html">push</a><ul class='typedefs'></ul></li><li><a href="module-queue.html">queue</a><ul class='typedefs'></ul></li><li><a href="module-sendmail.html">sendmail</a><ul class='typedefs'></ul></li><li><a href="module-stats.html">stats</a><ul class='typedefs'></ul></li><li><a href="module-ws.html">ws</a><ul class='typedefs'></ul></li></ul><h3>Tutorials</h3><ul><li><a href="tutorial-README.html">README</a><ul class='typedefs'></ul></li><li><a href="tutorial-configureModules.html">configureModules</a><ul class='typedefs'></ul></li></ul><h3>Global</h3><ul><li><a href="global.html#ExponentiallyMovingWeightedAverage">ExponentiallyMovingWeightedAverage</a></li><li><a href="global.html#Meter">Meter</a></li><li><a href="global.html#_skip32table">_skip32table</a></li><li><a href="global.html#lib">lib</a></li><li><a href="global.html#mod">mod</a></li><li><a href="global.html#net">net</a></li><li><a href="global.html#perf_hooks">perf_hooks</a></li><li><a href="global.html#runMethod">runMethod</a></li></ul>
+    
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">api</h1>
+    
+
+    
+
+
+
+
+<section>
+
+<header>
+    
+        
+            
+        
+    
+</header>
+
+<article>
+    
+        <div class="container-overview">
+        
+            
+
+            
+                
+
+    
+
+    <h4 class="name" id="module:api"><span class="type-signature"></span>module:api<span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>HTTP API to the server from the clients, this module implements the basic HTTP(S) API functionality with some common features. The API module
+incorporates the Express server which is exposed as <code>api.app</code> object, the master server spawns Web workers which perform actual operations and monitors
+the worker processes if they die and restart them automatically. How many processes to spawn can be configured via <code>-server-max-workers</code> config parameter.</p>
+<p>When an HTTP request arrives it goes over Express middleware, but before processing any registered routes there are several steps performed:</p>
+<ul>
+<li>the <code>req</code> object which is by convention is a Request object, assigned with common backend properties to be used later:
+<ul>
+<li>user - an empty object which will be filled after by signature verification method, if successful, properties from the <code>bk_user</code> table will be set</li>
+<li>options - an object with internal state and control parameters. Every request always has an options object attached very
+early with some properties always present:
+<ul>
+<li>ip - cached IP address</li>
+<li>host - cached host header from the request</li>
+<li>path - parsed request url path</li>
+<li>apath - an array with the path split by /</li>
+<li>secure - if the request is encrypted, like https</li>
+<li>appTimezone - milliseconds offset from the UTC provided in the header by the app</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>access verification, can the request be satisfied without proper signature, i.e. is this a public request</li>
+<li>autherization, check the signature and other global or user specific checks</li>
+<li>when a API route found by the request url, it is called as any regular Express middlware
+<ul>
+<li>if there are registered pre processing callback they will be called during access or autherization phases</li>
+<li>if inside the route a response was returned using <code>api.sendJSON</code> method, registered post process callbacks will be called for such response</li>
+</ul>
+</li>
+</ul>
+<p>Every request has the <code>trace</code> property, either fake or X-Ray depending on the config, see metrics for usage</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            
+        
+        </div>
+    
+
+    
+
+    
+
+    
+
+    
+    
+    
+
+     
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.checkProxy"><span class="type-signature type-signature-static">(static) </span>api.checkProxy<span class="signature">()</span><span class="type-signature"> &rarr; {string}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Web proxy: checkProxy(&quot;web&quot;, req, res)
+WS proxy: checkProxy(&quot;ws&quot;, req, socket, head)</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5 class="h5-returns">Returns:</h5>
+
+        
+<div class="param-desc">
+    <ul>
+<li>a host matched or undefined</li>
+</ul>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">string</span>
+
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.checkRateLimits"><span class="type-signature type-signature-static">(static) </span>api.checkRateLimits<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Perform rate limiting by specified property, if not given no limiting is done.</p>
+<p>The following options properties can be used:</p>
+<ul>
+<li>
+<p>type - determines by which property to perform rate limiting, when using user properties
+the rate limiter should be called after the request signature has been parsed. Any other value is treated as
+custom type and used as is. If it is an array all items will be checked sequentially.
+<strong>This property is required.</strong></p>
+<p>The predefined types checked for every request:</p>
+<ul>
+<li>
+<p>ip - check every IP address</p>
+</li>
+<li>
+<p>path - limit by path and IP address, * can be used at the end to match only the beginning,
+method can be placed before the path to use different rates for the same path by request method</p>
+<p>-api-rlimits-rate-ip=100
+-api-rlimits-rate-/api/path=2
+-api-rlimits-rate-GET/api/path=10
+-api-rlimits-rate-/api/path/<em>=1
+-api-rlimits-rate-/api/path/127.0.0.1=100
+-api-rlimits-map-/api/</em>=rate:100,interval:1000</p>
+</li>
+</ul>
+</li>
+<li>
+<p>ip - to use the specified IP address</p>
+</li>
+<li>
+<p>max - max capacity to be used by default</p>
+</li>
+<li>
+<p>rate - fill rate to be used by default</p>
+</li>
+<li>
+<p>interval - interval in ms within which the rate is measured, default 1000 ms</p>
+</li>
+<li>
+<p>message - more descriptive text to be used in the error message for the type, if not specified a generic error message is used</p>
+</li>
+<li>
+<p>queue - which queue to use instead of the default, some limits is more useful with global queues like Redis instead of the default</p>
+</li>
+<li>
+<p>delay - time in ms to delay the response, slowing down request rate</p>
+</li>
+<li>
+<p>multiplier - multiply the interval after it consumed all tokens, subsequent checks use the increased interval, fractions supported,
+if the multiplier is positive then the interval will keep increasing indefinitely, if it is negative the interval will reset to the default
+value on first successful consumption</p>
+</li>
+</ul>
+<p>The metrics are kept in the LRU cache in the process by default or in cluster mode in the server process.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>api.checkRateLimits(req, { type: "ip", rate: 100, interval: 60000 }, (err, info) => {
+    if (err) return api.sendReply(err);
+    ...
+ });</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.checkRedirectPlaceholders"><span class="type-signature type-signature-static">(static) </span>api.checkRedirectPlaceholders<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Replace redirect placeholders</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.cleanupHeaders"><span class="type-signature type-signature-static">(static) </span>api.cleanupHeaders<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>For now just convert cookies into an object so logger can process</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.cleanupResult"><span class="type-signature type-signature-static">(static) </span>api.cleanupResult<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Process records and keep only public properties as defined in the table columns. This method is supposed to be used in the post process
+callbacks after all records have been processes and are ready to be returned to the client, the last step would be to cleanup
+all non public columns if necessary.</p>
+<p><code>table</code> can be a single table name or a list of table names which combined public columns need to be kept in the rows. List of request tables
+is kept in the <code>req.options.cleanup</code> which by default is empty.</p>
+<p>By default primary keys are not kept and must be marked with <code>pub</code> property in the table definition to be returned.</p>
+<p>If any column is marked with <code>priv</code> property is never returned.</p>
+<p>The <code>options.isInternal</code> allows to return everything except 'priv' columns</p>
+<p>Columns with the <code>pub_admin</code> property will be returned only if <code>options.isAdmin</code> is truish,
+same with the <code>pub_staff</code> property, it requires <code>options.isStaff</code>.</p>
+<p>To return data based on the current user roles a special property in the format <code>pub_types</code> must be set as a string or an array
+with roles to be present in the current user <code>type`` field. This is checked only if the column is allowed, this is an additional restriction, i.e. a column must be allowed by the </code>pub` property or other way.</p>
+<p>To retstrict by role define <code>priv_types</code> in a column with a list of roles which should be denied access to the field.</p>
+<p>The <code>req.options.pool</code> property must match the actual rowset to be applied properly, in case the records
+have been retrieved for the different database pool.</p>
+<p>The <code>req.options.cleanup_strict</code> will enforce that all columns not present in the table definition will be skipped as well, by default all
+new columns or columns created on the fly are returned to the client. <code>api.cleanupStrict=1</code> can be configured globally.</p>
+<p>The <code>req.options.cleanup_rules</code> can be an object with property names and the values 0, or 1 for <code>pub</code> or <code>2</code> for <code>admin`` or </code>3<code>for</code>staff``</p>
+<p>The <code>req.options.cleanup_copy</code> means to return a copy of every modified record, the original data is preserved</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.createServer"><span class="type-signature type-signature-static">(static) </span>api.createServer<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Create a Web server with options and request handler, returns a server object.</p>
+<p>Options can have the following properties:</p>
+<ul>
+<li>port - port number is required</li>
+<li>bind - address to bind</li>
+<li>restart - name of the processes to restart on address in use error, usually &quot;web&quot;</li>
+<li>ssl - an object with SSL options for TLS createServer call</li>
+<li>timeout - number of milliseconds for the request timeout</li>
+<li>keepAliveTimeout - number of milliseconds to keep the HTTP connecton alive</li>
+<li>requestTimeout - number of milliseconds to receive the entire request from the client</li>
+<li>maxRequestsPerSocket - number of requests a socket can handle before closing keep alive connection</li>
+<li>maxHeaderSize - maximum length of request headers in bytes</li>
+<li>name - server name to be assigned</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.getResultPage"><span class="type-signature type-signature-static">(static) </span>api.getResultPage<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return an object to be returned to the client as a page of result data with possibly next token
+if present in the info. This result object can be used for pagination responses.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.getTokenSecret"><span class="type-signature type-signature-static">(static) </span>api.getTokenSecret<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return a secret to be used for enrypting tokens, it uses the user property if configured or the global API token
+to be used to encrypt data and pass it to the clients. <code>-api-query-token-secret</code> can be configured and if a column in the <code>bk_user</code>
+with such name exists it is used as a secret, otherwise the <code>api.queryTokenSecret</code> is used as a secret.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.handleBody"><span class="type-signature type-signature-static">(static) </span>api.handleBody<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Parse incoming query parameters in the request body, this is default middleware called early before authenticatoion.
+Only methods in <code>-api-body-methods</code> processed, defaults are POST/PUT/PATCH.
+Store parsed parameters in the <code>req.body</code>.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.handleCleanup"><span class="type-signature type-signature-static">(static) </span>api.handleCleanup<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Call registered cleanup hooks and clear the request explicitly</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.handleMetrics"><span class="type-signature type-signature-static">(static) </span>api.handleMetrics<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Finish metrics collection about the current rquest</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.handleMultipart"><span class="type-signature type-signature-static">(static) </span>api.handleMultipart<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Parse multipart forms for uploaded files, this must be called explicitly by the endpoints that need uploads.</p>
+<p>Example</p>
+<pre><code>   api.app.post(&quot;/upload&quot;, api.handleMultipart, (req, res, next) =&gt; {
+       if (req.files.file) ....
+   })
+</code></pre>
+<p>Another global way to handle uploads for many endpoints is to call it for all known paths at once before the actual
+upload handlers.</p>
+<pre><code>   api.app.post(/^\/upload\//, api.handleMultipart, (req, res, next) =&gt; (next(&quot;route&quot;)));
+   ...
+   api.app.post(&quot;/upload/icon&quot;, (req, res, next) =&gt; {
+   ...
+   api.app.post(&quot;/upload/icon&quot;, (req, res, next) =&gt; {
+</code></pre>
+<p>The api module handles uploads automatically for configured paths via <code>-api-allow-multipart</code> config parameter.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.init"><span class="type-signature type-signature-static">(static) </span>api.init<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Initialize API layer, this must be called before the <code>api</code> module can be used but it is called by the server module automatically so <code>api.init</code> is
+rearely need to called directly, only for new server implementation or if using in the shell for testing.</p>
+<p>During the init sequence, this function calls <code>configureMiddleware</code> and <code>configureWeb</code> methods of all modules.</p>
+<p>The api uses its own request parser that places query parameters into <code>req.query</code> or <code>req.body</code> depending on the method.</p>
+<p>For GET method, <code>req.query</code> contains all url-encoded parameters, for POST method <code>req.body</code> contains url-encoded parameters or parsed JSON payload or multipart payload.</p>
+<p>The reason not to do this by default is that this may not be the always wanted case and distinguishing data coming in the request or in the body may be desirable,
+also, this will needed only for Express handlers <code>.all</code>, when registering handler by method like <code>.get</code> or <code>.post</code> then the handler needs to deal with only either source of the request data.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.prepareOptions"><span class="type-signature type-signature-static">(static) </span>api.prepareOptions<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Parse or re-parse special headers about app version, language and timezone, it is called early to parse headers first and then
+right after the query parameters are available, query values have higher priority than headers.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.prepareRequest"><span class="type-signature type-signature-static">(static) </span>api.prepareRequest<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Prepare request options that the API routes will merge with, can be used by pre process hooks, initialize
+required properties for subsequent use</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.registerPreHeaders"><span class="type-signature type-signature-static">(static) </span>api.registerPreHeaders<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Register a callback to be called just before HTTP headers are flushed, the callback may update response headers</p>
+<ul>
+<li>callback is a function(req, res, statusCode)</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.registerRateLimits"><span class="type-signature type-signature-static">(static) </span>api.registerRateLimits<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Register access rate limit for a given name, all other rate limit properties will be applied as described in the <code>checkRateLimits</code></p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.sendFile"><span class="type-signature type-signature-static">(static) </span>api.sendFile<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Send file back to the client, res is Express response object</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.sendFormatted"><span class="type-signature type-signature-static">(static) </span>api.sendFormatted<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Send result back formatting according to the options properties:</p>
+<ul>
+<li>format - json, csv, xml, JSON is default</li>
+<li>separator - a separator to use for CSV and other formats</li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.sendJSON"><span class="type-signature type-signature-static">(static) </span>api.sendJSON<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in the apps.
+If err is not null the error message is returned immediately.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.sendReply"><span class="type-signature type-signature-static">(static) </span>api.sendReply<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Send formatted JSON reply to an API client, if status is an instance of Error then error message with status 500 is sent back.</p>
+<p>If the status is an object it is sent as is.</p>
+<p>All Error objects will return a generic error message without exposing the real error message, it will log all error exceptions in the logger
+subject to log throttling configuration.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.sendStatus"><span class="type-signature type-signature-static">(static) </span>api.sendStatus<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return reply to the client using the options object, it contains the following properties:</p>
+<ul>
+<li>status - defines the respone status code</li>
+<li>message  - property to be sent as status line and in the body</li>
+<li>type - defines Content-Type header, the message will be sent in the body</li>
+<li>url - for redirects when status is 301, 302...</li>
+</ul>
+<p><strong>i18n Note:</strong></p>
+<p>The API server attaches fake i18n functions <code>req.__</code> and <code>res.__</code> which are used automatically for the <code>message</code> property
+before sending the response.</p>
+<p>With real i18n module these can/will be replaced performing actual translation without
+using <code>i18n.__</code> method for messages explicitely in the application code for <code>sendStatus</code> or <code>sendReply</code> methods.</p>
+<p>Replies can be delayed per status via <code>api.delays</code> if configured, to override any daly set
+<code>req.options.sendDelay</code> to nonzero value, negative equals no delay</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.shutdown"><span class="type-signature type-signature-static">(static) </span>api.shutdown<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Gracefully close all connections, call the callback after that</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.startMetrics"><span class="type-signature type-signature-static">(static) </span>api.startMetrics<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>This is supposed to be called at the beginning of request processing to start metrics and install the handler which
+will be called at the end to finalize the metrics and call the cleanup handlers.</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".api.toParams"><span class="type-signature type-signature-static">(static) </span>api.toParams<span class="signature">()</span><span class="type-signature"> &rarr; {object|string}</span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Parse body/query parameters according to the <code>schema</code> by using <code>lib.toParams</code>,
+uses the req.body if present or req.query.</p>
+<ul>
+<li><code>options.defaults</code> - merged with global <code>queryDefaults</code></li>
+<li><code>options.query</code> - use only <code>req.query</code></li>
+</ul></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5 class="h5-returns">Returns:</h5>
+
+        
+<div class="param-desc">
+    <ul>
+<li>a query object or an error message or null</li>
+</ul>
+</div>
+
+
+
+<dl class="param-type">
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">object</span>
+|
+
+<span class="param-type">string</span>
+
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>var query = api.toParams(req, { q: { required: 1 } }, { null: 1 });</code></pre>
+
+
+
+
+
+        
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+    
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/polyfill.js"></script>
+<script src="scripts/linenumber.js"></script>
+
+<script src="scripts/search.js" defer></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

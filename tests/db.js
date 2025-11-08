@@ -365,10 +365,10 @@ tests.test_db = function(callback)
             assert(rows?.length!=3 , "expcted 3 rows by exact joined secondary key:", rows, ids);
 
 
-            rows = await db.aselect("test2", { id: key, $or: { key2: 2, kkey2: 3 } }, { aliases: { kkey2: "key2" } });
+            rows = await db.aselect("test2", { id: key, or$: { key2: 2, kkey2: 3 } }, { aliases: { kkey2: "key2" } });
             assert(rows?.length!=2 , "must be 2 records by OR condition with aliases", rows);
 
-            rows = await db.aselect("test2", { id: key, $or: { key2: 2, $key2: 3 } } );
+            rows = await db.aselect("test2", { id: key, or$: { key2: 2, $key2: 3 } } );
             assert(rows?.length!=2 , "must be 2 records by OR condition with $ as alias", rows);
 
             next();

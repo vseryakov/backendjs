@@ -90,7 +90,7 @@ client.send = function(dev, options, callback)
         retryTimeout: agent.retryTimeout || this.retryTimeout || 1000,
         retryOnError: client.retryOnError,
     };
-    app.httpGet('https://fcm.googleapis.com/fcm/send', opts, function(err, params) {
+    app.fet('https://fcm.googleapis.com/fcm/send', opts, function(err, params) {
         if (!err && params.status >= 400) err = lib.newError(params.status + ": " + params.data, params.status);
         logger[err ? "error" : "debug"]("send:", client.name, dev, msg, err);
         if (params.obj) {
