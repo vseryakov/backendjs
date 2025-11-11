@@ -21,11 +21,26 @@ module.exports = {
         destination: "./docs/web",
         recurse: true,
         readme: "README.md",
-        tutorials: "docs/src"
+        tutorials: "docs/src",
     },
     docdash: {
         search: true,
         collapse: true,
         typedefs: true,
+        meta: {
+            title: "Backendjs Documentation",
+            description: "A Node.js library to create Web backends with minimal dependencies.",
+        },
+        sectionOrder: [
+             "Tutorials",
+             "Modules",
+             "Classes",
+             "Externals",
+             "Events",
+             "Namespaces",
+             "Mixins",
+             "Interfaces",
+             "Global"
+        ],
     }
 };

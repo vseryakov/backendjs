@@ -6,10 +6,10 @@ A full-featured Kanban board application built with Alpine.js and Alpinejs-app, 
 
 - **Framework**: Backendjs with Alpinejs-app
 - **Database**: SQLite (local) / PostgreSQL (production)
-- **Deployment**: Cloudflare Pages
-- **Styling**: Tailwind CSS + Bootstrap 5
-- **Drag & Drop**: @formkit/drag-and-drop
-- **Animations**: @formkit/auto-animate
+- **Deployment**: none
+- **Styling**: Bootstrap 5
+- **Drag & Drop**: native
+- **Animations**: Alpine.js
 - **Charts**: charts.css
 - **Validation**: Valibot
 
@@ -62,7 +62,7 @@ src/
 │   └── card.js        # Card API
 tools/
 └── seed.js            # DB seed file
-/tmp/kanban.db         # Local SQLite database
+kanban.db              # Local SQLite database
 ```
 
 ## Features

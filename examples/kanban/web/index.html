@@ -1,7 +1,6 @@
 <head>
     <title>Boards - Kanban</title>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <meta name="description" content="Manage your Kanban boards and organize your workflow efficiently." />
     <link href="/css/bootstrap.css" rel="stylesheet">
 </head>
 
@@ -13,22 +12,19 @@
 
     <!-- These scripts below are included in backendjs, we only load what we need -->
 
-    <script src="/js/bootstrap.js"></script>
     <script src="/js/app.js"></script>
-    <script src="/js/bootpopup.js"></script>
+    <script src="/js/bootstrap.js"></script>
     <script src="/js/alpine.js"></script>
 
     <!-- Our scripts -->
 
-    <script src="/index.js"></script>
-    <script src="/board.js"></script>
-    <script src="/card.js"></script>
+    <script src="index.js"></script>
 
 </body>
 
 <template id=index>
   <main class="w-full max-w-4xl mx-auto p-8 space-y-10 rounded-[2.5rem] bg-base-100 dark:bg-base-200 shadow-xl">
-    <header class="text-center space-y-3">
+    <header class="text-center py-3">
       <p class="text-sm uppercase tracking-wide text-secondary">
         Your workspace
       </p>
@@ -38,21 +34,14 @@
       </p>
     </header>
 
-    <div class="flex justify-end">
-      <button
-        type="button"
-        @click="showAddBoardModal = true"
-        class="btn btn-primary"
-      >
+    <div class="d-flex justify-content-end">
+      <button type="button" class="btn btn-primary">
         Add Board
       </button>
     </div>
 
     <section class="grid gap-8 md:grid-cols-2">
-      <div
-        v-if="!pending && (!boards || boards.length === 0)"
-        class="card bg-base-200 dark:bg-base-300 shadow-xl"
-      >
+      <div v-if="!pending && (!boards || boards.length === 0)" class="card bg-base-200 dark:bg-base-300 shadow-xl">
         <div class="card-body items-center text-center mx-auto">
           <h2 class="card-title text-secondary">No boards yet</h2>
           <p class="text-base-content/60">
@@ -62,9 +51,7 @@
       </div>
 
       <template v-if="boards && boards.length > 0">
-        <NuxtLink
-          v-for="board in boards"
-          :key="board.id"
+        <template x-for="board in boards" :key="board.id"
           :to="`/board/${board.id}`"
           class="card bg-base-200 dark:bg-base-300 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all"
         >
@@ -85,13 +72,6 @@
         </NuxtLink>
       </template>
     </section>
-
-    <LazyAddBoardModal
-      v-if="showAddBoardModal"
-      hydrate-on-visible
-      @close="showAddBoardModal = false"
-      @board-add="handleBoardAdd"
-    />
   </main>
 </template>
 

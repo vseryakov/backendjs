@@ -6,9 +6,9 @@
  "repository": { "type": "git", "url": "http://github.com/vseryakov/backendjs.git" },
  "main": "app.js",
  "dependencies": {
-    "backendjs": ">=0.9.0"
+    "backendjs": "latest"
  },
- "engines": { "node": ">= 0.10" },
+ "engines": { "node": ">= 24.0" },
  "eslintConfig": {
     "env": {
         "browser": true
@@ -23,8 +23,8 @@
     }
  },
  "scripts": {
-    "init": "app.sh -shell -db-create-tables -user-add roles admin login admin secret admin name admin",
-    "start": "app.sh"
+    "init": "bksh -db-create-tables -user-add roles admin login admin secret admin name admin",
+    "start": "bkjs run -api -watch"
  },
  "license": "BSD-3-Clause"
 }

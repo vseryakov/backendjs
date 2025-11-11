@@ -78,7 +78,6 @@ tests.test_config = function(callback)
                 "-db-sqlite-pool-max", "10",
                 "-db-sqlite1-pool", "a",
                 "-db-sqlite1-pool-max", "10",
-                "-db-sqlite1-pool-options-cache-columns", "1",
                 "-db-sqlite1-pool-options-test", "test",
                 "-db-sqlite-pool-options-discovery-interval", "30000",
                 "-db-sqlite-pool-options-map.test", "test",
@@ -112,7 +111,6 @@ tests.test_config = function(callback)
 
     assert(db._config.sqlite1?.url != "a", "invalid sqlite1 url", db._config.sqlite1);
     assert(db._config.sqlite1.max != 10, "invalid sqlite1 max", db._config.sqlite1);
-    assert(!db._config.sqlite1.configOptions.cacheColumns, "invalid sqlite1 cache-columns", db._config.sqlite1);
     assert(db._config.sqlite.configOptions.discoveryInterval != 30000, "invalid sqlite interval", db._config.sqlite);
     assert(db._config.sqlite.configOptions['map.test'] != "test", "invalid sqlite map", db._config.sqlite);
     assert(db._config.sqlite1.configOptions.test != "test", "invalid sqlite1 map", db._config.sqlite1);

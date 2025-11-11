@@ -1,0 +1,21 @@
+{
+     "01-start": {
+         "title": "Getting Started"
+     },
+     "02-app": {
+         "title": "Applications"
+     },
+     "03-reference": {
+         "title": "Reference"
+     },
+     "04-bkjs": {
+         "title": "bkjs tool"
+     },
+     "05-methods": {
+         "title": "Module lifecycle"
+     },
+     "06-config": {
+         "title": "Config parameters"
+     }
+ }
+ 

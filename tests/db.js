@@ -44,7 +44,7 @@ tests.test_db = function(callback)
             id: { primary: 1, pub: 1, trim: 1 },
             num: { type: "counter", value: 0, pub: 1 },
             type: { pub: 1 },
-            notempty: { notempty: 1 },
+            notempty: { not_empty: 1 },
             ddd: { dflt: "1" },
             mtime: { type: "now", pub: 1 },
             obj: { type: "obj" },

@@ -16,6 +16,7 @@
 *.tar.gz
 *.zip
 *.js.map
+*.db
 .history
 .env*
 .bkjsrc

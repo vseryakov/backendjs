@@ -1,6 +1,6 @@
-const { db, lib } = require('../../../lib/index');
+const { db, shell } = require('backendjs');
 
-const timestamp = (day: number, hour: number, minute = 0) => new Date(Date.UTC(2024, 0, day, hour, minute).getTime());
+const timestamp = (day, hour, minute = 0) => new Date(Date.UTC(2024, 0, day, hour, minute)).getTime();
 
 const usersData = [
   { id: '2cd5fecb-eee6-4cd1-8639-1f634b900a3b', name: 'Loren' },
@@ -11,102 +11,101 @@ const usersData = [
 ];
 
 const boardsData = [
-  { id: 'b05927a0-76d2-42d5-8ad3-a1b93c39698c', title: 'Product Launch', description: 'Launch prep checklist', createdAt: timestamp(1, 9) },
-  { id: '2b126cd1-627d-489f-81e9-2868305f1945', title: 'Website Refresh', description: 'Marketing site overhaul', createdAt: timestamp(1, 10) },
+  { id: 'b05927a0-76d2-42d5-8ad3-a1b93c39698c', title: 'Product Launch', description: 'Launch prep checklist', created_at: timestamp(1, 9) },
+  { id: '2b126cd1-627d-489f-81e9-2868305f1945', title: 'Website Refresh', description: 'Marketing site overhaul', created_at: timestamp(1, 10) },
 ];
 
 const listTitles = ['Todo', 'In-Progress', 'QA', 'Done'];
 
-const listIds = [
+const list_ids = [
   ['7e331af8-1641-4d2b-81e8-1b23085d17fe', '3ce313c4-7ad5-4e24-896f-9609dfc35dd0', '29d2b707-41d9-42a9-8d13-9f5380add228', '5fb8a343-78f7-4891-85fa-5a17db87151c'],
   ['22202c8e-3976-4775-8832-8bc3961d8fed', 'cf98cc8a-e59a-4590-8fcd-f1d89a8975c8', '089da10e-c76a-4ff6-8928-fd352a3ddd04', '42047e01-87ea-4ec6-8ec2-d539b10b3c64'],
 ];
 
-const listsData = boardsData.flatMap((board, boardIndex) =>
-  listTitles.map((title, titleIndex) => {
-    const id = listIds[boardIndex]?.[titleIndex];
+const listsData = boardsData.flatMap((board, boardIndex) => listTitles.map((title, titleIndex) => {
+    const id = list_ids[boardIndex]?.[titleIndex];
     if (!id) {
       throw new Error(`Missing list ID for board ${boardIndex}, title ${titleIndex}`);
     }
     return {
       id,
-      boardId: board.id,
+      board_id: board.id,
       title,
       position: titleIndex + 1,
-      createdAt: timestamp(2 + boardIndex, 8 + titleIndex),
+      created_at: timestamp(2 + boardIndex, 8 + titleIndex),
     };
   }),
 );
 
-const listIdByKey = new Map<string, string>();
+const list_idByKey = new Map();
 for (const list of listsData) {
-  listIdByKey.set(`${list.boardId}:${list.title}`, list.id);
+  list_idByKey.set(`${list.board_id}:${list.title}`, list.id);
 }
 
-const ensureListId = (boardId: string, title: string) => {
-  const id = listIdByKey.get(`${boardId}:${title}`);
+const ensurelist_id = (board_id, title) => {
+  const id = list_idByKey.get(`${board_id}:${title}`);
   if (!id) {
-    throw new Error(`Missing list for ${boardId} ${title}`);
+    throw new Error(`Missing list for ${board_id} ${title}`);
   }
   return id;
 };
 
 const cardsData = [
-  { id: '4c01f11d-3c41-414f-83b2-5e9bba2cefa6', listId: ensureListId('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'Todo'), title: 'Draft product brief', description: 'Summarize goals and success metrics.', assigneeId: '2cd5fecb-eee6-4cd1-8639-1f634b900a3b', position: 1, completed: false, createdAt: timestamp(4, 9) },
-  { id: 'f3a93a34-956e-43cd-8d7a-acae880153f2', listId: ensureListId('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'Todo'), title: 'Complete market research', description: 'Compile competitor landscape report.', assigneeId: '288bc717-a551-4a91-8d9d-444d13addb68', position: 2, completed: false, createdAt: timestamp(4, 10) },
-  { id: '21f71319-8641-42bb-8e3c-b9002fed25a4', listId: ensureListId('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'In-Progress'), title: 'Build demo environment', description: 'Set up walkthrough environment with sample data.', assigneeId: 'ce642ef6-6367-406e-82ea-b0236361440f', position: 1, completed: false, createdAt: timestamp(4, 11) },
-  { id: 'd3d8171c-5025-4cff-88d6-2542ae13f2d3', listId: ensureListId('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'In-Progress'), title: 'Assemble sales kit', description: 'Draft enablement materials for sales team.', assigneeId: '9689b595-abe1-4589-838c-1958aae53a94', position: 2, completed: false, createdAt: timestamp(4, 12) },
-  { id: '5868fe01-1f50-4e22-808c-276c8a884a61', listId: ensureListId('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'QA'), title: 'Validate QA checklist', description: 'Verify release criteria with QA leads.', assigneeId: '6ef2bf51-f656-49ac-843f-5954a6f2a00b', position: 1, completed: false, createdAt: timestamp(4, 13) },
-  { id: 'bc98f392-ca0b-4842-8f58-2b14d3959f04', listId: ensureListId('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'QA'), title: 'Schedule executive sign-off', description: 'Coordinate leadership review session.', assigneeId: '2cd5fecb-eee6-4cd1-8639-1f634b900a3b', position: 2, completed: false, createdAt: timestamp(4, 14) },
-  { id: '5125d378-d1e4-4be3-8f92-df5e7115a160', listId: ensureListId('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'Done'), title: 'Document kickoff notes', description: 'Capture key decisions from project kickoff.', assigneeId: 'ce642ef6-6367-406e-82ea-b0236361440f', position: 1, completed: true, createdAt: timestamp(3, 9) },
-  { id: '8808dae4-ad94-46b5-89db-46edb52efe13', listId: ensureListId('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'Done'), title: 'Record budget approval', description: 'Log finance approval confirmation.', assigneeId: '288bc717-a551-4a91-8d9d-444d13addb68', position: 2, completed: true, createdAt: timestamp(3, 10) },
-  { id: '0b20a227-1243-4403-8df8-db7a1db1770d', listId: ensureListId('2b126cd1-627d-489f-81e9-2868305f1945', 'Todo'), title: 'Create homepage wireframes', description: 'Prepare wireframes for hero, features, and pricing.', assigneeId: '6ef2bf51-f656-49ac-843f-5954a6f2a00b', position: 1, completed: false, createdAt: timestamp(5, 9) },
-  { id: 'd4e075b0-5c97-4b3f-893f-e5cced11c9f8', listId: ensureListId('2b126cd1-627d-489f-81e9-2868305f1945', 'Todo'), title: 'Research SEO keywords', description: 'Finalize target keywords for new pages.', assigneeId: '9689b595-abe1-4589-838c-1958aae53a94', position: 2, completed: false, createdAt: timestamp(5, 10) },
-  { id: '29a6974d-db06-45ea-8edf-af9aba1ed799', listId: ensureListId('2b126cd1-627d-489f-81e9-2868305f1945', 'In-Progress'), title: 'Design homepage hero', description: 'Produce responsive hero assets.', assigneeId: 'ce642ef6-6367-406e-82ea-b0236361440f', position: 1, completed: false, createdAt: timestamp(5, 11) },
-  { id: 'be948ffa-eb48-4a0d-850a-c6d2c36d852d', listId: ensureListId('2b126cd1-627d-489f-81e9-2868305f1945', 'In-Progress'), title: 'Integrate CMS content', description: 'Populate CMS entries for refreshed pages.', assigneeId: '2cd5fecb-eee6-4cd1-8639-1f634b900a3b', position: 2, completed: false, createdAt: timestamp(5, 12) },
-  { id: 'dba9e06c-588a-478f-8e7f-51e3c1d6eb06', listId: ensureListId('2b126cd1-627d-489f-81e9-2868305f1945', 'QA'), title: 'Run responsive QA', description: 'Validate layouts across breakpoints.', assigneeId: '288bc717-a551-4a91-8d9d-444d13addb68', position: 1, completed: false, createdAt: timestamp(5, 13) },
-  { id: 'd1d6a5bd-c3b2-4faf-87f2-9068ce9f98bb', listId: ensureListId('2b126cd1-627d-489f-81e9-2868305f1945', 'QA'), title: 'Complete accessibility audit', description: 'Review accessibility checklist and fix issues.', assigneeId: '6ef2bf51-f656-49ac-843f-5954a6f2a00b', position: 2, completed: false, createdAt: timestamp(5, 14) },
-  { id: '8c2240ed-194f-4a1e-8bab-0a7030ac56ce', listId: ensureListId('2b126cd1-627d-489f-81e9-2868305f1945', 'Done'), title: 'Update style guide', description: 'Publish revised color and typography tokens.', assigneeId: 'ce642ef6-6367-406e-82ea-b0236361440f', position: 1, completed: true, createdAt: timestamp(4, 8) },
-  { id: 'f4136567-ba8b-4c4a-8128-212e159aa59f', listId: ensureListId('2b126cd1-627d-489f-81e9-2868305f1945', 'Done'), title: 'Confirm analytics setup', description: 'Verify dashboards reflect new pages.', assigneeId: '9689b595-abe1-4589-838c-1958aae53a94', position: 2, completed: true, createdAt: timestamp(4, 9) },
+  { id: '4c01f11d-3c41-414f-83b2-5e9bba2cefa6', list_id: ensurelist_id('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'Todo'), title: 'Draft product brief', description: 'Summarize goals and success metrics.', assigneeId: '2cd5fecb-eee6-4cd1-8639-1f634b900a3b', position: 1, completed: false, created_at: timestamp(4, 9) },
+  { id: 'f3a93a34-956e-43cd-8d7a-acae880153f2', list_id: ensurelist_id('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'Todo'), title: 'Complete market research', description: 'Compile competitor landscape report.', assigneeId: '288bc717-a551-4a91-8d9d-444d13addb68', position: 2, completed: false, created_at: timestamp(4, 10) },
+  { id: '21f71319-8641-42bb-8e3c-b9002fed25a4', list_id: ensurelist_id('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'In-Progress'), title: 'Build demo environment', description: 'Set up walkthrough environment with sample data.', assigneeId: 'ce642ef6-6367-406e-82ea-b0236361440f', position: 1, completed: false, created_at: timestamp(4, 11) },
+  { id: 'd3d8171c-5025-4cff-88d6-2542ae13f2d3', list_id: ensurelist_id('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'In-Progress'), title: 'Assemble sales kit', description: 'Draft enablement materials for sales team.', assigneeId: '9689b595-abe1-4589-838c-1958aae53a94', position: 2, completed: false, created_at: timestamp(4, 12) },
+  { id: '5868fe01-1f50-4e22-808c-276c8a884a61', list_id: ensurelist_id('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'QA'), title: 'Validate QA checklist', description: 'Verify release criteria with QA leads.', assigneeId: '6ef2bf51-f656-49ac-843f-5954a6f2a00b', position: 1, completed: false, created_at: timestamp(4, 13) },
+  { id: 'bc98f392-ca0b-4842-8f58-2b14d3959f04', list_id: ensurelist_id('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'QA'), title: 'Schedule executive sign-off', description: 'Coordinate leadership review session.', assigneeId: '2cd5fecb-eee6-4cd1-8639-1f634b900a3b', position: 2, completed: false, created_at: timestamp(4, 14) },
+  { id: '5125d378-d1e4-4be3-8f92-df5e7115a160', list_id: ensurelist_id('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'Done'), title: 'Document kickoff notes', description: 'Capture key decisions from project kickoff.', assigneeId: 'ce642ef6-6367-406e-82ea-b0236361440f', position: 1, completed: true, created_at: timestamp(3, 9) },
+  { id: '8808dae4-ad94-46b5-89db-46edb52efe13', list_id: ensurelist_id('b05927a0-76d2-42d5-8ad3-a1b93c39698c', 'Done'), title: 'Record budget approval', description: 'Log finance approval confirmation.', assigneeId: '288bc717-a551-4a91-8d9d-444d13addb68', position: 2, completed: true, created_at: timestamp(3, 10) },
+  { id: '0b20a227-1243-4403-8df8-db7a1db1770d', list_id: ensurelist_id('2b126cd1-627d-489f-81e9-2868305f1945', 'Todo'), title: 'Create homepage wireframes', description: 'Prepare wireframes for hero, features, and pricing.', assigneeId: '6ef2bf51-f656-49ac-843f-5954a6f2a00b', position: 1, completed: false, created_at: timestamp(5, 9) },
+  { id: 'd4e075b0-5c97-4b3f-893f-e5cced11c9f8', list_id: ensurelist_id('2b126cd1-627d-489f-81e9-2868305f1945', 'Todo'), title: 'Research SEO keywords', description: 'Finalize target keywords for new pages.', assigneeId: '9689b595-abe1-4589-838c-1958aae53a94', position: 2, completed: false, created_at: timestamp(5, 10) },
+  { id: '29a6974d-db06-45ea-8edf-af9aba1ed799', list_id: ensurelist_id('2b126cd1-627d-489f-81e9-2868305f1945', 'In-Progress'), title: 'Design homepage hero', description: 'Produce responsive hero assets.', assigneeId: 'ce642ef6-6367-406e-82ea-b0236361440f', position: 1, completed: false, created_at: timestamp(5, 11) },
+  { id: 'be948ffa-eb48-4a0d-850a-c6d2c36d852d', list_id: ensurelist_id('2b126cd1-627d-489f-81e9-2868305f1945', 'In-Progress'), title: 'Integrate CMS content', description: 'Populate CMS entries for refreshed pages.', assigneeId: '2cd5fecb-eee6-4cd1-8639-1f634b900a3b', position: 2, completed: false, created_at: timestamp(5, 12) },
+  { id: 'dba9e06c-588a-478f-8e7f-51e3c1d6eb06', list_id: ensurelist_id('2b126cd1-627d-489f-81e9-2868305f1945', 'QA'), title: 'Run responsive QA', description: 'Validate layouts across breakpoints.', assigneeId: '288bc717-a551-4a91-8d9d-444d13addb68', position: 1, completed: false, created_at: timestamp(5, 13) },
+  { id: 'd1d6a5bd-c3b2-4faf-87f2-9068ce9f98bb', list_id: ensurelist_id('2b126cd1-627d-489f-81e9-2868305f1945', 'QA'), title: 'Complete accessibility audit', description: 'Review accessibility checklist and fix issues.', assigneeId: '6ef2bf51-f656-49ac-843f-5954a6f2a00b', position: 2, completed: false, created_at: timestamp(5, 14) },
+  { id: '8c2240ed-194f-4a1e-8bab-0a7030ac56ce', list_id: ensurelist_id('2b126cd1-627d-489f-81e9-2868305f1945', 'Done'), title: 'Update style guide', description: 'Publish revised color and typography tokens.', assigneeId: 'ce642ef6-6367-406e-82ea-b0236361440f', position: 1, completed: true, created_at: timestamp(4, 8) },
+  { id: 'f4136567-ba8b-4c4a-8128-212e159aa59f', list_id: ensurelist_id('2b126cd1-627d-489f-81e9-2868305f1945', 'Done'), title: 'Confirm analytics setup', description: 'Verify dashboards reflect new pages.', assigneeId: '9689b595-abe1-4589-838c-1958aae53a94', position: 2, completed: true, created_at: timestamp(4, 9) },
 ];
 
 const tagsData = [
-  { id: 'bf87f479-2a05-4fe8-8122-22afa5e30141', name: 'Design', color: '#8B5CF6', createdAt: timestamp(1, 12) }, // Purple
-  { id: '3b8bff79-df12-4e14-860b-3e2cebe73cff', name: 'Product', color: '#EC4899', createdAt: timestamp(1, 13) }, // Pink
-  { id: '68421280-45b2-4276-8e4c-9dfc33a349f0', name: 'Engineering', color: '#3B82F6', createdAt: timestamp(1, 14) }, // Blue
-  { id: '14415f32-16aa-4860-87ef-636a7f0dd47f', name: 'Marketing', color: '#10B981', createdAt: timestamp(1, 15) }, // Green
-  { id: '828ba03d-c9b4-402c-8165-59cb9f67d30f', name: 'QA', color: '#F59E0B', createdAt: timestamp(1, 16) }, // Amber
+  { id: 'bf87f479-2a05-4fe8-8122-22afa5e30141', name: 'Design', color: '#8B5CF6', created_at: timestamp(1, 12) }, // Purple
+  { id: '3b8bff79-df12-4e14-860b-3e2cebe73cff', name: 'Product', color: '#EC4899', created_at: timestamp(1, 13) }, // Pink
+  { id: '68421280-45b2-4276-8e4c-9dfc33a349f0', name: 'Engineering', color: '#3B82F6', created_at: timestamp(1, 14) }, // Blue
+  { id: '14415f32-16aa-4860-87ef-636a7f0dd47f', name: 'Marketing', color: '#10B981', created_at: timestamp(1, 15) }, // Green
+  { id: '828ba03d-c9b4-402c-8165-59cb9f67d30f', name: 'QA', color: '#F59E0B', created_at: timestamp(1, 16) }, // Amber
 ];
 
 const cardTagsData = [
-  { cardId: '4c01f11d-3c41-414f-83b2-5e9bba2cefa6', tagId: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
-  { cardId: '4c01f11d-3c41-414f-83b2-5e9bba2cefa6', tagId: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
-  { cardId: 'f3a93a34-956e-43cd-8d7a-acae880153f2', tagId: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
-  { cardId: '21f71319-8641-42bb-8e3c-b9002fed25a4', tagId: '68421280-45b2-4276-8e4c-9dfc33a349f0' },
-  { cardId: 'd3d8171c-5025-4cff-88d6-2542ae13f2d3', tagId: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
-  { cardId: 'd3d8171c-5025-4cff-88d6-2542ae13f2d3', tagId: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
-  { cardId: '5868fe01-1f50-4e22-808c-276c8a884a61', tagId: '828ba03d-c9b4-402c-8165-59cb9f67d30f' },
-  { cardId: 'bc98f392-ca0b-4842-8f58-2b14d3959f04', tagId: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
-  { cardId: '5125d378-d1e4-4be3-8f92-df5e7115a160', tagId: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
-  { cardId: '8808dae4-ad94-46b5-89db-46edb52efe13', tagId: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
-  { cardId: '0b20a227-1243-4403-8df8-db7a1db1770d', tagId: 'bf87f479-2a05-4fe8-8122-22afa5e30141' },
-  { cardId: 'd4e075b0-5c97-4b3f-893f-e5cced11c9f8', tagId: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
-  { cardId: '29a6974d-db06-45ea-8edf-af9aba1ed799', tagId: 'bf87f479-2a05-4fe8-8122-22afa5e30141' },
-  { cardId: '29a6974d-db06-45ea-8edf-af9aba1ed799', tagId: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
-  { cardId: 'be948ffa-eb48-4a0d-850a-c6d2c36d852d', tagId: '68421280-45b2-4276-8e4c-9dfc33a349f0' },
-  { cardId: 'dba9e06c-588a-478f-8e7f-51e3c1d6eb06', tagId: '828ba03d-c9b4-402c-8165-59cb9f67d30f' },
-  { cardId: 'd1d6a5bd-c3b2-4faf-87f2-9068ce9f98bb', tagId: '828ba03d-c9b4-402c-8165-59cb9f67d30f' },
-  { cardId: '8c2240ed-194f-4a1e-8bab-0a7030ac56ce', tagId: 'bf87f479-2a05-4fe8-8122-22afa5e30141' },
-  { cardId: 'f4136567-ba8b-4c4a-8128-212e159aa59f', tagId: '68421280-45b2-4276-8e4c-9dfc33a349f0' },
-  { cardId: 'f4136567-ba8b-4c4a-8128-212e159aa59f', tagId: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
+  { card_id: '4c01f11d-3c41-414f-83b2-5e9bba2cefa6', tag_id: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
+  { card_id: '4c01f11d-3c41-414f-83b2-5e9bba2cefa6', tag_id: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
+  { card_id: 'f3a93a34-956e-43cd-8d7a-acae880153f2', tag_id: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
+  { card_id: '21f71319-8641-42bb-8e3c-b9002fed25a4', tag_id: '68421280-45b2-4276-8e4c-9dfc33a349f0' },
+  { card_id: 'd3d8171c-5025-4cff-88d6-2542ae13f2d3', tag_id: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
+  { card_id: 'd3d8171c-5025-4cff-88d6-2542ae13f2d3', tag_id: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
+  { card_id: '5868fe01-1f50-4e22-808c-276c8a884a61', tag_id: '828ba03d-c9b4-402c-8165-59cb9f67d30f' },
+  { card_id: 'bc98f392-ca0b-4842-8f58-2b14d3959f04', tag_id: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
+  { card_id: '5125d378-d1e4-4be3-8f92-df5e7115a160', tag_id: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
+  { card_id: '8808dae4-ad94-46b5-89db-46edb52efe13', tag_id: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
+  { card_id: '0b20a227-1243-4403-8df8-db7a1db1770d', tag_id: 'bf87f479-2a05-4fe8-8122-22afa5e30141' },
+  { card_id: 'd4e075b0-5c97-4b3f-893f-e5cced11c9f8', tag_id: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
+  { card_id: '29a6974d-db06-45ea-8edf-af9aba1ed799', tag_id: 'bf87f479-2a05-4fe8-8122-22afa5e30141' },
+  { card_id: '29a6974d-db06-45ea-8edf-af9aba1ed799', tag_id: '3b8bff79-df12-4e14-860b-3e2cebe73cff' },
+  { card_id: 'be948ffa-eb48-4a0d-850a-c6d2c36d852d', tag_id: '68421280-45b2-4276-8e4c-9dfc33a349f0' },
+  { card_id: 'dba9e06c-588a-478f-8e7f-51e3c1d6eb06', tag_id: '828ba03d-c9b4-402c-8165-59cb9f67d30f' },
+  { card_id: 'd1d6a5bd-c3b2-4faf-87f2-9068ce9f98bb', tag_id: '828ba03d-c9b4-402c-8165-59cb9f67d30f' },
+  { card_id: '8c2240ed-194f-4a1e-8bab-0a7030ac56ce', tag_id: 'bf87f479-2a05-4fe8-8122-22afa5e30141' },
+  { card_id: 'f4136567-ba8b-4c4a-8128-212e159aa59f', tag_id: '68421280-45b2-4276-8e4c-9dfc33a349f0' },
+  { card_id: 'f4136567-ba8b-4c4a-8128-212e159aa59f', tag_id: '14415f32-16aa-4860-87ef-636a7f0dd47f' },
 ];
 
-const comment = (id: string, cardId: string, userId: string, text: string, day: number, hour: number, minute = 0) => ({
+const comment = (id, card_id, user_id, text, day, hour, minute = 0) => ({
   id,
-  cardId,
-  userId,
+  card_id,
+  user_id,
   text,
-  createdAt: timestamp(day, hour, minute),
+  created_at: timestamp(day, hour, minute),
 });
 
 const commentsData = [
@@ -147,25 +146,16 @@ const commentsData = [
 async function seed() {
   console.log('Seeding database...');
 
-  // Clear existing data in correct order (respecting foreign keys)
-  db.delete(cardTags).run();
-  db.delete(comments).run();
-  db.delete(cards).run();
-  db.delete(lists).run();
-  db.delete(boards).run();
-  db.delete(tags).run();
-  db.delete(users).run();
-
   // Insert new data
-  db.insert(users).values(usersData).run();
-  db.insert(boards).values(boardsData).run();
-  db.insert(lists).values(listsData).run();
-  db.insert(tags).values(tagsData).run();
-  db.insert(cards).values(cardsData).run();
-  db.insert(cardTags).values(cardTagsData).run();
-  db.insert(comments).values(commentsData).run();
+  await db.batch(usersData.map(x => ({ table: "users", obj: x })));
+  await db.batch(boardsData.map(x => ({ table: "boards", obj: x })));
+  await db.batch(listsData.map(x => ({ table: "lists", obj: x })));
+  await db.batch(tagsData.map(x => ({ table: "tags", obj: x })));
+  await db.batch(cardsData.map(x => ({ table: "cards", obj: x })));
+  await db.batch(cardTagsData.map(x => ({ table: "card_tags", obj: x })));
+  await db.batch(commentsData.map(x => ({ table: "comments", obj: x })));
 
-  console.log('Database seeded successfully!');
+  shell.exit(0, 'Database seeded successfully!');
 }
 
-seed().catch(console.error);
+seed().catch(shell.exit);
