@@ -11,7 +11,7 @@ A full-featured Kanban board application built with Alpine.js and Alpinejs-app, 
 - **Drag & Drop**: native
 - **Animations**: Alpine.js
 - **Charts**: charts.css
-- **Validation**: Valibot
+- **Validation**: backendjs
 
 ## Local Development
 

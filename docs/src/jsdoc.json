@@ -14,7 +14,7 @@
      "05-methods": {
          "title": "Module lifecycle"
      },
-     "06-config": {
+     "99-config": {
          "title": "Config parameters"
      }
  }

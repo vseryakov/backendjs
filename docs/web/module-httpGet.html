@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>events - Backendjs Documentation</title>
+    <title>httpGet - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -40,7 +40,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">events</h1>
+    <h1 class="page-title">httpGet</h1>
     
 
     
@@ -53,8 +53,6 @@
 <header>
     
         
-            
-        
     
 </header>
 
@@ -65,93 +63,6 @@
             
 
             
-                
-
-    
-
-    <h4 class="name" id="module:events"><span class="type-signature"></span>module:events<span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Event queue processor</p>
-<p>If any of <code>events-worker-queue-XXX</code> parameters are defined then workers subscribe to configured event queues and listen for events.</p>
-<p>Each event queue can run multiple functions idependently but will ack/nack for all functions so to deal with replay dups it is advised to
-split between multiple consumers using the syntax: <code>queue#channel@consumer</code></p>
-<p>Multiple event queues can be defined and processed at the same time.</p>
-<p>An event processing function takes 2 arguments, an event and callback to call on finish</p></li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            
         
         </div>
     
@@ -160,6 +71,13 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
 
     
 
+    
+        <h3 class="subsection-title">Classes</h3>
+
+        <dl>
+            <dt><a href="module-httpGet.httpGetRequest.html">httpGetRequest</a></dt>
+            <dd></dd>
+        </dl>
     
 
     
@@ -180,7 +98,7 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
 
     
 
-    <h4 class="name" id=".putEvent"><span class="type-signature type-signature-static">(static) </span>putEvent<span class="signature">(subject, type, data, options<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {int}</span></h4>
+    <h4 class="name" id=".ahttpGet"><span class="type-signature type-signature-static">(static) </span>ahttpGet<span class="signature">(uri, params<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {object}</span></h4>
 
     
 
@@ -190,7 +108,7 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Place an event into a queue by subject and type</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Async/await version of httpGet, never rejects meaning no exceptions</p></li></ul></dd>
     
 
     
@@ -263,7 +181,7 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
 
         <tr>
             
-                <td class="name"><code>subject</code></td>
+                <td class="name"><code>uri</code></td>
             
 
             <td class="type">
@@ -288,84 +206,20 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
 
             
 
-            <td class="description last"><p>event stream or ID, can be hierarchical like path</p></td>
+            <td class="description last"><p>can be full URL or an object with parts of the url, same format as in url.format</p></td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>type</code></td>
+                <td class="name"><code>params</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>event type in reverse domain notation, what happened with the subject</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>data</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>an object to be placed as the <code>data</code> property</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
+<span class="param-type">httpGetRequest</span>
 
 
 
@@ -386,7 +240,7 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
 
             
 
-            <td class="description last"><p>queue specific properties</p></td>
+            <td class="description last"><p>customize request</p></td>
         </tr>
 
     
@@ -413,7 +267,7 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
         
 <div class="param-desc">
     <ul>
-<li>number of queues the event was sent to, -1 on error</li>
+<li>result as an object <code>{ err, data, obj, req }</code> where data/obj are properties fro the req for convenience</li>
 </ul>
 </div>
 
@@ -425,7 +279,7 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
     </dt>
     <dd>
         
-<span class="param-type">int</span>
+<span class="param-type">object</span>
 
 
 
@@ -435,6 +289,230 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
     
 
 
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>const { err, data } = await ahttpGet("http://api.host.com/file.txt");
+  const { err, obj } = await ahttpGet("http://api.host.com/user/123");
+  const { err, obj } = await ahttpGet({ url: "http://api.host.com/user/123", method: "POST", postdata: { name: "myname" } });</code></pre>
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="~httpGet"><span class="type-signature type-signature-inner">(inner) </span>httpGet<span class="signature">(uri, params<span class="signature-attributes">opt</span>, callback<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Make requests using HTTP(S) and pass it to the callback if provided</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>uri</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>can be full URL or an object with parts of the url, same format as in url.format</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>params</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">httpGetRequest</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>customize request</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>callback</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>callback as (err, request) where request is {httpGetRequest} object combined with input params and updated fields</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>httpGet("http://api.host.com/user/123", (err, req) => {
+     if (req.status == 200) console.log(req.obj);
+  });</code></pre>
 
 
 

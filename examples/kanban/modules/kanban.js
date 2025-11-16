@@ -6,17 +6,20 @@
 const { db, api, lib } = require('backendjs');
 
 module.exports = {
+
     tables: {
         users: {
             id: { primary: 1 },
             name: { not_null: 1 },
         },
+
         boards: {
             id: { primary: 1 },
             title: { not_null: 1 },
             description: { not_null: 1 },
             created_at: { type: "bigint", not_null: 1 },
         },
+
         lists: {
             id: { primary: 1 },
             board_id: { not_null: 1, foreign_key: { table: "boards", name: "id", ondelete: "cascade" } },
@@ -24,6 +27,7 @@ module.exports = {
             position: { type: "int", not_null: 1 },
             created_at: { type: "bigint", not_null: 1 },
         },
+
         cards: {
             id: { primary: 1 },
             list_id: { not_null: 1, foreign_key: { table: "lists", name: "id", ondelete: "cascade" } },
@@ -34,10 +38,12 @@ module.exports = {
             completed: { type: "int", value: false },
             created_at: { type: "bigint", not_null: 1 },
         },
+
         card_tags: {
             card_id: { primary: 1, foreign_key: { table: "cards", name: "id", ondelete: "cascade" } },
             tag_id: { primary: 2, foreign_key: { table: "tags", name: "id", ondelete: "cascade" } },
         },
+
         comments: {
             id: { primary: 1 },
             card_id: { not_null: 1, foreign_key: { table: "cards", name: "id", ondelete: "cascade" } },
@@ -45,6 +51,7 @@ module.exports = {
             text: { not_null: 1 },
             created_at: { type: "bigint", not_null: 1 },
         },
+
         tags: {
             id: { primary: 1 },
             name: { not_null: 1 },
@@ -54,29 +61,30 @@ module.exports = {
     },
 
     configureWeb(options, callback) {
+
         api.app.use("/api",
             api.express.Router().
-            get("/boards", select).
-            post("/boards", create).
-            get("/board/:id", get).
-            post("/board/:id", update).
-            del("/board/:id", del));
+                get("/boards", getBoards).
+                post("/boards", createBoard).
+                get("/board/:id", getBoard).
+                post("/board/:id", updateBoard).
+                delete("/board/:id", delBoard));
 
         callback();
     }
 };
 
-function select(req, res)
+function getBoards(req, res)
 {
     var data = [];
-    db.scan("boards", {}, { sort: "created_at", sync: 1 }, (rows) => {
+    db.scan("boards", {}, { sync: 1 }, (rows) => {
         data.push(...rows);
     }, (err) => {
         api.sendJSON(req, err, data);
     });
 }
 
-function get(req, res)
+function getBoard(req, res)
 {
     db.get("boards", { id: req.params.id }, (err, row) => {
         if (!err && !row) err = { status: 404, message: "Board not found" };
@@ -84,7 +92,7 @@ function get(req, res)
     });
 }
 
-function create(req, res)
+function createBoard(req, res)
 {
     var query = api.toParams(req, {
         title: { required: 1, max: 128 },
@@ -99,7 +107,7 @@ function create(req, res)
     });
 }
 
-function update(req, res)
+function updateBoard(req, res)
 {
     var query = api.toParams(req, {
         id: { required: 1, value: req.params.id },
@@ -108,19 +116,19 @@ function update(req, res)
     });
     if (typeof query == "string") return api.sendReply(res, 400, query);
 
-    db.update("boards ", query, (err) => {
+    db.update("boards", query, (err) => {
         api.sendJSON(req, err, query);
     });
 }
 
-function del(req, res)
+function delBoard(req, res)
 {
     var query = api.toParams(req, {
         id: { required: 1, value: req.params.id },
     });
     if (typeof query == "string") return api.sendReply(res, 400, query);
 
-    db.del("boards ", query, (err) => {
+    db.del("boards", query, (err) => {
         api.sendJSON(req, err);
     });
 }

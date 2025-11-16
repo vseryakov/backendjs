@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>events - Backendjs Documentation</title>
+    <title>modules - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -40,7 +40,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">events</h1>
+    <h1 class="page-title">modules</h1>
     
 
     
@@ -63,15 +63,11 @@
         <div class="container-overview">
         
             
+                <div class="description usertext"><p>This module contains all internal and dynamicaly loaded modules</p></div>
+            
 
             
                 
-
-    
-
-    <h4 class="name" id="module:events"><span class="type-signature"></span>module:events<span class="type-signature"></span></h4>
-
-    
 
 
 
@@ -79,12 +75,7 @@
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Event queue processor</p>
-<p>If any of <code>events-worker-queue-XXX</code> parameters are defined then workers subscribe to configured event queues and listen for events.</p>
-<p>Each event queue can run multiple functions idependently but will ack/nack for all functions so to deal with replay dups it is advised to
-split between multiple consumers using the syntax: <code>queue#channel@consumer</code></p>
-<p>Multiple event queues can be defined and processed at the same time.</p>
-<p>An event processing function takes 2 arguments, an event and callback to call on finish</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>This module contains all internal and dynamicaly loaded modules</p></li></ul></dd>
     
 
     
@@ -172,275 +163,6 @@ split between multiple consumers using the syntax: <code>queue#channel@consumer<
 
     
 
-    
-        <h3 class="subsection-title">Methods</h3>
-
-        
-            
-
-    
-
-    <h4 class="name" id=".putEvent"><span class="type-signature type-signature-static">(static) </span>putEvent<span class="signature">(subject, type, data, options<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {int}</span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Place an event into a queue by subject and type</p></li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>subject</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>event stream or ID, can be hierarchical like path</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>type</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>event type in reverse domain notation, what happened with the subject</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>data</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>an object to be placed as the <code>data</code> property</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>queue specific properties</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5 class="h5-returns">Returns:</h5>
-
-        
-<div class="param-desc">
-    <ul>
-<li>number of queues the event was sent to, -1 on error</li>
-</ul>
-</div>
-
-
-
-<dl class="param-type">
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">int</span>
-
-
-
-    </dd>
-</dl>
-
-    
-
-
-
-
-
-
-
-        
     
 
     
