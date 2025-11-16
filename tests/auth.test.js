@@ -1,7 +1,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { api, core, logger, lib } = require("../");
+const { api, app, logger, lib } = require("../");
 
 describe("Auth tests", () => {
 

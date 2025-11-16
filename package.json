@@ -21,7 +21,8 @@
   },
   "devDependencies": {
     "eslint": "8.57.1",
-    "esbuild": "^0.27.0"
+    "esbuild": "^0.27.0",
+    "vseryakov/vdocdash": "latest"
   },
   "optionalDependencies": {
     "croner": "9.1.0",
@@ -70,6 +71,6 @@
     "node": "./bkjs install-node",
     "deps": "PATH=$(pwd)/nodejs/bin:$PATH npm install",
     "test": "node --test --test-concurrency=1 tests/**/*.test.js tests/**/*-test.js",
-    "docs": "rm -rf docs/web && bksh -help-config > docs/src/99-config.md && jsdoc -c docs/jsdoc.js"
+    "docs": "rm -rf docs/web && bksh -help-config > docs/src/config.md && jsdoc -c docs/jsdoc.js"
   }
 }

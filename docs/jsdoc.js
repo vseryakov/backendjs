@@ -17,7 +17,7 @@ module.exports = {
         }
     },
     opts: {
-        template: "node_modules/docdash",
+        template: "node_modules/vdocdash",
         destination: "./docs/web",
         recurse: true,
         readme: "README.md",
@@ -31,16 +31,6 @@ module.exports = {
             title: "Backendjs Documentation",
             description: "A Node.js library to create Web backends with minimal dependencies.",
         },
-        sectionOrder: [
-             "Tutorials",
-             "Modules",
-             "Classes",
-             "Externals",
-             "Events",
-             "Namespaces",
-             "Mixins",
-             "Interfaces",
-             "Global"
-        ],
+        tutorialsOrder: ["start", "app", "reference", "bkjs", "methods","config"]
     }
 };
