@@ -37,10 +37,10 @@ See {@link module:app}
 #### **app-log-ignore**
  Regexp with property names which must not be exposed in the log when using custom logger inspector   
   Type: regexp   
-  Default: {}   
 #### **app-log-inspect**
  Install custom secure logger inspection instead of util.inspect   
   Type: callback   
+  Default: {"depth":7,"count":200,"keys":50,"func":0,"keepempty":1,"length":1024,"replace":{" ":{}},"ignore":{}}   
 #### **app-log-inspect-map**
  Properties for the custom log inspect via objDescr   
   Type: map   
@@ -67,6 +67,7 @@ See {@link module:app}
 #### **app-tmp-dir**
  Path where to keep temp files   
   Type: path   
+  Default: "/tmp"   
 #### **app-path-web**
  Add a path where to keep web pages and other static files to be served by the web servers   
   Type: path   
@@ -89,6 +90,7 @@ See {@link module:app}
  Set instance properties explicitly: tag, region, zone, roles   
 #### **app-run-mode**
  Running mode for the app, used to separate different running environment and configurations   
+  Default: "dev"   
 #### **app-daemon**
  Daemonize the process, go to the background, can be specified only in the command line   
   Type: none   
@@ -119,6 +121,7 @@ See {@link module:app}
 #### **app-import-packages**
  NPM packages to load on startup, the modules, views, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the bkjs.conf will be parsed if present   
   Type: list   
+  Default: []   
 #### **app-include-modules**
  Modules to load, the whole path is checked   
   Type: regexp   
@@ -128,6 +131,7 @@ See {@link module:app}
 #### **app-depth-modules**
  How deep to go looking for modules, it uses lib.findFileSync to locate all .js files   
   Type: int   
+  Default: 3   
 #### **app-host-name**
  Hostname/domain to use for communications, default is current domain of the host machine   
   Type: callback   
@@ -144,9 +148,11 @@ See {@link module:app}
 #### **app-worker-cpu-factor**
  A number to multiply the number of CPUs available to make the total number of workers to launch, only used if `workers` is 0   
   Type: real   
+  Default: 2   
 #### **app-worker-args**
  Node arguments for workers, job and web processes, for passing v8 options, use %20 for spaces   
   Type: list   
+  Default: []   
 #### **app-worker-delay**
  Delay in milliseconds for a web worker before it will start accepting requests, for cases when other dependencies may take some time to start   
   Type: int   
@@ -189,6 +195,7 @@ See {@link module:ipc}
 #### **ipc-ping**
  Keep alive pings for workers: interval:ms how oftern do pings, kill:ms kill worker after this period   
   Type: map   
+  Default: {}   
 #### **ipc-system-queue**
  System queue name to send broadcast control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...   
 # <a name="aws">aws</a>
@@ -274,9 +281,11 @@ See {@link module:db}
 #### **db-create-tables-roles**
  Only processes with these roles can create tables   
   Type: list   
+  Default: ["master","shell"]   
 #### **db-cache-tables**
  List of tables that can be cached: bk_user, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.   
   Type: list   
+  Default: []   
 #### **db-skip-tables**
  List of tables that will not be created or modified, this is global for all pools   
   Type: list   
@@ -286,9 +295,11 @@ See {@link module:db}
 #### **db-cache-pools**
  List of pools which trigger cache flushes on update.   
   Type: list   
+  Default: []   
 #### **db-cache-sync**
  List of tables that perform synchronized cache updates before returning from a DB call, by default cache updates are done in the background   
   Type: list   
+  Default: []   
 #### **db-cache-keys-([a-z0-9_]+)-(.+)**
  List of columns to be used for the table cache, all update operations will flush the cache if the cache key can be created from the record columns. This is for ad-hoc and caches to be used for custom selects which specified the cache key.   
   Type: list   
@@ -305,7 +316,6 @@ See {@link module:db}
 #### **db-cache2-max**
  Max number of items to keep in the LRU Level 2 cache   
   Type: int   
-  Default: 10000   
 #### **db-cache2-(.+)**
  Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the given amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work   
   Type: int   
@@ -324,6 +334,7 @@ See {@link module:db}
 #### **db-config-map**
  Config options: `.interval` between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db, `.count` max records to load in one select, see the docs about `.top`, `.main`, `.other` config parameters   
   Type: map   
+  Default: {"count":1000,"interval":1440,"top":"runMode","main":"role,roles,tag","other":"role"}   
 #### **db-skip-drop**
  A pattern of table names which will skipp in db.drop operations to prevent accidental table deletion   
   Type: regexpobj   
@@ -384,6 +395,7 @@ See {@link module:push}
 #### **push-shutdown-timeout**
  How long to wait for messages draining out in ms on shutdown before exiting   
   Type: int   
+  Default: 1000   
 # <a name="api">api</a>
 See {@link module:api}
 #### **api-err-(.+)**
@@ -401,6 +413,7 @@ See {@link module:api}
 #### **api-keep-alive-timeout**
  Number of milliseconds to keep the HTTP conection alive   
   Type: int   
+  Default: 61000   
 #### **api-request-timeout**
  Number of milliseconds to receive the entire request from the client   
   Type: int   
@@ -421,6 +434,7 @@ See {@link module:api}
 #### **api-ssl**
  SSL params: port, bind, key, cert, pfx, ca, passphrase, crl, ciphers   
   Type: map   
+  Default: {"port":443,"bind":"0.0.0.0"}   
 #### **api-no-access-log**
  Disable access logging in both file or syslog   
   Type: bool   
@@ -429,18 +443,23 @@ See {@link module:api}
 #### **api-access-log-level**
  Syslog level priority, default is local5.info, 21 * 8 + 6   
   Type: int   
+  Default: 174   
 #### **api-access-log-fields**
  Additional fields from the request or user to put in the access log, prefix defines where the field is lcoated: q: - query, h: - headers, u: - user otherwise from the request, Example: -api-log-fields h:Referer,u:name,q:action   
   Type: list   
+  Default: []   
 #### **api-errlog-limiter-max**
  How many error messages to put in the log before throttling kicks in   
   Type: int   
+  Default: 100   
 #### **api-errlog-limiter-interval**
  Interval for error log limiter, max errors per this interval   
   Type: int   
+  Default: 30000   
 #### **api-errlog-limiter-ignore**
  Do not show errors that match the regexp   
   Type: regexpobj   
+  Default: {"list":["Range Not Satisfiable","Precondition Failed"],"rx":{}}   
 #### **api-salt**
  Salt to be used for scrambling credentials or other hashing activities   
 #### **api-qs-options-(.+)**
@@ -451,6 +470,7 @@ See {@link module:api}
 #### **api-static-options**
  Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified   
   Type: map   
+  Default: {"maxAge":0}   
 #### **api-vhost-path-([^/]+)**
  Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match, example: api-vhost-path-test_dir=test.com$   
   Type: regexp   
@@ -470,12 +490,15 @@ See {@link module:api}
 #### **api-allow-error-code**
  Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned   
   Type: regexpobj   
+  Default: {}   
 #### **api-express-options**
  Set Express config options during initialization, ex: `-api-express-options { "trust proxy": 1, "strict routing": true }`   
   Type: json   
+  Default: {}   
 #### **api-body-methods**
  HTTP methods allowed to have body   
   Type: list   
+  Default: ["POST","PUT","PATCH"]   
 #### **api-body-types**
  Collect full request body in the req.body property for the given MIME types in addition to default json/form posts, this is for custom body processing   
   Type: regexpobj   
@@ -489,11 +512,13 @@ See {@link module:api}
  File extension to MIME content type mapping, this is used by static-serve, ex: -api-mime-map-mobileconfig application/x-apple-aspen-config   
 #### **api-cors-origin**
  Origin header for CORS requests   
+  Default: "*"   
 #### **api-cors-allow**
  Enable CORS requests if a request host/path matches the given regexp   
   Type: regexpobj   
 #### **api-tz-header**
  Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset   
+  Default: "bk-tz"   
 #### **api-server-header**
  Custom Server: header to return for all requests   
 #### **api-error-message**
@@ -513,9 +538,11 @@ See {@link module:api}
   Type: number   
 #### **api-limiter-cache**
  Name of a cache for API rate limiting   
+  Default: "local"   
 #### **api-response-headers**
  An JSON object with list of regexps to match against the location and set response headers defined as a ist of pairs name, value..., -api-response-headers={ "^/": ["x-frame-options","sameorigin","x-xss-protection","1; mode=block"] }   
   Type: regexpmap   
+  Default: []   
 #### **api-cleanup-rules-(.+)**
  Rules for the cleanupResult per table, ex. api-cleanup-rules-bk_user=email:0,phone:1   
   Type: map   
@@ -525,6 +552,7 @@ See {@link module:api}
 #### **api-request-cleanup**
  List of fields to explicitely cleanup on request end   
   Type: list   
+  Default: ["options","user","signature","body","raw_body","trace"]   
 #### **api-query-defaults-([a-z0-9_]+)-(.+)**
  Global query defaults for getQuery, can be path specific, ex. -api-query-defaults-max-name 128 -api-query-defaults-max-/endpoint-name 255   
 #### **api-delays-(.+)**
@@ -539,6 +567,7 @@ See {@link module:api}
 #### **api-trace-options**
  Options for tracing, host where to send if not local, path:regexp for URLs to be traced, interval:Interval in ms how often to trace requests, must be > 0 to enable tracing   
   Type: map   
+  Default: {}   
 #### **api-exit-on-error**
  Exit on uncaught exception in the route handler   
   Type: bool   
@@ -560,27 +589,34 @@ See {@link module:jobs}
 #### **jobs-worker-cpu-factor**
  A number to multiply the number of CPUs available to make the total number of workers to launch, only used if `workers` is 0   
   Type: real   
+  Default: 2   
 #### **jobs-worker-env**
  Environment to be passed to the worker via fork, see `cluster.fork`   
   Type: map   
+  Default: {}   
 #### **jobs-worker-delay**
  Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start   
   Type: int   
+  Default: 500   
 #### **jobs-worker-queue**
  Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues   
   Type: list   
+  Default: []   
 #### **jobs-worker-options-(.+)**
  Custom parameters by queue name, passed to `queue.subscribeQueue` on worker start, useful with channels, ex: `-jobs-worker-options-nats#events {"count":10}`   
   Type: json   
 #### **jobs-max-runtime**
  Max number of seconds a job can run before being killed   
   Type: int   
+  Default: 900   
 #### **jobs-max-lifetime**
  Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely   
   Type: int   
+  Default: 43200   
 #### **jobs-shutdown-timeout**
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
   Type: int   
+  Default: 10000   
 #### **jobs-cron-queue**
  Default queue to use for cron jobs   
   Type: list   
@@ -590,6 +626,7 @@ See {@link module:jobs}
 #### **jobs-global-ignore**
  Queue names which ignore the global setting, the queueName is used as usual, local and worker are ignored by default   
   Type: list   
+  Default: ["local","worker"]   
 #### **jobs-cron**
  Allow cron jobs to be executed from the local etc/crontab file or via config parameter   
   Type: bool   
@@ -625,15 +662,19 @@ See {@link module:events}
 #### **events-worker-delay**
  Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start   
   Type: int   
+  Default: 500   
 #### **events-max-runtime**
  Max number of seconds an event processing can run before being killed   
   Type: int   
+  Default: 60   
 #### **events-routing**
  Routing map by event subject or type, ex: `-events-routing redis:local.+,nats:.+   
   Type: map   
+  Default: {}   
 #### **events-shutdown-timeout**
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
   Type: int   
+  Default: 5000   
 # <a name="stats">stats</a>
 See {@link module:stats}
 #### **stats-flags**
@@ -680,6 +721,7 @@ See {@link module:logwatcher}
 #### **logwatcher-any-range**
  Number of lines for matched channel `any` to be attached to the previous matched channel, if more than this number use the channel `any` on its own   
   Type: number   
+  Default: 5   
 #### **logwatcher-matches-[a-z]+**
  Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, like error, warning.... Special channel `any` is reserved to send matched lines to the previously matched channel if within configured range. Example: `-logwatcher-match-error=^failed:` `-match-any=line:[0-9]+`   
 #### **logwatcher-send-[a-z]+**
@@ -694,6 +736,7 @@ See {@link module:logwatcher}
 #### **logwatcher-local**
  Save matched lines in local file, ex. file:filename, size:maxsize, ext:ext   
   Type: map   
+  Default: {"newline":1,"size":104857600}   
 #### **logwatcher-cw-run**
  Run AWS Cloudwatch logwatcher   
   Type: bool   
@@ -702,6 +745,7 @@ See {@link module:logwatcher}
 #### **logwatcher-cw-groups**
  List of AWS Cloudwatch Logs groups to watch for errors, format is: name:type,...   
   Type: map   
+  Default: {}   
 #### **logwatcher-cw-filters-(.+)**
  AWS Cloudwatch Logs filter pattern by group, overrides the global filter   
 #### **logwatcher-cw-matches-(.+)**
@@ -773,18 +817,22 @@ See {@link module:api.csrf}
 #### **api-csrf-set-path**
  Regexp for URLs to set CSRF token for all methods, token type(user|pub) is based on the current session   
   Type: regexpobj   
+  Default: {}   
 #### **api-csrf-pub-path**
  Regexp for URLs to set public CSRF token only if no valid CSRF token detected   
   Type: regexpobj   
 #### **api-csrf-check-path**
  Regexp for URLs to set CSRF token for skip methods and verify for others   
   Type: regexpobj   
+  Default: {}   
 #### **api-csrf-skip-method**
  Do not check for CSRF token for specified methods   
   Type: regexp   
+  Default: {}   
 #### **api-csrf-skip-status**
  Do not return CSRF token for specified status codes   
   Type: regexp   
+  Default: {}   
 #### **api-csrf-header**
  Name for the CSRF header   
   Default: "bk-csrf"   
@@ -796,6 +844,7 @@ See {@link module:api.csrf}
   Default: 3600000   
 #### **api-csrf-same-site**
  Session SameSite option, for cookie based authentication   
+  Default: "strict"   
 #### **api-csrf-secure**
  Set cookie Secure flag   
   Type: bool   
@@ -813,6 +862,7 @@ See {@link module:api.session}
   Default: 1209600000   
 #### **api-session-same-site**
  Session SameSite option, for cookie based authentication   
+  Default: "strict"   
 #### **api-session-secure**
  Set cookie Secure flag   
   Type: bool   
@@ -841,9 +891,11 @@ See {@link module:api.users}
 #### **api-users-max-length**
  Max login and name length   
   Type: int   
+  Default: 140   
 #### **api-users-users**
  An object with users   
   Type: json   
+  Default: {}   
 #### **api-users-file**
  A JSON file with users   
 # <a name="api.passkeys">api.passkeys</a>
