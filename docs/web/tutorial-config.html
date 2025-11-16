@@ -416,8 +416,10 @@ Type: list</p>
 <p>Connect options for a DB pool driver for new connection, driver specific<br>
 Type: map</p>
 <h4><strong>db-([a-z0-9]+)-pool-options</strong></h4>
-<p>General options for a DB pool<br>
+<p>General options for a DB pool, a simple map case<br>
 Type: map</p>
+<h4><strong>db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$</strong></h4>
+<p>General options for a DB pool by name with specific type</p>
 <h4><strong>db-([a-z0-9]+)-pool-table-map</strong></h4>
 <p>Table mapping, aliases<br>
 Type: map</p>

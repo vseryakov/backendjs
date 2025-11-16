@@ -366,8 +366,10 @@ See {@link module:db}
  Connect options for a DB pool driver for new connection, driver specific   
   Type: map   
 #### **db-([a-z0-9]+)-pool-options**
- General options for a DB pool   
+ General options for a DB pool, a simple map case   
   Type: map   
+#### **db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$**
+ General options for a DB pool by name with specific type   
 #### **db-([a-z0-9]+)-pool-table-map**
  Table mapping, aliases   
   Type: map   

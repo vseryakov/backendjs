@@ -506,13 +506,13 @@
 
         <tr>
             
-                <td class="name"><code>sign</code></td>
+                <td class="name"><code>signer</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">boolean</span>
+<span class="param-type">function</span>
 
 
 
@@ -523,7 +523,7 @@
 
             
 
-            <td class="description last"><p>sign request with provided email/secret properties</p></td>
+            <td class="description last"><p>a function to sign the request signer(this)</p></td>
         </tr>
 
     
@@ -796,6 +796,30 @@ otherwise it is treated as a boolean value, if true then retry on all non-2xx re
             
 
             <td class="description last"><p>how many times to retry on aborted connections, default is retryCount</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>raise</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>on not ok status raise and eror on return with JSON body if present or generic message</p></td>
         </tr>
 
     

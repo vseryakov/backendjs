@@ -48,7 +48,7 @@ p, ul, ol, blockquote {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: sans-serif;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -264,7 +264,7 @@ nav ul {
 
 nav ul a,
 nav ul a:active {
-  font-family: 'Montserrat', sans-serif;
+  font-family: sans-serif;
   line-height: 18px;
   padding: 0;
   display: block;
@@ -728,49 +728,3 @@ html[data-search-mode] .level-hide {
     margin-left: 30px;
 }
 
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 400;
-  src: url('../fonts/Montserrat/Montserrat-Regular.eot'); /* IE9 Compat Modes */
-  src: url('../fonts/Montserrat/Montserrat-Regular.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
-       url('../fonts/Montserrat/Montserrat-Regular.woff2') format('woff2'), /* Super Modern Browsers */
-       url('../fonts/Montserrat/Montserrat-Regular.woff') format('woff'), /* Pretty Modern Browsers */
-       url('../fonts/Montserrat/Montserrat-Regular.ttf')  format('truetype'); /* Safari, Android, iOS */
-}
-
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 700;
-  src: url('../fonts/Montserrat/Montserrat-Bold.eot'); /* IE9 Compat Modes */
-  src: url('../fonts/Montserrat/Montserrat-Bold.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
-       url('../fonts/Montserrat/Montserrat-Bold.woff2') format('woff2'), /* Super Modern Browsers */
-       url('../fonts/Montserrat/Montserrat-Bold.woff') format('woff'), /* Pretty Modern Browsers */
-       url('../fonts/Montserrat/Montserrat-Bold.ttf')  format('truetype'); /* Safari, Android, iOS */
-}
-
-@font-face {
-    font-family: 'Source Sans Pro';
-    src: url('../fonts/Source-Sans-Pro/sourcesanspro-regular-webfont.eot');
-    src: url('../fonts/Source-Sans-Pro/sourcesanspro-regular-webfont.eot?#iefix') format('embedded-opentype'),
-         url('../fonts/Source-Sans-Pro/sourcesanspro-regular-webfont.woff2') format('woff2'),
-         url('../fonts/Source-Sans-Pro/sourcesanspro-regular-webfont.woff') format('woff'),
-         url('../fonts/Source-Sans-Pro/sourcesanspro-regular-webfont.ttf') format('truetype'),
-         url('../fonts/Source-Sans-Pro/sourcesanspro-regular-webfont.svg#source_sans_proregular') format('svg');
-    font-weight: 400;
-    font-style: normal;
-}
-
-@font-face {
-    font-family: 'Source Sans Pro';
-    src: url('../fonts/Source-Sans-Pro/sourcesanspro-light-webfont.eot');
-    src: url('../fonts/Source-Sans-Pro/sourcesanspro-light-webfont.eot?#iefix') format('embedded-opentype'),
-         url('../fonts/Source-Sans-Pro/sourcesanspro-light-webfont.woff2') format('woff2'),
-         url('../fonts/Source-Sans-Pro/sourcesanspro-light-webfont.woff') format('woff'),
-         url('../fonts/Source-Sans-Pro/sourcesanspro-light-webfont.ttf') format('truetype'),
-         url('../fonts/Source-Sans-Pro/sourcesanspro-light-webfont.svg#source_sans_prolight') format('svg');
-    font-weight: 300;
-    font-style: normal;
-
-}
