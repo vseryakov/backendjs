@@ -11,7 +11,8 @@
   --h4-a-hover: #fc83ff;
   --h4-shadow: #d3d3d3;
   --a-color: #006390;
-  --nav-a-base: 207;
+  --nav-a-color: #999;
+  --nav-a-border: #bbb;
   --h5-color: #666;
   --code-bg-color: #f4f4f4;
   --important: #950B02;
@@ -22,20 +23,22 @@
 
 @media (prefers-color-scheme: dark) {
     :root {
-      --color: #f9f9f9;
+      --color: #D9D9D9;
       --bg-color: #333333;
       --signature: #ffc107;
       --attrs-color: #eee;
-      --h4-color: #fff;
+      --h4-color: #bbb;
       --h4-bg-color: #607593;
-      --h4-shadow: #40414E;
+      --h4-shadow: #777CB1;
       --a-color: #BEC2D1;
+      --nav-a-color: #989898;
+      --nav-a-border: #555;
       --h5-color: #666;
       --code-color: #ddd;
       --code-bg-color: #000;
       --important: #950B02;
-      --table-border: #ddd;
-      --params-color: #eee;
+      --table-border: #555;
+      --params-color: #aaa;
       --disabled-color: #454545;
   }
 }
@@ -55,7 +58,7 @@ body {
   margin: 0 auto;
   padding: 0 20px;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 img {
@@ -91,46 +94,37 @@ p, ul, ol, blockquote {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: sans-serif;
-}
-
-h1, h2, h3, h4, h5, h6 {
   font-weight: 400;
   margin: 0;
 }
 
 h1 {
-  font-weight: 300;
-  font-size: 48px;
-  margin: 1em 0 .5em;
+    font-weight: 300;
+    margin: 1em 0 .5em;
 }
 
 h1.page-title {
-  font-size: 48px;
   margin: 1em 30px;
-  line-height: 100%;
   word-wrap: break-word;
 }
 
 h2 {
-  font-size: 24px;
-  margin: 1.5em 0 .3em;
+    margin: 1.5em 0 .3em;
 }
 
 h3 {
-  font-size: 24px;
-  margin: 1.2em 0 .3em;
+    margin: 1.2em 0 .3em;
 }
 
 h4 {
-  font-size: 18px;
-  margin: 1em 0 .2em;
+    margin: 1em 0 .2em;
 }
 
 h4.name {
   color: var(--h4-color);
   background: var(--h4-bg-color);
-  box-shadow: 0 .25em .5em var(--h4-shadow);
-  border-top: 1px solid var(--h4-shadow)3;
+  box-shadow: 0 .1em .1em var(--h4-shadow);
+  border-top: 1px solid var(--h4-shadow);
   border-bottom: 1px solid var(--h4-shadow);
   margin: 1.5em 0 0.5em;
   padding: .75em 0 .75em 10px;
@@ -151,46 +145,34 @@ h5, .container-overview .subsection-title {
 }
 
 h6 {
-  font-size: 100%;
   letter-spacing: -0.01em;
   margin: 6px 0 3px 0;
   font-style: italic;
 }
 
 .usertext h1 {
-  font-size: 24px;
   margin: 2.5em 0 1em;
-  font-weight: 400;
 }
 
 .usertext h2 {
-  font-size: 18px;
   margin: 2em 0 0.5em;
-  font-weight: 400;
-
 }
 
 .usertext h3 {
-  font-size: 15px;
   margin: 1.5em 0 0;
-  font-weight: 400;
 }
 
 .usertext h4 {
-  font-size: 14px;
   margin: 0 0 0;
-  font-weight: 400;
 }
 
 .usertext h5 {
-  font-size: 12px;
   margin: 1em 0 0;
   font-weight: normal;
   color: var(--h5-color);
 }
 
 .usertext h6 {
-  font-size: 11px;
   margin: 1em 0 0;
   font-weight: normal;
   font-style: normal;
@@ -213,7 +195,6 @@ pre {
 }  
 
 .class-description {
-  font-size: 130%;
   line-height: 140%;
   margin-bottom: 1em;
   margin-top: 1em;
@@ -261,7 +242,9 @@ nav #nav-search {
     width: 210px;
     height: 30px;
     padding: 5px 10px;
-    font-size: 14px;
+    color: var(--bg-color);
+    background-color: var(--color);
+    font-size: 1rem;
     line-height: 1.5;
     border-radius: 3px;
     margin-right: 20px;
@@ -273,36 +256,31 @@ nav.wrap a {
 }
 
 nav h3 {
-  margin-top: 12px;
-  font-size: 15px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 700;
-  line-height: 24px;
-  margin: 15px 0 10px;
-  padding: 0;
+    margin-top: 12px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin: 15px 0 10px;
+    padding: 0;
 }
 
 nav h3.collapsed_header {
-  cursor: pointer;
+    cursor: pointer;
 }
 
 nav ul {
   font-family: 'Lucida Grande', 'Lucida Sans Unicode', arial, sans-serif;
-  font-size: 100%;
-  line-height: 17px;
   padding: 0;
   margin: 0;
   list-style-type: none;
+  line-height: 1.5rem;
 }
 
 nav ul a,
 nav ul a:active {
   font-family: sans-serif;
-  line-height: 18px;
   padding: 0;
   display: block;
-  font-size: 14px;
+  line-height: 1.5rem;
 }
 
 nav a:hover,
@@ -314,23 +292,17 @@ nav > ul {
   padding: 0 10px;
 }
 
-nav > ul > li > a {
-  color: var(--a-color);
-  margin-top: 10px;
-}
-
 nav ul ul a {
-  color: hsl(var(--nav-a-base), 1%, 60%);
-  border-left: 1px solid hsl(var(--nav-a-base), 10%, 86%);
+  color: var(--nav-a-color);
+  border-left: 1px solid var(--nav-a-border);
 }
 
 nav ul ul a,
 nav ul ul a:active {
-  padding-left: 20px
+  padding-left: 20px;
 }
 
 nav h2 {
-   font-size: 14px;
    margin: 10px 0 0 0;
    padding: 0;
 }
@@ -375,7 +347,7 @@ footer {
 }
 
 .type-signature:last-child {
-  color: #eee;
+  color: var(--attrs-color)
 }
 
 .name, .signature {
@@ -389,8 +361,8 @@ footer {
 .details {
   margin-top: 6px;
   border-left: 2px solid var(--table-border);
-  line-height: 20px;
-  font-size: 14px;
+  line-height: 1.5rem;
+  font-size: 90%;
 }
 
 .details dt {
@@ -424,6 +396,7 @@ footer {
 .description {
   margin-bottom: 1em;
   margin-top: 1em;
+  font-size: 90%;
 }
 
 .code-caption {
@@ -433,23 +406,23 @@ footer {
 }
 
 .prettyprint {
-  font-size: 14px;
+  font-size: 90%;
   overflow: auto;
 }
 
 .prettyprint.source {
-  width: inherit;
-  line-height: 18px;
-  display: block;
-  background-color: var(--bg-source)
-  color: var(--color-source);
+    line-height: 150%;
+    width: inherit;
+    display: block;
+    background-color: var(--bg-source)
+    color: var(--color-source);
 }
 
 .prettyprint code {
-  line-height: 18px;
-  display: block;
-  background-color: var(--bg-source);
-  color: var(--color-source);
+    line-height: 150%;
+    display: block;
+    background-color: var(--bg-source);
+    color: var(--color-source);
 }
 
 .prettyprint > code {
@@ -508,8 +481,8 @@ table {
   border-radius: 3px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   width: 100%;
-  font-size: 14px;
   margin: 1em 0;
+  font-size: 90%;
 }
 
 td, th {
