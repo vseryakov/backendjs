@@ -1,13 +1,8 @@
 
-const { app, api, lib, logger, modules, httpGet } = require("../");
+const { api, lib, logger, modules, httpGet } = require("../");
 const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
-
-const mod = {
-    name: "tests"
-};
-module.exports = mod;
 
 // Generic access checker to be used in tests, accepts an array in .config with urls to check
 // The following properties can be used:
@@ -25,7 +20,7 @@ module.exports = mod;
 // - preprocess - function(conf, cb) to be called before making request
 // - postprocess - function(conf, rc, cb) to be called after the request, rc is the response object from the request
 // - delay - wait before making next request
-mod.checkAccess = function(options, callback)
+exports.checkAccess = function(options, callback)
 {
     lib.forEachSeries(options.config, (conf, next) => {
         var q = {
@@ -90,7 +85,7 @@ mod.checkAccess = function(options, callback)
     }, callback, true);
 }
 
-mod.testJob = function(options, callback)
+exports.testJob = function(options, callback)
 {
     logger.logger(options.logger || "info", "testJob:", options);
     if (options.dead) return;
@@ -126,5 +121,4 @@ mod.testJob = function(options, callback)
         callback(options.err);
     }
 }
-
 

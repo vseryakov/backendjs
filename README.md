@@ -29,7 +29,7 @@ Visit the [documentation](https://vseryakov.github.io/backendjs/docs/web/index.h
 
 ## Installation
 
-    npm install backendjs
+    npm install backendjs --omit=optional
 
 or clone the repo
 

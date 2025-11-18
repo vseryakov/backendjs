@@ -1,3 +1,45 @@
+:root {
+  --color: #333333;
+  --bg-color: #f0f0f0;
+  --bg-source: #0d152a;
+  --color-source: #aeaeae;
+  --bg-linenums: #084298;
+  --signature: #ffc107;
+  --attrs-color: #eee;
+  --h4-color: #fff;
+  --h4-bg-color: #5D86C3;
+  --h4-a-hover: #fc83ff;
+  --h4-shadow: #d3d3d3;
+  --a-color: #006390;
+  --nav-a-base: 207;
+  --h5-color: #666;
+  --code-bg-color: #f4f4f4;
+  --important: #950B02;
+  --table-border: #ddd;
+  --params-color: #4D4E53;
+  --disabled-color: #454545;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+      --color: #f9f9f9;
+      --bg-color: #333333;
+      --signature: #ffc107;
+      --attrs-color: #eee;
+      --h4-color: #fff;
+      --h4-bg-color: #607593;
+      --h4-shadow: #40414E;
+      --a-color: #BEC2D1;
+      --h5-color: #666;
+      --code-color: #ddd;
+      --code-bg-color: #000;
+      --important: #950B02;
+      --table-border: #ddd;
+      --params-color: #eee;
+      --disabled-color: #454545;
+  }
+}
+
 * {
   box-sizing: border-box
 }
@@ -8,11 +50,11 @@ html, body {
 }
 
 body {
-  color: #4d4e53;
-  background-color: white;
+  color: var(--color);
+  background-color: var(--bg-color);
   margin: 0 auto;
   padding: 0 20px;
-  font-family: 'Helvetica Neue', Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   font-size: 16px;
 }
 
@@ -22,7 +64,7 @@ img {
 
 a,
 a:active {
-  color: #606;
+  color: var(--a-color);
   text-decoration: none;
 }
 
@@ -31,11 +73,11 @@ a:hover {
 }
 
 article a {
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--table-border);
 }
 
 article a:hover, article a:active {
-  border-bottom-color: #222;
+  border-bottom-color: var(--table-border);
 }
 
 article .description a {
@@ -52,7 +94,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  color: #000;
   font-weight: 400;
   margin: 0;
 }
@@ -83,25 +124,24 @@ h3 {
 h4 {
   font-size: 18px;
   margin: 1em 0 .2em;
-  color: #4d4e53;
 }
 
 h4.name {
-  color: #fff;
-  background: #6d426d;
-  box-shadow: 0 .25em .5em #d3d3d3;
-  border-top: 1px solid #d3d3d3;
-  border-bottom: 1px solid #d3d3d3;
+  color: var(--h4-color);
+  background: var(--h4-bg-color);
+  box-shadow: 0 .25em .5em var(--h4-shadow);
+  border-top: 1px solid var(--h4-shadow)3;
+  border-bottom: 1px solid var(--h4-shadow);
   margin: 1.5em 0 0.5em;
   padding: .75em 0 .75em 10px;
 }
 
 h4.name a {
-  color: #fc83ff;
+  color: var(--h4-a-hover);
 }
 
 h4.name a:hover {
-  border-bottom-color: #fc83ff;
+  border-bottom-color: var(--h4-a-hover);
 }
 
 h5, .container-overview .subsection-title {
@@ -118,14 +158,12 @@ h6 {
 }
 
 .usertext h1 {
-  font-family: "Source Sans Pro";
   font-size: 24px;
   margin: 2.5em 0 1em;
   font-weight: 400;
 }
 
 .usertext h2 {
-  font-family: "Source Sans Pro";
   font-size: 18px;
   margin: 2em 0 0.5em;
   font-weight: 400;
@@ -133,14 +171,12 @@ h6 {
 }
 
 .usertext h3 {
-  font-family: "Source Sans Pro";
   font-size: 15px;
   margin: 1.5em 0 0;
   font-weight: 400;
 }
 
 .usertext h4 {
-  font-family: "Source Sans Pro";
   font-size: 14px;
   margin: 0 0 0;
   font-weight: 400;
@@ -150,7 +186,7 @@ h6 {
   font-size: 12px;
   margin: 1em 0 0;
   font-weight: normal;
-  color: #666;
+  color: var(--h5-color);
 }
 
 .usertext h6 {
@@ -158,13 +194,14 @@ h6 {
   margin: 1em 0 0;
   font-weight: normal;
   font-style: normal;
-  color: #666;
+  color: var(--h5-color);
 }
 
 
 tt, code, kbd, samp, pre {
-  font-family: Consolas, Monaco, 'Andale Mono', monospace;
-  background: #f4f4f4;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: var(--code-color);
+  background: var(--code-bg-color);
 }
 
 tt, code, kbd, samp{
@@ -197,7 +234,6 @@ header {
 
 section {
   display: block;
-  background-color: #fff;
   padding: 0 0 0 30px;
 }
 
@@ -207,7 +243,7 @@ section {
 
 .signature-attributes {
   font-size: 60%;
-  color: #eee;
+  color: var(--attrs-color);
   font-style: italic;
   font-weight: lighter;
 }
@@ -216,37 +252,35 @@ nav {
   float: left;
   display: block;
   width: 250px;
-  background: #fff;
   overflow: auto;
   position: fixed;
   height: 100%;
 }
 
-nav #nav-search{
+nav #nav-search {
     width: 210px;
     height: 30px;
     padding: 5px 10px;
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1.5;
     border-radius: 3px;
     margin-right: 20px;
     margin-top: 20px;
 }
 
-nav.wrap a{
+nav.wrap a {
     word-wrap: break-word;
 }
 
 nav h3 {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: 15px;
   text-transform: uppercase;
   letter-spacing: 1px;
   font-weight: 700;
   line-height: 24px;
   margin: 15px 0 10px;
   padding: 0;
-  color: #000;
 }
 
 nav h3.collapsed_header {
@@ -268,12 +302,12 @@ nav ul a:active {
   line-height: 18px;
   padding: 0;
   display: block;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 nav a:hover,
 nav a:active {
-  color: #606;
+  color: var(--a-color);
 }
 
 nav > ul {
@@ -281,13 +315,13 @@ nav > ul {
 }
 
 nav > ul > li > a {
-  color: #606;
+  color: var(--a-color);
   margin-top: 10px;
 }
 
 nav ul ul a {
-  color: hsl(207, 1%, 60%);
-  border-left: 1px solid hsl(207, 10%, 86%);
+  color: hsl(var(--nav-a-base), 1%, 60%);
+  border-left: 1px solid hsl(var(--nav-a-base), 10%, 86%);
 }
 
 nav ul ul a,
@@ -296,14 +330,14 @@ nav ul ul a:active {
 }
 
 nav h2 {
-   font-size: 13px;
+   font-size: 14px;
    margin: 10px 0 0 0;
    padding: 0;
 }
 
 nav > h2 > a {
    margin: 10px 0 -10px;
-   color: #606 !important;
+   color: var(--a-color) !important;
 }
 
 footer {
@@ -329,7 +363,7 @@ footer {
 
 .important {
   font-weight: bold;
-  color: #950B02;
+  color: var(--important);
 }
 
 .yes-def {
@@ -337,7 +371,7 @@ footer {
 }
 
 .type-signature {
-  color: #CA79CA
+  color:var(--signature)
 }
 
 .type-signature:last-child {
@@ -345,16 +379,16 @@ footer {
 }
 
 .name, .signature {
-  font-family: Consolas, Monaco, 'Andale Mono', monospace
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 .signature {
-    color: #fc83ff;
+    color: var(--signature);
 }
 
 .details {
   margin-top: 6px;
-  border-left: 2px solid #DDD;
+  border-left: 2px solid var(--table-border);
   line-height: 20px;
   font-size: 14px;
 }
@@ -407,15 +441,15 @@ footer {
   width: inherit;
   line-height: 18px;
   display: block;
-  background-color: #0d152a;
-  color: #aeaeae;
+  background-color: var(--bg-source)
+  color: var(--color-source);
 }
 
 .prettyprint code {
   line-height: 18px;
   display: block;
-  background-color: #0d152a;
-  color: #4D4E53;
+  background-color: var(--bg-source);
+  color: var(--color-source);
 }
 
 .prettyprint > code {
@@ -447,11 +481,11 @@ footer {
 }
 
 .prettyprint.linenums li {
-   border-left: 3px #34446B solid;
+   border-left: 3px var(--bg-linenums) solid;
 }
 
 .prettyprint.linenums li.selected, .prettyprint.linenums li.selected * {
-   background-color: #34446B;
+   background-color: var(--bg-linenums);
 }
 
 .prettyprint.linenums li * {
@@ -469,7 +503,7 @@ footer {
 
 table {
   border-spacing: 0;
-  border: 1px solid #ddd;
+  border: 1px solid var(--table-border);
   border-collapse: collapse;
   border-radius: 3px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -487,9 +521,8 @@ td, th {
 }
 
 thead tr, thead tr {
-   background-color: #fff;
    font-weight: bold;
-   border-bottom: 1px solid #ddd;
+   border-bottom: 1px solid var(--table-border);
 }
 
 .params .type {
@@ -501,13 +534,13 @@ thead tr, thead tr {
 }
 
 .params td, .params .name, .props .name, .name code {
-   color: #4D4E53;
-   font-family: Consolas, Monaco, 'Andale Mono', monospace;
+   color: var(--params-color);
+   font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
    font-size: 100%;
 }
 
 .params td {
-   border-top: 1px solid #eee
+   border-top: 1px solid var(--table-border)
 }
 
 .params td.description > p:first-child, .props td.description > p:first-child {
@@ -521,8 +554,8 @@ thead tr, thead tr {
 }
 
 span.param-type, .params td .param-type, .param-type dd {
-   color: #606;
-  font-family: Consolas, Monaco, 'Andale Mono', monospace
+  color: var(--a-color);
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 .param-type dt, .param-type dd {
@@ -534,7 +567,7 @@ span.param-type, .params td .param-type, .param-type dd {
 }
 
 .disabled {
-  color: #454545
+  color: var(--disabled-color)
 }
 
 /* navicon button */
@@ -572,7 +605,7 @@ span.param-type, .params td .param-type, .param-type dd {
   position: relative;
   width: 2.5em;
   height: .3125rem;
-  background: #000;
+  background: var(--color);
   transition: 0.3s;
   border-radius: 2.5rem;
 }
@@ -581,7 +614,7 @@ span.param-type, .params td .param-type, .param-type dd {
   content: "";
   height: .3125rem;
   width: 2.5rem;
-  background: #000;
+  background: var(--color);
   position: absolute;
   z-index: -1;
   transition: 0.3s 0.25s;
@@ -621,14 +654,14 @@ span.param-type, .params td .param-type, .param-type dd {
 .nav-trigger:checked + label.x .navicon:before {
   -webkit-transform: rotate(-45deg);
           transform: rotate(-45deg);
-  background: #FFF;
+  background: var(--bg-color);
 }
 
 .nav-trigger:checked + label.plus .navicon:after,
 .nav-trigger:checked + label.x .navicon:after {
   -webkit-transform: rotate(45deg);
           transform: rotate(45deg);
-  background: #FFF;
+  background: var(--bg-color);
 }
 
 .nav-trigger:checked + label.plus {
@@ -678,7 +711,6 @@ html[data-search-mode] .level-hide {
   }
 
   nav {
-    background: #FFF;
     width: 250px;
     height: 100%;
     position: fixed;
