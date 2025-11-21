@@ -235,7 +235,7 @@ module.exports = {
         "quote-props": "off",
         "quotes": "off",
         "radix": "off",
-        "require-await": "error",
+        "require-await": "off",
         "require-jsdoc": "off",
         "rest-spread-spacing": "error",
         "no-extra-semi": "off",

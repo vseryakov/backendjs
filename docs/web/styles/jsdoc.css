@@ -236,6 +236,7 @@ nav {
   overflow: auto;
   position: fixed;
   height: 100%;
+  background-color: var(--bg-color);
 }
 
 nav #nav-search {
@@ -698,10 +699,11 @@ html[data-search-mode] .level-hide {
 
   .navicon-button {
     display: inline-block;
-    position: fixed;
-    top: 1.5em;
+    position: absolute;
+    float: right;
+    top: 0;
     right: 0;
-    z-index: 2;
+    z-index: 99;
   }
 
   #main {

@@ -1,8 +1,35 @@
 
-const { api, lib, logger, modules, httpGet } = require("../");
+const { app, api, lib, ipc, jobs, logger, modules, httpGet } = require("../");
 const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
+
+exports.init = async function(options)
+{
+    await app.ainit(options);
+
+    if (options.ipc) {
+        if (app.isPrimary) {
+            ipc.initServer();
+        } else {
+            ipc.initWorker();
+        }
+    }
+
+    if (options.api) {
+        api.init();
+    }
+
+    if (options.jobs) {
+        if (app.isPrimary) {
+            jobs.initServer();
+        } else {
+            jobs.initWorker();
+        }
+    }
+
+    await lib.sleep(options.delay || 500);
+}
 
 // Generic access checker to be used in tests, accepts an array in .config with urls to check
 // The following properties can be used:
