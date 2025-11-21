@@ -1,0 +1,42 @@
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
+const { db, lib } = require("../");
+
+describe("Pool tests", async (t) => {
+
+    var options = { min: lib.getArgInt("-min", 1),
+                    max: lib.getArgInt("-max", 5),
+                    idle: lib.getArgInt("-idle", 50),
+                    create: function(cb) { cb(null,{ id: Date.now() }) }
+    }
+    var list = [], pool;
+
+    await it("aquire 5 connections", async () => {
+        pool = new db.Pool(options);
+        for (var i = 0; i < 5; i++) {
+            pool.acquire((err, obj) => { list.push(obj) });
+        }
+        assert.strictEqual(list.length, 5);
+    });
+
+    await it("release all", async () => {
+        while (list.length) {
+           pool.release(list.shift());
+        }
+        assert.strictEqual(list.length, 0);
+    });
+
+    await it("aquire 1 connection", async () => {
+        pool.acquire((err, obj) => { list.push(obj) });
+        assert.strictEqual(list.length, 1);
+        pool.release(list.shift());
+    });
+
+    await it("destroy idle connections", async () => {
+        await lib.sleep(options.idle*2);
+        assert.strictEqual(pool.stats().avail, 1);
+        pool.shutdown();
+    });
+
+})
+
