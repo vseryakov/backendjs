@@ -1,34 +1,52 @@
 
-const { app, api, lib, ipc, jobs, logger, modules, httpGet } = require("../");
+const { api, app, ipc, jobs, lib, cache, queue, logger, modules, httpGet } = require("../");
 const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
 
-exports.init = async function(options)
+exports.init = function(options, callback)
 {
-    await app.ainit(options);
+    options = Object.assign({}, options, { config: __dirname + "/bkjs.conf" });
+    app.ainit(options, () => {
 
-    if (options.ipc) {
-        if (app.isPrimary) {
-            ipc.initServer();
-        } else {
-            ipc.initWorker();
+        if (options.cache) {
+            cache.initClients();
         }
-    }
 
-    if (options.api) {
-        api.init();
-    }
-
-    if (options.jobs) {
-        if (app.isPrimary) {
-            jobs.initServer();
-        } else {
-            jobs.initWorker();
+        if (options.queue) {
+            queue.initClients();
         }
-    }
 
-    await lib.sleep(options.delay || 500);
+        if (options.ipc) {
+            if (app.isPrimary) {
+                ipc.initServer();
+            } else {
+                ipc.initWorker();
+            }
+        }
+
+        if (options.api) {
+            api.init();
+        }
+
+        if (options.jobs) {
+            if (app.isPrimary) {
+                jobs.initServer();
+            } else {
+                jobs.initWorker();
+            }
+        }
+        if (typeof callback != "function") return;
+
+        setTimeout(callback, options.delay || 250);
+    });
+}
+
+exports.ainit = async function(options)
+{
+    return new Promise((resolve, reject) => {
+        exports.init(options, resolve);
+    })
 }
 
 // Generic access checker to be used in tests, accepts an array in .config with urls to check

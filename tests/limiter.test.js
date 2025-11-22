@@ -1,8 +1,8 @@
 
-const { it } = require('node:test');
+const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { app, lib, cache } = require("../");
-const { init } = require("./utils");
+const { ainit } = require("./utils");
 
 var opts = {
     name: "test",
@@ -15,11 +15,13 @@ var opts = {
     delays: 4,
 };
 
-it("Limiter init env", async () => {
-    await init({ noDb: 1, ipc: 1 });
+describe("Limiter tests", async () => {
+
+before(async () => {
+    await ainit({ nodb: 1, cache: 1 });
 });
 
-it("Limiter should delay the pace", async () => (
+it("should delay the pace", async () => (
     new Promise((resolve, reject) => {
         var list = [], delays = 0;
         for (let i = 0; i < opts.count; i++) list.push(i);
@@ -46,15 +48,14 @@ it("Limiter should delay the pace", async () => (
     })
 ));
 
-it("Limiter should wait and continue", async () => {
+it("should wait and continue", async () => {
     opts.retry = 2;
     await cache.alimiter(opts);
-    const { delay, info } = await cache.acheckLimiter(opts);
-    console.log(delay, info, opts)
-    assert.ok(!delay && opts._retries == 3);
+    const { delay } = await cache.acheckLimiter(opts);
+    assert.ok(!delay && opts._retries == 2);
 });
 
-it("Limiter should fail after first run", async () => (
+it("should fail after first run", async () => (
     new Promise((resolve, reject) => {
         opts.retry = 1;
         delete opts._retries;
@@ -67,4 +68,8 @@ it("Limiter should fail after first run", async () => (
     })
 ));
 
-it("Limiter shutdown", async () => { app.stop })
+after(async () => {
+    await app.astop();
+});
+
+});

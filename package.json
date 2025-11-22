@@ -24,7 +24,7 @@
     "esbuild": "^0.27.0",
     "vseryakov/docdash": "latest"
   },
-  "optionalDependencies": {
+  "peerDependencies": {
     "croner": "9.1.0",
     "nodemailer": "7.0.10",
     "nats": "2.29.3",

@@ -12,7 +12,7 @@ A Node.js library to create Web backends with minimal dependencies.
 * Runs web server as separate processes to utilize multiple CPU cores.
 * Supports WebSocket connections and process them with the same Express routes as HTTP requests.
 * Supports scheduled (croner) and on-demand jobs running in separate worker processes.
-* Supports cache/rate-limiter using Redis.
+* Supports cache/rate-limiter using local TokenBucket or Redis.
 * Supports PUB/SUB modes of operations using Redis, NATS.
 * Supports async jobs processing using several work queue implementations on top of SQS, Redis, NATS.
 * REPL (command line) interface for debugging and looking into server internals.

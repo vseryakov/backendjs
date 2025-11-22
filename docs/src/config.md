@@ -395,10 +395,6 @@ See {@link module:push}
 #### **push-([a-z0-9]+)**
  A client parameters, ex: `-push-wp type:wp,key:K,pubkey:PK,email:XXX`   
   Type: map   
-#### **push-shutdown-timeout**
- How long to wait for messages draining out in ms on shutdown before exiting   
-  Type: int   
-  Default: 1000   
 # <a name="api">api</a>
 See {@link module:api}
 #### **api-err-(.+)**
