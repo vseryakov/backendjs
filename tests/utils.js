@@ -7,6 +7,9 @@ const fs = require("fs");
 exports.init = function(options, callback)
 {
     options = Object.assign({}, options, { config: __dirname + "/bkjs.conf" });
+
+    api.accessTokenSecret = lib.random();
+
     app.ainit(options, () => {
 
         if (options.cache) {
@@ -67,9 +70,11 @@ exports.ainit = async function(options)
 // - delay - wait before making next request
 exports.checkAccess = function(options, callback)
 {
+    var tmp = options.tmp = options.tmp || {};
+
     lib.forEachSeries(options.config, (conf, next) => {
         var q = {
-            url: conf.get || conf.url,
+            url: conf.get || conf.url || "/",
             method: conf.get ? "GET" : conf.method || "POST",
             query: conf.get && conf.data,
             postdata: !conf.get && conf.data,
@@ -80,16 +85,17 @@ exports.checkAccess = function(options, callback)
             secret: conf.user?.secret,
             _rc: conf.status || 200,
         };
-        if (conf.noscrf) options.h_csrf = options.c_csrf = null;
-        if (conf.nosig) options.sig = null;
-        if (options.h_csrf) {
-            q.headers[api.csrf.header] = options.h_csrf;
+        if (q.url[0] == "/") q.url = "http://127.0.0.1:" + api.port + q.url;
+        if (conf.noscrf) tmp.h_csrf = tmp.c_csrf = null;
+        if (conf.nosig) tmp.sig = null;
+        if (tmp.h_csrf) {
+            q.headers[api.csrf.header] = tmp.h_csrf;
         }
-        if (options.c_csrf) {
-            q.cookies[api.csrf.header] = options.c_csrf;
+        if (tmp.c_csrf) {
+            q.cookies[api.csrf.header] = tmp.c_csrf;
         }
-        if (!conf.user && options.sig) {
-            q.cookies[api.signature.header] = options.sig;
+        if (!conf.user && tmp.sig) {
+            q.cookies[api.signature.header] = tmp.sig;
         }
         lib.everySeries([
             function(next2) {
@@ -98,22 +104,22 @@ exports.checkAccess = function(options, callback)
             },
             function(next2) {
                 httpGet(q, (err, rc) => {
-                    assert.ok(rc.status == q._rc, util.inspect({ err: `${conf.user?.login || "pub"}: ${q.url}: expect ${q._rc} but got ${rc.status}`, data: rc.data, conf, options }));
+                    assert.ok(rc.status == q._rc, util.inspect({ err: `${conf.user?.login || "pub"}: ${q.url}: expect ${q._rc} but got ${rc.status}`, data: rc.data, conf, tmp }, { depth: null }));
 
                     if (rc.resheaders[api.csrf.header]) {
-                        options.h_csrf = rc.resheaders[api.csrf.header];
+                        tmp.h_csrf = rc.resheaders[api.csrf.header];
                     }
                     if (rc.rescookies[api.csrf.header]) {
-                        options.c_csrf = rc.rescookies[api.csrf.header].value;
+                        tmp.c_csrf = rc.rescookies[api.csrf.header].value;
                     }
                     if (rc.rescookies[api.signature.header]) {
-                        options.sig = rc.rescookies[api.signature.header].value;
+                        tmp.sig = rc.rescookies[api.signature.header].value;
                     }
                     if (typeof conf.match == "function") {
-                        assert.ok(conf.match(rc, conf), util.inspect({ err: "match failed", obj: rc.obj, conf }));
+                        assert.ok(conf.match(rc, conf), util.inspect({ err: "match failed", obj: rc.obj, conf, tmp }, { depth: null }));
                     } else
                     if (conf.match) {
-                        assert.ok(lib.isMatched(rc.obj, conf.match), util.inspect({ err: "match failed", objk: rc.obj, conf }));
+                        assert.ok(lib.isMatched(rc.obj, conf.match), util.inspect({ err: "match failed", objk: rc.obj, conf, tmp }, { depth: null }));
                     }
                     if (conf.delay) {
                         return setTimeout(next2, conf.delay, null, rc);

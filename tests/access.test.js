@@ -1,7 +1,8 @@
 /* global  */
 
-const { describe, it } = require('node:test');
-const { checkAccess } = require("./utils");
+const { describe, it, before, after } = require('node:test');
+const { checkAccess, init } = require("./utils");
+const { app } = require("../");
 
 const config = [
     { get: "/ping" },
@@ -13,8 +14,16 @@ const config = [
 
 describe('Access Tests', (t) => {
 
+    before((t, done) => {
+        init({ api: 1, nodb: 1, noipc: 1, roles: "users" }, done)
+    });
+
     it("checks basic endpoints", (t, callback) => {
         checkAccess({ config }, callback);
     });
+
+    after((t, done) => {
+        app.stop(done)
+    })
 })
 

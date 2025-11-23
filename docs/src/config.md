@@ -459,8 +459,6 @@ See {@link module:api}
  Do not show errors that match the regexp   
   Type: regexpobj   
   Default: {"list":["Range Not Satisfiable","Precondition Failed"],"rx":{}}   
-#### **api-salt**
- Salt to be used for scrambling credentials or other hashing activities   
 #### **api-qs-options-(.+)**
  Options to pass to qs when parsing the body: depth, arrayLimit, allowDots, comma, plainObjects, allowPrototypes, parseArrays   
 #### **api-no-static**
