@@ -23,7 +23,7 @@ A Node.js library to create Web backends with minimal dependencies.
 * Supports runtime metrics about the timing on database, requests, cache, memory and request rate limit control, AWS X-Ray spans.
 * The backend process can be used directly in Docker containers without shim init.
 
-## NOTE: work in progress
+## NOTE: work in progress, major refactor, the NPM version is stable
 
 ## Documentation
 

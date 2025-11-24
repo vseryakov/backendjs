@@ -9,7 +9,7 @@ var opts = {
     rate: 1,
     max: 1,
     interval: 100,
-    cacheName: process.env.TEST_CAHCE || "local",
+    cacheName: process.env.TEST_CACHE || "local",
     pace: 5,
     count: 5,
     delays: 4,

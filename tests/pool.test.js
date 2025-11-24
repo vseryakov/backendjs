@@ -4,10 +4,9 @@ const { db, lib } = require("../");
 
 describe("Pool tests", async (t) => {
 
-    var options = { min: lib.getArgInt("-min", 1),
-                    max: lib.getArgInt("-max", 5),
-                    idle: lib.getArgInt("-idle", 50),
-                    create: function(cb) { cb(null,{ id: Date.now() }) }
+    var options = {
+        min: 1, max: 5, idle: 50,
+        create: function(cb) { cb(null,{ id: Date.now() }) }
     }
     var list = [], pool;
 

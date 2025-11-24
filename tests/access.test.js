@@ -18,8 +18,8 @@ describe('Access Tests', (t) => {
         init({ api: 1, nodb: 1, noipc: 1, roles: "users" }, done)
     });
 
-    it("checks basic endpoints", (t, callback) => {
-        checkAccess({ config }, callback);
+    it("checks basic endpoints", (t, done) => {
+        checkAccess({ config }, done);
     });
 
     after((t, done) => {

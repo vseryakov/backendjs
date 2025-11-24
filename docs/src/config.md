@@ -875,6 +875,10 @@ See {@link module:api.signature}
 #### **api-signature-age**
  Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts   
   Type: int   
+#### **api-signature-max-length**
+ Max login and tag length   
+  Type: int   
+  Default: 140   
 # <a name="api.users">api.users</a>
 See {@link module:api.users}
 #### **api-users-table**
