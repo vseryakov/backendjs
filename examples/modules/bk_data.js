@@ -3,7 +3,7 @@
 //  backendjs 2018
 //
 
-const { db, api } = require('../../lib/index');
+const { db, api } = require('backendjs');
 
 // Data management
 const mod = {
@@ -17,7 +17,7 @@ module.exports = mod;
 mod.configureWeb = function(options, callback)
 {
     // Return table columns
-    api.app.get("/data/columns{/:table}", (req, res) => {
+    api.app.get("/data/columns/{:table}", (req, res) => {
         if (req.params.table) {
             return res.json(db.getColumns(req.params.table));
         }
@@ -30,11 +30,16 @@ mod.configureWeb = function(options, callback)
     });
 
     // Basic operations on a table
-    api.app.post(/^\/data\/(select|search|get|add|put|update|del|incr|replace)\/([a-z_0-9]+)$/, (req, res) => {
+    api.app.post("/data/:op/:table", (req, res) => {
 
-        if (!db.getColumns(req.params[1])) return api.sendReply(res, 404, "Unknown table");
+        if (!["select", "search", "get", "add", "put", "update", "del", "incr"].includes(req.params.op)) {
+            return api.sendReply(res, 400, "invalid op");
+        }
+        if (!db.getColumns(req.params.table)) {
+            return api.sendReply(res, 404, "Unknown table");
+        }
 
-        db[req.params[0]](req.params[1], req.body, (err, rows, info) => {
+        db[req.params.op](req.params.table, req.body, (err, rows, info) => {
             api.sendJSON(req, err, api.getResultPage(req, {}, rows, info));
         });
     });

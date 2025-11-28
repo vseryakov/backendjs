@@ -79,7 +79,7 @@ See {@link module:app}
  Add a path from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules. The modules can load any other files or directories, this is just an entry point   
   Type: path   
 #### **app-role**
- Override servers roles, this may have very strange side effects and should only be used for testing purposes   
+ Override primary server role   
   Default: "shell"   
 #### **app-salt**
  Set random or specific salt value to be used for consistent suuid generation   
@@ -613,7 +613,7 @@ See {@link module:jobs}
 #### **jobs-shutdown-timeout**
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
   Type: int   
-  Default: 10000   
+  Default: 50   
 #### **jobs-cron-queue**
  Default queue to use for cron jobs   
   Type: list   

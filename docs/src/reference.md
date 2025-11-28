@@ -11,7 +11,7 @@ it is required to clear cache manually there is `db.clearCache` method for that.
 Also there is a configuration option `-db-caching` to make any table automatically cached for all requests.
 
 ## Local
-If no cache is configured the local driver is used, it keeps the cache on the master process in the LRU pool and any worker or Web process
+If no cache is configured the local driver is used, it keeps the cache on the server process in the LRU pool and any worker or Web process
 communicate with it via internal messaging provided by the `cluster` module. This works only for a single server.
 
 ## Redis
@@ -42,7 +42,7 @@ in the API server also use the system bus to send broadcasts between multiple ap
 To configure the backend to use Redis for job processing set `cache-redis=redis://HOST` where HOST is IP address or hostname of the single Redis server.
 This driver implements reliable Redis queue, with `visibilityTimeout` config option works similar to AWS SQS.
 
-Once configured, then all calls to `jobs.submitJob` will push jobs to be executed to the Redis queue, starting somewhere a backend master
+Once configured, then all calls to `jobs.submitJob` will push jobs to be executed to the Redis queue, starting somewhere a backend server
 process with `-jobs-workers 2` will launch 2 worker processes which will start pulling jobs from the queue and execute.
 
 The naming convention is that any function defined as `function(options, callback)` can be used as a job to be executed in one of the worker processes.

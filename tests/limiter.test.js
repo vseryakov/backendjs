@@ -9,7 +9,7 @@ var opts = {
     rate: 1,
     max: 1,
     interval: 100,
-    cacheName: process.env.TEST_CACHE || "local",
+    cacheName: process.env.BKJS_ROLES || "local",
     pace: 5,
     count: 5,
     delays: 4,
@@ -18,7 +18,7 @@ var opts = {
 describe("Limiter tests", async () => {
 
 before(async () => {
-    await ainit({ nodb: 1, cache: 1 });
+    await ainit({ nodb: 1, cache: 1, roles: process.env.BKJS_ROLES });
 });
 
 it("should delay the pace", async () => (

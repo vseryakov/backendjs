@@ -1,5 +1,5 @@
 
-const { api, app, ipc, jobs, lib, cache, queue, logger, modules, httpGet } = require("../");
+const { api, app, ipc, jobs, lib, db, cache, queue, logger, modules, httpGet } = require("../");
 const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
@@ -9,8 +9,9 @@ exports.init = function(options, callback)
     options = Object.assign({}, options, { config: __dirname + "/bkjs.conf" });
 
     api.accessTokenSecret = lib.random();
+    db.createTablesRoles.push(app.role);
 
-    app.ainit(options, () => {
+    app.init(options, () => {
 
         if (options.cache) {
             cache.initClients();
@@ -34,11 +35,16 @@ exports.init = function(options, callback)
 
         if (options.jobs) {
             if (app.isPrimary) {
-                jobs.initServer();
+                jobs.initServer(options);
             } else {
-                jobs.initWorker();
+                jobs.initWorker(options);
             }
         }
+
+        if (options.worker) {
+            jobs.initWorker(options);
+        }
+
         if (typeof callback != "function") return;
 
         setTimeout(callback, options.delay || 250);
@@ -49,6 +55,19 @@ exports.ainit = async function(options)
 {
     return new Promise((resolve, reject) => {
         exports.init(options, resolve);
+    })
+}
+
+exports.stop = function(options, callback)
+{
+    lib.killWorkers();
+    app.stop(callback);
+}
+
+exports.astop = async function(options)
+{
+    return new Promise((resolve, reject) => {
+        exports.stop(options, resolve);
     })
 }
 
@@ -138,15 +157,23 @@ exports.checkAccess = function(options, callback)
 
 exports.testJob = function(options, callback)
 {
-    logger.logger(options.logger || "info", "testJob:", options);
+    logger.logger("info", "testJob:", "start", options);
     if (options.dead) return;
 
     var timer, interval, done;
     if (options.timeout_rand) {
-        timer = setTimeout(() => { done = 1; callback() }, lib.randomInt(0, options.timeout_rand), options.err);
+        timer = setTimeout(() => {
+            done = 1;
+            logger.info("testJob:", "end;", options);
+            callback()
+        }, lib.randomInt(0, options.timeout_rand), options.err);
     } else
     if (options.timeout) {
-        timer = setTimeout(() => { done = 1; callback() }, options.timeout, options.err);
+        timer = setTimeout(() => {
+            done = 1;
+            logger.info("testJob:", "end", options);
+            callback()
+        }, options.timeout, options.err);
     }
     if (options.cancel) {
         interval = setInterval(() => {
@@ -161,14 +188,14 @@ exports.testJob = function(options, callback)
                 }
                 return callback("cancelled");
             }
-            logger.debug("testJob:", options);
-        }, 250);
-    }
+        }, 50);
+    } else
     if (options.file) {
         fs.writeFileSync(options.file, `${options.data}`);
     }
-    if (!timer) {
+    if (!timer && !interval) {
         done = 1;
+        logger.info("testJob:", "end", options);
         callback(options.err);
     }
 }

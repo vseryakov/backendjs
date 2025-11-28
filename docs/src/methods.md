@@ -26,7 +26,7 @@ NOTE: `api.app` refers to the Express instance.
 
  NOTE: `api.app` refers to the Express instance
 
-```configureServer(options, callback)```
+```configureWebServer(options, callback)```
 
 Called during the Web server startup to create additional servers like websocket in addition to the default HTTP(s) servers
 
@@ -49,9 +49,9 @@ Called before configuring static Express paths
 
  NOTE: `api.app` refers to the Express instance
 
-```configureMaster(options, callback)```
+```configureServer(options, callback)```
 
-Called during the master server startup, this is the process that monitors the worker jobs and performs jobs scheduling
+Called during the server server startup, this is the process that monitors the worker jobs and performs jobs scheduling
 
 ```configureWorker(options, callback)```
 

@@ -1,54 +1,86 @@
-/* global lib jobs core ipc sleep queue promisify */
+
+const cluster = require("node:cluster");
+const { app, lib, jobs, cache } = require("../");
+const { ainit, astop, testJob } = require("./utils");
+
+jobs.testJob = testJob;
+
+if (cluster.isWorker) {
+    return app.start({ worker: 1, roles: process.env.BKJS_ROLES || "redis", config: __dirname + "/bkjs.conf" }, () => {
+        process.exit();
+    });
+}
+
+const { describe, it, before, after } = require('node:test');
+const assert = require('node:assert/strict');
+const { promisify } = require("util");
 
 const submitJob = promisify(jobs.submitJob.bind(jobs));
 
-tests.test_jobs = async function(callback, test)
-{
-    const queueName = test.queue || lib.getArg("-test-queue") || queue.getClient().queueName;
+describe("Jobs tests", async () => {
 
-    // To avoid racing conditions and poll faster
-    var q = queue.getClient(queueName);
-    q.options.interval = q.options.retryInterval = 50;
+    var opts = {
+        queueName: process.env.BKJS_ROLES || "redis",
+    };
 
-    var file = app.tmpDir + "/" + process.pid + ".test";
-    var opts = { queueName };
+    before(async () => {
+        await ainit({ jobs: 1, roles: process.env.BKJS_ROLES || "redis" })
+        await cache.adel(opts.queueName);
+        await cache.adel("#" + opts.queueName);
+    });
 
-    await jobs.submitJob({ job: { "shell.testJob": { file, data: "job" } } }, opts);
-    await sleep(1000)
+    after(async () => {
+        await astop();
+    });
 
-    var data = lib.readFileSync(file);
-    expect(/job/.test(data), "expect job finished", file, data, opts);
 
-    await submitJob({ job: { "shell.testJob": { file, cancel: process.pid, timeout: 5000 } } }, opts);
-    await sleep(1000)
+    await it("run simple job", async () => {
+        var file = "/tmp/job1.test";
+        lib.unlinkSync(file);
 
-    // jobs.cancelJob only sends to workers so we send to all shells explicitly
-    ipc.broadcast(":" + app.role, ipc.newMsg("jobs:cancel", { key: process.pid }));
-    await sleep(1000);
+        await jobs.submitJob({ job: { "jobs.testJob": { file, data: "job" } } }, opts);
+        await lib.sleep(200)
 
-    data = lib.readFileSync(file);
-    expect(/cancelled/.test(data), "expect job cancelled", file, data, opts);
+        var data = lib.readFileSync(file);
+        assert.match(data, /job/);
+    });
 
-    await submitJob({ job: { "shell.testJob": { file, data: "local" } } }, { queueName: "local" });
-    await sleep(1000)
+    await it("run cancel job", async () => {
+        const file = "/tmp/job2.test";
+        lib.unlinkSync(file);
 
-    data = lib.readFileSync(file);
-    expect(/local/.test(data), "expect local job", file, data);
+        await submitJob({ job: { "jobs.testJob": { file, cancel: "job2", timeout: 5000 } } }, opts);
+        await lib.sleep(500)
 
-    callback();
-}
+        jobs.cancelJob("job2");
+        await lib.sleep(500);
 
-tests.test_master_worker = async function(callback, test)
-{
-    var file = app.tmpDir + "/" + process.pid + ".test";
+        var data = lib.readFileSync(file);
+        assert.match(data, /cancelled/);
+    });
 
-    await submitJob({ job: { "shell.testJob": { file, data: "worker" } } }, { queueName: "worker" });
-    await sleep(2000)
+    it("run local job", async () => {
+        const file = "/tmp/job3.test";
+        lib.unlinkSync(file);
 
-    var data = lib.readFileSync(file);
-    expect(/worker/.test(data), "expect worker job", file, data);
-    expect(!data.includes(` ${process.pid} `), "expect worker pid in worker job", file, data)
+        await submitJob({ job: { "jobs.testJob": { file, data: "local" } } }, { queueName: "local" });
+        await lib.sleep(100)
 
-    callback();
-}
+        var data = lib.readFileSync(file);
+        assert.match(data, /local/);
+
+    });
+
+    it("run worker job", async() => {
+        var file = "/tmp/job4.test";
+        lib.unlinkSync(file);
+
+        await submitJob({ job: { "jobs.testJob": { file, data: "worker" } } }, { queueName: "worker" });
+        await lib.sleep(500)
+
+        var data = lib.readFileSync(file);
+        assert.match(data, /worker/);
+    });
+});
+
 

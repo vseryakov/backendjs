@@ -117,11 +117,11 @@ When the backendjs server starts it spawns several processes that perform differ
 
 There are 2 major tasks of the backend that can be run at the same time or in any combination:
 - a Web server (server) with Web workers (web)
-- a job scheduler (master)
+- a job scheduler (server)
 
 This is the typical output from the ps command on Linux server:
 
-    ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 bkjs: master
+    ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 bkjs: server
     ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 bkjs: web
     ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 bkjs: web
     ec2-user    921  0.0  0.7 1072120 40721 ?  Sl   14:33   0:02 bkjs: worker
@@ -130,11 +130,11 @@ To enable any task a command line parameter must be provided, it cannot be speci
 commands that simplify running the backend in different modes.
 
 - `bkjs start` - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
-   the env variable `BKJS_SERVER` must be set in the profile to `master` to start the server
-- `bkjs watch` - runs the master and Web server in wather mode checking all source files for changes, this is the common command to be used
-   in development, it passes the command line switches: `-watch -master`
-- `bkjs master` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
-   the command line parameters are: `-daemon -master -syslog`, web server and workers are started by default
+   the env variable `BKJS_SERVER` must be set in the profile to `server` to start the server
+- `bkjs watch` - runs the server and Web server in wather mode checking all source files for changes, this is the common command to be used
+   in development, it passes the command line switches: `-watch -server`
+- `bkjs server` - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
+   the command line parameters are: `-daemon -server -syslog`, web server and workers are started by default
 - `bkjs run` - this command runs without other parameters, all additional parameters can be added in the command line, this command
    is a barebone helper to be used with any other custom settings.
 - `bkjs run -api` - this command runs a single process as web server, sutable for Docker
@@ -187,7 +187,7 @@ The backend directory structure is the following:
 
         3. Start the jobs queue and the web server at once
 
-                node app.js -master -jobs-workers 1 -jobs-cron
+                node app.js -server -jobs-workers 1 -jobs-cron
 
     * etc/crontab.local - additional local crontab that is read after the main one, for local or dev environment
 

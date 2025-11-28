@@ -24,7 +24,7 @@ mod.configureWeb = function(options, callback)
 
         case "init":
             if (req.params[1]) {
-                ipc.broadcast(app.id + ":master", req.params[1] + ":" + req.params[0]);
+                ipc.broadcast(app.id + ":server", req.params[1] + ":" + req.params[0]);
             }
             res.json({});
             break;

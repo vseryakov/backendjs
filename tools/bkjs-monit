@@ -55,7 +55,7 @@ case "$BKJS_CMD" in
   monit-init-bkjs)
     timeout=$(get_arg -timeout 30)
     bin=$(get_arg -bin $BKJS_BIN)
-    echo -e "check process bkjs with pidfile \"$BKJS_HOME/var/master.pid\" start program = \"$bin run-master $(get_all_args)\" as uid $BKJS_USER with timeout $timeout seconds stop program = \"$bin stop\"" > /etc/monit.d/bkjs.conf
+    echo -e "check process bkjs with pidfile \"$BKJS_HOME/var/server.pid\" start program = \"$bin run-server $(get_all_args)\" as uid $BKJS_USER with timeout $timeout seconds stop program = \"$bin stop\"" > /etc/monit.d/bkjs.conf
     exit
     ;;
 

@@ -290,12 +290,12 @@ case "$BKJS_CMD" in
     ;;
 
   stop-api)
-    pids=$(get_pids master)
+    pids=$(get_pids server)
     [ -n "$pids" ] && kill -s USR2 $pids
     exit
     ;;
 
-  stop-web|stop-master|stop-worker)
+  stop-web|stop-server|stop-worker)
     name=${BKJS_CMD:5}
     [ -z "$name" ] && exit 0
     pids=$(get_pids $name)
@@ -303,7 +303,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  run|run-master|master|watch|sh|shell|bksh|run-none|none)
+  run|run-server|server|watch|sh|shell|bksh|run-none|none)
     [ -f app.js ] && SCRIPT=app.js
     [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/../lib/index.js
 
@@ -313,12 +313,12 @@ case "$BKJS_CMD" in
      run-none|none)
         ;;
 
-     run-master|master)
-        exec node $NODE_ARGS $SCRIPT -syslog -daemon -master $BKJS_RUN_ARGS "$@"
+     run-server|server)
+        exec node $NODE_ARGS $SCRIPT -syslog -daemon -server $BKJS_RUN_ARGS "$@"
         ;;
 
      watch)
-        exec node $NODE_ARGS $SCRIPT -master -watch $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $SCRIPT -server -watch $BKJS_RUN_ARGS "$@"
         ;;
 
      sh|shell|bksh)
@@ -346,8 +346,8 @@ case "$BKJS_CMD" in
     echo "  stop-api - graceful API servers restart, drain all connections and restart one at a time, workers will restart after finishing jobs"
     echo ""
     echo "  shell - run backend REPL in the current backend directory, works with the backend core or local app.js application"
-    echo "  master - run the backend master process which starts web server and jobs servers if configured"
-    echo "  watch - run the backend in watcher and master mode with all source files being monitored for changes, the server is restarts on any change automatically"
+    echo "  server - run the backend server process which starts web and job workers if configured"
+    echo "  watch - run the backend in watcher and server mode with all source files being monitored for changes, the server is restarts on any change automatically"
     echo "  run - run local backend with provided arguments"
     echo ""
     echo "  help - show shell commands"

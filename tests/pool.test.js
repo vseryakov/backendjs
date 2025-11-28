@@ -1,6 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { db, lib } = require("../");
+const { lib, dbPool } = require("../");
 
 describe("Pool tests", async (t) => {
 
@@ -11,7 +11,7 @@ describe("Pool tests", async (t) => {
     var list = [], pool;
 
     await it("aquire 5 connections", async () => {
-        pool = new db.Pool(options);
+        pool = new dbPool(options);
         for (var i = 0; i < 5; i++) {
             pool.acquire((err, obj) => { list.push(obj) });
         }
