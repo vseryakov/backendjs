@@ -27,7 +27,7 @@
 # <a name="app">app</a>
 See {@link module:app}
 #### **app-log**
- Set debugging level to any of test,dev,debug,info,notice,log,warn,error,none   
+ Set debugging level to any of DEV,DEBUG,INFO,LOG,WARN,ERROR,NONE   
   Type: callback   
 #### **app-log-options**
  Update logger options, the format is a map: name:val,...   
@@ -80,6 +80,7 @@ See {@link module:app}
   Type: path   
 #### **app-role**
  Override primary server role   
+  Type: callbacl   
   Default: "shell"   
 #### **app-salt**
  Set random or specific salt value to be used for consistent suuid generation   
@@ -98,23 +99,23 @@ See {@link module:app}
 #### **app-shell**
  Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line   
   Type: none   
-#### **app-master**
- Start the master server, can be specified only in the command line, this process handles job schedules and starts Web server in separate process, keeps track of failed processes and restarts them   
+#### **app-server**
+ Start the server server, can be specified only in the command line, this process handles job schedules and starts Web server in separate process, keeps track of failed processes and restarts them   
   Type: none   
 #### **app-worker**
- Set this process as a worker even it is actually a master, this skips some initializations   
+ Set this process as a worker even it is actually a primary, this skips some initializations   
   Type: bool   
 #### **app-no**
  List of subsystems to disable instead of using many inidividual -no-NNN parameters   
   Type: callback   
 #### **app-no-([a-z]+)**
- Do not start or disbale a service, master, web, jobs, ipc, db, dbconf, watch, modules, packages, configure   
+ Do not start or disbale a service, server, web, jobs, ipc, db, dbconf, watch, modules, packages, configure   
   Type: callback   
 #### **app-ok-(.+)**
  Enable disabled service, opposite of -no   
   Type: callback   
 #### **app-repl-port-([a-z]+)$**
- Base REPL port for process role (master, web, worker), if specified it initializes REPL in the processes, for workers the port is computed by adding a worker id to the base port, for example if specified `-repl-port-web 2090` then a web worker will use any available 2091,2092...   
+ Base REPL port for process role (server, web, worker), if specified it initializes REPL in the processes, for workers the port is computed by adding a worker id to the base port, for example if specified `-repl-port-web 2090` then a web worker will use any available 2091,2092...   
   Type: number   
 #### **app-repl-([a-z]+)**
  REPL settings: listen, file, size   
@@ -164,7 +165,7 @@ See {@link module:app}
  Duration in ms to exit the server process after last worker terminated   
   Type: int   
 #### **app-pid-file**
- Master process pid file   
+ server process pid file   
 #### **app-err-file**
  Server error log file in daemon mode   
 # <a name="cache">cache</a>
@@ -282,7 +283,7 @@ See {@link module:db}
 #### **db-create-tables-roles**
  Only processes with these roles can create tables   
   Type: list   
-  Default: ["master","shell"]   
+  Default: ["server","shell"]   
 #### **db-cache-tables**
  List of tables that can be cached: bk_user, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.   
   Type: list   
@@ -430,6 +431,9 @@ See {@link module:api}
  The maximum length of the queue of pending connections, used by HTTP server in listen.   
   Type: int   
   Default: 5000   
+#### **api-reuse-port**
+ Allow multiple sockets on the same host to bind to the same port   
+  Type: bool   
 #### **api-ssl**
  SSL params: port, bind, key, cert, pfx, ca, passphrase, crl, ciphers   
   Type: map   
@@ -570,7 +574,7 @@ See {@link module:api}
   Type: bool   
 #### **api-restart**
  On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts   
-  Default: "master,web,process"   
+  Default: "server,web,process"   
 #### **api-proxy-(.+)**
  Proxy matched requests by path to given host   
   Type: regexp   
@@ -591,10 +595,13 @@ See {@link module:jobs}
  Environment to be passed to the worker via fork, see `cluster.fork`   
   Type: map   
   Default: {}   
+#### **jobs-worker-settings**
+ Worker fork setting, see cluster.setupPrimary   
+  Type: json   
 #### **jobs-worker-delay**
  Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start   
   Type: int   
-  Default: 500   
+  Default: 50   
 #### **jobs-worker-queue**
  Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues   
   Type: list   
@@ -654,24 +661,26 @@ See {@link module:events}
  Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is `queue#channel@consumer`, ex: -events-worker-queue-ticket ticket.processEvents, -events-worker-queue-ticket#inbox@staff ticket.processInboxEvents, -events-worker-queue-ticket@staff ticket.processStaffEvents   
   Type: list   
 #### **events-worker-options-(.+)**
- Custom parameters by queue name, passed to `queue.listen` on worker start, useful with channels, ex: `-events-worker-options-ticket {"count":3,"raw":1}`   
-  Type: json   
+ Custom parameters by queue name, passed to `queue.listen` on worker start, useful with channels, ex: `-events-worker-options-ticket count:3,raw:1`   
+  Type: map   
 #### **events-worker-delay**
  Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start   
   Type: int   
-  Default: 500   
 #### **events-max-runtime**
  Max number of seconds an event processing can run before being killed   
   Type: int   
   Default: 60   
 #### **events-routing**
- Routing map by event subject or type, ex: `-events-routing redis:local.+,nats:.+   
+ Routing map by event subject or type, ex: `-events-routing redis:local.+,nats:.+,sqs:billing.+   
   Type: map   
   Default: {}   
+#### **events-routing-options-(.+)**
+ Routing options by queue name, used by `putEvent` to merge with passed queue options, ex: `-events-routing-options-sqs groupKey:id`   
+  Type: map   
 #### **events-shutdown-timeout**
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
   Type: int   
-  Default: 5000   
+  Default: 50   
 # <a name="stats">stats</a>
 See {@link module:stats}
 #### **stats-flags**

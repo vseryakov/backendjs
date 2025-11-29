@@ -14,6 +14,7 @@
   --nav-a-color: #999;
   --nav-a-border: #bbb;
   --h5-color: #666;
+  --h5-param: #5D86C3;
   --code-bg-color: #f4f4f4;
   --important: #950B02;
   --table-border: #ddd;
@@ -25,15 +26,16 @@
     :root {
       --color: #D9D9D9;
       --bg-color: #333333;
-      --signature: #ffc107;
+      --signature: #E0A906;
       --attrs-color: #eee;
-      --h4-color: #bbb;
+      --h4-color: #ccc;
       --h4-bg-color: #607593;
       --h4-shadow: #777CB1;
       --a-color: #BEC2D1;
       --nav-a-color: #989898;
       --nav-a-border: #555;
       --h5-color: #666;
+      --h5-param: #666;
       --code-color: #ddd;
       --code-bg-color: #000;
       --important: #950B02;
@@ -142,6 +144,10 @@ h5, .container-overview .subsection-title {
   font-size: 120%;
   letter-spacing: -0.01em;
   margin: 8px 0 3px 0;
+}
+
+.h5-returns, .h5-parameters {
+    color: var(--h5-param);
 }
 
 h6 {

@@ -13,7 +13,6 @@
   "dependencies": {
     "express": "5.1.0",
     "formidable": "3.5.4",
-    "hashids": "2.3.0",
     "mime-types": "3.0.1",
     "qs": "6.14.0",
     "ws": "8.18.3",
