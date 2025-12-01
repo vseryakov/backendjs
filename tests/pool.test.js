@@ -10,10 +10,10 @@ describe("Pool tests", async (t) => {
     }
     var list = [], pool;
 
-    await it("aquire 5 connections", async () => {
+    await it("use 5 connections", async () => {
         pool = new dbPool(options);
         for (var i = 0; i < 5; i++) {
-            pool.acquire((err, obj) => { list.push(obj) });
+            pool.use((err, obj) => { list.push(obj) });
         }
         assert.strictEqual(list.length, 5);
     });
@@ -25,8 +25,8 @@ describe("Pool tests", async (t) => {
         assert.strictEqual(list.length, 0);
     });
 
-    await it("aquire 1 connection", async () => {
-        pool.acquire((err, obj) => { list.push(obj) });
+    await it("take 1 connection", async () => {
+        pool.use((err, obj) => { list.push(obj) });
         assert.strictEqual(list.length, 1);
         pool.release(list.shift());
     });

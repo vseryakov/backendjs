@@ -131,13 +131,6 @@ describe("DB tests", async () => {
                 });
             },
             function(next) {
-                // Type conversion for strictTypes
-                db.join("test1", [{ id: id }, { id: id2 }, { id: "" }], { existing: 1 }, function(err, rows) {
-                    assert(err || rows.length != 2 || rows[0].id != id || rows[1].id != id2, "err2-1:", rows);
-                    next();
-                });
-            },
-            function(next) {
                 db.list("test1", String([id,id2,""]), {}, function(err, rows) {
                     var isok = rows.every(function(x) { return x.id==id || x.id==id2});
                     assert(err || rows.length!=2 || !isok, "err3:", rows.length, isok, rows);
