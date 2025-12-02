@@ -17,7 +17,7 @@ module.exports = {
         }
     },
     opts: {
-        template: "node_modules/docdash",
+        template: "node_modules/@vseryakov/docdash",
         destination: "./docs/web",
         recurse: true,
         readme: "README.md",

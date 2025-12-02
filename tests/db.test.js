@@ -381,7 +381,7 @@ describe("DB tests", async () => {
                 });
             },
             function(next) {
-                db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: id }, skip_columns: ["mtime"], updateOps: { num: "incr" } }, function(err, rc, info) {
+                db.update("test1", { id: id, email: "test", num: 1 }, { query: { id: id, email: id }, skip_columns: ["mtime"], updateOps: { num: "incr" } }, function(err, rc, info) {
                     assert(err || info.affected_rows!=1, "err25:", info);
                     next();
                 });
@@ -393,19 +393,19 @@ describe("DB tests", async () => {
                 });
             },
             function(next) {
-                db.update("test1", { id: id, email: "test", num: 1 }, { expected: { id: id, email: "test" }, updateOps: { num: "incr" } }, function(err, rc, info) {
+                db.update("test1", { id: id, email: "test", num: 1 }, { query: { id: id, email: "test" }, updateOps: { num: "incr" } }, function(err, rc, info) {
                     assert(err || info.affected_rows!=1, "err26:", info);
                     next();
                 });
             },
             function(next) {
-                db.update("test1", { id: id, email: "test", num: 100 }, { expected: { id: id, email: id }, returning: "*" }, function(err, rc, info) {
+                db.update("test1", { id: id, email: "test", num: 100 }, { query: { id: id, email: id }, returning: "*" }, function(err, rc, info) {
                     assert(err || info.affected_rows, "err27:", info, rc);
                     next();
                 });
             },
             function(next) {
-                db.update("test1", { id: id, email: "test", num: 2 }, { expected: { id: id, num: 1 }, ops: { num: "gt" } }, function(err, rc, info) {
+                db.update("test1", { id: id, email: "test", num: 2 }, { query: { id: id, num: 1 }, ops: { num: "gt" } }, function(err, rc, info) {
                     assert(err || !info.affected_rows, "err28:", info);
                     next();
                 });
