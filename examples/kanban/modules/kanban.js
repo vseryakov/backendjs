@@ -22,7 +22,7 @@ module.exports = {
 
         lists: {
             id: { primary: 1 },
-            board_id: { not_null: 1, foreign_key: { table: "boards", name: "id", ondelete: "cascade" } },
+            board_id: { not_null: 1, foreign: { table: "boards", name: "id", ondelete: "cascade" } },
             title: { not_null: 1 },
             position: { type: "int", not_null: 1 },
             created_at: { type: "bigint", not_null: 1 },
@@ -30,24 +30,24 @@ module.exports = {
 
         cards: {
             id: { primary: 1 },
-            list_id: { not_null: 1, foreign_key: { table: "lists", name: "id", ondelete: "cascade" } },
+            list_id: { not_null: 1, foreign: { table: "lists", name: "id", ondelete: "cascade" } },
             title: { not_null: 1 },
             description: {},
-            assignee_id: { foreign_key: { table: "users", name: "id", ondelete: "cascade" } },
+            assignee_id: { foreign: { table: "users", name: "id", ondelete: "cascade" } },
             position: { type: "int", not_null: 1 },
             completed: { type: "int", value: false },
             created_at: { type: "bigint", not_null: 1 },
         },
 
         card_tags: {
-            card_id: { primary: 1, foreign_key: { table: "cards", name: "id", ondelete: "cascade" } },
-            tag_id: { primary: 2, foreign_key: { table: "tags", name: "id", ondelete: "cascade" } },
+            card_id: { primary: 1, foreign: { table: "cards", name: "id", ondelete: "cascade" } },
+            tag_id: { primary: 2, foreign: { table: "tags", name: "id", ondelete: "cascade" } },
         },
 
         comments: {
             id: { primary: 1 },
-            card_id: { not_null: 1, foreign_key: { table: "cards", name: "id", ondelete: "cascade" } },
-            user_id: { not_null: 1, foreign_key: { table: "users", name: "id", ondelete: "cascade" } },
+            card_id: { not_null: 1, foreign: { table: "cards", name: "id", ondelete: "cascade" } },
+            user_id: { not_null: 1, foreign: { table: "users", name: "id", ondelete: "cascade" } },
             text: { not_null: 1 },
             created_at: { type: "bigint", not_null: 1 },
         },
