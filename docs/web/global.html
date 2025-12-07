@@ -2091,6 +2091,8 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
         
 
@@ -2117,6 +2119,12 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+                </td>
+            
 
             
 
@@ -2140,6 +2148,12 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
             
             </td>
 
+            
+                <td class="attributes">
+                
+
+                
+                </td>
             
 
             
@@ -2165,6 +2179,12 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+                </td>
+            
 
             
 
@@ -2188,6 +2208,12 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
             
             </td>
 
+            
+                <td class="attributes">
+                
+
+                
+                </td>
             
 
             
@@ -2213,6 +2239,12 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+                </td>
+            
 
             
 
@@ -2237,10 +2269,48 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+                </td>
+            
 
             
 
             <td class="description last"><p>original name in case name contained _$ placeholder</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>col</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="global.html#DBTableColumn">DBTableColumn</a></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>existing column definition or undefined</p></td>
         </tr>
 
     
@@ -3782,7 +3852,7 @@ by default all properties in the obj not described in the table definition for t
 <h4 class="name" id="DBTableColumn">DBTableColumn</h4>
 
 
-<p class="summary"><p>Database column definition</p></p>
+<p class="summary"><p>Database column definition, all properties are optional</p></p>
 
 
 
@@ -4056,159 +4126,6 @@ see <a href="module-lib.html#.uuid">module:lib.uuid</a>, <a href="module-lib.htm
 
         <tr>
             
-                <td class="name"><code>foreign</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>foreign key reference (SQL)</p>
-                <h6>Properties</h6>
-
-<table class="props">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>table</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>reference table name</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>name</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>reference table primary key</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>ondelete</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>action on delete, cascade, ...</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>custom</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>additional SQL statements</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-            </td>
-        </tr>
-
-    
-
-        <tr>
-            
                 <td class="name"><code>value</code></td>
             
 
@@ -4262,7 +4179,7 @@ see <a href="module-lib.html#.uuid">module:lib.uuid</a>, <a href="module-lib.htm
 
             
 
-            <td class="description last"><p>default value to return if not retrieved</p></td>
+            <td class="description last"><p>default value to assign if not present in the record</p></td>
         </tr>
 
     
@@ -4419,7 +4336,97 @@ see <a href="module-lib.html#.uuid">module:lib.uuid</a>, <a href="module-lib.htm
 
         <tr>
             
-                <td class="name"><code>api</code></td>
+                <td class="name"><code>prefix</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>prefix to be prepended for autogenerated columns: <code>uuid</code>, <code>suuid</code>, <code>sfuuid</code></p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>separator</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>to be used as a separator in join or lists depending on the column properties</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>keyword</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>a hint to treat the value as it is in search (Elasticsearch)</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>foreign</code></td>
             
 
             <td class="type">
@@ -4436,6 +4443,157 @@ see <a href="module-lib.html#.uuid">module:lib.uuid</a>, <a href="module-lib.htm
                 <td class="attributes">
                 
                     &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>foreign key reference (SQL)</p>
+                <h6>Properties</h6>
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>table</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>reference table name</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>reference table primary key</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>ondelete</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>action on delete, cascade, ...</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>custom</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>additional SQL statements</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>api</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
                 
 
                 
@@ -4647,96 +4805,6 @@ so by default only a few columns are marked as public in the <code>bk_user</code
 </table>
 
             </td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>prefix</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>prefix to be prepended for autogenerated columns: <code>uuid</code>, <code>suuid</code>, <code>sfuuid</code></p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>separator</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>to be used as a separator in join or lists depending on the column properties</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>keyword</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>a hint to treat the value as it is in search (Elasticsearch)</p></td>
         </tr>
 
     
@@ -5104,8 +5172,6 @@ so by default only a few columns are marked as public in the <code>bk_user</code
             
                 <td class="attributes">
                 
-                    &lt;optional><br>
-                
 
                 
                 </td>
@@ -5320,9 +5386,6 @@ so by default only a few columns are marked as public in the <code>bk_user</code
             
                 
 <span class="param-type">Array.&lt;string></span>
-|
-
-<span class="param-type">object</span>
 
 
 
@@ -5332,8 +5395,6 @@ so by default only a few columns are marked as public in the <code>bk_user</code
             
                 <td class="attributes">
                 
-                    &lt;optional><br>
-                
 
                 
                 </td>
@@ -5341,255 +5402,8 @@ so by default only a few columns are marked as public in the <code>bk_user</code
 
             
 
-            <td class="description last"><p>make this a part of joined(composite) column</p>
-                <h6>Properties</h6>
-
-<table class="props">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>name</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Array.&lt;string></span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
             <td class="description last"><p>a list with property names that must be joined together before performing a db operation,
-it will use the given record to produce new property, this will work both ways, to the db and when reading a
-record from the db it will split joined property and assign individual
-properties the value from the joined value. Empty properties will be still joined as empty strings.
-It always uses the original value even if one of the properties has been joined already.</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>strict</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>can be used to perform join only if all columns in the list are not empty, so the join
-is for all columns or none</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>all</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>can be used to proceed and join empty values, without it the any join stops on first empty value but
-marked to be checked later in case the empty column is not empty anymore in case of uuid or other auto-generated column type.</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>force</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>can be used to force the join regardless of the existing value, without it if the existing value contains the
-separator it is skipped</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>hash</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>can be used to store a hash of the joined column to reduce the space and make the result value easier to use</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>lower</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>convert the joined value to lower case</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>upper</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>convert the joined value to upper case</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>cap</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>capitalize words</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>format</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">function</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>a function(req, value, obj, col) - must return a value to be used, the value is joined already</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-            </td>
+it will use the given record to produce a new property, empty properties will be still joined as empty strings.</p></td>
         </tr>
 
     
@@ -5611,8 +5425,6 @@ separator it is skipped</p></td>
 
             
                 <td class="attributes">
-                
-                    &lt;optional><br>
                 
 
                 

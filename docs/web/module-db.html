@@ -922,8 +922,7 @@ db-dynamodb-pool-metrics-tables = bk_config, bk_user
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Insert new object into the database
-Note: SQL, DynamoDB drivers are fully atomic but other drivers may be subject to race conditions</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Insert new object into the database</p></li></ul></dd>
     
 
     
@@ -3104,7 +3103,7 @@ no exceptions are raised or reject, only resolve is called with an object <code>
 
     <h5 class="h5-examples">Example</h5>
     
-    <pre class="prettyprint"><code>const { err, data } = await db.aselect("bk_user", { type: 'admin' });</code></pre>
+    <pre class="prettyprint"><code>const { err, data } = await db.aselect("bk_user", { roles: 'admin' });</code></pre>
 
 
 
@@ -4861,17 +4860,7 @@ db.bulk(ops, { pool: "elasticsearch" }, lib.log);</code></pre>
     
     <dt class="tag-description">Description:</dt>
     <dd class="tag-description"><ul class="dummy"><li><p>Convert rows returned by the database into the Javascript format or into the format
-defined by the table columns.
-The following special properties in the column definition change the format:</p>
-<ul>
-<li>type = json - if a column type is json and the value is a string returned will be converted into a Javascript object</li>
-<li>dflt property is defined for a json type and record does not have a value it will be set to specified default value</li>
-<li>list - split the value into an array, optional .separator property can be specified</li>
-<li>unjoin - a true value or a list of names, it produces new properties by splitting the value by a separator and assigning pieces to
-separate properties using names from the list, this is the opposite of the <code>join</code> property and is used separately if
-splitting is required, if joined properties already in the record then no need to split it. If not a list
-the names are used form the join property.</li>
-</ul></li></ul></dd>
+defined by the table columns, most use cases are json, lists, defaults</p></li></ul></dd>
     
 
     
@@ -5063,7 +5052,7 @@ the names are used form the join property.</li>
 
     <h5 class="h5-examples">Example</h5>
     
-    <pre class="prettyprint"><code>db.describeTables([ { user: { id: {}, name: {}, pair: { join: ["left","right"], unjoin: 1 } } ]);
+    <pre class="prettyprint"><code>db.describeTables([ { user: { id: {}, name: {}, pair: { join: ["left","right"] } } ]);
 
 db.put("test", { id: "1", type: "user", name: "Test", left: "123", right: "000" })
 db.select("test", {}, lib.log)</code></pre>
@@ -7547,9 +7536,10 @@ given by the application. If <code>options.names</code> is 1 then return just ta
     <dd class="tag-description"><ul class="dummy"><li><p>Counter operation, increase or decrease column values, similar to update but all specified columns except primary
 key will be incremented, use negative value to decrease the value.</p>
 <p>If no <code>options.updateOps</code> object specified or no 'incr' operations are provided then
-all columns with type 'counter' will be used for the action <code>incr</code></p>
+all columns with type 'counter' will use the update op <code>incr</code>, i.e. all counters will be incremented
+by the provided number</p>
 <p><em>Note: The record must exist already for SQL databases, for DynamoDB and Elasticsearch a new record will be created
-if does not exist yet.</em> To disable upsert pass <code>noupsert</code> in the options.</p></li></ul></dd>
+if it does not exist yet.</em> To disable upsert pass <code>noupsert</code> in the options.</p></li></ul></dd>
     
 
     
@@ -10759,7 +10749,7 @@ the db module <em>DOES NOT PARSE</em> the query at all if the driver supports fu
 
     <h5 class="h5-examples">Example</h5>
     
-    <pre class="prettyprint"><code>db.search("bk_user", { type: "admin", q: "john*" }, { pool: "elasticsearch" }, lib.log);
+    <pre class="prettyprint"><code>db.search("bk_user", { roles: "admin", q: "john*" }, { pool: "elasticsearch" }, lib.log);
 db.search("bk_user", "john*", { pool: "elasticsearch" }, lib.log);</code></pre>
 
 
@@ -11011,7 +11001,7 @@ the top level column must be defined to work, this is for DBs that support JSON 
 
 db.select("bk_user", { login: 'admin' }, (err, rows) => {  });
 
-// get all users by roles
+// get all users by roles, only 2 columns
 
 db.select("bk_user", { roles: ['admin','user'] }, { select: 'login,roles' }, (err, rows) => { });
 
@@ -11019,11 +11009,11 @@ db.select("bk_user", { roles: ['admin','user'] }, { select: 'login,roles' }, (er
 
 db.select("bk_user", { name: 'John:' }, { sort: "mtime", desc: 1, ops: { name: "begins_with" } }, (err, rows) => { });
 
-// select users by type for the last day
+// select users by type modified in last 24 hours
 
 db.select("bk_user", { roles: 'admin', mtime: Date.now()-86400000 }, { ops: { mtime: "gt" } }, (err, rows) => { });
 
-// same as above with aliases
+// same as above with column alias
 
 db.select("bk_user", { roles: 'admin', mtime_$gt: Date.now()-86400000 }, (err, rows) => { });
 
