@@ -5,6 +5,7 @@
 - [ipc](#ipc)
 - [aws](#aws)
 - [db](#db)
+- [sql](#sql)
 - [push](#push)
 - [api](#api)
 - [jobs](#jobs)
@@ -80,7 +81,7 @@ See {@link module:app}
   Type: path   
 #### **app-role**
  Override primary server role   
-  Type: callbacl   
+  Type: callback   
   Default: "shell"   
 #### **app-salt**
  Set random or specific salt value to be used for consistent suuid generation   
@@ -388,6 +389,11 @@ See {@link module:db}
   Type: int   
 #### **db-([a-z0-9]+)-pool-alias**
  Pool alias to refer by an alternative name   
+# <a name="sql">sql</a>
+See {@link module:sql}
+#### **sql-config-(.+)**
+ Common SQL config parameters   
+  Type: map   
 # <a name="push">push</a>
 See {@link module:push}
 #### **push-config**

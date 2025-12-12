@@ -18,60 +18,35 @@ describe("DB tests", async () => {
     it("checks basic db api", { skip: 1 }, async() => {
 
         var tables = {
-            test1: {
-                id: { primary: 1, pub: 1 },
-                num: { type: "int" },
-                num2: {},
-                num3: { join: ["id","num"] },
-                email: {},
-                anum: { join: ["anum","num"], unjoin: ["anum","num"] },
-                jnum: { join: ["num2","num4"], unjoin: ["num2","num4"], join_strict: 1 },
-                num4: { hidden: 1 },
-                mnum: { join: ["num","mtime"] },
-                mtime: { type: "now" },
-                skipcol: { pub: 1, allow_pools: ["elasticsearch"] },
-                skipjoin: { pub: 1, join: ["id","num"], join_pools: ["elasticsearch"] },
-                nojoin: { pub: 1, join: ["id","num"], join_nopools: ["elasticsearch"] },
-            },
-            test2: {
-                id: { primary: 1, pub: 1, index: 1 },
-                id2: { primary: 1, join: ["key1","key2"], ops: { select: "begins_with" }, keyword: 1 },
+            bk_test1: {
+                id: { primary: 1, index: 1, dynamodb: { projections: ["email"] } },
+                key: { type: "keyword", primary: 2, join: ["key1","key2"], ops: { select: "begins_with" } },
                 key1: {},
-                key2: { pub: 1 },
-                email: { projections: 1 },
-                name: { pub: 1 },
-                birthday: { semipub: 1 },
-                group: {},
+                key2: {},
+                email: {},
+                name: {},
                 json: { type: "json" },
-                num: { type: "bigint", index: 2, projections: 1 },
-                num2: { type: "real" },
-                mtime: { type: "bigint" }
-            },
-            test3: {
-                id: { primary: 1, pub: 1, trim: 1 },
-                num: { type: "counter", value: 0, pub: 1 },
-                type: { pub: 1 },
-                notempty: { not_empty: 1 },
-                ddd: { dflt: "1" },
-                mtime: { type: "now", pub: 1 },
+                bignum: { type: "bigint", index: 2 },
+                realnum: { type: "real" },
+                mtime: { type: "now" },
+                count: { type: "counter", value: 0 },
+                notempty: { check: { not_empty: 1 } },
+                dflt: { dflt: "1" },
                 obj: { type: "obj" },
                 list: { type: "array" },
-                tags: { type: "list", datatype: "int" },
-                text: {},
-                sen1: { regexp: lib.rxSentence },
-                sen2: { regexp: lib.rxSentence },
-                spec: { strip: lib.rxSpecial },
-                mapped: { values_map: ["1", null, "2", "none"] },
+                tags: { type: "list", datatype: "int", list: 1 },
+                sets: { type: "set" },
+                spec: { convert: { strip: lib.rxSpecial } },
             },
         };
-        var now = Date.now();
         var id = lib.uuid();
-        var id2 = lib.uuid(128);
-        var num2 = lib.randomNum(1, 1000);
+        var key1 = lib.uuid();
+        var key2 = lib.randomNum(1, 1000);
+        var bignum = lib.randomNum(1, 1000);
         var next_token = null, rec;
         var configOptions = db.getPool(db.pool).configOptions;
 
-        db.setProcessRow("post", "test3", function(op, row) {
+        db.setProcessRow("post", "bk_test1", (op, row) => {
             var type = (row.type || "").split(":");
             row.type = type[0];
             row.mtime = type[1];
@@ -138,7 +113,7 @@ describe("DB tests", async () => {
                 });
             },
             function(next) {
-                db.add("test2", { id: id, id2: '1', email: id, name: id, birthday: id, num: 0, num2: num2, mtime: now }, next);
+                db.add("test2", { id: id, id2: '1', email: id, name: id, birthday: id, num: 0, bignum, mtime }, next);
             },
             function(next) {
                 db.add("test2", { id: id2, id2: '2', email: id, name: id, birthday: id, group: id, num: 2, num2: num2, mtime: now }, next);
@@ -154,7 +129,7 @@ describe("DB tests", async () => {
             },
             function(next) {
                 db.select("test3", { id: id }, function(err, rows) {
-                    assert(err || rows.length!=1 || rows[0].id != id || rows[0].type!="like" || rows[0].fake || rows[0].ddd != "1", "err4:", rows);
+                    assert(err || rows.length!=1 || rows[0].id != id || rows[0].type!="like" || rows[0].fake || rows[0].dflt != "1", "err4:", rows);
                     next();
                 });
             },

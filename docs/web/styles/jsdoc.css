@@ -15,7 +15,6 @@
   --nav-a-border: #bbb;
   --h5-color: #666;
   --h5-param: #5D86C3;
-  --code-bg-color: #f4f4f4;
   --important: #950B02;
   --table-border: #ddd;
   --params-color: #4D4E53;
@@ -25,6 +24,7 @@
 @media (prefers-color-scheme: dark) {
     :root {
       --color: #D9D9D9;
+      --color-source: #C1C1C1;
       --bg-color: #333333;
       --signature: #E0A906;
       --attrs-color: #eee;
@@ -36,8 +36,6 @@
       --nav-a-border: #555;
       --h5-color: #666;
       --h5-param: #666;
-      --code-color: #ddd;
-      --code-bg-color: #000;
       --important: #950B02;
       --table-border: #555;
       --params-color: #aaa;
@@ -179,31 +177,31 @@ h6 {
 }
 
 .usertext h6 {
-  margin: 1em 0 0;
-  font-weight: normal;
-  font-style: normal;
-  color: var(--h5-color);
+    margin: 1em 0 0;
+    font-weight: normal;
+    font-style: normal;
+    color: var(--h5-color);
 }
 
 
 tt, code, kbd, samp, pre {
-  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  color: var(--code-color);
-  background: var(--code-bg-color);
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    background-color: var(--bg-source);
+    color: var(--color-source);
 }
 
 tt, code, kbd, samp{
-  padding: 1px 5px;
+    padding: 1px 5px;
 }
 
 pre {
-  padding-bottom: 1em;
+    padding-bottom: 1em;
 }  
 
 .class-description {
-  line-height: 140%;
-  margin-bottom: 1em;
-  margin-top: 1em;
+    line-height: 140%;
+    margin-bottom: 1em;
+    margin-top: 1em;
 }
 
 .class-description:empty {
