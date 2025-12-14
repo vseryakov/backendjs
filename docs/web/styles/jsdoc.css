@@ -1,5 +1,5 @@
 :root {
-  --color: #333333;
+  --color: #333;
   --bg-color: #f0f0f0;
   --bg-source: #0d152a;
   --color-source: #aeaeae;
@@ -17,7 +17,8 @@
   --h5-param: #5D86C3;
   --important: #950B02;
   --table-border: #ddd;
-  --params-color: #4D4E53;
+  --params-color: #333;
+  --params-bg: #f0f0f0;
   --disabled-color: #454545;
 }
 
@@ -25,7 +26,7 @@
     :root {
       --color: #D9D9D9;
       --color-source: #C1C1C1;
-      --bg-color: #333333;
+      --bg-color: #333;
       --signature: #E0A906;
       --attrs-color: #eee;
       --h4-color: #ccc;
@@ -38,7 +39,8 @@
       --h5-param: #666;
       --important: #950B02;
       --table-border: #555;
-      --params-color: #aaa;
+      --params-color: #ccc;
+      --params-bg: #333333;
       --disabled-color: #454545;
   }
 }
@@ -65,14 +67,23 @@ img {
   max-width: 100%;
 }
 
-a,
-a:active {
+a, a:active {
   color: var(--a-color);
   text-decoration: none;
 }
 
 a:hover {
   text-decoration: none;
+}
+
+.toc {
+    display: flex;
+    align-items: center;
+}
+
+.toc > h4 {
+    display: inline-block;
+    margin-right: 1rem;
 }
 
 article a {
@@ -513,6 +524,7 @@ thead tr, thead tr {
 
 .params td, .params .name, .props .name, .name code {
    color: var(--params-color);
+   background-color: var(--params-bg);
    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
    font-size: 100%;
 }

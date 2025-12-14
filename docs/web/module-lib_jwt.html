@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>shell - Backendjs Documentation</title>
+    <title>lib/jwt - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -40,7 +40,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">shell</h1>
+    <h1 class="page-title">lib/jwt</h1>
     
 
     
@@ -53,18 +53,16 @@
 
     <div class="toc">
     
-        <h4><a href="#typedefs">↓ Typedefs.</a></h4>
     
     
     
+        <h4><a href="#methods">↓ Methods.</a></h4>
     
     </div>
 
 
 <header>
     
-        
-            
         
     
 </header>
@@ -74,96 +72,6 @@
         <div class="container-overview">
         
             
-
-            
-                
-
-    
-
-    <h4 class="name" id="module:shell"><span class="type-signature"></span>(require("shell"))<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Shell command interface for <code>bksh</code></p>
-<p>Run <code>bksh -help</code> to see all registered shell commands.</p>
-<p>Special command-lone arguments for shell commands:</p>
-<ul>
-<li><code>-noexit</code> - keep the shell running after executing the command</li>
-<li><code>-exit</code> - exit with error if no shell command found</li>
-<li><code>-exit-timeout MS</code> - will be set to ms to wait before exit for async actions to finish</li>
-<li><code>-shell-delay MS</code> - will wait before running the command to allow initialization complete</li>
-</ul></li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             
         
@@ -177,16 +85,26 @@
     
 
     
-        <a name="typedefs">
-            <h2 class="subsection-title">Type Definitions</h2>
-        </a>
+    
+    
 
-        
-                
+     
 
     
 
-    <h4 class="name" id="~shellCommand"><span class="type-signature"></span>shellCommand<span class="signature">(options)</span><span class="type-signature"> &rarr; {string}</span></h4>
+    
+
+    
+        <a name="methods">
+            <h2 class="subsection-title">Methods</h2>
+        </a>
+
+        
+            
+
+    
+
+    <h4 class="name" id=".sign"><span class="type-signature type-signature-static">(static) </span>sign<span class="signature">(payload, privateKey, alg<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {object}</span></h4>
 
     
 
@@ -194,10 +112,6 @@
 
 
 <dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Shell functions must be defined in <code>shell.commands</code> object,
-where <code>myCommand</code> is the command name in camel case for <code>-my-command</code></p></li></ul></dd>
     
 
     
@@ -256,7 +170,11 @@ where <code>myCommand</code> is the command name in camel case for <code>-my-com
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
+        
+        <th>Default</th>
         
 
         <th class="last">Description</th>
@@ -268,7 +186,7 @@ where <code>myCommand</code> is the command name in camel case for <code>-my-com
 
         <tr>
             
-                <td class="name"><code>options</code></td>
+                <td class="name"><code>payload</code></td>
             
 
             <td class="type">
@@ -282,7 +200,302 @@ where <code>myCommand</code> is the command name in camel case for <code>-my-com
             </td>
 
             
+                <td class="attributes">
+                
 
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>data to sign including JWT reserved properties below</p>
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>exp</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>The token is checked to ensure it has not expired.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>nbf</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>The token is checked to ensure it is not being used before a specified time.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>iat</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>The token is checked to ensure it is not issued in the future.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>iss</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>The token is checked to ensure it has been issued by a trusted issuer.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>aud</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+|
+
+<span class="param-type">Array.&lt;string></span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>The token is checked to ensure it is intended for a specific audience.</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>privateKey</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+|
+
+<span class="param-type">object</span>
+|
+
+<span class="param-type">CryptoKey</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>alg</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>HS256</code>
+                
+                </td>
             
 
             <td class="description last"></td>
@@ -322,7 +535,7 @@ where <code>myCommand</code> is the command name in camel case for <code>-my-com
             <td class="type">
                 
                 
-<span class="param-type">string</span>
+<span class="param-type">object</span>
 
 
 
@@ -330,11 +543,7 @@ where <code>myCommand</code> is the command name in camel case for <code>-my-com
             </td>
             <td class="description last">
                 
-                <ul>
-<li><code>stop</code> - stop processing commands and create REPL</li>
-<li><code>continue</code> - do not exit and continue processing other commands or end with REPL</li>
-</ul>
-<p>all other values will result in returning from the run assuming the command will decide what to do, exit or continue running, no REPL is created</p>
+                <p>in format { header, token, err }</p>
                 
             </td>
         </tr>
@@ -346,31 +555,459 @@ where <code>myCommand</code> is the command name in camel case for <code>-my-com
 
 
 
-    <h5 class="h5-examples">Example</h5>
+
+
+
+        
+            
+
     
-    <pre class="prettyprint"><code>const { shell } = require("backendjs");
 
-shell.commands.myCommand = function(options) {
-   console.log("hello");
-   return "continue"
-}
-// Calling `bksh -my-command` it will run this command.</code></pre>
+    <h4 class="name" id=".verify"><span class="type-signature type-signature-static">(static) </span>verify<span class="signature">(token, publicKey, options<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {object}</span></h4>
+
+    
 
 
+
+
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>token</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
 
 
 
             
-    
-    
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
     
 
-     
+        <tr>
+            
+                <td class="name"><code>publicKey</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+|
+
+<span class="param-type">object</span>
+|
+
+<span class="param-type">CryptoKey</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
 
     
 
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
     
 
+        <tr>
+            
+                <td class="name"><code>iss</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+|
+
+<span class="param-type">RegExp</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>The expected issuer used for verifying the token</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>nbf</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>Verify the <code>nbf</code> claim (default: <code>true</code>)</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>exp</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>Verify the <code>exp</code> claim (default: <code>true</code>)</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>iat</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>Verify the <code>iat</code> claim (default: <code>true</code>)</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>aud</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+|
+
+<span class="param-type">Array.&lt;string></span>
+|
+
+<span class="param-type">RegExp</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>Acceptable audience(s) for the token</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5 class="h5-returns">Returns:</h5>
+
+        <table class="params">
+    <thead>
+    <tr>
+        <th>Type</th>
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+        <tr>
+            <td class="type">
+                
+                
+<span class="param-type">object</span>
+
+
+
+                
+            </td>
+            <td class="description last">
+                
+                <p>in format { header, payload, err }</p>
+                
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+    
+
+
+
+
+
+
+
+        
     
 
     
