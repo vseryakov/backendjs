@@ -31,6 +31,7 @@
       --attrs-color: #eee;
       --h4-color: #ccc;
       --h4-bg-color: #607593;
+      --h4-a-hover: #E6AEAF;
       --h4-shadow: #777CB1;
       --a-color: #BEC2D1;
       --nav-a-color: #989898;
@@ -142,7 +143,7 @@ h4.name {
 }
 
 h4.name a {
-  color: var(--h4-a-hover);
+  color: var(--h4-color);
 }
 
 h4.name a:hover {

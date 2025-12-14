@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>Meter - Backendjs Documentation</title>
+    <title>TokenBucket - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -40,7 +40,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">Meter</h1>
+    <h1 class="page-title">TokenBucket</h1>
     
 
     
@@ -56,7 +56,7 @@
     
         <h2>
         
-            Meter
+            TokenBucket
         
         </h2>
         
@@ -71,7 +71,7 @@
 
     
 
-    <h4 class="name" id="Meter"><span class="type-signature"></span>new Meter<span class="signature">(options<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="TokenBucket"><span class="type-signature"></span>new TokenBucket<span class="signature">(rate, max, interval)</span><span class="type-signature"></span></h4>
 
     
 
@@ -81,18 +81,14 @@
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><ul>
-<li>Meter - Things that are measured as events / interval.
+    <dd class="tag-description"><ul class="dummy"><li><p>Create a Token Bucket object for rate limiting as per http://en.wikipedia.org/wiki/Token_bucket</p>
 <ul>
-<li>count: The total of all values added to the meter.</li>
-<li>rate: The rate of the meter since the last toJSON() call.</li>
-<li>mean: The average rate since the meter was started.</li>
-<li>m1: The rate of the meter biased towards the last 1 minute.</li>
-<li>m5: The rate of the meter biased towards the last 5 minutes.</li>
-<li>m15: The rate of the meter biased towards the last 15 minutes.</li>
+<li>rate - the rate to refill tokens</li>
+<li>max - the maximum burst capacity</li>
+<li>interval - interval for the bucket refills, default 1000 ms</li>
 </ul>
-</li>
-</ul></li></ul></dd>
+<p>Store as an array for easier serialization into JSON when keep it in the shared cache.</p>
+<p>Based on https://github.com/thisandagain/micron-throttle</p></li></ul></dd>
     
 
     
@@ -151,8 +147,6 @@
         <th>Type</th>
 
         
-        <th>Attributes</th>
-        
 
         
 
@@ -165,13 +159,19 @@
 
         <tr>
             
-                <td class="name"><code>options</code></td>
+                <td class="name"><code>rate</code></td>
             
 
             <td class="type">
             
                 
+<span class="param-type">number</span>
+|
+
 <span class="param-type">object</span>
+|
+
+<span class="param-type">Array.&lt;number></span>
 
 
 
@@ -179,15 +179,53 @@
             </td>
 
             
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
 
-                
+            
 
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>max</code></td>
+            
+
+            <td class="type">
+            
                 
-                </td>
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>interval</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
             
 
             
@@ -241,6 +279,507 @@
 
     
 
+    
+        <a name="methods">
+            <h2 class="subsection-title">Methods</h2>
+        </a>
+
+        
+            
+
+    
+
+    <h4 class="name" id=".configure"><span class="type-signature type-signature-static">(static) </span>configure<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Initialize existing token with numbers for rate calculations</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".consume"><span class="type-signature type-signature-static">(static) </span>consume<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Consume N tokens from the bucket, if no capacity, the tokens are not pulled from the bucket.</p>
+<p>Refill the bucket by tracking elapsed time from the last time we touched it.</p>
+<pre><code> min(totalTokens, current + (fillRate * elapsedTime))
+</code></pre></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".equal"><span class="type-signature type-signature-static">(static) </span>equal<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return true if this bucket uses the same rates in arguments</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".toArray"><span class="type-signature type-signature-static">(static) </span>toArray<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return an array object to be serialized/saved, can be used to construct new object as the <code>rate</code> param</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".toJSON"><span class="type-signature type-signature-static">(static) </span>toJSON<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return a JSON object to be serialized/saved, can be used to construct new object as the <code>rate</code> param</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".toString"><span class="type-signature type-signature-static">(static) </span>toString<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return a string to be serialized/saved, can be used to construct new object as the <code>rate</code> param</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
     
 
     

@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>Meter - Backendjs Documentation</title>
+    <title>Trace - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -40,7 +40,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">Meter</h1>
+    <h1 class="page-title">Trace</h1>
     
 
     
@@ -56,7 +56,7 @@
     
         <h2>
         
-            Meter
+            Trace
         
         </h2>
         
@@ -71,7 +71,7 @@
 
     
 
-    <h4 class="name" id="Meter"><span class="type-signature"></span>new Meter<span class="signature">(options<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="Trace"><span class="type-signature"></span>new Trace<span class="signature">(options<span class="signature-attributes">opt</span>, parent<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
 
     
 
@@ -81,18 +81,387 @@
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><ul>
-<li>Meter - Things that are measured as events / interval.
-<ul>
-<li>count: The total of all values added to the meter.</li>
-<li>rate: The rate of the meter since the last toJSON() call.</li>
-<li>mean: The average rate since the meter was started.</li>
-<li>m1: The rate of the meter biased towards the last 1 minute.</li>
-<li>m5: The rate of the meter biased towards the last 5 minutes.</li>
-<li>m15: The rate of the meter biased towards the last 15 minutes.</li>
-</ul>
-</li>
-</ul></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>AWS X-Ray trace support</p>
+<p>Only supports local daemon UDP port 2000, to test locally</p>
+<p>socat -U -v PIPE  udp-recv:2000</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>parent</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Trqce</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>var trace = new metrics.Trace({ _host: "127.0.0.1", annotations: { tag: app.onstance.tag, role: app.role } });
+var sub1 = trace.start("subsegment1");
+sub1.stop();
+var sub2 = trace.start("subsegment2");
+trace.stop(req);
+trace.send();
+trace.destroy();</code></pre>
+
+
+
+
+
+        
+        </div>
+    
+
+    
+
+    
+
+    
+
+    
+    
+    
+
+     
+
+    
+
+    
+
+    
+        <a name="methods">
+            <h2 class="subsection-title">Methods</h2>
+        </a>
+
+        
+            
+
+    
+
+    <h4 class="name" id=".destroy"><span class="type-signature type-signature-static">(static) </span>destroy<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>destroy all traces and subsegments</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".send"><span class="type-signature type-signature-static">(static) </span>send<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Sends a segment to local daemon</p></li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".start"><span class="type-signature type-signature-static">(static) </span>start<span class="signature">(options<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Starts a new subsegment</p></li></ul></dd>
     
 
     
@@ -222,7 +591,21 @@
 
 
         
-        </div>
+            
+
+    
+
+    <h4 class="name" id=".stop"><span class="type-signature type-signature-static">(static) </span>stop<span class="signature">(req<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Closes a segment or subsegment, for segments it sends it right away</p></li></ul></dd>
     
 
     
@@ -232,15 +615,205 @@
     
 
     
-    
-    
-
-     
 
     
 
     
 
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>req</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">IncomingRequest</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id=".toString"><span class="type-signature type-signature-static">(static) </span>toString<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
     
 
     
