@@ -47,5 +47,52 @@ it('HS512 sign & verify & decode', async () => {
         },
     })
 })
-  
+
+it('EdDSA sign & verify w/ CryptoKey', async () => {
+    const alg = 'EdDSA'
+    const payload = { message: 'hello world' }
+
+    const keyPair = await crypto.subtle.generateKey({ name: 'Ed25519', namedCurve: 'Ed25519' }, true, ['sign', 'verify'])
+
+    const tok = await JWT.sign(payload, keyPair.privateKey, alg)
+
+    const rc1 = await JWT.verify(tok.token, keyPair.privateKey, alg)
+    assert.partialDeepStrictEqual(rc1, { payload })
+
+    const rc2 = await JWT.verify(tok.token, keyPair.publicKey, alg)
+    assert.partialDeepStrictEqual(rc2, { payload })
+})
+
+it(`PS384 sign & verify`, async () => {
+    const alg = "PS384"
+    const payload = { message: 'hello world' }
+
+    const keyPair = await crypto.subtle.generateKey({
+        hash: JWT.algorithms[alg].hash.name,
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        name: 'RSA-PSS',
+    }, true, ['sign', 'verify']);
+
+    var exported = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
+    const pemPrivateKey = `-----BEGIN PRIVATE KEY-----\n${Buffer.from(exported).toString("base64")}\n-----END PRIVATE KEY-----`
+
+    exported = await crypto.subtle.exportKey('spki', keyPair.publicKey)
+    const pemPublicKey = `-----BEGIN PUBLIC KEY-----\n${Buffer.from(exported).toString("base64")}\n-----END PUBLIC KEY-----`
+
+    const jwkPublicKey = await crypto.subtle.exportKey('jwk', keyPair.publicKey)
+
+    const tok = await JWT.sign(payload, pemPrivateKey, alg)
+
+    const rc1 = await JWT.verify(tok.token, pemPublicKey, alg)
+    assert.partialDeepStrictEqual(rc1, { payload })
+
+    const rc2 = await JWT.verify(tok.token, pemPrivateKey, alg)
+    assert.partialDeepStrictEqual(rc2, { payload })
+
+    const rc3 = await JWT.verify(tok.token, jwkPublicKey, alg)
+    assert.partialDeepStrictEqual(rc3, { payload })
+
+})
+
 })

@@ -13,7 +13,7 @@ module.exports = {
     templates: {
         default: {
           includeDate: false,
-          outputSourceFiles: false
+          outputSourceFiles: true
         }
     },
     opts: {

@@ -50,18 +50,19 @@ describe("API cleanup tests", () => {
 
     var tables = {
         cleanup: {
-            pub: { pub: 1 },
-            priv: { priv: 1 },
-            pub_admin: { pub_admin: 1 },
-            pub_staff: { pub_staff: 1 },
-            internal: { internal: 1 },
-            billing: { pub_admin: 1, pub_types: ["billing"] },
-            nobilling: { pub_admin: 1, priv_types: ["billing"] },
-            billing_staff: { pub_admin: 1, pub_types: ["billing", "staff"] },
+            pub: { api: { pub: 1 } },
+            priv: { api: { priv: 1 } },
+            pub_admin: { api: { admin: 1 } },
+            pub_staff: { api: { staff: 1 } },
+            internal: { api: { internal: 1 } },
+            billing: { api: { admin: 1, roles: ["billing"] } },
+            nobilling: { api: { admin: 1, noroles: ["billing"] } },
+            billing_staff: { api: { admin: 1, roles: ["billing", "staff"] } },
+            notpub: {},
         },
     };
     var row = {
-        pub: "pub", priv: "priv", pub_admin: "pub_admin", pub_staff: "pub_staff",
+        pub: "pub", priv: "priv", pub_admin: "pub_admin", pub_staff: "pub_staff", notpub: "notpub",
         internal: "internal", billing: "billing",
         nobilling: "nobilling", billing_staff: "billing_staff",
         extra: "extra", extra2: "extra2"
@@ -72,28 +73,28 @@ describe("API cleanup tests", () => {
     api.cleanupStrict = 0;
 
     var res = api.cleanupResult({ options: { isInternal: 1 } }, "cleanup", Object.assign({}, row))
-    assert.ok(res.internal && !res.priv && res.extra, "should keep internal");
+    assert.ok(res.internal && !res.priv && res.extra && !res.notpub, lib.newError({ message: "should keep internal", res }));
 
     res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
-    assert.ok(res.pub && !res.priv, "should keep only public");
+    assert.ok(res.pub && !res.priv, lib.newError({ message: "should keep only public", res }));
 
     res = api.cleanupResult({ options: { isAdmin: 1 } }, "cleanup", Object.assign({}, row))
-    assert.ok(res.pub_admin && !res.internal && !res.priv, "should keep pub_admin");
+    assert.ok(res.pub_admin && !res.internal && !res.priv, lib.newError({ message: "should keep pub_admin", res }));
 
     res = api.cleanupResult({ options: { isStaff: 1 } }, "cleanup", Object.assign({}, row))
-    assert.ok(res.pub_staff && !res.pub_admin && !res.priv, "should keep pub_staff");
+    assert.ok(res.pub_staff && !res.pub_admin && !res.priv, lib.newError({ message: "should keep pub_staff", res }));
 
     res = api.cleanupResult({ options: { isAdmin: 1, isStaff: 1 } }, "cleanup", Object.assign({}, row))
-    assert.ok(res.pub_admin && res.pub_staff && !res.priv, "should keep pub_admin and pub_staff");
+    assert.ok(res.pub_admin && res.pub_staff && !res.priv, lib.newError({ message: "should keep pub_admin and pub_staff", res }));
 
     res = api.cleanupResult({ user: { roles: ["billing"] }, options: { isAdmin: 1 } }, "cleanup", Object.assign({}, row))
-    assert.ok(res.billing && !res.priv, "should keep billing");
+    assert.ok(res.billing && !res.priv, lib.newError({ message: "should keep billing", res }));
 
     res = api.cleanupResult({ user: { roles: ["billing"] }, options: { isAdmin: 1 } }, "cleanup", Object.assign({}, row))
-    assert.ok(!res.nobilling && !res.priv, "should keep nobilling");
+    assert.ok(!res.nobilling && !res.priv, lib.newError({ message: "should keep nobilling", res }));
 
     res = api.cleanupResult({ user: { roles: ["staff"] }, options: { isAdmin: 1 } }, "cleanup", Object.assign({}, row))
-    assert.ok(res.billing_staff && !res.priv, "should keep billing_staff");
+    assert.ok(res.billing_staff && !res.priv, lib.newError({ message: "should keep billing_staff", res }));
 
     res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
     assert.deepEqual(res, { pub: "pub", extra: "extra", extra2: "extra2" }, "should keep extras");
@@ -108,11 +109,11 @@ describe("API cleanup tests", () => {
     api.cleanupRules = { '*': { extra2: 1 } };
 
     res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
-    assert.ok(!res.extra && res.extra2, "should keep no extra but keep extra2 via * rule");
+    assert.ok(!res.extra && res.extra2, lib.newError({ message: "should keep no extra but keep extra2 via * rule", res }));
 
     api.cleanupRules = { cleanup: { extra2: 1 } };
 
     res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
-    assert.ok(!res.extra && res.extra2, "should keep extra2 but not extra via table rule");
+    assert.ok(!res.extra && res.extra2, lib.newError({ message: "should keep extra2 but not extra via table rule", res }));
 
 });
