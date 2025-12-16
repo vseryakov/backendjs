@@ -40,7 +40,7 @@ mod.configureWeb = function(options, callback)
         }
 
         db[req.params.op](req.params.table, req.body, (err, rows, info) => {
-            api.sendJSON(req, err, api.getResultPage(req, {}, rows, info));
+            api.sendJSON(req, err, api.getResultPage(req, rows, info));
         });
     });
 

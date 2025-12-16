@@ -1,5 +1,5 @@
 
-const { api, app, ipc, jobs, lib, db, cache, queue, logger, modules, httpGet } = require("../");
+const { api, app, ipc, jobs, lib, db, cache, queue, logger, modules } = require("../");
 const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
@@ -122,7 +122,7 @@ exports.checkAccess = function(options, callback)
                 conf.preprocess(conf, next2);
             },
             function(next2) {
-                httpGet(q, (err, rc) => {
+                lib.fetch(q, (err, rc) => {
                     assert.ok(rc.status == q._rc, util.inspect({ err: `${conf.user?.login || "pub"}: ${q.url}: expect ${q._rc} but got ${rc.status}`, data: rc.data, conf, tmp }, { depth: null }));
 
                     if (rc.resheaders[api.csrf.header]) {

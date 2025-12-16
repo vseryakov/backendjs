@@ -1,7 +1,9 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { JWT } = require("../");
+const { lib } = require("../");
+
+const JWT = lib.JWT;
 
 const secret = 'a-secret'
 

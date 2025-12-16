@@ -444,31 +444,29 @@ See {@link module:api}
  SSL params: port, bind, key, cert, pfx, ca, passphrase, crl, ciphers   
   Type: map   
   Default: {"port":443,"bind":"0.0.0.0"}   
-#### **api-no-access-log**
+#### **api-accesslog-disable**
  Disable access logging in both file or syslog   
   Type: bool   
-#### **api-access-log-file**
+#### **api-accesslog-file**
  File for access logging   
-#### **api-access-log-level**
+#### **api-accesslog-level**
  Syslog level priority, default is local5.info, 21 * 8 + 6   
   Type: int   
-  Default: 174   
-#### **api-access-log-fields**
+#### **api-accesslog-fields**
  Additional fields from the request or user to put in the access log, prefix defines where the field is lcoated: q: - query, h: - headers, u: - user otherwise from the request, Example: -api-log-fields h:Referer,u:name,q:action   
   Type: list   
-  Default: []   
-#### **api-errlog-limiter-max**
+#### **api-errlog-max**
  How many error messages to put in the log before throttling kicks in   
   Type: int   
-  Default: 100   
-#### **api-errlog-limiter-interval**
+#### **api-errlog-interval**
  Interval for error log limiter, max errors per this interval   
   Type: int   
-  Default: 30000   
-#### **api-errlog-limiter-ignore**
+#### **api-errlog-ignore**
  Do not show errors that match the regexp   
   Type: regexpobj   
-  Default: {"list":["Range Not Satisfiable","Precondition Failed"],"rx":{}}   
+#### **api-errlog-codes**
+ Error codes in exceptions to return in the response to the user, if not matched the errlog.message will be returned   
+  Type: regexpobj   
 #### **api-qs-options-(.+)**
  Options to pass to qs when parsing the body: depth, arrayLimit, allowDots, comma, plainObjects, allowPrototypes, parseArrays   
 #### **api-no-static**
@@ -494,10 +492,6 @@ See {@link module:api}
 #### **api-allow-configure-(web|middleware)**
  Modules allowed to call configureWeb or Middleware, i.e. only allowed endpoints   
   Type: regexp   
-#### **api-allow-error-code**
- Error codes in exceptions to return in the response to the user, if not matched the error-message will be returned   
-  Type: regexpobj   
-  Default: {}   
 #### **api-express-options**
  Set Express config options during initialization, ex: `-api-express-options { "trust proxy": 1, "strict routing": true }`   
   Type: json   
@@ -528,8 +522,6 @@ See {@link module:api}
   Default: "bk-tz"   
 #### **api-server-header**
  Custom Server: header to return for all requests   
-#### **api-error-message**
- Default error message to return in case of exceptions   
 #### **api-rlimits-([a-z]+)$**
  Default rate limiter parameters, default interval is 1s, `ttl` is to expire old cache entries, message for error   
 #### **api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+)**
