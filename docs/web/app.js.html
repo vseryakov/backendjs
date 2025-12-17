@@ -176,7 +176,7 @@ module.exports = {
         { name: "depth-modules", type: "int", descr: "How deep to go looking for modules, it uses lib.findFileSync to locate all .js files", pass: 1 },
         { name: "host-name", type: "callback", callback: "setHost", descr: "Hostname/domain to use for communications, default is current domain of the host machine" },
         { name: "stop-on-error", type: "bool", descr: "Exit the process on any error when loading modules, for dev purposes", pass: 1 },
-        { name: "allow-methods-(.+)", obj: "allow-methods", type: "regexp", nocamel: 1, descr: "Modules that allowed to run methods by name, useful to restrict configure methods. Ex: -allow-methods-configureWeb app", pass: 1 },
+        { name: "allow-methods-(.+)", obj: "allow-methods", type: "regexp", nocamel: 1, descr: "Modules that allowed to run methods by name, useful to restrict configure methods", example: "-allow-methods-configureWeb app", pass: 1 },
         { name: "workers", type: "int", descr: "Max number of web processes to launch, -1 disables workers, 0 means launch as many as the CPUs available`" },
         { name: "worker-cpu-factor", type: "real", min: 0, descr: "A number to multiply the number of CPUs available to make the total number of workers to launch, only used if `workers` is 0" },
         { name: "worker-args", type: "list", vreplace: { "%20": " " }, descr: "Node arguments for workers, job and web processes, for passing v8 options, use %20 for spaces" },

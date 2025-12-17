@@ -92,7 +92,7 @@ const aws = {
         { name: "metadata-options", type: "list", descr: "Default instance metadata options" },
         { name: "account-id", descr: "AWS account id if not running on an instance" },
         { name: "eni-id", type: "list", descr: "AWS Elastic Network Interfaces to attach on start, format is: eni[:index],eni..." },
-        { name: "config-parameters", descr: "Prefix for AWS Config Parameters Store to load and parse as config before initializing the database pools, example: /bkjs/config/" },
+        { name: "config-parameters", descr: "Prefix for AWS Config Parameters Store to load and parse as config before initializing the database pools", example: "/bkjs/config/" },
         { name: "set-parameters", type: "list", descr: "AWS Config Parameters Store to set on start, supports @..@ app.instance placeholders: format is: path:value,...." },
         { name: "conf-file", descr: "S3 url for config file to download on start" },
         { name: "conf-file-interval", type: "int", descr: "Load S3 config file every specified interval in minites" },
