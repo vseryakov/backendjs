@@ -1,0 +1,638 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>cache.js - Backendjs Documentation</title>
+    
+    <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
+    
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    
+    <input type="text" id="nav-search" placeholder="Search" />
+    
+    
+    <h2><a href="index.html">Home</a></h2><h3>Tutorials</h3><ul><li><a href="tutorial-start.html">Getting started</a><ul class='typedefs'></ul></li><li><a href="tutorial-app.html">Applications</a><ul class='typedefs'></ul></li><li><a href="tutorial-modules.html">Modules</a><ul class='typedefs'></ul></li><li><a href="tutorial-reference.html">Reference</a><ul class='typedefs'></ul></li><li><a href="tutorial-bkjs.html">The bkjs tool</a><ul class='typedefs'></ul></li><li><a href="tutorial-config.html">Config parameters</a><ul class='typedefs'></ul></li></ul><h3>Modules</h3><ul><li><a href="module-api.html">api</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api.html#.checkProxy">checkProxy</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRateLimits">checkRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRedirectPlaceholders">checkRedirectPlaceholders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupHeaders">cleanupHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupResult">cleanupResult</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.createWebServer">createWebServer</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getResultPage">getResultPage</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getTokenSecret">getTokenSecret</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleBody">handleBody</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleCleanup">handleCleanup</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMetrics">handleMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMultipart">handleMultipart</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareOptions">prepareOptions</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerPreHeaders">registerPreHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerRateLimits">registerRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.replacePath">replacePath</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFile">sendFile</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFormatted">sendFormatted</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendJSON">sendJSON</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendReply">sendReply</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendStatus">sendStatus</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.shutdown">shutdown</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.startMetrics">startMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.toParams">toParams</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_access.html">api/access</a><ul class='typedefs'></ul></li><li><a href="module-api_acl.html">api/acl</a><ul class='typedefs'></ul></li><li><a href="module-api_csrf.html">api/csrf</a><ul class='typedefs'></ul></li><li><a href="module-api_files.html">api/files</a><ul class='typedefs'></ul></li><li><a href="module-api_hooks.html">api/hooks</a><ul class='typedefs'></ul></li><li><a href="module-api_images.html">api/images</a><ul class='typedefs'></ul></li><li><a href="module-api_passkeys.html">api/passkeys</a><ul class='typedefs'></ul></li><li><a href="module-api_redirect.html">api/redirect</a><ul class='typedefs'></ul></li><li><a href="module-api_routing.html">api/routing</a><ul class='typedefs'></ul></li><li><a href="module-api_session.html">api/session</a><ul class='typedefs'></ul></li><li><a href="module-api_signature.html">api/signature</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api_signature.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.fromRequest">fromRequest</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_users.html">api/users</a><ul class='typedefs'></ul></li><li><a href="module-api_ws.html">api/ws</a><ul class='typedefs'></ul></li><li><a href="module-app.html">app</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-app.html#.addModule">addModule</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.ainit">ainit</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.arunMethods">arunMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.checkConfig">checkConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.createRepl">createRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.describeArgs">describeArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.isOk">isOk</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.killBackend">killBackend</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadModules">loadModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadPackages">loadPackages</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.mime">mime</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseArgs">parseArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseConfig">parseConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArg">processArg</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArgs">processArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processEnvArgs">processEnvArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processName">processName</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethod">runMethod</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethods">runMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHome">setHome</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHost">setHost</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setLogInspect">setLogInspect</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setRole">setRole</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.sortModules">sortModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.startRepl">startRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.watchTmp">watchTmp</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-aws.html">aws</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwGetMetricData">aws.cwGetMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwListMetrics">aws.cwListMetrics</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutLogEvents">aws.cwPutLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricAlarm">aws.cwPutMetricAlarm</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricData">aws.cwPutMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwlFilterLogEvents">aws.cwlFilterLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchGetItem">aws.ddbBatchGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchWriteItem">aws.ddbBatchWriteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteItem">aws.ddbDeleteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbGetItem">aws.ddbGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbScanTable">aws.ddbScanTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbTransactWriteItems">aws.ddbTransactWriteItems</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCW">aws.queryCW</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCWL">aws.queryCWL</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.querySQS">aws.querySQS</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsReceiveMessage">aws.sqsReceiveMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsSendMessage">aws.sqsSendMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbCreateTable">ddbCreateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDeleteTable">ddbDeleteTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTable">ddbDescribeTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTimeToLive">ddbDescribeTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbListTables">ddbListTables</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbPutItem">ddbPutItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbQueryTable">ddbQueryTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateItem">ddbUpdateItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTable">ddbUpdateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTimeToLive">ddbUpdateTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbWaitForTable">ddbWaitForTable</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.html">cache</a><ul class='typedefs'></ul></li><li><a href="module-db.html">db</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-db.html#.aadd">aadd</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abatch">abatch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abulk">abulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acopy">acopy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acreate">acreate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.add">add</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adel">adel</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adelAll">adelAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adrop">adrop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aget">aget</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aincr">aincr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.alist">alist</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.applyPoolOptions">applyPoolOptions</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aput">aput</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aquery">aquery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.ascan">ascan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asearch">asearch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aselect">aselect</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asql">asql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.atransaction">atransaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdate">aupdate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdateAll">aupdateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupgrade">aupgrade</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.batch">batch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.bulk">bulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.cacheColumns">cacheColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.configTypes">configTypes</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertError">convertError</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertRows">convertRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.copy">copy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.createTables">createTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.delAll">delAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.describeTables">describeTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getCached">getCached</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getConfig">getConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPool">getPool</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPoolTables">getPoolTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPools">getPools</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getProcessRows">getProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initColumns">initColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initConfig">initConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initTables">initTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.list">list</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepare">prepare</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareColumn">prepareColumn</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareQuery">prepareQuery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.put">put</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.query">query</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.queryProcessSync">queryProcessSync</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.refreshColumns">refreshColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.runProcessRows">runProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.scan">scan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.search">search</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setConfig">setConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessColumns">setProcessColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessRow">setProcessRow</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.sql">sql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.transaction">transaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.updateAll">updateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.upgrade">upgrade</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-db_dynamodb.html">db/dynamodb</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.html">db/elasticsearch</a><ul class='typedefs'></ul></li><li><a href="module-db_pg.html">db/pg</a><ul class='typedefs'></ul></li><li><a href="module-db_sqlite.html">db/sqlite</a><ul class='typedefs'></ul></li><li><a href="module-events.html">events</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-events.html#.putEvent">putEvent</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-ipc.html">ipc</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-ipc.html#.broadcast">broadcast</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.emitMsg">emitMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.newMsg">newMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.sendMsg">sendMsg</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-jobs.html">jobs</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-jobs.html#.cancelJob">cancelJob</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.isCancelled">isCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.markCancelled">markCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.submitJob">submitJob</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-lib.html">lib</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib.html#.__">__</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.afetch">afetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.base64ToJson">base64ToJson</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.call">call</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.clock">clock</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.configParse">configParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.daysInMonth">daysInMonth</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.decodeURIComponent">decodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferCallback">deferCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferInterval">deferInterval</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferShutdown">deferShutdown</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.encodeURIComponent">encodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.entityToText">entityToText</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.escapeUnicode">escapeUnicode</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fetch">fetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase32">fromBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase62">fromBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase64url">fromBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArg">getArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArgInt">getArgInt</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getHashid">getHashid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getWorkers">getWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.hash">hash</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isArg">isArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isDST">isDST</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isTimeRange">isTimeRange</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormat">jsonFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormatPreset">jsonFormatPreset</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonParse">jsonParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonToBase64">jsonToBase64</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.killWorkers">killWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.loadLocale">loadLocale</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.localEpoch">localEpoch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.murmurHash3">murmurHash3</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.newError">newError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.notifyWorkers">notifyWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.now">now</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objClone">objClone</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objSize">objSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseTime">parseTime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.runCallback">runCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.shuffle">shuffle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sleep">sleep</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.slug">slug</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sortByVersion">sortByVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.strftimeMap">strftimeMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.stringify">stringify</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.suuid">suuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToEntity">textToEntity</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToXml">textToXml</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toAge">toAge</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase32">toBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase62">toBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase64url">toBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBool">toBool</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toCamel">toCamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toClamp">toClamp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDate">toDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDigits">toDigits</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDuration">toDuration</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toEmail">toEmail</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFlags">toFlags</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFormat">toFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toMtime">toMtime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toNumber">toNumber</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toParams">toParams</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toPrice">toPrice</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRFC3339">toRFC3339</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexp">toRegexp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpMap">toRegexpMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpObj">toRegexpObj</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toSize">toSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toString">toString</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTemplate">toTemplate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTitle">toTitle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUncamel">toUncamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUrl">toUrl</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toValue">toValue</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toVersion">toVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.traceError">traceError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCall">tryCall</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCatch">tryCatch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryLater">tryLater</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tzName">tzName</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unescape">unescape</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unicode2Ascii">unicode2Ascii</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.uuid">uuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekDate">weekDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekOfYear">weekOfYear</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.xmlParse">xmlParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#~onDeferCallback">onDeferCallback</a></li></ul><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-lib.html#.ParamsOptions">ParamsOptions</a></li></ul></li><li><a href="module-lib_JWT.html">lib/JWT</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPrivateKey">importPrivateKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPublicKey">importPublicKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.sign">sign</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logger.html">logger</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-logger.html#.debug">debug</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.dev">dev</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.error">error</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.info">info</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.logger">logger</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.none">none</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.prefix">prefix</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.registerLevel">registerLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setDebugFilter">setDebugFilter</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setFile">setFile</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setLevel">setLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setOptions">setOptions</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setSyslog">setSyslog</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.trace">trace</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.warn">warn</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logwatcher.html">logwatcher</a><ul class='typedefs'></ul></li><li><a href="module-metrics.html">metrics</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-metrics.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.take">take</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-modules.html">modules</a><ul class='typedefs'></ul></li><li><a href="module-push.html">push</a><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-push.html#~callback">callback</a></li></ul></li><li><a href="module-queue.html">queue</a><ul class='typedefs'></ul></li><li><a href="module-sendmail.html">sendmail</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sendmail.html#.send">send</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-shell.html">shell</a><ul class='typedefs'></ul></li><li><a href="module-sql.html">sql</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sql.html#.column">column</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.delete">delete</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.expr">expr</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.insert">insert</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.limit">limit</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.quote">quote</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.time">time</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.upgrade">upgrade</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.value">value</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.valueIn">valueIn</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-stats.html">stats</a><ul class='typedefs'></ul></li><li><a href="module-watcher.html">watcher</a><ul class='typedefs'></ul></li></ul><h3>Classes</h3><ul><li><a href="Counter.html">Counter</a><ul class='typedefs'></ul></li><li><a href="DbPool.html">DbPool</a><ul class='typedefs'></ul></li><li><a href="FakeTrace.html">FakeTrace</a><ul class='typedefs'></ul></li><li><a href="FetchRequest.html">FetchRequest</a><ul class='methods'><li data-type='method' style='display: none;'><a href="FetchRequest.html#parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="FetchRequest.html#toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="Histogram.html">Histogram</a><ul class='typedefs'></ul></li><li><a href="LRUCache.html">LRUCache</a><ul class='methods'><li data-type='method' style='display: none;'><a href="LRUCache.html#.clean">clean</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.put">put</a></li></ul><ul class='typedefs'></ul></li><li><a href="Meter.html">Meter</a><ul class='typedefs'></ul></li><li><a href="Pool.html">Pool</a><ul class='typedefs'></ul></li><li><a href="SqlPool.html">SqlPool</a><ul class='typedefs'></ul></li><li><a href="Timer.html">Timer</a><ul class='typedefs'></ul></li><li><a href="TokenBucket.html">TokenBucket</a><ul class='methods'><li data-type='method' style='display: none;'><a href="TokenBucket.html#.configure">configure</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.consume">consume</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.equal">equal</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toArray">toArray</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toJSON">toJSON</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="Trace.html">Trace</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Trace.html#.destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.send">send</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="WebpushClient.html">WebpushClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.CacheClient.html">CacheClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#applyOptions">applyOptions</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#clear">clear</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#close">close</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#del">del</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#get">get</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#limiter">limiter</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#lock">lock</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#put">put</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#stats">stats</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#unlock">unlock</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.ElasticsearchPool.html">ElasticsearchPool</a><ul class='typedefs'></ul></li><li><a href="module-queue.EventBridgeClient.html">EventBridgeClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.JSONClient.html">JSONClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.NatsClient.html">NatsClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.QueueClient.html">QueueClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#channel">channel</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#monitor">monitor</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#schedule">schedule</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-queue.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SNSClient.html">SNSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SQSClient.html">SQSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li></ul><h3>Global</h3><ul><li><a href="global.html#ConfigOptions">ConfigOptions</a></li><li><a href="global.html#DBConfigOptions">DBConfigOptions</a></li><li><a href="global.html#DBRequest">DBRequest</a></li><li><a href="global.html#DBRequestColumn">DBRequestColumn</a></li><li><a href="global.html#DBRequestOptions">DBRequestOptions</a></li><li><a href="global.html#DBResultCallback">DBResultCallback</a></li><li><a href="global.html#DBTable">DBTable</a></li><li><a href="global.html#DBTableColumn">DBTableColumn</a></li></ul>
+    
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">cache.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*
+ *  Author: Vlad Seryakov vseryakov@gmail.com
+ *  backendjs 2018
+ */
+
+const logger = require(__dirname + '/logger');
+const lib = require(__dirname + '/lib');
+const metrics = require(__dirname + '/metrics');
+const Client = require(__dirname + "/cache/client");
+const { promisify } = require("util");
+
+/**
+ * @module cache
+ */
+
+const cache = {
+    name: "cache",
+
+    /**
+     * @var {ConfigOptions[]} args
+     */
+    args: [
+        { name: "config", obj: "_config", type: "json", merge: 1, onupdate: "checkConfig", descr: 'An object with driver configs, an object with at least url or an url string, ex: `-cache-config {"redis":{"url":redis://localhost","count":1},"nats":"nats://localhost:4222"}`' },
+        { name: "([a-z0-9]+)-options$", obj: "_config.$1", type: "map", merge: 1, onupdate: "applyOptions", descr: "Additional parameters for clients, specific to each implementation, ex: `-cache-redis-options count:10,interval:100`" },
+        { name: "([a-z0-9]+)-options-(.+)", obj: "_config.$1", make: "$2", camel: '-', autotype: 1, onupdate: "applyOptions", descr: "Additional parameters for clients, specific to each implementation, ex: `-cache-default-options-count 10`" },
+        { name: "([a-z0-9]+)", obj: "_config.$1", make: "url", nocamel: 1, onupdate: "applyOptions", descr: "An URL that points to a cache server in the format `PROTO://HOST[:PORT]?PARAMS`, multiple clients can be defined with unique names, all params starting with `bk-` will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url, ex: `-cache-redis redis://localhost?bk-count=3&amp;bk-ttl=3000`" },
+    ],
+
+    _nameIndex: 0,
+
+    modules: [
+        require(__dirname + "/cache/local"),
+        require(__dirname + "/cache/worker"),
+        require(__dirname + "/cache/redis"),
+    ],
+    clients: { default: new Client() },
+
+    tokenBucket: new metrics.TokenBucket(),
+    lru: new lib.LRUCache(),
+
+    // Config params
+    _config: {
+        local: "local://",
+        worker: "worker://",
+    },
+};
+
+/**
+ * Cache module for shared cache and subscriptions.
+ *
+ * Some drivers (Redis) may support TTL so global `options.ttl` or local `options.ttl` can be used
+ * for `put/incr` operations and it will honored if it is suported.
+ *
+ * For caches that support maps, like Redis the `options.mapName` can be used with get/put/incr/del to
+ * work with maps and individual keys inside maps.
+ *
+ * All methods use `options.cacheName` for non-default cache.
+ * If it is an array then a client will be picked sequentially by maintaining internal sequence number.
+ *
+ * Empty `default` client always exists, it can be overridden to make default some other driver
+ *
+ * All public `cache.get|put|incr|del|lock|unlock|limiter` operations have corresponding promisifed methods
+ * starting with `a`, like `cache.get` -> `cache.aget`.
+ *
+ * To enable stats collection for a cache it must be enabled with config: `cache-redis-options-metrics=1`
+ * @example
+ * cache-default=redis://
+ * cache-redis=redis://?bk-enable_offline_queue=1
+ * cache-config={ "limiter": "local://", "redis": "redis://" }
+ */
+
+module.exports = cache;
+
+cache.applyOptions = function(val, options)
+{
+    if (!options.obj) return;
+    logger.debug("applyOptions:", options.obj, options.name, "NEW:", options.context);
+    var d = lib.strSplit(options.obj, ".");
+    var client = d[0] == "_config" &amp;&amp; this.getClient(d[1]);
+    if (client?.cacheName != (d[1] || "default")) return;
+    logger.debug("applyOptions:", client.cacheName, options.obj, options.name, "OLD:", client.options);
+    if (options.name == "url" &amp;&amp; typeof val == "string") client.url = val;
+    client.applyOptions(options.context);
+}
+
+// Initialize a client for cache purposes, previous client will be closed.
+cache.initClients = function()
+{
+    for (const name in this._config) {
+        if (!name) continue;
+        var opts = this._config[name];
+        if (typeof opts == "string") opts = { url: opts };
+        var client = this.createClient(opts);
+        if (client) {
+            try {
+                if (this.clients[name]) this.clients[name].close();
+            } catch (e) {
+                logger.error("initClient:", cache.name, name, e.stack);
+            }
+            client.cacheName = name;
+            this.clients[name] = client;
+        }
+    }
+}
+
+// Initialize missing or new clients, existing clients stay the same
+cache.checkConfig = function()
+{
+    for (const name in this._config) {
+        if (!name) continue;
+        if (!this.clients[name]) {
+            var opts = this._config[name];
+            if (typeof opts == "string") opts = { url: opts };
+            var client = this.createClient(opts);
+            if (client) {
+                client.cacheName = name;
+                this.clients[name] = client;
+                logger.debug("checkConfig:", cache.name, name, client.name, "added");
+            }
+        }
+    }
+}
+
+// Close all existing clients except empty local client
+cache.shutdown = function(options, callback)
+{
+    for (const name in this.clients) {
+        this.clients[name].close();
+        delete this.clients[name];
+    }
+    this.clients.default = new Client();
+    lib.tryCall(callback);
+}
+
+// Return a new client for the given host or null if not supported
+cache.createClient = function(options)
+{
+    var client = null;
+    try {
+        for (const m of this.modules) {
+            client = m.create(options);
+            if (client) {
+                client.applyReservedOptions(options);
+                break;
+            }
+        }
+    } catch (e) {
+        logger.error("createClient:", cache.name, options, e.stack);
+    }
+    return client;
+}
+
+/**
+ * Return a cache client by name if specified in the options or use default client which always exists,
+ * use `cacheName` to specify a specific driver.
+ * If it is an array it will rotate items sequentially.
+ */
+cache.getClient = cache.getCache = function(options)
+{
+    var client, name = Array.isArray(options) || typeof options == "string" ? options : options?.cacheName;
+    if (name) {
+        if (Array.isArray(name)) {
+            if (name.length > 1) {
+                name = name[this._nameIndex++ % name.length];
+                if (this._nameIndex >= Number.MAX_SAFE_INTEGER) this._nameIndex = 0;
+            } else {
+                name = name[0];
+            }
+        }
+        client = this.clients[name];
+    }
+    return client || this.clients.default;
+}
+
+// Returns the cache statistics, the format depends on the cache type used
+cache.stats = function(options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    logger.dev("cache.stats:", options);
+    try {
+        this.getClient(options).stats(options || {}, typeof callback == "function" ? callback : undefined);
+    } catch (e) {
+        logger.error('cache.stats:', e.stack);
+        if (typeof callback == "function") callback(e);
+    }
+}
+cache.astats = promisify(cache.stats.bind(cache));
+
+// Clear all or only items that match the given pattern
+cache.clear = function(pattern, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    logger.dev("cache.clear:", pattern, options);
+    try {
+        this.getClient(options).clear(typeof pattern == "string" &amp;&amp; pattern, typeof callback == "function" ? callback : undefined);
+    } catch (e) {
+        logger.error('cache.clear:', pattern, e.stack);
+        if (typeof callback == "function") callback(e);
+    }
+}
+cache.aclear = promisify(cache.clear.bind(cache));
+
+/**
+ * Retrieve an item from the cache by key.
+ *
+ * - `options.del` is given then it will delete the key after returning, i.e. Redis GETDEL op
+ * - `options.set` is given and no value exists in the cache it will be set as the initial value, still
+ *  nothing will be returned to signify that a new value assigned.
+ * - `options.mapName` defines a map from which the key will be retrieved if the cache supports maps, to get the whole map
+ *  the key must be set to *
+ * - `options.listName` defines a map from which to get items, if a key is given it will return 1 if it belongs to the list,
+ *  if no key is provided it will return an array with 2 elements:  [a random key, the length of the list], to get the whole list specify * as the key. Specifying
+ *  `del` in the options will delete returned items from the list.
+ * - `options.ttl` can be used with lists with `del` and empty key, in such case all popped up keys will be saved in
+ *   the cache with specified time to live, when being popped up every key is checked if it has been served already, i.e.
+ *   it exists in the cache and not expired yet, such keys are ignored and only never seen keys are returned
+ * - `options.datatype` specifies that the returned value must be converted into the specified type using `lib.toValue`
+ *
+ * If the `key` is an array then it returns an array with values for each key, for non existent keys an empty
+ * string will be returned. For maps only if the `key` is * it will return the whole object, otherwise only value(s)
+ * are returned.
+ *
+ *
+ * Example
+ *
+ *    cache.get(["my:key1", "my:key2"], function(err, data) { console.log(data) });
+ *    cache.get("my:key", function(err, data) { console.log(data) });
+ *    cache.get("my:counter", { set: 10 }, function(err, data) { console.log(data) });
+ *    cache.get("*", { mapName: "my:map" }, function(err, data) { console.log(data) });
+ *    cache.get("key1", { mapName: "my:map" }, function(err, data) { console.log(data) });
+ *    cache.get(["key1", "key2"], { mapName: "my:map" }, function(err, data) { console.log(data) });
+ *    cache.get(["key1", "key2"], { listName: "my:list" }, function(err, data) { console.log(data) });
+ *    cache.get("", { listName: "my:list", del: 1 }, function(err, data) { console.log(data) });
+ *    cache.get("", { listName: "my:list", del: 1, ttl: 30000 }, function(err, data) { console.log(data) });
+ */
+cache.get = function(key, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    logger.dev("cache.get:", key, options);
+    try {
+        const client = this.getClient(options);
+        const _timer = client.metrics.start();
+        client.get(key, options || {}, (err, val) => {
+            if (!err &amp;&amp; options?.datatype) {
+                val = Array.isArray(val) ? val = val.map((x) => (lib.toValue(x, options.datatype))) : lib.toValue(val, options.datatype);
+            }
+            _timer.end();
+            if (typeof callback == "function") callback(err, val);
+        });
+    } catch (e) {
+        logger.error('cache.get:', key, e.stack);
+        if (typeof callback == "function") callback(e);
+    }
+}
+cache.aget = promisify(cache.get.bind(cache));
+
+/**
+ * Delete an item by key(s),  if `key` is an array all keys will be deleted at once atomically if supported
+ * - `options.mapName` defines a map from which the counter will be deleted if the cache supports maps, to delete the whole map
+ *  the key must be set to *
+ * - `options.listName` defines a list from which an item should be removed
+ *
+ * Example:
+ *
+ *        cache.del("my:key")
+ *        cache.del("key1", { mapName: "my:map" })
+ *        cache.del("*", { mapName: "my:map" })
+ *        cache.del("1", { listName: "my:list" })
+ */
+cache.del = function(key, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    logger.dev("cache.del:", key, options);
+    try {
+        this.getClient(options).del(key, options || {}, typeof callback == "function" ? callback : undefined);
+    } catch (e) {
+        logger.error('cache.del:', key, e.stack);
+        if (typeof callback == "function") callback(e);
+    }
+}
+cache.adel = promisify(cache.del.bind(cache));
+
+/**
+ * Replace or put a new item in the cache.
+ * - `options.ttl` can be passed in milliseconds if the driver supports it
+ * - `options.mapName` defines a map where the counter will be stored if the cache supports maps, to store the whole map in one
+ *    operation the `key` must be empty or * and the `val` must be an object
+ * - `options.setmax` if not empty tell the driver to set this new number only if there is no existing
+ *    value or it is less that the new number, only works for numeric values
+ * - `options.listName` defines a list where to add items, `val` can be a value or an array of values, `key` is ignored in this case.
+ *    Returns an array with 2 items: [added, total] where added is how many iterms just added and the total number of items in the list after the operation.
+ *
+ * Example:
+ *
+ *       cache.put("my:key", 2)
+ *       cache.put("my:key", 1, { setmax: 1 })
+ *       cache.put("key1", 1, { mapName: "my:map" })
+ *       cache.put("*", { key1: 1, key2: 2 }, { mapName: "my:map" })
+ *       cache.put("", [1,2,3], { listName: "my:list" }, (err, rc) => { })
+ */
+cache.put = function(key, val, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    logger.dev("cache.put:", key, val, options);
+    try {
+        const client = this.getClient(options);
+        const _timer = client.metrics.start();
+        client.put(key, val, options || {}, (err, val) => {
+            _timer.end();
+            if (typeof callback == "function") callback(err, val);
+        });
+    } catch (e) {
+        logger.error('cache.put:', key, e.stack);
+        if (typeof callback == "function") callback(e);
+    }
+}
+cache.aput = promisify(cache.put.bind(cache));
+
+/**
+ * Increase/decrease a counter in the cache by `val`, non existent items are treated as 0, if a callback is given an
+ * error and the new value will be returned.
+ * - `options.ttl` in milliseconds can be used if the driver supports it
+ * - `options.mapName` defines a map where the counter will be stored if the cache supports maps
+ * - `options.returning` - return old or new map object, if `new or *` it will be the first item in the result array, if `old`` the last,
+ *    to return all values for multi updates it must be provided, otherwise only first result by default.
+ * - if `val` is an object then all numeric properties will be incremented, other properties just set.
+ * - if `val` is an object then either `mapName` or non empty `key` is used for map
+ * - if `val` is an object and the `key` is empty then all properties are treated as standalone items
+ * - if `key` is an array then increment each item in the list with given `val` number,
+ *     in this case `ttl` can be an array as well with specific ttl per key
+ *
+ * Example:
+ *
+ *        cache.incr("my:key", 1)
+ *        cache.incr("counter", 1, { mapName: "my:map" })
+ *        cache.incr("my:map", { count: 1, name: "aaa", mtime: Date.now().toString() })
+ *        cache.incr("", { count: 1, name: "bbb", mtime: Date.now().toString() }, { mapName: "my:map" })
+ *        cache.incr("", { "my-key": 1, counter2: 2 })
+ *        cache.incr([ "my:key", "my:counter"], 1 }, { ttl: [1000, 30000] })
+ */
+cache.incr = function(key, val, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    logger.dev("cache.incr:", key, val, options);
+    try {
+        const client = this.getClient(options);
+        const _timer = client.metrics.start();
+        client.incr(key, val, options || {}, (err, val) => {
+            _timer.end();
+            if (typeof callback == "function") {
+                callback(err, options?.returning ? val || "": lib.toNumber(Array.isArray(val) ? val[0] : val));
+            }
+        });
+    } catch (e) {
+        logger.error('cache.incr:', key, e.stack);
+        if (typeof callback == "function") callback(e);
+    }
+}
+
+cache.aincr = promisify(cache.incr.bind(cache));
+
+/**
+ * Check for rate limit using the default or specific cache, by default TokenBucket using local LRU cache is
+ * used unless a client provides its own implementation.
+ *
+ * The options must have the following properties:
+ *  - name - unique id, can be IP address, account id, etc...
+ *  - max - the maximum burst capacity
+ *  - rate - the rate to refill tokens
+ *  - interval - interval for the bucket refills, default 1000 ms
+ *  - ttl - auto expire after specified ms since last use
+ *  - reset - if true reset the token bucket if not consumed or the total reached this value if it is a number greater than 1
+ *  - multiplier - multiply the interval after it consumed all tokens, subsequent checks use the increased interval, fractions supported,
+ *    if the multiplier is positive then the interval will keep increasing indefinitely, if it is negative the interval will reset to the default
+ *    value on first successful consumption
+ *
+ * The callback takes 2 arguments:
+ * - `delay` is a number of milliseconds till the bucket can be used again if not consumed, i.e. 0 means consumed.
+ * - `info` is an object with info about the state of the token bucket after the operation with properties: delay, count, total, elapsed
+ */
+cache.limiter = function(options, callback)
+{
+    logger.dev("limiter:", options);
+    if (typeof callback != "function") return;
+    if (!options?.name) return callback(0, {});
+    options.rate = lib.toNumber(options.rate, { min: 0 });
+    if (!options.rate) return callback(0, {});
+    options.max = lib.toClamp(options.max, options.rate, options.max || options.rate);
+    options.interval = lib.toNumber(options.interval, { min: 0, zero: 1000 });
+    options.ttl = lib.toNumber(options.ttl, { min: 0 });
+    options.reset = lib.toNumber(options.reset);
+    options.multiplier = lib.toNumber(options.multiplier);
+    try {
+        this.getClient(options).limiter(options, callback);
+    } catch (e) {
+        logger.error('cache.limiter:', e.stack);
+        callback(options.interval, {});
+    }
+}
+cache.alimiter = async function(options)
+{
+    return new Promise((resolve, reject) => {
+        cache.limiter(options, (delay, info) => {
+            resolve({ delay, info });
+        });
+    });
+}
+
+/**
+ * Keep checking the limiter until it is clear to proceed with the operation, if there is no available tokens in the bucket
+ * it will wait and try again until the bucket is filled.
+ * To support the same interface and ability to abort the loop pass `options.retry` with a number of loops to run before exiting.
+ * To never retry pass -1 as `options.retry`.
+ *
+ * The callback will receive the same arguments as `cache.limiter``.
+ *  `options._retries`` will be set to how many times it tried.
+ */
+cache.checkLimiter = function(options, callback)
+{
+    options._retries = lib.toNumber(options._retries) + 1;
+    this.limiter(options, (delay, info) => {
+        logger.debug("checkLimiter:", delay, options, info);
+        if (!delay || (options.retry &amp;&amp; options._retries >= options.retry)) {
+            return callback(delay, info);
+        }
+        setTimeout(this.checkLimiter.bind(this, options, callback), delay);
+    });
+}
+
+cache.acheckLimiter = async function(options)
+{
+    return new Promise((resolve, reject) => {
+        cache.checkLimiter(options, (delay, info) => {
+            resolve({ delay, info });
+        });
+    });
+}
+
+// Uses msg.name as a key returns the same message with consumed set to 1 or 0
+cache.localLimiter = function(msg)
+{
+    var interval = msg.interval;
+    var token = this.lru.get(msg.name);
+    this.tokenBucket.configure(token || msg);
+    if (msg.multiplier &amp;&amp; token) msg.interval = this.tokenBucket._interval;
+    // Reset the bucket if any number has been changed, now we have a new rate to check
+    if (!this.tokenBucket.equal(msg.rate, msg.max, msg.interval)) this.tokenBucket.configure(msg);
+    msg.consumed = this.tokenBucket.consume(msg.consume || 1);
+    msg.delay = msg.consumed ? 0 : this.tokenBucket.delay(msg.consume || 1);
+    msg.total = this.tokenBucket._total;
+    msg.count = this.tokenBucket._count;
+    msg.elapsed = this.tokenBucket._elapsed;
+    if ((msg.delay &amp;&amp; msg.reset) || (msg.reset > 1 &amp;&amp; msg.total >= msg.reset)) {
+        this.lru.del(msg.name);
+    } else {
+        if (msg.multiplier) {
+            if (msg.delay) {
+                this.tokenBucket._interval = Math.min(30000000000, this.tokenBucket._interval * Math.abs(msg.multiplier));
+                msg.interval = this.tokenBucket._interval;
+            } else
+            if (msg.multiplier &lt; 0) {
+                this.tokenBucket._interval = msg.interval = interval;
+            }
+        }
+        token = this.tokenBucket.toArray();
+        this.lru.put(msg.name, token, msg.expire);
+    }
+    logger.debug("cache:limiter:", msg, token);
+    return msg;
+}
+
+/**
+ * Implementation of a lock with optional ttl, only one instance can lock it, can be for some period of time and will expire after timeout.
+ * A lock must be uniquely named and the ttl period is specified by `options.ttl` in milliseconds.
+ *
+ * This is intended to be used for background job processing or something similar when
+ * only one instance is needed to run. At the end of the processing `cache.unlock` must be called to enable another instance immediately,
+ * otherwise it will be available after the ttl only.
+ *
+ * if `options.timeout` is given the function will keep trying to lock for the `timeout` milliseconds.
+ *
+ * if `options.set` is given it will unconditionally set the lock for the specified ttl, this is for cases when
+ * the lock must be active for longer because of the long running task
+ *
+ * The callback must be passed which will take an error and a boolean value, if true is returned it means the timer has been locked by the caller,
+ * otherwise it is already locked by other instance. In case of an error the lock is not supposed to be locked by the caller.
+ *
+ * Example:
+ *
+ *          cache.lock("my-lock", { ttl: 60000, timeout: 30000 }, function(err, locked) {
+ *               if (locked) {
+ *                   ...
+ *                   cache.unlock("my-lock");
+ *               }
+ *          });
+ */
+cache.lock = function(name, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    logger.dev("cache.lock:", name, options);
+    var self = this, locked = false, delay = 0, timeout = 0;
+    var started = Date.now();
+    options = options || {};
+    lib.doWhilst(
+        function(next) {
+            try {
+                self.getClient(options).lock(name, options, (err, val) => {
+                    if (err) return next(err);
+                    locked = lib.toBool(val);
+                    setTimeout(next, delay);
+                });
+            } catch (e) {
+                next(e);
+            }
+        },
+        function() {
+            if (!delay) delay = lib.toNumber(options.delay);
+            if (!timeout) timeout = lib.toNumber(options.timeout);
+            return !locked &amp;&amp; timeout > 0 &amp;&amp; Date.now() - started &lt; timeout;
+        },
+        function(err) {
+            if (err) logger.error('cache.lock:', err.stack);
+            if (typeof callback == "function") callback(err, locked);
+    }, true);
+}
+
+cache.alock = promisify(cache.lock.bind(cache));
+
+// Unconditionally unlock the lock, any client can unlock any lock.
+cache.unlock = function(name, options, callback)
+{
+    logger.dev("cache.unlock:", name, options);
+    try {
+        this.getClient(options).unlock(name, options || {}, typeof callback == "function" ? callback : undefined);
+    } catch (e) {
+        logger.error('cache.unlock:', e.stack);
+        if (typeof callback == "function") callback(e);
+    }
+}
+
+cache.aunlock = promisify(cache.unlock.bind(cache));
+
+cache.configureCollectStats = function(options)
+{
+    for (let q in this.clients) {
+        const cl = this.clients[q];
+        if (!cl.options?.metrics) continue;
+        const m = cl.metrics.toJSON({ reset: 1 });
+        q = cl.cacheName;
+        if (m.meter?.count) {
+            options.stats["cache_" + q + "_req_count"] = m.meter.count;
+            options.stats["cache_" + q + "_req_rate"] = m.meter.rate;
+            options.stats["cache_" + q + "_res_time"] = m.histogram.med;
+        }
+    }
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> using the <a href="https://github.com/vseryakov/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+
+<script src="scripts/search.js" defer></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

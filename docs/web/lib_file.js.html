@@ -1,0 +1,1088 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>lib/file.js - Backendjs Documentation</title>
+    
+    <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
+    
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    
+    <input type="text" id="nav-search" placeholder="Search" />
+    
+    
+    <h2><a href="index.html">Home</a></h2><h3>Tutorials</h3><ul><li><a href="tutorial-start.html">Getting started</a><ul class='typedefs'></ul></li><li><a href="tutorial-app.html">Applications</a><ul class='typedefs'></ul></li><li><a href="tutorial-modules.html">Modules</a><ul class='typedefs'></ul></li><li><a href="tutorial-reference.html">Reference</a><ul class='typedefs'></ul></li><li><a href="tutorial-bkjs.html">The bkjs tool</a><ul class='typedefs'></ul></li><li><a href="tutorial-config.html">Config parameters</a><ul class='typedefs'></ul></li></ul><h3>Modules</h3><ul><li><a href="module-api.html">api</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api.html#.checkProxy">checkProxy</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRateLimits">checkRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRedirectPlaceholders">checkRedirectPlaceholders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupHeaders">cleanupHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupResult">cleanupResult</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.createWebServer">createWebServer</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getResultPage">getResultPage</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getTokenSecret">getTokenSecret</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleBody">handleBody</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleCleanup">handleCleanup</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMetrics">handleMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMultipart">handleMultipart</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareOptions">prepareOptions</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerPreHeaders">registerPreHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerRateLimits">registerRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.replacePath">replacePath</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFile">sendFile</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFormatted">sendFormatted</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendJSON">sendJSON</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendReply">sendReply</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendStatus">sendStatus</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.shutdown">shutdown</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.startMetrics">startMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.toParams">toParams</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_access.html">api/access</a><ul class='typedefs'></ul></li><li><a href="module-api_acl.html">api/acl</a><ul class='typedefs'></ul></li><li><a href="module-api_csrf.html">api/csrf</a><ul class='typedefs'></ul></li><li><a href="module-api_files.html">api/files</a><ul class='typedefs'></ul></li><li><a href="module-api_hooks.html">api/hooks</a><ul class='typedefs'></ul></li><li><a href="module-api_images.html">api/images</a><ul class='typedefs'></ul></li><li><a href="module-api_passkeys.html">api/passkeys</a><ul class='typedefs'></ul></li><li><a href="module-api_redirect.html">api/redirect</a><ul class='typedefs'></ul></li><li><a href="module-api_routing.html">api/routing</a><ul class='typedefs'></ul></li><li><a href="module-api_session.html">api/session</a><ul class='typedefs'></ul></li><li><a href="module-api_signature.html">api/signature</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api_signature.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.fromRequest">fromRequest</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_users.html">api/users</a><ul class='typedefs'></ul></li><li><a href="module-api_ws.html">api/ws</a><ul class='typedefs'></ul></li><li><a href="module-app.html">app</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-app.html#.addModule">addModule</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.ainit">ainit</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.arunMethods">arunMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.checkConfig">checkConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.createRepl">createRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.describeArgs">describeArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.isOk">isOk</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.killBackend">killBackend</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadModules">loadModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadPackages">loadPackages</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.mime">mime</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseArgs">parseArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseConfig">parseConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArg">processArg</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArgs">processArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processEnvArgs">processEnvArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processName">processName</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethod">runMethod</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethods">runMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHome">setHome</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHost">setHost</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setLogInspect">setLogInspect</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setRole">setRole</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.sortModules">sortModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.startRepl">startRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.watchTmp">watchTmp</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-aws.html">aws</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwGetMetricData">aws.cwGetMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwListMetrics">aws.cwListMetrics</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutLogEvents">aws.cwPutLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricAlarm">aws.cwPutMetricAlarm</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricData">aws.cwPutMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwlFilterLogEvents">aws.cwlFilterLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchGetItem">aws.ddbBatchGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchWriteItem">aws.ddbBatchWriteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteItem">aws.ddbDeleteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbGetItem">aws.ddbGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbScanTable">aws.ddbScanTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbTransactWriteItems">aws.ddbTransactWriteItems</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCW">aws.queryCW</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCWL">aws.queryCWL</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.querySQS">aws.querySQS</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsReceiveMessage">aws.sqsReceiveMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsSendMessage">aws.sqsSendMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbCreateTable">ddbCreateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDeleteTable">ddbDeleteTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTable">ddbDescribeTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTimeToLive">ddbDescribeTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbListTables">ddbListTables</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbPutItem">ddbPutItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbQueryTable">ddbQueryTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateItem">ddbUpdateItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTable">ddbUpdateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTimeToLive">ddbUpdateTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbWaitForTable">ddbWaitForTable</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.html">cache</a><ul class='typedefs'></ul></li><li><a href="module-db.html">db</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-db.html#.aadd">aadd</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abatch">abatch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abulk">abulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acopy">acopy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acreate">acreate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.add">add</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adel">adel</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adelAll">adelAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adrop">adrop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aget">aget</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aincr">aincr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.alist">alist</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.applyPoolOptions">applyPoolOptions</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aput">aput</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aquery">aquery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.ascan">ascan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asearch">asearch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aselect">aselect</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asql">asql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.atransaction">atransaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdate">aupdate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdateAll">aupdateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupgrade">aupgrade</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.batch">batch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.bulk">bulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.cacheColumns">cacheColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.configTypes">configTypes</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertError">convertError</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertRows">convertRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.copy">copy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.createTables">createTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.delAll">delAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.describeTables">describeTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getCached">getCached</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getConfig">getConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPool">getPool</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPoolTables">getPoolTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPools">getPools</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getProcessRows">getProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initColumns">initColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initConfig">initConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initTables">initTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.list">list</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepare">prepare</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareColumn">prepareColumn</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareQuery">prepareQuery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.put">put</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.query">query</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.queryProcessSync">queryProcessSync</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.refreshColumns">refreshColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.runProcessRows">runProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.scan">scan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.search">search</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setConfig">setConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessColumns">setProcessColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessRow">setProcessRow</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.sql">sql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.transaction">transaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.updateAll">updateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.upgrade">upgrade</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-db_dynamodb.html">db/dynamodb</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.html">db/elasticsearch</a><ul class='typedefs'></ul></li><li><a href="module-db_pg.html">db/pg</a><ul class='typedefs'></ul></li><li><a href="module-db_sqlite.html">db/sqlite</a><ul class='typedefs'></ul></li><li><a href="module-events.html">events</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-events.html#.putEvent">putEvent</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-ipc.html">ipc</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-ipc.html#.broadcast">broadcast</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.emitMsg">emitMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.newMsg">newMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.sendMsg">sendMsg</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-jobs.html">jobs</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-jobs.html#.cancelJob">cancelJob</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.isCancelled">isCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.markCancelled">markCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.submitJob">submitJob</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-lib.html">lib</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib.html#.__">__</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.afetch">afetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.base64ToJson">base64ToJson</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.call">call</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.clock">clock</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.configParse">configParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.daysInMonth">daysInMonth</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.decodeURIComponent">decodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferCallback">deferCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferInterval">deferInterval</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferShutdown">deferShutdown</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.encodeURIComponent">encodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.entityToText">entityToText</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.escapeUnicode">escapeUnicode</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fetch">fetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase32">fromBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase62">fromBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase64url">fromBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArg">getArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArgInt">getArgInt</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getHashid">getHashid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getWorkers">getWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.hash">hash</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isArg">isArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isDST">isDST</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isTimeRange">isTimeRange</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormat">jsonFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormatPreset">jsonFormatPreset</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonParse">jsonParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonToBase64">jsonToBase64</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.killWorkers">killWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.loadLocale">loadLocale</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.localEpoch">localEpoch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.murmurHash3">murmurHash3</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.newError">newError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.notifyWorkers">notifyWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.now">now</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objClone">objClone</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objSize">objSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseTime">parseTime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.runCallback">runCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.shuffle">shuffle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sleep">sleep</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.slug">slug</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sortByVersion">sortByVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.strftimeMap">strftimeMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.stringify">stringify</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.suuid">suuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToEntity">textToEntity</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToXml">textToXml</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toAge">toAge</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase32">toBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase62">toBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase64url">toBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBool">toBool</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toCamel">toCamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toClamp">toClamp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDate">toDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDigits">toDigits</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDuration">toDuration</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toEmail">toEmail</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFlags">toFlags</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFormat">toFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toMtime">toMtime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toNumber">toNumber</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toParams">toParams</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toPrice">toPrice</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRFC3339">toRFC3339</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexp">toRegexp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpMap">toRegexpMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpObj">toRegexpObj</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toSize">toSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toString">toString</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTemplate">toTemplate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTitle">toTitle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUncamel">toUncamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUrl">toUrl</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toValue">toValue</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toVersion">toVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.traceError">traceError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCall">tryCall</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCatch">tryCatch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryLater">tryLater</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tzName">tzName</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unescape">unescape</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unicode2Ascii">unicode2Ascii</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.uuid">uuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekDate">weekDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekOfYear">weekOfYear</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.xmlParse">xmlParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#~onDeferCallback">onDeferCallback</a></li></ul><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-lib.html#.ParamsOptions">ParamsOptions</a></li></ul></li><li><a href="module-lib_JWT.html">lib/JWT</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPrivateKey">importPrivateKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPublicKey">importPublicKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.sign">sign</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logger.html">logger</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-logger.html#.debug">debug</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.dev">dev</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.error">error</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.info">info</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.logger">logger</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.none">none</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.prefix">prefix</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.registerLevel">registerLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setDebugFilter">setDebugFilter</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setFile">setFile</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setLevel">setLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setOptions">setOptions</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setSyslog">setSyslog</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.trace">trace</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.warn">warn</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logwatcher.html">logwatcher</a><ul class='typedefs'></ul></li><li><a href="module-metrics.html">metrics</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-metrics.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.take">take</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-modules.html">modules</a><ul class='typedefs'></ul></li><li><a href="module-push.html">push</a><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-push.html#~callback">callback</a></li></ul></li><li><a href="module-queue.html">queue</a><ul class='typedefs'></ul></li><li><a href="module-sendmail.html">sendmail</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sendmail.html#.send">send</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-shell.html">shell</a><ul class='typedefs'></ul></li><li><a href="module-sql.html">sql</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sql.html#.column">column</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.delete">delete</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.expr">expr</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.insert">insert</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.limit">limit</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.quote">quote</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.time">time</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.upgrade">upgrade</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.value">value</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.valueIn">valueIn</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-stats.html">stats</a><ul class='typedefs'></ul></li><li><a href="module-watcher.html">watcher</a><ul class='typedefs'></ul></li></ul><h3>Classes</h3><ul><li><a href="Counter.html">Counter</a><ul class='typedefs'></ul></li><li><a href="DbPool.html">DbPool</a><ul class='typedefs'></ul></li><li><a href="FakeTrace.html">FakeTrace</a><ul class='typedefs'></ul></li><li><a href="FetchRequest.html">FetchRequest</a><ul class='methods'><li data-type='method' style='display: none;'><a href="FetchRequest.html#parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="FetchRequest.html#toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="Histogram.html">Histogram</a><ul class='typedefs'></ul></li><li><a href="LRUCache.html">LRUCache</a><ul class='methods'><li data-type='method' style='display: none;'><a href="LRUCache.html#.clean">clean</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.put">put</a></li></ul><ul class='typedefs'></ul></li><li><a href="Meter.html">Meter</a><ul class='typedefs'></ul></li><li><a href="Pool.html">Pool</a><ul class='typedefs'></ul></li><li><a href="SqlPool.html">SqlPool</a><ul class='typedefs'></ul></li><li><a href="Timer.html">Timer</a><ul class='typedefs'></ul></li><li><a href="TokenBucket.html">TokenBucket</a><ul class='methods'><li data-type='method' style='display: none;'><a href="TokenBucket.html#.configure">configure</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.consume">consume</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.equal">equal</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toArray">toArray</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toJSON">toJSON</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="Trace.html">Trace</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Trace.html#.destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.send">send</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="WebpushClient.html">WebpushClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.CacheClient.html">CacheClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#applyOptions">applyOptions</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#clear">clear</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#close">close</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#del">del</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#get">get</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#limiter">limiter</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#lock">lock</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#put">put</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#stats">stats</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#unlock">unlock</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.ElasticsearchPool.html">ElasticsearchPool</a><ul class='typedefs'></ul></li><li><a href="module-queue.EventBridgeClient.html">EventBridgeClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.JSONClient.html">JSONClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.NatsClient.html">NatsClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.QueueClient.html">QueueClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#channel">channel</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#monitor">monitor</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#schedule">schedule</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-queue.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SNSClient.html">SNSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SQSClient.html">SQSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li></ul><h3>Global</h3><ul><li><a href="global.html#ConfigOptions">ConfigOptions</a></li><li><a href="global.html#DBConfigOptions">DBConfigOptions</a></li><li><a href="global.html#DBRequest">DBRequest</a></li><li><a href="global.html#DBRequestColumn">DBRequestColumn</a></li><li><a href="global.html#DBRequestOptions">DBRequestOptions</a></li><li><a href="global.html#DBResultCallback">DBResultCallback</a></li><li><a href="global.html#DBTable">DBTable</a></li><li><a href="global.html#DBTableColumn">DBTableColumn</a></li></ul>
+    
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">lib/file.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*
+ *  Author: Vlad Seryakov vseryakov@gmail.com
+ *  backendjs 2018
+ */
+
+const fs = require('fs');
+const util = require('util');
+const path = require('path');
+const child = require("child_process");
+const logger = require(__dirname + '/../logger');
+const lib = require(__dirname + '/../lib');
+const os = require("os");
+
+// Safe path.normalize, no exceptions
+lib.normalize = function(...args)
+{
+    try {
+        return path.normalize(path.join.apply(path, args.map((x) => (typeof x == "string" ? x : String(x))))).replace(/\\/g, "/");
+    } catch (e) {
+        logger.error("lib.normalize:", e, args);
+        return "";
+    }
+}
+
+// Respawn throttling
+lib.respawn = { interval: 3000, timeout: 2000, delay: 30000, count: 4, time: null, events: 0 };
+
+/**
+ * Call callback for each line in the file
+ * options may specify the following parameters:
+ * - sync - read file synchronously and call callback for every line
+ * - abort - signal to stop processing
+ * - limit - number of lines to process and exit
+ * - length - amount of data in bytes to process and exit
+ * - count - accumulate up to this number of lines in an array before sending a batch for processing
+ * - batchsize - accumulate up to this size before sending a batch for processing
+ * - skip - number of lines to skip from the start
+ * - progress - if > 0 report how many lines processed so far every specified lines
+ * - until - skip lines until this regexp matches
+ * - ignore - skip lines that match this regexp
+ * - header - if true then skip first line because it is the a header, if `options.header` it is a function
+ *   it will be called with the first line as an argument and must return true if this line needs to be skipped
+ * - json - each line represents an JSON object, convert and pass it to the line callback if not null
+ * - split - split every line before calling the callback, it uses phraseSplit
+ * - keepempty - by default is enabled if split is set to keep empty fields in the line array
+ * - separator - a string with characters to be used for splitting, default is `,`
+ * - rxLine - a Regexp for line splitting, default is `lib.rxLine`
+ * - quotes - a string with characters to be used for phrase splitting, default is `"'`
+ * - quiet - do not report about open file errors
+ * - direct - to pass to lib.forEachLimit for true async processing
+ * - concurrency - how many lines to process at the same time
+ * - buflength - size of the internal buffer, 4096 default
+ * - tail - if > 0 async version will keep trying to read from file after this number of ms
+ *
+ * Properties updated and returned in the options:
+ * - nlines - number of lines read from the file
+ * - nbytes - amount of data passed to line callback
+ * - ncalls - number of lines/batches passed to the line callback
+ * - npos - current position in the file
+ * - nskip - number of lines skipped
+ */
+lib.forEachLine = function(file, options, lineCallback, endCallback)
+{
+    if (!options) options = {};
+    if (options.sync) {
+        lib.forEachLineSync(file, options, lineCallback);
+        return lib.tryCall(endCallback, null, options);
+    }
+
+    options.nlines = options.ncalls = options.nbytes = options.nskip = 0;
+    if (options.split) {
+        options.keepempty = true;
+        if (!options.separator) options.separator = ",";
+    }
+
+    var ctx = {
+        file: file,
+        fd: typeof file == "number" ? file : null,
+        batch: options.count > 0 ? [] : null,
+        bsize: 0,
+        buffer: Buffer.alloc(options.buflength || 4096),
+        data: "",
+        pos: options.start > 0 ? options.start : null,
+    };
+    options.npos = ctx.pos || 0;
+
+    lib.series([
+        function(next) {
+            if (ctx.fd === file) return next();
+            fs.open(file, 'r', (err, fd) => {
+                if (err &amp;&amp; !options.quiet) logger.error('forEachLine:', file, err);
+                ctx.fd = fd;
+                next(err, options);
+            });
+        },
+        function(next) {
+            const start = Date.now();
+            lib.readLines(ctx, options, lineCallback, (err) => {
+                if (ctx.fd !== file) fs.close(ctx.fd, lib.noop);
+                options.elapsed = Date.now() - start;
+                next(err, options);
+            });
+        },
+    ], endCallback, true);
+}
+
+// Process lines asynchronously, both callbacks must be provided
+lib.readLines = function(ctx, options, lineCallback, endCallback)
+{
+    fs.read(ctx.fd, ctx.buffer, 0, ctx.buffer.length, ctx.pos, (err, nread) => {
+        ctx.pos = null;
+        ctx.nread = nread;
+        options.npos += nread;
+        var lines;
+        if (nread) {
+            ctx.data += ctx.buffer.slice(0, nread).toString(options.encoding || 'utf8');
+            lines = ctx.data.split(options.rxLine || this.rxLine);
+            if (ctx.data.endsWith("\n")) {
+                ctx.data = "";
+                lines.length--;
+            } else {
+                ctx.data = lines.pop();
+            }
+        }
+        lib.forEachLimit(lines, options.concurrency, (line, next) => {
+            function doNext(err) {
+                return options.nlines % 100 ? next(err) : setImmediate(next, err);
+            }
+            options.nlines++;
+            if (options.nlines == 1 &amp;&amp; options.header) {
+                if (typeof options.header != "function") return doNext();
+                if (options.header(line)) return doNext();
+            }
+            if ((options.length &amp;&amp; options.nbytes >= options.length) ||
+                (options.limit &amp;&amp; options.nlines > options.limit) ||
+                (options.skip &amp;&amp; options.nlines &lt;= options.skip)) {
+                options.nskip++;
+                return doNext();
+            }
+
+            if (options.progress &amp;&amp; options.nlines % options.progress == 0) logger.info('forEachLine:', ctx.file, options);
+
+            line = line.trim();
+            if (!line) {
+                options.nskip++;
+                return doNext();
+            }
+
+            // Skip lines until we see our pattern
+            if (options.until &amp;&amp; !options.until_seen) {
+                options.until_seen = line.match(options.until);
+                options.nskip++;
+                return doNext();
+            }
+            if (options.ignore &amp;&amp; options.ignore.test(line)) {
+                options.nskip++;
+                return doNext();
+            }
+            if (options.json) {
+                if (line[0] != '{' &amp;&amp; line[0] != '[') {
+                    options.nskip++;
+                    return doNext();
+                }
+                const obj = lib.jsonParse(line, options);
+                if (!obj) {
+                    options.nskip++;
+                    return doNext();
+                }
+                options.nbytes += line.length;
+                if (ctx.batch) ctx.batch.push(obj); else {
+                    options.ncalls++;
+                    return lineCallback(obj, doNext);
+                }
+            } else
+            if (options.split) {
+                const obj = lib.phraseSplit(line.trim(), options);
+                if (!obj.length) {
+                    options.nskip++;
+                    return doNext();
+                }
+                options.nbytes += line.length;
+                if (ctx.batch) ctx.batch.push(obj); else {
+                    options.ncalls++;
+                    return lineCallback(obj, doNext);
+                }
+            } else {
+                options.nbytes += line.length;
+                if (ctx.batch) ctx.batch.push(line); else {
+                    options.ncalls++;
+                    return lineCallback(line, doNext);
+                }
+            }
+            ctx.bsize += line.length;
+            if (!ctx.batch || (ctx.batch.length &lt; options.count &amp;&amp; (!options.batchsize || ctx.bsize &lt; options.batchsize))) return doNext();
+
+            options.ncalls++;
+            lineCallback(ctx.batch, (err) => {
+                ctx.batch = [];
+                ctx.bsize = 0;
+                doNext(err);
+            }, ctx);
+        }, (err) => {
+            // Stop on reaching limit or end of file
+            if (err || options.abort ||
+                (options.length &amp;&amp; options.nbytes >= options.length) ||
+                (options.limit &amp;&amp; options.nlines >= options.limit) ||
+                (!options.tail &amp;&amp; nread &lt; ctx.buffer.length)) {
+                if (err || !ctx.batch?.length) return endCallback(err);
+                options.ncalls++;
+                return lineCallback(ctx.batch, endCallback, ctx);
+            }
+            // Keep trying to read more after a delay
+            if (options.tail &amp;&amp; nread &lt; ctx.buffer.length) {
+                setTimeout(() => {
+                    lib.readLines(ctx, options, lineCallback, endCallback)
+                }, options.tail);
+            } else {
+                lib.readLines(ctx, options, lineCallback, endCallback);
+            }
+        }, options.direct);
+    });
+}
+
+/**
+ * Sync version of the `forEachLine`, read every line and call callback which may not do any async operations
+ * because they will not be executed right away but only after all lines processed
+ */
+lib.forEachLineSync = function(file, options, lineCallback)
+{
+    if (!options) options = {};
+    try {
+        var fd = typeof file == "number" ? file : fs.openSync(file, 'r');
+    } catch (err) {
+        if (!options.quiet) logger.error('forEachLine:', file, err);
+        return err;
+    }
+
+    options.nlines = options.ncalls = options.nbytes = options.nskip = 0;
+    if (options.split) {
+        options.keepempty = true;
+        if (!options.separator) options.separator = ",";
+    }
+
+    const start = Date.now();
+    const buffer = Buffer.alloc(options.buflength || 4096);
+    var batch = options.count > 0 ? [] : null, bsize = 0;
+    var pos = options.start > 0 ? options.pos : null;
+    var data = "", lines;
+
+    options.npos = pos || 0;
+
+    while (!options.abort) {
+        const nread = fs.readSync(fd, buffer, 0, buffer.length, pos);
+        pos = null;
+        lines = null;
+        if (nread) {
+            options.npos += nread;
+            data += buffer.slice(0, nread).toString(options.encoding || 'utf8');
+            lines = data.split(options.rxLine || lib.rxLine);
+            if (data.endsWith("\n")) {
+                data = "";
+                lines.length--;
+            } else {
+                data = lines.pop();
+            }
+        }
+
+        for (let i = 0; i &lt; lines.length; i++) {
+            options.nlines++;
+            if (!options.nlines == 1 &amp;&amp; options.header) {
+                if (typeof options.header != "function") continue;
+                if (options.header(lines[i])) continue;
+            }
+            if ((options.length &amp;&amp; options.nbytes >= options.length) ||
+                (options.limit &amp;&amp; options.nlines > options.limit) ||
+                (options.skip &amp;&amp; options.nlines &lt;= options.skip)) {
+                options.nskip++;
+                continue;
+            }
+
+            if (options.progress &amp;&amp; options.nlines % options.progress == 0) logger.info('forEachLine:', file, options);
+
+            // Skip lines until we see our pattern
+            if (options.until &amp;&amp; !options.until_seen) {
+                options.nskip++;
+                options.until_seen = lines[i].match(options.until);
+                continue;
+            }
+            if (options.ignore &amp;&amp; options.ignore.test(lines[i])) {
+                options.nskip++;
+                continue;
+            }
+            if (options.json) {
+                const obj = lib.jsonParse(lines[i], options);
+                if (!obj) {
+                    options.nskip++;
+                    continue;
+                }
+                options.nbytes += lines[i].length;
+                if (batch) batch.push(obj); else {
+                    options.ncalls++;
+                    lineCallback(obj);
+                }
+            } else
+            if (options.split) {
+                const line = lib.phraseSplit(lines[i].trim(), options);
+                if (!line.length) {
+                    options.nskip++;
+                    continue;
+                }
+                options.nbytes += lines[i].length;
+                if (batch) batch.push(line); else {
+                    options.ncalls++;
+                    lineCallback(line);
+                }
+            } else {
+                const line = lines[i].trim();
+                if (!line) {
+                    options.nskip++;
+                    continue;
+                }
+                options.nbytes += lines[i].length;
+                if (batch) batch.push(line); else {
+                    options.ncalls++;
+                    lineCallback(line);
+                }
+            }
+            bsize += lines[i].length;
+            if (!batch || (batch.length &lt; options.count &amp;&amp; (!options.batchsize || bsize &lt; options.batchsize))) continue;
+
+            options.ncalls++;
+            lineCallback(batch);
+            batch = [];
+            bsize = 0;
+        }
+        // Stop on reaching limit or end of file
+        if (nread &lt; buffer.length) break;
+        if (options.length &amp;&amp; options.nbytes >= options.length) break;
+        if (options.limit &amp;&amp; options.nlines >= options.limit) break;
+    }
+    if (batch?.length) {
+        options.ncalls++;
+        lineCallback(batch);
+    }
+    if (fd !== file) fs.close(fd, lib.noop);
+    options.elapsed = Date.now() - start;
+}
+
+/**
+ * Write given lines into a file, lines can be a string or list of strings or numbers
+ * - size - rotate if the file is larger, keep 2 files
+ * - ext - file ext to append on rotation, without dot, `old` is default, it can be in the `strftime` format to use date, like %w, %d, %m
+ * - mode - open file mode, usually a or w
+ * - newline - if true newlines are added for each line
+ */
+lib.writeLines = function(file, lines, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+
+    lib.series([
+        function(next) {
+            if (!file) return next();
+            fs.open(file, options?.mode || 'a', (err, fd) => {
+                if (err) return next(err);
+                if (typeof lines == "string") lines = [ lines ];
+                lib.forEachSeries(lines, (line, next2) => {
+                    if (typeof line != "string") line = String(line);
+                    fs.write(fd, line + (options?.newline ? "\n" : ""), next2);
+                }, (err) => {
+                    fs.close(fd, lib.noop);
+                    next(err);
+                });
+            });
+        },
+        function(next) {
+            if (!file || !options?.size) return next();
+            fs.stat(file, (err, st) => {
+                if (err || st.size &lt; options.size) return next(err);
+                var ext = `${options?.ext || "old"}`;
+                if (ext[0] == "%") ext = lib.strftime(Date.now(), ext);
+                fs.rename(file, file + "." + ext, next);
+            });
+        },
+    ], callback);
+}
+
+// Copy file and then remove the source, do not overwrite existing file
+lib.moveFile = function(src, dst, overwrite, callback)
+{
+    if (typeof overwrite == "function") callback = overwrite, overwrite = false;
+
+    function _copyIfFailed(err) {
+        if (!err) return lib.tryCall(callback, null);
+        lib.copyFile(src, dst, overwrite, (err2) => {
+            if (!err2) {
+                fs.unlink(src, (err) => { lib.tryCall(callback, err) });
+            } else {
+                lib.tryCall(callback, err2);
+            }
+        });
+    }
+
+    logger.debug('moveFile:', src, dst, overwrite);
+    fs.stat(dst, (err) => {
+        if (!err &amp;&amp; !overwrite) return lib.tryCall(callback, lib.newError("File " + dst + " exists."));
+        fs.rename(src, dst, _copyIfFailed);
+    });
+}
+
+// Copy file, overwrite is optional flag, by default do not overwrite
+lib.copyFile = function(src, dst, overwrite, callback)
+{
+    if (typeof overwrite == "function") callback = overwrite, overwrite = false;
+
+    function _copyFile(err) {
+        var ist, ost;
+        if (!err &amp;&amp; !overwrite) return lib.tryCall(callback, lib.newError("File " + dst + " exists."));
+        fs.stat(src, (err2) => {
+            if (err2) return lib.tryCall(callback, err2);
+            ist = fs.createReadStream(src);
+            ost = fs.createWriteStream(dst);
+            ist.on('end', () => { lib.tryCall(callback) });
+            ist.pipe(ost);
+        });
+    }
+    logger.debug('copyFile:', src, dst, overwrite);
+    fs.stat(dst, _copyFile);
+}
+
+/**
+ * Non-exception version, returns empty object,
+ * mtime is 0 in case file does not exist or number of seconds of last modified time
+ * mdate is a Date object with last modified time
+ */
+lib.statSync = function(file)
+{
+    try {
+        var stat = fs.statSync(file);
+        stat.mdate = stat.mtime.toISOString();
+        stat._mtime = stat.mtime.getTime();
+        return stat;
+    } catch (e) {
+        if (e.code != "ENOENT") logger.error('statSync:', e, e.stack);
+        return {
+            size: 0,
+            mdate: "",
+            mtime: new Date(0),
+            _mtime: 0,
+            isFile: function() { return false },
+            isSymbolicLink: function() { return false },
+            isDirectory: function() { return false },
+        };
+    }
+}
+
+/**
+ * Return contents of a file, empty if not exist or on error.
+ *
+ * Options can specify the format:
+ * - cfg - parse file in config format, name=value per line, return a list of args
+ * - json - parse file as JSON, return an object, in case of error an empty object
+ * - xml - parse the file as XML, return an object
+ * - list - split contents with the given separator
+ * - encoding - file encoding when converting to string
+ * - logger - log level for error messages
+ * - missingok - if set ENOENT will not be logged
+ * - offset - read from the position in the file, if negative the offset is from the end of file
+ * - length - read only this much of the data, otherwise read till the end of file
+ */
+lib.readFileSync = function(file, options)
+{
+    if (!file) return "";
+    var binary = options &amp;&amp; options.encoding == "binary";
+    try {
+        var data = binary ? Buffer.from("") : "";
+        var offset = this.toNumber(options &amp;&amp; options.offset);
+        var length = this.toNumber(options &amp;&amp; options.length);
+        if (offset || (offset === 0 &amp;&amp; length > 0)) {
+            var buf = Buffer.alloc(length > 0 ? Math.min(length, 4096) : 4096);
+            var bufsize = buf.length;
+            var fd = fs.openSync(file, "r");
+            var size = fs.statSync(file).size;
+            if (offset &lt; 0) offset = Math.max(0, size + offset);
+            while (offset &lt; size) {
+                var nread = fs.readSync(fd, buf, 0, bufsize, offset);
+                if (nread &lt;= 0) break;
+                if (binary) {
+                    data = Buffer.concat([data, buf.slice(0, nread)]);
+                } else {
+                    data += buf.slice(0, nread).toString(options.encoding || 'utf8');
+                }
+                offset += nread;
+                if (length > 0) {
+                    if (data.length >= length) break;
+                    if (length - data.length &lt; bufsize) bufsize = length - data.length;
+                }
+            }
+            fs.closeSync(fd);
+        } else {
+            data = fs.readFileSync(file);
+            if (!binary) data = data.toString(options &amp;&amp; options.encoding ? options.encoding : "utf8");
+        }
+        if (options) {
+            if (options.json) data = lib.jsonParse(data, options); else
+            if (options.list) data = lib.strSplit(data, options.list); else
+            if (options.cfg) data = lib.configParse(data, options);
+        }
+        return data;
+    } catch (e) {
+        if (options) {
+            if (options.logger &amp;&amp; !(options.missingok &amp;&amp; e.code == "ENOENT")) logger.logger(options.logger, 'readFileSync:', file, e.stack);
+            if (options.json) return {};
+            if (options.list || options.cfg) return [];
+        }
+        return "";
+    }
+}
+
+// Same as `lib.readFileSync` but asynchronous
+lib.readFile = function(file, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    var offset = this.toNumber(options &amp;&amp; options.offset);
+    var length = this.toNumber(options &amp;&amp; options.length);
+    var binary = options &amp;&amp; options.encoding == "binary";
+    var fd;
+
+    function onError(err) {
+        var data = "";
+        if (options) {
+            if (options.logger &amp;&amp; !(options.missingok &amp;&amp; err.code == "ENOENT")) logger.logger(options.logger, 'readFile:', file, err.stack);
+            if (options.json) data = {};
+            if (options.list || options.cfg) data = [];
+        }
+        if (typeof fd == "number") fs.close(fd, lib.noop);
+        lib.tryCall(callback, err, data);
+    }
+    function onEnd(data) {
+        if (options) {
+            if (options.json) data = lib.jsonParse(data, options); else
+            if (options.list) data = lib.strSplit(data, options.list); else
+            if (options.cfg) data = lib.configParse(data, options);
+        }
+        if (typeof fd == "number") fs.close(fd, lib.noop);
+        lib.tryCall(callback, null, data);
+    }
+
+    if (offset || (offset === 0 &amp;&amp; length > 0)) {
+        fs.open(file, 'r', function(err, handle) {
+            if (err) return onError(err);
+            fd = handle;
+            var data = binary ? Buffer.from("") : "";
+            var buf = Buffer.alloc(length > 0 ? Math.min(length, 4096) : 4096);
+            var bufsize = buf.length;
+            function onRead() {
+                fs.read(fd, buf, 0, bufsize, offset, function(err, nread, buffer) {
+                    if (nread &lt;= 0) return onEnd(data);
+                    if (binary) {
+                        data = Buffer.concat([data, buffer.slice(0, nread)]);
+                    } else {
+                        data += buffer.slice(0, nread).toString(options &amp;&amp; options.encoding || 'utf8');
+                    }
+                    if (nread &lt; bufsize) return onEnd(data);
+                    if (length > 0) {
+                        if (data.length >= length) return onEnd(data);
+                        if (length - data.length &lt; bufsize) bufsize = length - data.length;
+                    }
+                    offset += nread;
+                    onRead();
+                });
+            }
+            if (offset &lt; 0) {
+                fs.fstat(fd, function(err, stats) {
+                    if (err) return onError(err);
+                    offset = Math.max(0, stats.size + offset);
+                    onRead();
+                });
+            } else {
+                onRead();
+            }
+        });
+    } else {
+        fs.readFile(file, function(err, data) {
+            if (err) return onError(err);
+            if (!binary) data = data.toString(options &amp;&amp; options.encoding || 'utf8');
+            onEnd(data);
+        });
+    }
+}
+
+// Filter function to be used in findFile methods
+lib.findFilter = function(file, stat, options)
+{
+    if (!options) return 1;
+    if (typeof options.filter == "function") return options.filter(file, stat);
+    if (util.types.isRegExp(options.exclude) &amp;&amp; options.exclude.test(file)) return 0;
+    if (util.types.isRegExp(options.include) &amp;&amp; !options.include.test(file)) return 0;
+    if (options.types) {
+        if (stat.isFile() &amp;&amp; options.types.indexOf("f") == -1) return 0;
+        if (stat.isDirectory() &amp;&amp; options.types.indexOf("d") == -1) return 0;
+        if (stat.isBlockDevice() &amp;&amp; options.types.indexOf("b") == -1) return 0;
+        if (stat.isCharacterDevice() &amp;&amp; options.types.indexOf("c") == -1) return 0;
+        if (stat.isSymbolicLink() &amp;&amp; options.types.indexOf("l") == -1) return 0;
+        if (stat.isFIFO() &amp;&amp; options.types.indexOf("p") == -1) return 0;
+        if (stat.isSocket() &amp;&amp; options.types.indexOf("s") == -1) return 0;
+    }
+    return 1;
+}
+
+/**
+ * Return list of files than match filter recursively starting with given path, dir is the starting path.
+ *
+ * The options may contain the following:
+ *   - include - a regexp with file pattern to include
+ *   - exclude - a regexp with file pattern to exclude
+ *   - filter - a function(file, stat) that return 1 if the given file matches, stat is a object returned by fs.statSync
+ *   - depth - if a number it specifies max depth to go into the subfolders, starts with 1
+ *   - types - a string with types of files to include: d - a dir, f - a file, l - a symlink, c - char dev, b - block dev, s - socket, p - a FIFO
+ *   - base - if set only keep base file name in the result, not full path
+ *   - details - return the whole stat structure instead of just names
+ *
+ *  Example:
+ *
+ *        lib.findFileSync("modules/", { depth: 1, types: "f", include: /\.js$/ }).sort()
+ */
+lib.findFileSync = function(dir, options)
+{
+    var list = [];
+    var level = arguments[2];
+    if (typeof level != "number") level = 0;
+
+    try {
+        var stat = this.statSync(dir);
+        var name = options?.base ? path.basename(dir) : dir;
+        if (options?.details) stat.file = dir;
+
+        if (stat.isFile()) {
+            if (this.findFilter(name, stat, options)) {
+                list.push(options?.details ? stat : name);
+            }
+        } else
+        if (stat.isDirectory()) {
+            if (this.findFilter(name, stat, options)) {
+                list.push(options?.details ? stat: name);
+            }
+            // We reached our directory depth
+            if (typeof options?.depth == "number" &amp;&amp; level >= options.depth) return list;
+            var files = fs.readdirSync(dir);
+            for (var i in files) {
+                list = list.concat(this.findFileSync(path.join(dir, files[i]), options, level + 1));
+            }
+        }
+    } catch (e) {
+        logger.error('findFileSync:', dir, options, e.stack);
+    }
+    return list;
+}
+
+// Async version of find file, same options as in the sync version, the starting dir is not included
+lib.findFile = function(dir, options, callback)
+{
+    if (typeof options == "function") callback = options, options = {};
+    if (!options) options = {}
+    if (!Array.isArray(options.files)) options.files = [];
+
+    var level = arguments[3];
+    if (typeof level != "number") level = 0;
+    if (typeof dir != "string") dir = "";
+
+    fs.readdir(dir, (err, files) => {
+        if (err) return lib.tryCall(callback, err, options.files);
+
+        lib.forEachSeries(files, (file, next) => {
+            if (options.done) return next();
+            var full = path.join(dir, file);
+
+            fs.stat(full, (err, stat) => {
+                if (err) return next(err);
+                if (options.details) stat.file = full;
+
+                if (stat.isFile()) {
+                    if (lib.findFilter(full, stat, options)) {
+                        options.files.push(options.details ? stat : options.base ? file : full);
+                    }
+                    next();
+                } else
+                if (stat.isDirectory()) {
+                    if (lib.findFilter(full, stat, options)) {
+                        options.files.push(options.details ? stat : options.base ? file : full);
+                    }
+                    // We reached our directory depth
+                    if (options &amp;&amp; typeof options.depth == "number" &amp;&amp; level >= options.depth) return next();
+                    lib.findFile(full, options, next, level + 1);
+                } else {
+                    next();
+                }
+            });
+        }, (err) => {
+            lib.tryCall(callback, err, options.files);
+        }, true);
+    });
+}
+
+/**
+ * Watch files in a dir for changes and call the callback, the parameters:
+ * - root - a string with root path
+ * - files - a regexp to watch files individually, if omitted watch the whole dir
+ * - match - a regexp to watch files when using the whole dir, only for matched files the callback will be called
+ * - ignore - a regexp to ignore files
+ * - recursive - watch files in root subfolders
+ * - depth - how deep to look for files in case of individual files
+ */
+lib.watchFiles = function(options, fileCallback, endCallback)
+{
+    logger.debug('watchFiles:', options);
+
+    function watcher(event, file) {
+        // Check stat if no file name, Mac OS X does not provide it
+        fs.stat(file.file, (err, stat) => {
+            if (err) return logger.error("watcher:", event, file.file, file.size, err);
+            switch (event) {
+            case "rename":
+                file.watcher.close();
+                file.watcher = fs.watch(file.file, (event) => { watcher(event, file); });
+                break;
+            default:
+                if (stat.size == file.size &amp;&amp; stat.mtime.getTime() == file.mtime.getTime()) return;
+            }
+            logger.log('watchFiles:', event, file.file, file.ino, stat.size, stat.mtime);
+            for (const p in stat) file[p] = stat[p];
+            fileCallback(file);
+        });
+    }
+
+    var root = options.root;
+    var ignore = options.ignore &amp;&amp; lib.toRegexp(options.ignore) || null;
+
+    if (options.files) {
+        var opts = { details: 1, include: lib.toRegexp(options.files), exclude: ignore, depth: options.depth, types: options.types };
+        lib.findFile(options.root, opts, (err, list) => {
+            if (err) return lib.tryCall(endCallback, err);
+            list.forEach((file) => {
+                logger.debug('watchFiles:', file.file, file.ino, file.size);
+                file.watcher = fs.watch(file.file, (event) => { watcher(event, file) });
+            });
+            lib.tryCall(endCallback, err, list);
+        });
+    } else {
+        var match = options.match &amp;&amp; lib.toRegexp(options.match) || null;
+        try {
+            fs.watch(root, { recursive: !!options.recursive }, (event, file) => {
+                logger.dev('watcher:', event, root, file);
+                file = path.join(root, file);
+                if (ignore &amp;&amp; ignore.test(file)) return;
+                if (match &amp;&amp; !match.test(file)) return;
+                fs.stat(file, (err, stat) => {
+                    if (err) return logger.error("watcher:", file, err);
+                    logger.log('watchFiles:', event, file, stat.size, stat.mtime);
+                    fileCallback({ name: file, stat: stat });
+                });
+            });
+            lib.tryCall(endCallback);
+        } catch (err) {
+            lib.tryCall(endCallback, err);
+        }
+    }
+}
+
+// Recursively create all directories, return 1 if created or 0 on error or if exists, no exceptions are raised, error is logged only
+lib.makePathSync = function(dir)
+{
+    try {
+        fs.mkdirSync(path.normalize(dir), { recursive: true });
+        return 1;
+    } catch (e) {
+        logger.error('makePathSync:', dir, e);
+        return 0;
+    }
+}
+
+// Async version of makePath, stops on first error
+lib.makePath = function(dir, callback)
+{
+    fs.mkdir(path.normalize(dir), (err) => {
+        if (err) logger.error('makePath:', err);
+        lib.tryCall(callback, err);
+    });
+}
+
+// Unlink a file, no error on non-existent file, callback is optional
+lib.unlink = function(name, callback)
+{
+    fs.unlink(name, (err) => {
+        if (err?.code == "ENOENT") err = null;
+        lib.tryCall(callback, err);
+    });
+}
+
+lib.unlinkSync = function(name)
+{
+    try {
+        fs.unlinkSync(name);
+    } catch (e) {
+        if (e.code != 'ENOENT') logger.error('unlinkSync:', name, e);
+    }
+}
+
+
+// Recursively remove all files and folders in the given path, returns an error to the callback if any
+lib.unlinkPath = function(dir, callback)
+{
+    fs.stat(dir, (err, stat) => {
+        if (err) return lib.tryCall(callback, err);
+        if (stat.isDirectory()) {
+            fs.readdir(dir, (err, files) => {
+                if (err) return lib.tryCall(callback, err);
+                lib.forEachSeries(files, (f, next) => {
+                    lib.unlinkPath(path.join(dir, f), next);
+                }, (err) => {
+                    if (err) return lib.tryCall(callback, err);
+                    fs.rmdir(dir, callback);
+                }, true);
+            });
+        } else {
+            fs.unlink(dir, callback);
+        }
+    });
+}
+
+// Recursively remove all files and folders in the given path, stops on first error
+lib.unlinkPathSync = function(dir)
+{
+    var files = this.findFileSync(dir);
+    // Start from the end to delete files first, then folders
+    for (var i = files.length - 1; i >= 0; i--) {
+        try {
+            var stat = this.statSync(files[i]);
+            if (stat.isDirectory()) {
+                fs.rmdirSync(files[i]);
+            } else {
+                fs.unlinkSync(files[i]);
+            }
+        } catch (e) {
+            logger.error("unlinkPath:", dir, e);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/**
+ * Change file owner, multiples files can be specified, do not report errors about non existent files, the uid/gid must be set to non-root user
+ * for this function to work and it is called by the root only, all the rest of the arguments are used as files names
+ *
+ * Example:
+ *
+ *           lib.chownSync(1, 1, "/path/file1", "/path/file2")
+ */
+lib.chownSync = function(uid, gid)
+{
+    if (this.getuid() || !uid) return;
+    for (var i = 2; i &lt; arguments.length; i++) {
+        var file = arguments[i];
+        if (!file) continue;
+        try {
+            fs.chownSync(file, uid, gid);
+        } catch (e) {
+            if (e.code != 'ENOENT') logger.error('chownSync:', uid, gid, file, e);
+        }
+    }
+}
+
+// Return a list of matching processes, Linux only
+lib.findProcess = function(options, callback)
+{
+    if (os.platform() == "linux") {
+        lib.findFile("/proc", { include: /^\/proc\/[0-9]+$/, exclude: new RegExp("^/proc/" + process.pid + "$"), depth: 0, base: 1 }, (err, files) => {
+            if (!err) {
+                files = files.map((x) => ({ pid: x, cmd: lib.readFileSync(`/proc/${x}/cmdline`).replace(/\0/g," ").trim() })).
+                        filter((x) => (options.filter ? x.cmd.match(options.filter) : x.cmd));
+            }
+            callback(err, files);
+        });
+    } else {
+        lib.execProcess("/bin/ps agx -o pid,args", (err, stdout, stderr) => {
+            var list = stdout.split("\n").
+                              filter((x) => (lib.toNumber(x) != process.pid &amp;&amp; (options.filter ? x.match(options.filter) : 1))).
+                              map((x) => ({ pid: lib.toNumber(x), cmd: x.replace(/^[0-9]+/, "").trim() }));
+
+            callback(err, list);
+        });
+    }
+}
+
+/**
+ * Run the process and return all output to the callback, this a simple wrapper around child_processes.exec so the lib.runProcess
+ * can be used without importing the child_processes module. All fatal errors are logged.
+ * - options.merge if set append stdout to stderr and return combined single value separated by 2 newlines
+ */
+lib.execProcess = function(cmd, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+
+    return child.exec(cmd, (err, stdout, stderr) => {
+        logger.debug('execProcess:', cmd, err, stderr);
+        if (options?.merge) {
+            stdout = lib.toString(stderr) + "\n\n" + lib.toString(stdout);
+            stderr = "";
+        }
+        lib.tryCall(callback, err, typeof stdout == "string" ? stdout : "", typeof stderr == "string" ? stderr : "");
+    });
+}
+lib.aexecProcess = util.promisify(lib.execProcess.bind(lib));
+
+/**
+ * Run specified command with the optional arguments, this is similar to child_process.spawn with callback being called after the process exited
+ *
+ *  Example
+ *
+ *          lib.spawProcess("ls", "-ls", { cwd: "/tmp" }, lib.log)
+ */
+lib.spawnProcess = function(cmd, args, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = { stdio: "inherit", env: process.env, cwd: process.cwd() };
+    if (!options.stdio) options.stdio = "inherit";
+    if (!Array.isArray(args)) args = [ args ];
+    var proc = child.spawn(cmd, args, options);
+    proc.on("error", function(err) {
+        logger.error("spawnProcess:", cmd, args, err);
+        lib.tryCall(callback, err);
+    });
+    proc.on('exit', function (code, signal) {
+        logger.debug("spawnProcess:", cmd, args, "exit", code || signal);
+        lib.tryCall(callback, code || signal);
+    });
+    return proc;
+}
+lib.aspawnProcess = util.promisify(lib.spawnProcess.bind(lib));
+
+// If respawning too fast, delay otherwise call the callback after a short timeout
+lib.checkRespawn = function(callback)
+{
+    if (this.exiting) return;
+    var now = Date.now();
+    logger.debug('checkRespawn:', this.respawn, now - this.respawn.time);
+    if (this.respawn.time &amp;&amp; now - this.respawn.time &lt; this.respawn.interval) {
+        if (this.respawn.count &amp;&amp; this.respawn.events >= this.respawn.count) {
+            logger.log('checkRespawn:', 'throttling for', this.respawn.delay, 'after', this.respawn.events, 'respawns');
+            this.respawn.events = 0;
+            this.respawn.time = now;
+            return setTimeout(callback, this.respawn.delay);
+        }
+        this.respawn.events++;
+    } else {
+        this.respawn.events = 0;
+    }
+    this.respawn.time = now;
+    setTimeout(callback, this.respawn.timeout);
+}
+
+/**
+ * Run a series of commands, `cmds` is an object where a property name is a command to execute and the value is an array of arguments or null.
+ * if `options.error` is 1, then stop on first error or if non-zero status on a process exit.
+ *
+ *  Example:
+ *
+ *          lib.spawnSeries({"ls": "-la",
+ *                            "ps": "augx",
+ *                            "du": { argv: "-sh", stdio: "inherit", cwd: "/tmp" },
+ *                            "uname": ["-a"] },
+ *                           lib.log)
+ */
+lib.spawnSeries = function(cmds, options, callback)
+{
+    if (typeof options == "function") callback = options, options = null;
+    if (!options) options = { stdio: "inherit", env: process.env, cwd: process.cwd };
+    this.forEachSeries(Object.keys(cmds), function(cmd, next) {
+        var argv = cmds[cmd], opts = options;
+        switch (lib.typeName(argv)) {
+        case "null":
+            argv = [];
+            break;
+
+        case "object":
+            opts = argv;
+            argv = opts.argv;
+            break;
+
+        case "array":
+        case "string":
+            break;
+
+        default:
+            logger.error("spawnSeries:", "invalid arguments", cmd, argv);
+            return next(options.error ? lib.newError("invalid args", cmd) : null);
+        }
+        if (!options.stdio) options.stdio = "inherit";
+        if (typeof argv == "string") argv = [ argv ];
+        lib.spawnProcess(cmd, argv, opts, function(err) {
+            next(options.error ? err : null);
+        });
+    }, callback);
+}
+
+lib.aspawnSeries = util.promisify(lib.spawnSeries.bind(lib));
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> using the <a href="https://github.com/vseryakov/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+
+<script src="scripts/search.js" defer></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

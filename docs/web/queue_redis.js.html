@@ -1,0 +1,390 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>queue/redis.js - Backendjs Documentation</title>
+    
+    <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
+    
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    
+    <input type="text" id="nav-search" placeholder="Search" />
+    
+    
+    <h2><a href="index.html">Home</a></h2><h3>Tutorials</h3><ul><li><a href="tutorial-start.html">Getting started</a><ul class='typedefs'></ul></li><li><a href="tutorial-app.html">Applications</a><ul class='typedefs'></ul></li><li><a href="tutorial-modules.html">Modules</a><ul class='typedefs'></ul></li><li><a href="tutorial-reference.html">Reference</a><ul class='typedefs'></ul></li><li><a href="tutorial-bkjs.html">The bkjs tool</a><ul class='typedefs'></ul></li><li><a href="tutorial-config.html">Config parameters</a><ul class='typedefs'></ul></li></ul><h3>Modules</h3><ul><li><a href="module-api.html">api</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api.html#.checkProxy">checkProxy</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRateLimits">checkRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRedirectPlaceholders">checkRedirectPlaceholders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupHeaders">cleanupHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupResult">cleanupResult</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.createWebServer">createWebServer</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getResultPage">getResultPage</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getTokenSecret">getTokenSecret</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleBody">handleBody</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleCleanup">handleCleanup</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMetrics">handleMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMultipart">handleMultipart</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareOptions">prepareOptions</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerPreHeaders">registerPreHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerRateLimits">registerRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.replacePath">replacePath</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFile">sendFile</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFormatted">sendFormatted</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendJSON">sendJSON</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendReply">sendReply</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendStatus">sendStatus</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.shutdown">shutdown</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.startMetrics">startMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.toParams">toParams</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_access.html">api/access</a><ul class='typedefs'></ul></li><li><a href="module-api_acl.html">api/acl</a><ul class='typedefs'></ul></li><li><a href="module-api_csrf.html">api/csrf</a><ul class='typedefs'></ul></li><li><a href="module-api_files.html">api/files</a><ul class='typedefs'></ul></li><li><a href="module-api_hooks.html">api/hooks</a><ul class='typedefs'></ul></li><li><a href="module-api_images.html">api/images</a><ul class='typedefs'></ul></li><li><a href="module-api_passkeys.html">api/passkeys</a><ul class='typedefs'></ul></li><li><a href="module-api_redirect.html">api/redirect</a><ul class='typedefs'></ul></li><li><a href="module-api_routing.html">api/routing</a><ul class='typedefs'></ul></li><li><a href="module-api_session.html">api/session</a><ul class='typedefs'></ul></li><li><a href="module-api_signature.html">api/signature</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api_signature.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.fromRequest">fromRequest</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_users.html">api/users</a><ul class='typedefs'></ul></li><li><a href="module-api_ws.html">api/ws</a><ul class='typedefs'></ul></li><li><a href="module-app.html">app</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-app.html#.addModule">addModule</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.ainit">ainit</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.arunMethods">arunMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.checkConfig">checkConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.createRepl">createRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.describeArgs">describeArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.isOk">isOk</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.killBackend">killBackend</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadModules">loadModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadPackages">loadPackages</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.mime">mime</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseArgs">parseArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseConfig">parseConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArg">processArg</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArgs">processArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processEnvArgs">processEnvArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processName">processName</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethod">runMethod</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethods">runMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHome">setHome</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHost">setHost</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setLogInspect">setLogInspect</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setRole">setRole</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.sortModules">sortModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.startRepl">startRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.watchTmp">watchTmp</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-aws.html">aws</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwGetMetricData">aws.cwGetMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwListMetrics">aws.cwListMetrics</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutLogEvents">aws.cwPutLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricAlarm">aws.cwPutMetricAlarm</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricData">aws.cwPutMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwlFilterLogEvents">aws.cwlFilterLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchGetItem">aws.ddbBatchGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchWriteItem">aws.ddbBatchWriteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteItem">aws.ddbDeleteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbGetItem">aws.ddbGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbScanTable">aws.ddbScanTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbTransactWriteItems">aws.ddbTransactWriteItems</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCW">aws.queryCW</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCWL">aws.queryCWL</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.querySQS">aws.querySQS</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsReceiveMessage">aws.sqsReceiveMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsSendMessage">aws.sqsSendMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbCreateTable">ddbCreateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDeleteTable">ddbDeleteTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTable">ddbDescribeTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTimeToLive">ddbDescribeTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbListTables">ddbListTables</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbPutItem">ddbPutItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbQueryTable">ddbQueryTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateItem">ddbUpdateItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTable">ddbUpdateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTimeToLive">ddbUpdateTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbWaitForTable">ddbWaitForTable</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.html">cache</a><ul class='typedefs'></ul></li><li><a href="module-db.html">db</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-db.html#.aadd">aadd</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abatch">abatch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abulk">abulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acopy">acopy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acreate">acreate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.add">add</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adel">adel</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adelAll">adelAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adrop">adrop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aget">aget</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aincr">aincr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.alist">alist</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.applyPoolOptions">applyPoolOptions</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aput">aput</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aquery">aquery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.ascan">ascan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asearch">asearch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aselect">aselect</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asql">asql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.atransaction">atransaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdate">aupdate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdateAll">aupdateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupgrade">aupgrade</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.batch">batch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.bulk">bulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.cacheColumns">cacheColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.configTypes">configTypes</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertError">convertError</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertRows">convertRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.copy">copy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.createTables">createTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.delAll">delAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.describeTables">describeTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getCached">getCached</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getConfig">getConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPool">getPool</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPoolTables">getPoolTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPools">getPools</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getProcessRows">getProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initColumns">initColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initConfig">initConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initTables">initTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.list">list</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepare">prepare</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareColumn">prepareColumn</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareQuery">prepareQuery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.put">put</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.query">query</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.queryProcessSync">queryProcessSync</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.refreshColumns">refreshColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.runProcessRows">runProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.scan">scan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.search">search</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setConfig">setConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessColumns">setProcessColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessRow">setProcessRow</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.sql">sql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.transaction">transaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.updateAll">updateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.upgrade">upgrade</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-db_dynamodb.html">db/dynamodb</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.html">db/elasticsearch</a><ul class='typedefs'></ul></li><li><a href="module-db_pg.html">db/pg</a><ul class='typedefs'></ul></li><li><a href="module-db_sqlite.html">db/sqlite</a><ul class='typedefs'></ul></li><li><a href="module-events.html">events</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-events.html#.putEvent">putEvent</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-ipc.html">ipc</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-ipc.html#.broadcast">broadcast</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.emitMsg">emitMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.newMsg">newMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.sendMsg">sendMsg</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-jobs.html">jobs</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-jobs.html#.cancelJob">cancelJob</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.isCancelled">isCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.markCancelled">markCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.submitJob">submitJob</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-lib.html">lib</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib.html#.__">__</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.afetch">afetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.base64ToJson">base64ToJson</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.call">call</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.clock">clock</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.configParse">configParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.daysInMonth">daysInMonth</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.decodeURIComponent">decodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferCallback">deferCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferInterval">deferInterval</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferShutdown">deferShutdown</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.encodeURIComponent">encodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.entityToText">entityToText</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.escapeUnicode">escapeUnicode</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fetch">fetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase32">fromBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase62">fromBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase64url">fromBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArg">getArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArgInt">getArgInt</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getHashid">getHashid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getWorkers">getWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.hash">hash</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isArg">isArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isDST">isDST</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isTimeRange">isTimeRange</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormat">jsonFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormatPreset">jsonFormatPreset</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonParse">jsonParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonToBase64">jsonToBase64</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.killWorkers">killWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.loadLocale">loadLocale</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.localEpoch">localEpoch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.murmurHash3">murmurHash3</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.newError">newError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.notifyWorkers">notifyWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.now">now</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objClone">objClone</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objSize">objSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseTime">parseTime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.runCallback">runCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.shuffle">shuffle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sleep">sleep</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.slug">slug</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sortByVersion">sortByVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.strftimeMap">strftimeMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.stringify">stringify</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.suuid">suuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToEntity">textToEntity</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToXml">textToXml</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toAge">toAge</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase32">toBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase62">toBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase64url">toBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBool">toBool</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toCamel">toCamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toClamp">toClamp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDate">toDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDigits">toDigits</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDuration">toDuration</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toEmail">toEmail</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFlags">toFlags</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFormat">toFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toMtime">toMtime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toNumber">toNumber</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toParams">toParams</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toPrice">toPrice</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRFC3339">toRFC3339</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexp">toRegexp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpMap">toRegexpMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpObj">toRegexpObj</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toSize">toSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toString">toString</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTemplate">toTemplate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTitle">toTitle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUncamel">toUncamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUrl">toUrl</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toValue">toValue</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toVersion">toVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.traceError">traceError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCall">tryCall</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCatch">tryCatch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryLater">tryLater</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tzName">tzName</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unescape">unescape</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unicode2Ascii">unicode2Ascii</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.uuid">uuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekDate">weekDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekOfYear">weekOfYear</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.xmlParse">xmlParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#~onDeferCallback">onDeferCallback</a></li></ul><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-lib.html#.ParamsOptions">ParamsOptions</a></li></ul></li><li><a href="module-lib_JWT.html">lib/JWT</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPrivateKey">importPrivateKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPublicKey">importPublicKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.sign">sign</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logger.html">logger</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-logger.html#.debug">debug</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.dev">dev</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.error">error</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.info">info</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.logger">logger</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.none">none</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.prefix">prefix</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.registerLevel">registerLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setDebugFilter">setDebugFilter</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setFile">setFile</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setLevel">setLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setOptions">setOptions</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setSyslog">setSyslog</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.trace">trace</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.warn">warn</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logwatcher.html">logwatcher</a><ul class='typedefs'></ul></li><li><a href="module-metrics.html">metrics</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-metrics.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.take">take</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-modules.html">modules</a><ul class='typedefs'></ul></li><li><a href="module-push.html">push</a><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-push.html#~callback">callback</a></li></ul></li><li><a href="module-queue.html">queue</a><ul class='typedefs'></ul></li><li><a href="module-sendmail.html">sendmail</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sendmail.html#.send">send</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-shell.html">shell</a><ul class='typedefs'></ul></li><li><a href="module-sql.html">sql</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sql.html#.column">column</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.delete">delete</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.expr">expr</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.insert">insert</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.limit">limit</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.quote">quote</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.time">time</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.upgrade">upgrade</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.value">value</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.valueIn">valueIn</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-stats.html">stats</a><ul class='typedefs'></ul></li><li><a href="module-watcher.html">watcher</a><ul class='typedefs'></ul></li></ul><h3>Classes</h3><ul><li><a href="Counter.html">Counter</a><ul class='typedefs'></ul></li><li><a href="DbPool.html">DbPool</a><ul class='typedefs'></ul></li><li><a href="FakeTrace.html">FakeTrace</a><ul class='typedefs'></ul></li><li><a href="FetchRequest.html">FetchRequest</a><ul class='methods'><li data-type='method' style='display: none;'><a href="FetchRequest.html#parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="FetchRequest.html#toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="Histogram.html">Histogram</a><ul class='typedefs'></ul></li><li><a href="LRUCache.html">LRUCache</a><ul class='methods'><li data-type='method' style='display: none;'><a href="LRUCache.html#.clean">clean</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.put">put</a></li></ul><ul class='typedefs'></ul></li><li><a href="Meter.html">Meter</a><ul class='typedefs'></ul></li><li><a href="Pool.html">Pool</a><ul class='typedefs'></ul></li><li><a href="SqlPool.html">SqlPool</a><ul class='typedefs'></ul></li><li><a href="Timer.html">Timer</a><ul class='typedefs'></ul></li><li><a href="TokenBucket.html">TokenBucket</a><ul class='methods'><li data-type='method' style='display: none;'><a href="TokenBucket.html#.configure">configure</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.consume">consume</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.equal">equal</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toArray">toArray</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toJSON">toJSON</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="Trace.html">Trace</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Trace.html#.destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.send">send</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="WebpushClient.html">WebpushClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.CacheClient.html">CacheClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#applyOptions">applyOptions</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#clear">clear</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#close">close</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#del">del</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#get">get</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#limiter">limiter</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#lock">lock</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#put">put</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#stats">stats</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#unlock">unlock</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.ElasticsearchPool.html">ElasticsearchPool</a><ul class='typedefs'></ul></li><li><a href="module-queue.EventBridgeClient.html">EventBridgeClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.JSONClient.html">JSONClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.NatsClient.html">NatsClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.QueueClient.html">QueueClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#channel">channel</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#monitor">monitor</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#schedule">schedule</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-queue.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SNSClient.html">SNSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SQSClient.html">SQSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li></ul><h3>Global</h3><ul><li><a href="global.html#ConfigOptions">ConfigOptions</a></li><li><a href="global.html#DBConfigOptions">DBConfigOptions</a></li><li><a href="global.html#DBRequest">DBRequest</a></li><li><a href="global.html#DBRequestColumn">DBRequestColumn</a></li><li><a href="global.html#DBRequestOptions">DBRequestOptions</a></li><li><a href="global.html#DBResultCallback">DBResultCallback</a></li><li><a href="global.html#DBTable">DBTable</a></li><li><a href="global.html#DBTableColumn">DBTableColumn</a></li></ul>
+    
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">queue/redis.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*
+ *  Author: Vlad Seryakov vseryakov@gmail.com
+ *  backendjs 2018
+ */
+
+const logger = require(__dirname + '/../logger');
+const lib = require(__dirname + '/../lib');
+const QueueClient = require(__dirname + "/client");
+
+const redisClient = {
+    name: "redis",
+    scripts: {
+
+        monitor: [
+            "local time = tonumber(KEYS[2]);",
+            "local vals = redis.call('zrangebyscore', KEYS[1] .. '#', 0, time);",
+            "redis.call('zremrangebyscore', KEYS[1] .. '#', 0, time);",
+            "for i, val in ipairs(vals) do redis.call('zadd', KEYS[1], time+i, (val)); end;",
+            "return redis.call('zcount', KEYS[1], '-inf', '+inf');"
+        ].join("\n"),
+
+        vpoller: [
+            "local val = redis.call('zrange', KEYS[1], 0, 0)[1];",
+            "if val then ",
+            "  redis.call('zremrangebyrank', KEYS[1], 0, 0);",
+            "  redis.call('zadd', KEYS[1] .. '#', tonumber(KEYS[2]), val);",
+            "end;",
+            "local count1 = redis.call('zcount', KEYS[1], '-inf', '+inf');",
+            "local count2 = redis.call('zcount', KEYS[1] .. '#', '-inf', '+inf');",
+            "return {val,count1,count2};"
+        ].join(""),
+
+        poller: [
+            "local val = redis.call('zrange', KEYS[1], 0, 0)[1];",
+            "if val then redis.call('zremrangebyrank', KEYS[1], 0, 0); end;",
+            "local count = redis.call('zcount', KEYS[1], '-inf', '+inf');",
+            "return {val,count};"
+        ].join(""),
+
+        stats: [
+            "local count1 = redis.call('zcount', KEYS[1], '-inf', '+inf');",
+            "local count2 = redis.call('zcount', KEYS[1] .. '#', '-inf', '+inf');",
+            "return {count1,count2};"
+        ].join(""),
+
+    },
+
+    create: function(options) {
+        if (/^rediss?:/.test(options?.url)) return new RedisClient(options);
+    }
+};
+module.exports = redisClient;
+
+/**
+ * Queue client based on Redis server using https://github.com/NodeRedis/node_redis3
+ *
+ * The queue client implements reliable queue using sorted sets, one for the new messages and one for the
+ * messages that are being processed if timeout is provided. With the timeout this queue works similar to AWS SQS.
+ *
+ * The `interval` config property defines in ms how often to check for new messages after processing a message, i.e. after a messages processed
+ * it can poll immediately or after this amount of time
+ *
+ * The `retryInterval` config property defines in ms how often to check for new messages after an error or no data, i.e. on empty
+ * pool when no messages are processed it can poll immediately or after this amount of time
+ *
+ * The `visibilityTimeout` property specifies to use a shadow queue where all messages that are being processed are stored,
+ * while the message is processed the timestamp will be updated so the message stays in the queue, if a worker exists or crashes without
+ * confirming the message finished it will be put back into the work queue after `visibilityTimeout` milliseconds. The queue name that
+ * keeps active messages is appended with #.
+ *
+ * Protocol rediss: will use TLS to connect to Redis servers, this is required for RedisCche Serverless
+ *
+ * The `threshold` property defines the upper limit of how many active messages can be in the queue when to show an error message, this is
+ * for monitoring queue performance
+ *
+ * @example
+ *  -queue-default=redis://host1
+ *  -queue-default-options-interval=1000
+ *  -queue-redis=redis://host1?bk-visibilityTimeout=30000&amp;bk-count=2
+ *
+ * @memberOf module:queue
+ */
+
+class RedisClient extends QueueClient {
+
+    constructor(options) {
+        super(options);
+        this.name = redisClient.name;
+        this.applyOptions();
+
+        if (this.protocol == "rediss:" &amp;&amp; !this.options.tls) {
+            this.options.tls = {};
+        }
+        // For reconnect or failover to work need retry policy
+        this.options.retry_strategy = (options) => {
+            logger.logger(options.attempt == 2 ? "error": "dev", "connect:", this.url, options);
+            if (this.options.max_attempts > 0 &amp;&amp; options.attempt > this.options.max_attempts) undefined;
+            return Math.min(options.attempt * 200, this.options.retry_max_delay);
+        }
+        this.client = this.connect(this.hostname, this.port);
+    }
+
+    close() {
+        super.close();
+        if (this.client) this.client.quit();
+        if (this.subclient) this.subclient.quit();
+        delete this.client;
+        delete this.subclient;
+        delete this.options.retry_strategy;
+        clearInterval(this._monitorTimer);
+    }
+
+    applyOptions(options) {
+        super.applyOptions(options);
+        this.options.interval = lib.toNumber(this.options.interval, { dflt: 1000, min: 50 });
+        this.options.retryInterval = lib.toNumber(this.options.retryInterval, { dflt: 3000, min: 50 });
+        this.options.visibilityTimeout = lib.toNumber(this.options.visibilityTimeout, { min: 0 });
+        this.options.threshold = lib.toNumber(this.options.threshold, { min: 0 });
+        this.options.maxTimeout = lib.toNumber(this.options.maxTimeout, { dflt: 3600000, min: 60000 });
+        this.options.enable_offline_queue = lib.toBool(this.options.enable_offline_queue);
+        this.options.retry_max_delay = lib.toNumber(this.options.retry_max_delay, { min: 1000, dflt: 30000 });
+        this.options.max_attempts = lib.toNumber(this.options.max_attempts, { min: 0 });
+    }
+
+    connect(hostname, port) {
+        if (!redisClient.redis) redisClient.redis = require("redis");
+        var host = String(hostname).split(":");
+        var client = new redisClient.redis.createClient(host[1] || port || this.options.port || 6379, host[0] || "127.0.0.1", this.options);
+        client.on("error", (err) => { logger.error("redis:", this.queueName, this.url, err) });
+        client.on("ready", this.emit.bind(this, "ready"));
+        client.on("message", this.onMessage.bind(this));
+        logger.debug("connect:", this.url, host, port, this.options);
+        return client;
+    }
+
+    onMessage(channel, msg) {
+        logger.dev("onMessage:", this.url, channel, msg);
+        this.emit(channel, msg);
+    }
+
+    subscribe(channel, options, callback) {
+        if (!this.subclient) {
+            this.subclient = this.connect(this.hostname, this.port);
+        }
+        super.subscribe(channel, options, callback);
+        if (!this.subclient.enable_offline_queue) this.subclient.enable_offline_queue = true;
+        this.subclient.subscribe(channel);
+    }
+
+    unsubscribe(channel, options, callback) {
+        super.unsubscribe(channel, options, callback);
+        if (this.subclient) {
+            if (!this.subclient.enable_offline_queue) this.subclient.enable_offline_queue = true;
+            this.subclient.unsubscribe(channel);
+        }
+    }
+
+    publish(channel, msg, options, callback) {
+        if (!this.client.enable_offline_queue) this.client.enable_offline_queue = true;
+        this.client.publish(channel, msg, callback);
+    }
+
+    stats(options, callback) {
+        var rc = {};
+        var chan = this.channel(options);
+        this.client.eval(redisClient.scripts.stats, 1, chan, (err, count) => {
+            if (!err) {
+                rc.queueCount = lib.toNumber(count[0]);
+                rc.queueRunning = lib.toNumber(count[1]);
+            }
+            lib.tryCall(callback, err, rc);
+        });
+    }
+
+    submit(job, options, callback) {
+        var chan = this.channel(options);
+        if (typeof job != "string") job = lib.stringify(job);
+        this.client.zadd(chan, Date.now(), job, callback);
+    }
+
+    _monitor(options) {
+        if (!this.client.ready) return;
+        var chan = this.channel(options);
+        var now = Date.now() - lib.validPositive(options.visibilityTimeout, this.options.visibilityTimeout);
+        this.client.eval(redisClient.scripts.monitor, 2, chan, now, (err, count) => {
+            if (err) logger.error("monitor:", this.url, err);
+            // Report when queue size reaches configured threshold
+            if (!count || !this.options.threshold) return;
+            count = lib.toNumber(count);
+            if (count >= this.options.threshold) logger.error("monitor:", this.url, this.options, "queue size:", count);
+        });
+    }
+
+    monitor(options) {
+        var visibilityTimeout = lib.validPositive(options.visibilityTimeout, this.options.visibilityTimeout);
+        if (!this._monitorTimer &amp;&amp; visibilityTimeout) {
+            this._monitorTimer = setInterval(this._monitor.bind(this, options), visibilityTimeout);
+            this._monitor(options);
+        }
+    }
+
+    poll(options) {
+        if (!this.client) return;
+        var visibilityTimeout = lib.validPositive(options.visibilityTimeout, this.options.visibilityTimeout);
+        var retryInterval = lib.validPositive(options.retryInterval, this.options.retryInterval);
+        var interval = lib.validPositive(options.interval, this.options.interval);
+        var script = visibilityTimeout ? redisClient.scripts.vpoller : redisClient.scripts.poller;
+        var chan = this.channel(options);
+
+        this.client.eval(script, 2, chan, Date.now(), (err, rc) => {
+            if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
+            if (!rc || !rc[0] || err) {
+                this.schedule(options, retryInterval);
+                return;
+            }
+            var vtimer, done, data = rc[0];
+            var msg = lib.jsonParse(data, { datatype: "obj", logger: "error" }) || data;
+            if (rc[1]) msg.queueAvailableCount = rc[1];
+            if (rc[2]) msg.queueInvisibleCount = rc[2];
+            // Check message timestamps if not ready yet then keep it hidden
+            if (visibilityTimeout) {
+                var now = Date.now();
+                if (msg.endTime > 0 &amp;&amp; msg.endTime &lt; now) {
+                    this.client.zrem(chan + "#", data, (err) => {
+                        if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
+                        this.schedule(options, retryInterval);
+                    });
+                    return;
+                }
+                if (msg.startTime > 0 &amp;&amp; msg.startTime - now > this.options.interval) {
+                    let timeout = msg.startTime - now;
+                    if (timeout > this.options.maxTimeout) timeout = this.options.maxTimeout;
+                    this.client.zadd(chan + "#", now + timeout, data, (err) => {
+                        if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
+                        this.schedule(options, retryInterval);
+                    });
+                    return;
+                }
+                // Delete immediately, this is a one-off message not to be handled or repeated
+                if (msg.noWait) {
+                    this.client.zrem(chan + "#", data);
+                } else
+                // Delay deletion in case checks need to be done for uniqueness or something else
+                if (msg.noWaitTimeout > 0) {
+                    setTimeout(() => {
+                        if (done || !this.client) return;
+                        msg.noWait = 1;
+                        this.client.zrem(chan + "#", data);
+                    }, msg.noWaitTimeout * 1000);
+                }
+            }
+            // Keep updating timestamp to prevent the job being placed back to the active queue
+            var vtimeout = msg.visibilityTimeout > 0 ? msg.visibilityTimeout : visibilityTimeout;
+            if (vtimeout &amp;&amp; !msg.noWait) {
+                Object.defineProperty(msg, "__msgid", { enumerable: false, value: data });
+                if (msg.visibilityTimeout > 0) this.client.zadd(chan + "#", Date.now(), data);
+                vtimer = setInterval(() => {
+                    if (done || !this.client) {
+                        clearInterval(vtimer);
+                        return;
+                    }
+                    this.client.zadd(chan + "#", Date.now(), data, (err) => {
+                        if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
+                        if (err) clearInterval(vtimer);
+                    });
+                }, vtimeout * 0.8);
+            }
+
+            if (!this.emit(chan, msg, (err, next) => {
+                if (done) return;
+                done = 1;
+                clearInterval(vtimer);
+
+                if (!msg.noVisibility &amp;&amp; (err &amp;&amp; err.status >= 500 || msg.noWait)) {
+                    setTimeout(() => {
+                        if (!this.client) return;
+                        const timeout = Date.now() + lib.toNumber(msg.retryVisibilityTimeout &amp;&amp; msg.retryVisibilityTimeout[err.status]);
+                        this.client.zadd(chan + (visibilityTimeout ? "#" : ""), timeout, data, (err) => {
+                            if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
+                            this.schedule(options, interval);
+                        });
+                    }, this.options.visibilityTimeout ? 0 : retryInterval);
+                } else {
+                    if (visibilityTimeout) {
+                        this.client?.zrem(chan + "#", data, (err) => {
+                            if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
+                            this.schedule(options, interval);
+                        });
+                    } else {
+                        this.schedule(options, interval);
+                    }
+                }
+            })) {
+                done = 1;
+                clearInterval(vtimer);
+                this.schedule(options, interval);
+            }
+        });
+    }
+
+    drop(msg, options, callback) {
+        if (!msg.__msgid) return lib.tryCall(callback);
+        var chan = this.channel(options);
+        this.client.zrem(chan + "#", msg.__msgid, callback);
+    }
+
+}
+
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> using the <a href="https://github.com/vseryakov/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+
+<script src="scripts/search.js" defer></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

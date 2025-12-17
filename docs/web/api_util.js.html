@@ -1,0 +1,707 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>api/util.js - Backendjs Documentation</title>
+    
+    <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
+    
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    
+    <input type="text" id="nav-search" placeholder="Search" />
+    
+    
+    <h2><a href="index.html">Home</a></h2><h3>Tutorials</h3><ul><li><a href="tutorial-start.html">Getting started</a><ul class='typedefs'></ul></li><li><a href="tutorial-app.html">Applications</a><ul class='typedefs'></ul></li><li><a href="tutorial-modules.html">Modules</a><ul class='typedefs'></ul></li><li><a href="tutorial-reference.html">Reference</a><ul class='typedefs'></ul></li><li><a href="tutorial-bkjs.html">The bkjs tool</a><ul class='typedefs'></ul></li><li><a href="tutorial-config.html">Config parameters</a><ul class='typedefs'></ul></li></ul><h3>Modules</h3><ul><li><a href="module-api.html">api</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api.html#.checkProxy">checkProxy</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRateLimits">checkRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRedirectPlaceholders">checkRedirectPlaceholders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupHeaders">cleanupHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupResult">cleanupResult</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.createWebServer">createWebServer</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getResultPage">getResultPage</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getTokenSecret">getTokenSecret</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleBody">handleBody</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleCleanup">handleCleanup</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMetrics">handleMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMultipart">handleMultipart</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareOptions">prepareOptions</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerPreHeaders">registerPreHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerRateLimits">registerRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.replacePath">replacePath</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFile">sendFile</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFormatted">sendFormatted</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendJSON">sendJSON</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendReply">sendReply</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendStatus">sendStatus</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.shutdown">shutdown</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.startMetrics">startMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.toParams">toParams</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_access.html">api/access</a><ul class='typedefs'></ul></li><li><a href="module-api_acl.html">api/acl</a><ul class='typedefs'></ul></li><li><a href="module-api_csrf.html">api/csrf</a><ul class='typedefs'></ul></li><li><a href="module-api_files.html">api/files</a><ul class='typedefs'></ul></li><li><a href="module-api_hooks.html">api/hooks</a><ul class='typedefs'></ul></li><li><a href="module-api_images.html">api/images</a><ul class='typedefs'></ul></li><li><a href="module-api_passkeys.html">api/passkeys</a><ul class='typedefs'></ul></li><li><a href="module-api_redirect.html">api/redirect</a><ul class='typedefs'></ul></li><li><a href="module-api_routing.html">api/routing</a><ul class='typedefs'></ul></li><li><a href="module-api_session.html">api/session</a><ul class='typedefs'></ul></li><li><a href="module-api_signature.html">api/signature</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api_signature.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.fromRequest">fromRequest</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_users.html">api/users</a><ul class='typedefs'></ul></li><li><a href="module-api_ws.html">api/ws</a><ul class='typedefs'></ul></li><li><a href="module-app.html">app</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-app.html#.addModule">addModule</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.ainit">ainit</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.arunMethods">arunMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.checkConfig">checkConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.createRepl">createRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.describeArgs">describeArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.isOk">isOk</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.killBackend">killBackend</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadModules">loadModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadPackages">loadPackages</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.mime">mime</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseArgs">parseArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseConfig">parseConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArg">processArg</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArgs">processArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processEnvArgs">processEnvArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processName">processName</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethod">runMethod</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethods">runMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHome">setHome</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHost">setHost</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setLogInspect">setLogInspect</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setRole">setRole</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.sortModules">sortModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.startRepl">startRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.watchTmp">watchTmp</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-aws.html">aws</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwGetMetricData">aws.cwGetMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwListMetrics">aws.cwListMetrics</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutLogEvents">aws.cwPutLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricAlarm">aws.cwPutMetricAlarm</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricData">aws.cwPutMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwlFilterLogEvents">aws.cwlFilterLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchGetItem">aws.ddbBatchGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchWriteItem">aws.ddbBatchWriteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteItem">aws.ddbDeleteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbGetItem">aws.ddbGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbScanTable">aws.ddbScanTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbTransactWriteItems">aws.ddbTransactWriteItems</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCW">aws.queryCW</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCWL">aws.queryCWL</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.querySQS">aws.querySQS</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsReceiveMessage">aws.sqsReceiveMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsSendMessage">aws.sqsSendMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbCreateTable">ddbCreateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDeleteTable">ddbDeleteTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTable">ddbDescribeTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTimeToLive">ddbDescribeTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbListTables">ddbListTables</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbPutItem">ddbPutItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbQueryTable">ddbQueryTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateItem">ddbUpdateItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTable">ddbUpdateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTimeToLive">ddbUpdateTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbWaitForTable">ddbWaitForTable</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.html">cache</a><ul class='typedefs'></ul></li><li><a href="module-db.html">db</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-db.html#.aadd">aadd</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abatch">abatch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abulk">abulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acopy">acopy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acreate">acreate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.add">add</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adel">adel</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adelAll">adelAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adrop">adrop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aget">aget</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aincr">aincr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.alist">alist</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.applyPoolOptions">applyPoolOptions</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aput">aput</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aquery">aquery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.ascan">ascan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asearch">asearch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aselect">aselect</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asql">asql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.atransaction">atransaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdate">aupdate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdateAll">aupdateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupgrade">aupgrade</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.batch">batch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.bulk">bulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.cacheColumns">cacheColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.configTypes">configTypes</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertError">convertError</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertRows">convertRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.copy">copy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.createTables">createTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.delAll">delAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.describeTables">describeTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getCached">getCached</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getConfig">getConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPool">getPool</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPoolTables">getPoolTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPools">getPools</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getProcessRows">getProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initColumns">initColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initConfig">initConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initTables">initTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.list">list</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepare">prepare</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareColumn">prepareColumn</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareQuery">prepareQuery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.put">put</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.query">query</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.queryProcessSync">queryProcessSync</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.refreshColumns">refreshColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.runProcessRows">runProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.scan">scan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.search">search</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setConfig">setConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessColumns">setProcessColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessRow">setProcessRow</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.sql">sql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.transaction">transaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.updateAll">updateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.upgrade">upgrade</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-db_dynamodb.html">db/dynamodb</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.html">db/elasticsearch</a><ul class='typedefs'></ul></li><li><a href="module-db_pg.html">db/pg</a><ul class='typedefs'></ul></li><li><a href="module-db_sqlite.html">db/sqlite</a><ul class='typedefs'></ul></li><li><a href="module-events.html">events</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-events.html#.putEvent">putEvent</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-ipc.html">ipc</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-ipc.html#.broadcast">broadcast</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.emitMsg">emitMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.newMsg">newMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.sendMsg">sendMsg</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-jobs.html">jobs</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-jobs.html#.cancelJob">cancelJob</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.isCancelled">isCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.markCancelled">markCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.submitJob">submitJob</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-lib.html">lib</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib.html#.__">__</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.afetch">afetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.base64ToJson">base64ToJson</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.call">call</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.clock">clock</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.configParse">configParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.daysInMonth">daysInMonth</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.decodeURIComponent">decodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferCallback">deferCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferInterval">deferInterval</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferShutdown">deferShutdown</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.encodeURIComponent">encodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.entityToText">entityToText</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.escapeUnicode">escapeUnicode</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fetch">fetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase32">fromBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase62">fromBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase64url">fromBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArg">getArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArgInt">getArgInt</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getHashid">getHashid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getWorkers">getWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.hash">hash</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isArg">isArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isDST">isDST</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isTimeRange">isTimeRange</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormat">jsonFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormatPreset">jsonFormatPreset</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonParse">jsonParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonToBase64">jsonToBase64</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.killWorkers">killWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.loadLocale">loadLocale</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.localEpoch">localEpoch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.murmurHash3">murmurHash3</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.newError">newError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.notifyWorkers">notifyWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.now">now</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objClone">objClone</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objSize">objSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseTime">parseTime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.runCallback">runCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.shuffle">shuffle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sleep">sleep</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.slug">slug</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sortByVersion">sortByVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.strftimeMap">strftimeMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.stringify">stringify</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.suuid">suuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToEntity">textToEntity</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToXml">textToXml</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toAge">toAge</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase32">toBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase62">toBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase64url">toBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBool">toBool</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toCamel">toCamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toClamp">toClamp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDate">toDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDigits">toDigits</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDuration">toDuration</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toEmail">toEmail</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFlags">toFlags</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFormat">toFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toMtime">toMtime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toNumber">toNumber</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toParams">toParams</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toPrice">toPrice</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRFC3339">toRFC3339</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexp">toRegexp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpMap">toRegexpMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpObj">toRegexpObj</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toSize">toSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toString">toString</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTemplate">toTemplate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTitle">toTitle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUncamel">toUncamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUrl">toUrl</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toValue">toValue</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toVersion">toVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.traceError">traceError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCall">tryCall</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCatch">tryCatch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryLater">tryLater</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tzName">tzName</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unescape">unescape</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unicode2Ascii">unicode2Ascii</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.uuid">uuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekDate">weekDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekOfYear">weekOfYear</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.xmlParse">xmlParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#~onDeferCallback">onDeferCallback</a></li></ul><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-lib.html#.ParamsOptions">ParamsOptions</a></li></ul></li><li><a href="module-lib_JWT.html">lib/JWT</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPrivateKey">importPrivateKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPublicKey">importPublicKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.sign">sign</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logger.html">logger</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-logger.html#.debug">debug</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.dev">dev</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.error">error</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.info">info</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.logger">logger</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.none">none</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.prefix">prefix</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.registerLevel">registerLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setDebugFilter">setDebugFilter</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setFile">setFile</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setLevel">setLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setOptions">setOptions</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setSyslog">setSyslog</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.trace">trace</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.warn">warn</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logwatcher.html">logwatcher</a><ul class='typedefs'></ul></li><li><a href="module-metrics.html">metrics</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-metrics.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.take">take</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-modules.html">modules</a><ul class='typedefs'></ul></li><li><a href="module-push.html">push</a><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-push.html#~callback">callback</a></li></ul></li><li><a href="module-queue.html">queue</a><ul class='typedefs'></ul></li><li><a href="module-sendmail.html">sendmail</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sendmail.html#.send">send</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-shell.html">shell</a><ul class='typedefs'></ul></li><li><a href="module-sql.html">sql</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sql.html#.column">column</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.delete">delete</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.expr">expr</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.insert">insert</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.limit">limit</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.quote">quote</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.time">time</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.upgrade">upgrade</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.value">value</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.valueIn">valueIn</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-stats.html">stats</a><ul class='typedefs'></ul></li><li><a href="module-watcher.html">watcher</a><ul class='typedefs'></ul></li></ul><h3>Classes</h3><ul><li><a href="Counter.html">Counter</a><ul class='typedefs'></ul></li><li><a href="DbPool.html">DbPool</a><ul class='typedefs'></ul></li><li><a href="FakeTrace.html">FakeTrace</a><ul class='typedefs'></ul></li><li><a href="FetchRequest.html">FetchRequest</a><ul class='methods'><li data-type='method' style='display: none;'><a href="FetchRequest.html#parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="FetchRequest.html#toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="Histogram.html">Histogram</a><ul class='typedefs'></ul></li><li><a href="LRUCache.html">LRUCache</a><ul class='methods'><li data-type='method' style='display: none;'><a href="LRUCache.html#.clean">clean</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.put">put</a></li></ul><ul class='typedefs'></ul></li><li><a href="Meter.html">Meter</a><ul class='typedefs'></ul></li><li><a href="Pool.html">Pool</a><ul class='typedefs'></ul></li><li><a href="SqlPool.html">SqlPool</a><ul class='typedefs'></ul></li><li><a href="Timer.html">Timer</a><ul class='typedefs'></ul></li><li><a href="TokenBucket.html">TokenBucket</a><ul class='methods'><li data-type='method' style='display: none;'><a href="TokenBucket.html#.configure">configure</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.consume">consume</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.equal">equal</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toArray">toArray</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toJSON">toJSON</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="Trace.html">Trace</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Trace.html#.destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.send">send</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="WebpushClient.html">WebpushClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.CacheClient.html">CacheClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#applyOptions">applyOptions</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#clear">clear</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#close">close</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#del">del</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#get">get</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#limiter">limiter</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#lock">lock</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#put">put</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#stats">stats</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#unlock">unlock</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.ElasticsearchPool.html">ElasticsearchPool</a><ul class='typedefs'></ul></li><li><a href="module-queue.EventBridgeClient.html">EventBridgeClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.JSONClient.html">JSONClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.NatsClient.html">NatsClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.QueueClient.html">QueueClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#channel">channel</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#monitor">monitor</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#schedule">schedule</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-queue.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SNSClient.html">SNSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SQSClient.html">SQSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li></ul><h3>Global</h3><ul><li><a href="global.html#ConfigOptions">ConfigOptions</a></li><li><a href="global.html#DBConfigOptions">DBConfigOptions</a></li><li><a href="global.html#DBRequest">DBRequest</a></li><li><a href="global.html#DBRequestColumn">DBRequestColumn</a></li><li><a href="global.html#DBRequestOptions">DBRequestOptions</a></li><li><a href="global.html#DBResultCallback">DBResultCallback</a></li><li><a href="global.html#DBTable">DBTable</a></li><li><a href="global.html#DBTableColumn">DBTableColumn</a></li></ul>
+    
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">api/util.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*
+ *  Author: Vlad Seryakov vseryakov@gmail.com
+ *  backendjs 2018
+ */
+const util = require('util');
+const fs = require('fs');
+const app = require(__dirname + '/../app');
+const lib = require(__dirname + '/../lib');
+const logger = require(__dirname + '/../logger');
+const api = require(__dirname + '/../api');
+const cache = require(__dirname + '/../cache');
+const db = require(__dirname + '/../db');
+
+/**
+ * Perform rate limiting by specified property, if not given no limiting is done.
+ * @param {object} req - Express Request
+ * @param {object} options
+ * @param {string|string[]} options.type - determines by which property to perform rate limiting, when using user properties
+ *     the rate limiter should be called after the request signature has been parsed. Any other value is treated as
+ *     custom type and used as is. If it is an array all items will be checked sequentially.
+ *     **This property is required.**
+ *
+ *     The predefined types checked for every request:
+ *     - ip - check every IP address
+ *     - path - limit by path and IP address, * can be used at the end to match only the beginning,
+ *         method can be placed before the path to use different rates for the same path by request method
+ *
+ *         -api-rlimits-rate-ip=100
+ *         -api-rlimits-rate-/api/path=2
+ *         -api-rlimits-rate-GET/api/path=10
+ *         -api-rlimits-rate-/api/path/*=1
+ *         -api-rlimits-rate-/api/path/127.0.0.1=100
+ *         -api-rlimits-map-/api/*=rate:100,interval:1000
+ *
+ * @param {string} [options.ip] - to use the specified IP address
+ * @param {number} [options.max - max capacity to be used by default
+ * @param {number} [options.rate] - fill rate to be used by default
+ * @param {number} [options.interval] - interval in ms within which the rate is measured, default 1000 ms
+ * @param {string} [options.message] - more descriptive text to be used in the error message for the type, if not specified a generic error message is used
+ * @param {string} [options.queue] - which queue to use instead of the default, some limits are more useful with global queues like Redis instead of the default in-process cache
+ * @param {number} [options.delay] - time in ms to delay the response, slowing down request rate
+ * @param {number} [options.multiplier] - multiply the interval after it consumed all tokens, subsequent checks use the increased interval, fractions supported,
+ *    if the multiplier is positive then the interval will keep increasing indefinitely, if it is negative the interval will reset to the default
+ *    value on first successful consumption
+ * @param {function} callback as function(err, info) where info is from {@link module:cache.limiter}
+ * @example
+ *
+ *  api.checkRateLimits(req, { type: "ip", rate: 100, interval: 60000 }, (err, info) => {
+ *     if (err) return api.sendReply(err);
+ *     ...
+ *  });
+ * @memberof module:api
+ * @method checkRateLimits
+ */
+api.checkRateLimits = function(req, options, callback)
+{
+    if (typeof callback != "function") callback = lib.noop;
+    if (!req || !options?.type) return callback();
+    var types = Array.isArray(options.type) ? options.type : [ options.type ];
+    var ip = options.ip || req.options?.ip;
+    var mapping = this.rlimitsMap;
+    lib.forEachSeries(types, (type, next) => {
+        var name = type, key = type;
+        switch (type) {
+        case "ip":
+            name = ip;
+            break;
+
+        case "path":
+            key = options.path || req.options?.path;
+            if (!key) break;
+            if (!mapping[key] &amp;&amp; !mapping[req.method + key]) {
+                for (const p in mapping) {
+                    const item = mapping[p];
+                    if (item._seen === undefined) {
+                        item._seen = p.endsWith("*") ? p.slice(0, -1) : null;
+                    }
+                    if (item._seen &amp;&amp; key.startsWith(item._seen)) {
+                        key = p;
+                        break;
+                    }
+                }
+            }
+            name = key + "/" + ip;
+            break;
+        }
+
+        var map = mapping[name] || mapping[req.method + key] || mapping[key];
+        var rate = options.rate || map?.rate;
+        logger.debug("checkRateLimits:", type, key, name, req.method, options, map);
+        if (!rate) return next();
+        var max = options.max || map?.max || rate;
+        var interval = options.interval || map?.interval || this.rlimits.interval || 1000;
+        var multiplier = options.multiplier || map?.multiplier || this.rlimits.multiplier || 0;
+        var ttl = options.ttl || map?.ttl || this.rlimits.ttl;
+        var cacheName = options.cache || map?.cache || this.limiterCache;
+
+        // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
+        // in server mode use direct access to the LRU cache
+        var limit = {
+            name: "RL:" + name,
+            rate,
+            max,
+            interval,
+            ttl,
+            multiplier,
+            cacheName,
+        };
+        cache.limiter(limit, (delay, info) => {
+            logger.debug("checkRateLimits:", options, "L:", limit, "D:", delay, info);
+            if (!delay) return next();
+            var err = { status: 429, message: lib.__(options.message || map?.message || api.rlimits.message, lib.toDuration(delay)), retryAfter: delay };
+            if (options.delay || map?.delay) {
+                if (req.options) req.options.sendDelay = -1;
+                return setTimeout(callback, options.delay || map?.delay, err, info);
+            }
+            callback(err, info);
+        });
+    }, callback, true);
+}
+
+/**
+ * Send result back with possibly executing post-process callback, this is used by all API handlers to allow custom post processing in the apps.
+ * If err is not null the error message is returned immediately with {@link module:api.sendReply}.
+ *
+ * if `req.options.cleanup` is defined it uses {@link module:api.cleanupResult} to remove not allowed properties according to the given table rules.
+ *
+ * @param {object} req - Express Request object
+ * @param {string|string[]} [options.cleanup] - a table or list of tables to use for cleaning records before returning, see {@link module:api.cleanupResult}
+ * @param {object|Error} [err] - error object
+ * @param {object} [data] - data to send back as JSON
+ * @memberof module:api
+ * @method sendJSON
+ */
+api.sendJSON = function(req, err, data)
+{
+    if (err) return this.sendReply(req.res, err);
+
+    // Do not cache API results by default, routes that send directly have to handle cache explicitely
+    if (!req.res.get("cache-control")) {
+        req.res.header("pragma", "no-cache");
+        req.res.header("cache-control", "max-age=0, no-cache, no-store");
+        req.res.header('last-modified', new Date().toUTCString());
+    }
+
+    if (!data) data = {};
+    var sent = 0;
+    var hooks = this.hooks.find('post', req.method, req.options.path);
+    lib.forEachSeries(hooks, (hook, next) => {
+        try {
+            sent = hook.callback(req, req.res, data);
+        } catch (e) {
+            logger.error('sendJSON:', req.options.path, e.stack);
+        }
+        logger.debug('sendJSON:', req.method, req.options.path, hook.path, 'sent:', sent || req.res.headersSent, 'cleanup:', req.options.cleanup);
+        next(sent || req.res.headersSent);
+    }, (err) => {
+        if (sent || req.res.headersSent) return;
+        if (req.options.cleanup) {
+            api.cleanupResult(req, req.options.cleanup, typeof data.count == "number" &amp;&amp; Array.isArray(data.data) ? data.data : data);
+        }
+        if (req.options.pretty) {
+            req.res.header('Content-Type', 'application/json');
+            req.res.status(200).send(lib.stringify(data, null, req.options.pretty) + "\n");
+        } else {
+            req.res.json(data);
+        }
+    }, true);
+}
+
+/**
+ * Send result back formatting according to the options properties:
+ *  - format - json, csv, xml, JSON is default
+ *  - separator - a separator to use for CSV and other formats
+ * @memberof module:api
+ * @method sendFormatted
+ */
+api.sendFormatted = function(req, err, data, options)
+{
+    if (err) return this.sendReply(req.res, err);
+    if (!options) options = req.options;
+    if (!data) data = {};
+
+    switch (options.format) {
+    case "xml":
+        if (req.options.cleanup) {
+            this.cleanupResult(req, req.options.cleanup, typeof data.count == "number" &amp;&amp; Array.isArray(data.data) ? data.data : data);
+        }
+        var xml = "&lt;data>\n";
+        if (data.next_token) xml += "&lt;next_token>" + data.next_token + "&lt;/next_token>\n";
+        xml += lib.toFormat(options.format, data, options);
+        xml += "&lt;/data>";
+        req.res.set('Content-Type', 'application/xml');
+        req.res.status(200).send(xml);
+        break;
+
+    case "csv":
+        if (req.options.cleanup) {
+            this.cleanupResult(req, req.options.cleanup, typeof data.count == "number" &amp;&amp; Array.isArray(data.data) ? data.data : data);
+        }
+        var rows = Array.isArray(data) ? data : (data.data || lib.emptylist);
+        var csv = "";
+        if (!options.header) csv = lib.objKeys(rows[0]).join(options.separator || ",") + "\n";
+        csv += lib.toFormat(options.format, rows, options);
+        req.res.set('Content-Type', 'text/csv');
+        req.res.status(200).send(csv);
+        break;
+
+    case "json":
+    case "jsontext":
+        if (req.options.cleanup) {
+            this.cleanupResult(req, req.options.cleanup, typeof data.count == "number" &amp;&amp; Array.isArray(data.data) ? data.data : data);
+        }
+        var json = lib.toFormat(options.format, data, options);
+        req.res.set('Content-Type', 'text/plain');
+        req.res.status(200).send(json);
+        break;
+
+    default:
+        this.sendJSON(req, err, data);
+    }
+}
+
+/**
+ * Return reply to the client using the options object, it contains the following properties:
+ * **i18n Note:**
+ *
+ * The API server attaches fake i18n functions `req.__` and `res.__` which are used automatically for the `message` property
+ * before sending the response.
+ *
+ * With real i18n module these can/will be replaced performing actual translation without
+ * using `i18n.__` method for messages explicitely in the application code for `sendStatus` or `sendReply` methods.
+ *
+ * Replies can be delayed per status via `api.delays` if configured, to override any dalays set
+ * `req.options.sendDelay` to nonzero value, negative equals no delay
+ *
+ * @param {object} res - Express Response
+ * @param {object} options
+ * @param {number} [options.status=200] - the respone status code
+ * @param {string} [options.message]  - property to be sent as status line and in the body
+ * @param {string} [options.contentType] - defines Content-Type header, the `options.message` will be sent in the body only
+ * @param {string} [options.url] - for redirects when status is 301, 302...
+ *
+ * @memberof module:api
+ * @method sendStatus
+ */
+api.sendStatus = function(res, options)
+{
+    if (res.headersSent) return;
+    if (!options) options = { status: 200, message: "" };
+    var req = res.req, sent = 0;
+    var status = options.status || 200;
+    var delay = req.options?.sendDelay || (options.code &amp;&amp; api.delays[`${status}:${options.code}`]) || api.delays[status];
+    try {
+        switch (status) {
+        case 301:
+        case 302:
+        case 303:
+        case 307:
+        case 308:
+            res.redirect(status, options.url);
+            break;
+
+        default:
+            var hooks = this.hooks.find('status', req.method, req.options?.path);
+            lib.forEachSeries(hooks, (hook, next) => {
+                try {
+                    sent = hook.callback(req, res, options);
+                } catch (e) {
+                    logger.error('sendStatus:', req.options?.path, e.stack);
+                }
+                logger.debug('sendStatus:', req.method, req.options?.path, hook.path, 'sent:', sent || res.headersSent, delay);
+                next(sent || res.headersSent);
+            }, (err) => {
+                if (sent || res.headersSent) return;
+                if (options.contentType) {
+                    res.type(options.contentType);
+                    if (delay > 0) {
+                        setTimeout(() => {
+                            res.status(status).send(res.__(options.message || ""));
+                        }, delay);
+                    } else {
+                        res.status(status).send(res.__(options.message || ""));
+                    }
+                } else {
+                    for (const p in options) {
+                        if (typeof options[p] == "string") options[p] = res.__(options[p]);
+                    }
+                    if (delay > 0) {
+                        setTimeout(() => {
+                            res.status(status).json(options);
+                        }, delay);
+                    } else {
+                        res.status(status).json(options);
+                    }
+                }
+            }, true);
+        }
+    } catch (e) {
+        logger.error('sendStatus:', res.req.url, api.cleanupHeaders(res.getHeaders()), options, e.stack);
+        if (!res.headersSent) {
+            res.status(500).send("Internal error");
+        }
+    }
+}
+
+/**
+ * Send formatted JSON reply to an API client, calls {@link module:api.sendStatus} after formatting the parameters.
+ *
+ * @param {object} res - Express Response
+ * @param {object|string|Error|number} - different scenarios by type:
+ * - number: this is HTTP status code, text must be provided to return
+ * - string: return 500 error with status as text
+ * - object: status properties is set to 200 if not proided
+ * - Error: return a generic error message `api.errInternalError` without exposing the real error message, it will log all error exceptions in the logger
+ * subject to log throttling configuration.
+ * @param {string} [text] - message to return
+ * @example
+ * api.sendReply(res, 400, "invalid input")
+ * api.sendReply(res, "server is not available")
+ * @memberof module:api
+ * @method sendReply
+ */
+api.sendReply = function(res, status, text)
+{
+    if (util.types.isNativeError(status)) {
+        // Do not show runtime errors
+        if (status.message &amp;&amp; !this.errlog.ignore?.rx.test(status.message)) {
+            if (!this.errlog.token || this.errlog.token.consume(1)) {
+                logger.error("sendReply:", res.req.url, status.message, api.cleanupHeaders(res.req.headers), res.req.options, lib.traceError(status), res.req.body);
+            }
+        }
+        text = lib.testRegexpObj(status.code, this.errlog.codes) ? res.__(status.message) :
+               status._msg ? res.__(status._msg) : res.__(this.errInternalError);
+        status = status.status > 0 ? status.status : 500;
+        return this.sendStatus(res, { status: status || 200, message: typeof text == "string" ? text : String(text || "") });
+    }
+    if (status instanceof Object) {
+        status.status = status.status > 0 ? status.status : 200;
+        return this.sendStatus(res, status);
+    }
+    if (typeof status == "string" &amp;&amp; status) {
+        text = status;
+        status = 500;
+    }
+    if (status >= 400) logger.debug("sendReply:", status, text);
+    this.sendStatus(res, { status: status || 200, message: typeof text == "string" ? text : String(text || "") });
+}
+
+/**
+ * Send file back to the client or return 404 status
+ * @param {object} req - Express Request
+ * @param {string} file - file path
+ * @param {boolean} [redirect] - redirect url in case of error instead of returning 404
+ * @memberof module:api
+ * @method sendFile
+ */
+api.sendFile = function(req, file, redirect)
+{
+    file = this.normalize(file);
+    fs.stat(file, (err, st) => {
+        logger.debug("sendFile:", file, st);
+        if (req.method == 'HEAD') {
+            return req.res.set("Content-Length", err ? 0 : st.size).set("Content-Type", app.mime.lookup(file)).status(!err ? 200 : 404).send();
+        }
+        if (!err) return req.res.sendFile(file, { root: app.home });
+        if (redirect) return req.res.redirect(redirect);
+        req.res.sendStatus(404);
+    });
+}
+
+/**
+ * Parse body/query parameters according to the `schema` by using `lib.toParams`,
+ * uses the req.body if present or req.query.
+ * @param {object} req - Express request
+ * @param {module:lib.ParamsOptions} schema - schema object
+ * @param {object} [options]
+ * @param {object} [options.defaults] - merged with global `queryDefaults`
+ * @param {boolean} [options.query] - use only `req.query`, not req.body
+ * @returns {object|string} - a query object or an error message or null
+ * @example
+ *  var query = api.toParams(req, { q: { required: 1 } }, { null: 1 });
+ *  if (typeof query == "string") return api.sendReply(req, 400, query)
+ * @memberof module:api
+ * @method toParams
+ */
+api.toParams = function(req, schema, options)
+{
+    var opts = lib.objMerge(options, {
+        dprefix: req.options?.path + "-",
+        defaults: lib.objMerge(options?.defaults, this.queryDefaults, { deep: 1 })
+    }, { deep: 1 });
+    logger.debug("toParams:", schema, "O:", opts);
+
+    var query = options?.query ? req.query : req.body || req.query;
+    return lib.toParams(query, schema, opts);
+}
+
+/**
+ * Return a secret to be used for enrypting tokens, it uses the user property if configured or the global API token
+ * to be used to encrypt data and pass it to the clients. `-api-query-token-secret` can be configured and if a column in the `bk_user`
+ * with such name exists it is used as a secret, otherwise the `api.queryTokenSecret` is used as a secret.
+ * @param {object} req - Express Request object
+ * @return {string}
+ * @memberof module:api
+ * @method getTokenSecret
+ */
+api.getTokenSecret = function(req)
+{
+    if (!this.queryTokenSecret) return "";
+    return req.user &amp;&amp; req.user[this.queryTokenSecret] || this.queryTokenSecret;
+}
+
+/**
+ * Return an object to be returned to the client as a page of result data with possibly next token
+ * if present in the info. This result object can be used for pagination responses.
+ * @param {object} req - Express Request object
+ * @param {boolean} [req.options.total] - return count only from rows[0].count
+ * @param {object|object[]} rows
+ * @param {object} info
+ * @param {any} [info.next_token] - if present returned in result, this is from DB pagination
+ * @param {number} [req.options.total] - total results if available (Elasticsearch)
+ * @return {object} with properties { count, data, next_token, total }
+ * @memberof module:api
+ * @method getResultPage
+ */
+api.getResultPage = function(req, rows, info)
+{
+    rows = Array.isArray(rows) ? rows : lib.emptylist;
+    if (req?.options?.total) {
+        return { count: rows.length &amp;&amp; rows[0].count || 0 };
+    }
+    var token = { count: rows.length, data: rows };
+    if (info) {
+        if (info.next_token) token.next_token = lib.jsonToBase64(info.next_token, this.getTokenSecret(req));
+        if (info.total > 0) token.total = info.total;
+    }
+    return token;
+}
+
+/**
+ * Process records and keep only public properties as defined in the table columns. This method is supposed to be used in the post process
+ * callbacks after all records have been processes and are ready to be returned to the client, the last step would be to cleanup
+ * all non public columns if necessary. See  the `api` object in {@link DBTableColumn} for all supported conditions.
+ *
+ * @param {object} req - Express HTTP incoming request
+ * @param {boolean} [req.options.cleanup_strict] will enforce that all columns not present in the table definition will be skipped as well, by default all
+ * new columns or columns created on the fly are returned to the client. `api.cleanupStrict=1` can be configured globally.
+ *
+ * @param {object} [req.options.cleanup_rules] can be an object with property names and the values 0|1 for `pub`, `2` for `admin`, `3` for `staff``
+ *
+ * @param { boolean} [req.options.cleanup_copy] means to return a copy of every modified record, the original data is preserved
+ * @param {string|string[]} table - can be a single table name or a list of table names which combined public columns need to
+ * be kept in the rows.
+ * @param {object|object[]} data
+ * @return {object|object[]} cleaned records
+ *
+ * @memberof module:api
+ * @method cleanupResult
+ */
+api.cleanupResult = function(req, table, data)
+{
+    if (!req || !table || !data) return;
+
+    var row, nrows, nrow;
+    var r, col, cols = {}, all = 0, pos = 0;
+
+    const options = req.options || lib.empty;
+    const admin = options.isAdmin || options.isInternal;
+    const internal = options.isStaff || options.isInternal;
+    const strict = options.cleanup_strict || this.cleanupStrict;
+    const roles = lib.strSplit(req.user?.roles);
+    const tables = lib.strSplit(table);
+    const rules = {
+        $: options.cleanup_rules || lib.empty,
+        '*': this.cleanupRules["*"] || lib.empty
+    };
+
+    for (const table of tables) {
+        rules[table] = this.cleanupRules[table] || lib.empty;
+        const dbcols = db.getColumns(table, options);
+        for (const p in dbcols) {
+            col = dbcols[p] || lib.empty;
+            r = typeof rules.$[p] == "number" ? rules.$[p] : typeof rules[table][p] == "number" ? rules[table][p] : undefined;
+            r = cols[p] = r !== undefined ? r === 1 ? 1 : r === 2 &amp;&amp; !admin ? 0 : r === 3 &amp;&amp; !internal ? 0 : r === 4 &amp;&amp; !options.isInternal ? 0 : r :
+                          !col.api || col.api.priv ? 0 :
+                          col.api.pub ? 1 :
+                          col.api.staff ? internal ? 3 : 0 :
+                          col.api.admin ? admin ? 2 : 0 :
+                          options.isInternal ? 4 : 0;
+
+            if (r &amp;&amp; !options.isInternal) {
+                if (col.api.noroles &amp;&amp; lib.isFlag(roles, col.api.noroles)) r = cols[p] = 0; else
+                if (col.api.roles &amp;&amp; !lib.isFlag(roles, col.api.roles)) r = cols[p] = 0;
+
+                // For nested objects simplified rules based on the params only
+                if (r &amp;&amp; col.params) {
+                    const hidden = [], params = col.params;
+                    for (const k in params) {
+                        col = params[k] || lib.empty;
+                        r = !col.api || col.api.priv ? 0 :
+                             col.api.staff ? internal ? 1 : 0 :
+                             col.api.admin ? admin ? 1 : 0 : 1;
+                        all++;
+                        pos += r ? 1 : 0;
+                        if (!r) hidden.push(k);
+                    }
+                    cols[p] = hidden.length ? hidden : cols[p];
+                }
+            }
+            all++;
+            pos += r ? 1 : 0;
+        }
+    }
+    // Exit if nothing to cleanup
+    if (!strict &amp;&amp; (!all || all == pos)) return data;
+
+    const _rules = {};
+    function checkRules(p) {
+        var r = _rules[p];
+        if (r === undefined) {
+            for (const n in rules) {
+                r = rules[n][p];
+                if (r !== undefined) {
+                    r = r === 2 &amp;&amp; !admin ? 0 : r === 3 &amp;&amp; !internal ? 0 : r === 4 &amp;&amp; !options.isInternal ? 0 : r;
+                    break;
+                }
+            }
+            _rules[p] = r || 0;
+        }
+        return r;
+    }
+
+    const rows = Array.isArray(data) ? data : [ data ];
+    for (let i = 0; i &lt; rows.length; ++i) {
+        row = rows[i];
+        nrow = null;
+        for (const p in row) {
+            col = cols[p];
+            r = col === 0 || Array.isArray(col) || (strict &amp;&amp; col === undefined &amp;&amp; !checkRules(p));
+            if (r) {
+                // Lazy copy on modify
+                if (options.cleanup_copy &amp;&amp; !nrow) {
+                    nrow = {};
+                    for (const k in row) nrow[k] = row[k];
+                    row = nrow;
+                }
+                if (Array.isArray(col) &amp;&amp; row[p]) {
+                    var crows = Array.isArray(row[p]) ? row[p] : [row[p]];
+                    for (let j = 0; j &lt; crows.length; ++j) {
+                        for (const c in col) delete crows[j][col[c]];
+                    }
+                } else {
+                    delete row[p];
+                }
+            }
+        }
+        if (options.cleanup_copy &amp;&amp; nrow) {
+            if (!nrows) nrows = rows.slice(0);
+            nrows[i] = nrow;
+        }
+    }
+    if (options.cleanup_copy &amp;&amp; nrows) {
+        data = Array.isArray(data) ? nrows : nrows[0];
+    }
+    logger.debug("cleanupResult:", table, rows.length, all, pos, cols, options, _rules);
+    return data;
+}
+
+/**
+ * Replace current request path including updating request options. It is used in routing and vhosting.
+ * @param {object} req - Express Request
+ * @param {stream} path - new request path
+ * @memberof module:api
+ * @method replacePath
+ */
+api.replacePath = function(req, path)
+{
+    if (!path || typeof path != "string") return;
+    req.options.opath = req.options.path;
+    req.options.path = path;
+    req.options.apath = req.options.path.substr(1).split("/");
+    req.url = req.options.path + req.url.substr(req.options.opath.length);
+}
+
+
+/**
+ * Register access rate limit for a given name, all other rate limit properties will be applied as
+ * described in the {@link module:api.checkRateLimits}
+ * @param {string} name - path or reserved rate type
+ * @param {object} options
+ * @param {number} options.rate - base rate limit
+ * @param {number} options.max - max rate limit
+ * @param {number} options.internal - rate interval
+ * @param {number} options.queue - which limiter queue to use
+ * @memberof module:api
+ * @method registerRateLimits
+ */
+api.registerRateLimits = function(name, options)
+{
+    if (!name) return false;
+    this.rlimitsMap[name] = options;
+    return true;
+}
+
+/**
+ * Register a callback to be called just before HTTP headers are flushed, the callback may update response headers
+ * @param {object} req - Express Request
+ * @param {function} callback is a function(req, res, statusCode)
+ * @memberof module:api
+ * @method registerPreHeaders
+ */
+api.registerPreHeaders = function(req, callback)
+{
+    if (typeof callback != "function") return;
+    if (typeof req?.res?.writeHead != "function") return;
+    var old = req.res.writeHead;
+    req.res.writeHead = function(statusCode, statusMessage, headers) {
+        if (callback) {
+            callback(req, req.res, statusCode);
+            callback = null;
+        }
+        old.call(req.res, statusCode, statusMessage, headers);
+    }
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> using the <a href="https://github.com/vseryakov/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+
+<script src="scripts/search.js" defer></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>

@@ -1,0 +1,1405 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="utf-8">
+    <title>db/elasticsearch.js - Backendjs Documentation</title>
+    
+    <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
+    
+    
+    
+    <script src="scripts/prettify/prettify.js"></script>
+    <script src="scripts/prettify/lang-css.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc.css">
+    <script src="scripts/nav.js" defer></script>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<input type="checkbox" id="nav-trigger" class="nav-trigger" />
+<label for="nav-trigger" class="navicon-button x">
+  <div class="navicon"></div>
+</label>
+
+<label for="nav-trigger" class="overlay"></label>
+
+<nav >
+    
+    <input type="text" id="nav-search" placeholder="Search" />
+    
+    
+    <h2><a href="index.html">Home</a></h2><h3>Tutorials</h3><ul><li><a href="tutorial-start.html">Getting started</a><ul class='typedefs'></ul></li><li><a href="tutorial-app.html">Applications</a><ul class='typedefs'></ul></li><li><a href="tutorial-modules.html">Modules</a><ul class='typedefs'></ul></li><li><a href="tutorial-reference.html">Reference</a><ul class='typedefs'></ul></li><li><a href="tutorial-bkjs.html">The bkjs tool</a><ul class='typedefs'></ul></li><li><a href="tutorial-config.html">Config parameters</a><ul class='typedefs'></ul></li></ul><h3>Modules</h3><ul><li><a href="module-api.html">api</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api.html#.checkProxy">checkProxy</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRateLimits">checkRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.checkRedirectPlaceholders">checkRedirectPlaceholders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupHeaders">cleanupHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.cleanupResult">cleanupResult</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.createWebServer">createWebServer</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getResultPage">getResultPage</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.getTokenSecret">getTokenSecret</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleBody">handleBody</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleCleanup">handleCleanup</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMetrics">handleMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.handleMultipart">handleMultipart</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareOptions">prepareOptions</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerPreHeaders">registerPreHeaders</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.registerRateLimits">registerRateLimits</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.replacePath">replacePath</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFile">sendFile</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendFormatted">sendFormatted</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendJSON">sendJSON</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendReply">sendReply</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.sendStatus">sendStatus</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.shutdown">shutdown</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.startMetrics">startMetrics</a></li><li data-type='method' style='display: none;'><a href="module-api.html#.toParams">toParams</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_access.html">api/access</a><ul class='typedefs'></ul></li><li><a href="module-api_acl.html">api/acl</a><ul class='typedefs'></ul></li><li><a href="module-api_csrf.html">api/csrf</a><ul class='typedefs'></ul></li><li><a href="module-api_files.html">api/files</a><ul class='typedefs'></ul></li><li><a href="module-api_hooks.html">api/hooks</a><ul class='typedefs'></ul></li><li><a href="module-api_images.html">api/images</a><ul class='typedefs'></ul></li><li><a href="module-api_passkeys.html">api/passkeys</a><ul class='typedefs'></ul></li><li><a href="module-api_redirect.html">api/redirect</a><ul class='typedefs'></ul></li><li><a href="module-api_routing.html">api/routing</a><ul class='typedefs'></ul></li><li><a href="module-api_session.html">api/session</a><ul class='typedefs'></ul></li><li><a href="module-api_signature.html">api/signature</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-api_signature.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.fromRequest">fromRequest</a></li><li data-type='method' style='display: none;'><a href="module-api_signature.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-api_users.html">api/users</a><ul class='typedefs'></ul></li><li><a href="module-api_ws.html">api/ws</a><ul class='typedefs'></ul></li><li><a href="module-app.html">app</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-app.html#.addModule">addModule</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.ainit">ainit</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.arunMethods">arunMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.checkConfig">checkConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.createRepl">createRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.describeArgs">describeArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.isOk">isOk</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.killBackend">killBackend</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadModules">loadModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.loadPackages">loadPackages</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.mime">mime</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseArgs">parseArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.parseConfig">parseConfig</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArg">processArg</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processArgs">processArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processEnvArgs">processEnvArgs</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.processName">processName</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethod">runMethod</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.runMethods">runMethods</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHome">setHome</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setHost">setHost</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setLogInspect">setLogInspect</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.setRole">setRole</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.sortModules">sortModules</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.startRepl">startRepl</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="module-app.html#.watchTmp">watchTmp</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-aws.html">aws</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwGetMetricData">aws.cwGetMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwListMetrics">aws.cwListMetrics</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutLogEvents">aws.cwPutLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricAlarm">aws.cwPutMetricAlarm</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwPutMetricData">aws.cwPutMetricData</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.cwlFilterLogEvents">aws.cwlFilterLogEvents</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchGetItem">aws.ddbBatchGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbBatchWriteItem">aws.ddbBatchWriteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbDeleteItem">aws.ddbDeleteItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbGetItem">aws.ddbGetItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbScanTable">aws.ddbScanTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.ddbTransactWriteItems">aws.ddbTransactWriteItems</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCW">aws.queryCW</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.queryCWL">aws.queryCWL</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.querySQS">aws.querySQS</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsReceiveMessage">aws.sqsReceiveMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.aws.sqsSendMessage">aws.sqsSendMessage</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbCreateTable">ddbCreateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDeleteTable">ddbDeleteTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTable">ddbDescribeTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbDescribeTimeToLive">ddbDescribeTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbListTables">ddbListTables</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbPutItem">ddbPutItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbQueryTable">ddbQueryTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateItem">ddbUpdateItem</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTable">ddbUpdateTable</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbUpdateTimeToLive">ddbUpdateTimeToLive</a></li><li data-type='method' style='display: none;'><a href="module-aws.html#.ddbWaitForTable">ddbWaitForTable</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.html">cache</a><ul class='typedefs'></ul></li><li><a href="module-db.html">db</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-db.html#.aadd">aadd</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abatch">abatch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.abulk">abulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acopy">acopy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.acreate">acreate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.add">add</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adel">adel</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adelAll">adelAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.adrop">adrop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aget">aget</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aincr">aincr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.alist">alist</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.applyPoolOptions">applyPoolOptions</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aput">aput</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aquery">aquery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.ascan">ascan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asearch">asearch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aselect">aselect</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.asql">asql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.atransaction">atransaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdate">aupdate</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupdateAll">aupdateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.aupgrade">aupgrade</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.batch">batch</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.bulk">bulk</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.cacheColumns">cacheColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.configTypes">configTypes</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertError">convertError</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.convertRows">convertRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.copy">copy</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.createTables">createTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.delAll">delAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.describeTables">describeTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getCached">getCached</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getConfig">getConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPool">getPool</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPoolTables">getPoolTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getPools">getPools</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.getProcessRows">getProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.init">init</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initColumns">initColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initConfig">initConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.initTables">initTables</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.list">list</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepare">prepare</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareColumn">prepareColumn</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareQuery">prepareQuery</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.prepareRequest">prepareRequest</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.put">put</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.query">query</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.queryProcessSync">queryProcessSync</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.refreshColumns">refreshColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.runProcessRows">runProcessRows</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.scan">scan</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.search">search</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setConfig">setConfig</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessColumns">setProcessColumns</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.setProcessRow">setProcessRow</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.sql">sql</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.transaction">transaction</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.updateAll">updateAll</a></li><li data-type='method' style='display: none;'><a href="module-db.html#.upgrade">upgrade</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-db_dynamodb.html">db/dynamodb</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.html">db/elasticsearch</a><ul class='typedefs'></ul></li><li><a href="module-db_pg.html">db/pg</a><ul class='typedefs'></ul></li><li><a href="module-db_sqlite.html">db/sqlite</a><ul class='typedefs'></ul></li><li><a href="module-events.html">events</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-events.html#.putEvent">putEvent</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-ipc.html">ipc</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-ipc.html#.broadcast">broadcast</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.emitMsg">emitMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.newMsg">newMsg</a></li><li data-type='method' style='display: none;'><a href="module-ipc.html#.sendMsg">sendMsg</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-jobs.html">jobs</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-jobs.html#.cancelJob">cancelJob</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.isCancelled">isCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.markCancelled">markCancelled</a></li><li data-type='method' style='display: none;'><a href="module-jobs.html#.submitJob">submitJob</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-lib.html">lib</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib.html#.__">__</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.afetch">afetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.base64ToJson">base64ToJson</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.call">call</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.clock">clock</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.configParse">configParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.daysInMonth">daysInMonth</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.decodeURIComponent">decodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferCallback">deferCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferInterval">deferInterval</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.deferShutdown">deferShutdown</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.encodeURIComponent">encodeURIComponent</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.entityToText">entityToText</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.escapeUnicode">escapeUnicode</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fetch">fetch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase32">fromBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase62">fromBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.fromBase64url">fromBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArg">getArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getArgInt">getArgInt</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getHashid">getHashid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.getWorkers">getWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.hash">hash</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isArg">isArg</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isDST">isDST</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.isTimeRange">isTimeRange</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormat">jsonFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonFormatPreset">jsonFormatPreset</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonParse">jsonParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.jsonToBase64">jsonToBase64</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.killWorkers">killWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.loadLocale">loadLocale</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.localEpoch">localEpoch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.murmurHash3">murmurHash3</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.newError">newError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.notifyWorkers">notifyWorkers</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.now">now</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objClone">objClone</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.objSize">objSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.parseTime">parseTime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.runCallback">runCallback</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.shuffle">shuffle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sleep">sleep</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.slug">slug</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.sortByVersion">sortByVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.strftimeMap">strftimeMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.stringify">stringify</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.suuid">suuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToEntity">textToEntity</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.textToXml">textToXml</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toAge">toAge</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase32">toBase32</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase62">toBase62</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBase64url">toBase64url</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toBool">toBool</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toCamel">toCamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toClamp">toClamp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDate">toDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDigits">toDigits</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toDuration">toDuration</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toEmail">toEmail</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFlags">toFlags</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toFormat">toFormat</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toMtime">toMtime</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toNumber">toNumber</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toParams">toParams</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toPrice">toPrice</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRFC3339">toRFC3339</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexp">toRegexp</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpMap">toRegexpMap</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toRegexpObj">toRegexpObj</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toSize">toSize</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toString">toString</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTemplate">toTemplate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toTitle">toTitle</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUncamel">toUncamel</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toUrl">toUrl</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toValue">toValue</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.toVersion">toVersion</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.traceError">traceError</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCall">tryCall</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryCatch">tryCatch</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tryLater">tryLater</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.tzName">tzName</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unescape">unescape</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.unicode2Ascii">unicode2Ascii</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.uuid">uuid</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekDate">weekDate</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.weekOfYear">weekOfYear</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#.xmlParse">xmlParse</a></li><li data-type='method' style='display: none;'><a href="module-lib.html#~onDeferCallback">onDeferCallback</a></li></ul><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-lib.html#.ParamsOptions">ParamsOptions</a></li></ul></li><li><a href="module-lib_JWT.html">lib/JWT</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPrivateKey">importPrivateKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.importPublicKey">importPublicKey</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.sign">sign</a></li><li data-type='method' style='display: none;'><a href="module-lib_JWT.html#.verify">verify</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logger.html">logger</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-logger.html#.debug">debug</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.dev">dev</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.error">error</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.info">info</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.log">log</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.logger">logger</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.none">none</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.prefix">prefix</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.registerLevel">registerLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setDebugFilter">setDebugFilter</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setFile">setFile</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setLevel">setLevel</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setOptions">setOptions</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.setSyslog">setSyslog</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.trace">trace</a></li><li data-type='method' style='display: none;'><a href="module-logger.html#.warn">warn</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-logwatcher.html">logwatcher</a><ul class='typedefs'></ul></li><li><a href="module-metrics.html">metrics</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-metrics.html#.incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.take">take</a></li><li data-type='method' style='display: none;'><a href="module-metrics.html#.toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-modules.html">modules</a><ul class='typedefs'></ul></li><li><a href="module-push.html">push</a><ul class='typedefs'><li data-type='typedef' style='display: none;'><a href="module-push.html#~callback">callback</a></li></ul></li><li><a href="module-queue.html">queue</a><ul class='typedefs'></ul></li><li><a href="module-sendmail.html">sendmail</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sendmail.html#.send">send</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-shell.html">shell</a><ul class='typedefs'></ul></li><li><a href="module-sql.html">sql</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-sql.html#.column">column</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.create">create</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.delete">delete</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.drop">drop</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.expr">expr</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.insert">insert</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.limit">limit</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.quote">quote</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.select">select</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.time">time</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.update">update</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.upgrade">upgrade</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.value">value</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.valueIn">valueIn</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li><li data-type='method' style='display: none;'><a href="module-sql.html#.where">where</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-stats.html">stats</a><ul class='typedefs'></ul></li><li><a href="module-watcher.html">watcher</a><ul class='typedefs'></ul></li></ul><h3>Classes</h3><ul><li><a href="Counter.html">Counter</a><ul class='typedefs'></ul></li><li><a href="DbPool.html">DbPool</a><ul class='typedefs'></ul></li><li><a href="FakeTrace.html">FakeTrace</a><ul class='typedefs'></ul></li><li><a href="FetchRequest.html">FetchRequest</a><ul class='methods'><li data-type='method' style='display: none;'><a href="FetchRequest.html#parseCookies">parseCookies</a></li><li data-type='method' style='display: none;'><a href="FetchRequest.html#toJSON">toJSON</a></li></ul><ul class='typedefs'></ul></li><li><a href="Histogram.html">Histogram</a><ul class='typedefs'></ul></li><li><a href="LRUCache.html">LRUCache</a><ul class='methods'><li data-type='method' style='display: none;'><a href="LRUCache.html#.clean">clean</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.del">del</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.get">get</a></li><li data-type='method' style='display: none;'><a href="LRUCache.html#.put">put</a></li></ul><ul class='typedefs'></ul></li><li><a href="Meter.html">Meter</a><ul class='typedefs'></ul></li><li><a href="Pool.html">Pool</a><ul class='typedefs'></ul></li><li><a href="SqlPool.html">SqlPool</a><ul class='typedefs'></ul></li><li><a href="Timer.html">Timer</a><ul class='typedefs'></ul></li><li><a href="TokenBucket.html">TokenBucket</a><ul class='methods'><li data-type='method' style='display: none;'><a href="TokenBucket.html#.configure">configure</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.consume">consume</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.equal">equal</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toArray">toArray</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toJSON">toJSON</a></li><li data-type='method' style='display: none;'><a href="TokenBucket.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="Trace.html">Trace</a><ul class='methods'><li data-type='method' style='display: none;'><a href="Trace.html#.destroy">destroy</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.send">send</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.start">start</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.stop">stop</a></li><li data-type='method' style='display: none;'><a href="Trace.html#.toString">toString</a></li></ul><ul class='typedefs'></ul></li><li><a href="WebpushClient.html">WebpushClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.CacheClient.html">CacheClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#applyOptions">applyOptions</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#clear">clear</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#close">close</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#del">del</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#get">get</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#incr">incr</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#limiter">limiter</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#lock">lock</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#put">put</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#stats">stats</a></li><li data-type='method' style='display: none;'><a href="module-cache.CacheClient.html#unlock">unlock</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-cache.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-cache.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li><li><a href="module-db_elasticsearch.ElasticsearchPool.html">ElasticsearchPool</a><ul class='typedefs'></ul></li><li><a href="module-queue.EventBridgeClient.html">EventBridgeClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.JSONClient.html">JSONClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.LocalClient.html">LocalClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.NatsClient.html">NatsClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.QueueClient.html">QueueClient</a><ul class='methods'><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#channel">channel</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#monitor">monitor</a></li><li data-type='method' style='display: none;'><a href="module-queue.QueueClient.html#schedule">schedule</a></li></ul><ul class='typedefs'></ul></li><li><a href="module-queue.RedisClient.html">RedisClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SNSClient.html">SNSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.SQSClient.html">SQSClient</a><ul class='typedefs'></ul></li><li><a href="module-queue.WorkerClient.html">WorkerClient</a><ul class='typedefs'></ul></li></ul><h3>Global</h3><ul><li><a href="global.html#ConfigOptions">ConfigOptions</a></li><li><a href="global.html#DBConfigOptions">DBConfigOptions</a></li><li><a href="global.html#DBRequest">DBRequest</a></li><li><a href="global.html#DBRequestColumn">DBRequestColumn</a></li><li><a href="global.html#DBRequestOptions">DBRequestOptions</a></li><li><a href="global.html#DBResultCallback">DBResultCallback</a></li><li><a href="global.html#DBTable">DBTable</a></li><li><a href="global.html#DBTableColumn">DBTableColumn</a></li></ul>
+    
+</nav>
+
+<div id="main">
+    
+    <h1 class="page-title">db/elasticsearch.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*
+ *  Author: Vlad Seryakov vseryakov@gmail.com
+ *  backendjs 2018
+ */
+
+const lib = require(__dirname + '/../lib');
+const db = require(__dirname + '/../db');
+const logger = require(__dirname + '/../logger');
+const DbPool = require(__dirname + '/pool');
+
+/**
+ * @module db/elasticsearch
+ */
+const pool = {
+    name: "elasticsearch",
+    type: "elasticsearch",
+    configOptions: {
+        docType: "_doc",
+        defaultType: "text",
+        defaultParams: {},
+        scroll_timeout: "60000ms",
+        retryCount: 5,
+        retryTimeout: 100,
+        retryOnConflict: 3,
+        refreshInterval: 2000,
+        refreshBackoff: 1.2,
+        discoveryInterval: 300000,
+        discoveryDelay: 500,
+        selectSize: 25,
+        bulkSize: 500,
+        bulkRetryCount: 10,
+        bulkRetryTimeout: 250,
+        searchable: 1,
+        shards: 5,
+        date_detection: true,
+        numeric_detection: true,
+        distance: 10000,
+        replicas: 1,
+        clientNodes: 0,
+        typesMap: {
+            float: "float", real: "float", number: "float",
+            ttl: "long", counter: "long", random: "long",
+            long: "long", bigint: "long", int: "integer",
+            now: { type: "date", format: "epoch_millis" },
+            mtime: { type: "date", format: "epoch_millis" },
+            datetime: { type: "text" },
+            bool: "boolean", keyword: "keyword", symbol: "keyword",
+            text: "text", string: "text", json: "text",
+            object: "object",
+            array: "nested", obj: "nested",
+            geohash: "geo_point", geopoint: "geo_point",
+            email: { type: "text", analyzer: "keyword_lower" },
+            keyword_lower: { type: "text", analyzer: "keyword_lower" },
+            whitespace_lower: { type: "text", analyzer: "whitespace_lower" },
+        },
+        opsMap: { 'like%': 'begins_with', "": "==", "=": "==", 'eq': '==', 'ne': '!=', 'le': '&lt;=', 'lt': '&lt;', 'ge': '>=', 'gt': '>' },
+        tableMap: {},
+    },
+    // Native query parameters for each operation
+    _params: {
+        index: ["op_type","version","version_type","routing","parent","timestamp","ttl","consistency","include_type_name",
+                "retry_on_conflict","refresh","timeout","replication","wait_for_active_shards","pipeline"],
+        del: ["version","routing","parent","consistency","refresh","timeout","replication"],
+        delall: ["routing","conflicts","slices","scroll_size","refresh","wait_for_completion","wait_for_active_shards",
+                 "timeout","scroll","requests_per_second","q"],
+        updateall: ["allow_no_indices","analyzer","analyze_wildcard","default_operator","df","expand_wildcards","ignore_unavailable",
+                    "lenient","max_docs","pipeline","preference","request_cache","search_type","search_timeout","sort",
+                    "terminate_after",
+                    "routing","conflicts","slices","scroll","scroll_size","refresh","wait_for_completion","wait_for_active_shards",
+                    "timeout","scroll","requests_per_second","q"],
+        get: ["version","fields","routing","realtime","preference","refresh","_source","_source_include","_source_exclude"],
+        list: ["version","fields","routing","_source","_source_include","_source_exclude"],
+        qs: ["default_field","default_operator","analyzer","quote_analyzer","allow_leading_wildcard",
+             "enable_position_increments","fuzzy_max_expansions","fuzziness","fuzzy_prefix_length","fuzzy_transpositions",
+             "phrase_slop","fields","auto_generate_phrase_queries","analyze_wildcard","max_determinized_states","minimum_should_match",
+             "lenient","time_zone","quote_field_suffix","auto_generate_synonyms_phrase_query","all_fields"],
+        query: ["search_type", "request_cache"],
+        sql: ["format","delimiter"],
+    },
+    _mappings: ["index","store","boost","format","doc_values","null_value","normalizer","analyzer","search_analyzer","norms","fields","fielddata","similarity"],
+    escapeRx: /([:+=&amp;|>&lt;!(){}[\]^"~*?/\\-])/g,
+    quoteRx: /[ @/]/,
+    subfieldRx: /^([a-z0-9_]+:)(.+)/i,
+    createPool: function(options) {
+        return new ElasticsearchPool(options);
+    },
+};
+
+/**
+ * Create a database pool that works with ElasticSearch server, only the hostname and port will be used, by default each table
+ * is stored in its own index.
+ *
+ * To define shards and replicas per index:
+ *  - `-db-elasticsearch-pool-options-shards-INDEX_NAME=NUM`
+ *  - `-db-elasticsearch-pool-options-replicas-INDEX_NAME=NUM`
+ *
+ * To support multiple seed nodes a parameter `-db-elasticsearch-pool-options-servers=1.1.1.1,2.2.2.2` can be specified, if the primary node
+ * fails it will switch to other configured nodes. To control the switch retries and timeout there are options:
+ *  - `-db-elasticsearch-pool-options-retry-count=3`
+ *  - `-db-elasticsearch-pool-options-retry-timeout=250`
+ *
+ * On successful connect to any node the driver retrieves full list of nodes in the cluster and switches to a random node, this happens
+ * every `discovery-interval` in milliseconds, default is 1h, it can be specified as `-db-elasticserch-pool-options-discovery-interval=300000`
+ */
+module.exports = pool;
+
+db.modules.push(pool);
+
+/**
+ * Elasticsearch DB pool
+ *
+ * @memberOf module:db/elasticsearch
+ */
+class ElasticsearchPool extends DbPool {
+
+    constructor(options)
+    {
+        super(options, pool);
+        this._nodes = [];
+        this._nodesTimer = setTimeout(this._getNodes.bind(this), this.configOptions.discoveryDelay || 500);
+    }
+
+    shutdown(options, callback) {
+        clearTimeout(this._nodesTimer);
+        super.shutdown(options, callback);
+    }
+
+    _getNodes(callback)
+    {
+        if (this._nodesTimer === true) return;
+        clearTimeout(this._nodesTimer);
+        // If the driver is not setup yet fully we keep waiting
+        if (!this.url) {
+            this._nodesTimer = setTimeout(this._getNodes.bind(this), this.configOptions.discoveryDelay || 500);
+            return;
+        }
+        if (this.configOptions.noDiscovery) return;
+        logger.debug("getNodes:", this.name, this.url);
+        this._nodesTimer = true;
+        this.doQuery("GET", "/_nodes", "", "", { quiet: 1, logger_db: "none" }, (err, data, params) => {
+            if (err) logger.error("getNodes:", this.name, err, this._nodes, params.toJSON());
+            if (!err &amp;&amp; typeof data?.nodes == "object") {
+                var nodes = [];
+                for (const p in data.nodes) {
+                    var node = data.nodes[p];
+                    if (!this._version) this._version = lib.toVersion(node.version);
+                    if (lib.isEmpty(node.roles) || (!this.configOptions.clientNodes &amp;&amp; lib.isFlag(node.roles, "data"))) {
+                        nodes.push(lib.objGet(node, "http.publish_address") || node.ip);
+                    }
+                }
+                this._nodes = lib.shuffle(nodes);
+                // Pick a random node
+                if (this._nodes.length) this._node = this._nodes[this._nodes.length - 1];
+            }
+            // Increase with every consequetive error
+            this._nodesInterval = ((err ? this._nodesInterval : 0) || this.configOptions.refreshInterval) * (err ? this.configOptions.refreshBackoff : 1);
+            var interval = !err &amp;&amp; this._nodes.length ? this.configOptions.discoveryInterval || 300000 : this._nodesInterval;
+            this._nodesTimer = setTimeout(this._getNodes.bind(this), interval);
+            logger.debug("getNodes:", this.name, this._node, this._version, "nodes:", this._nodes, "interval:", this._nodesInterval, interval);
+            if (typeof callback == "function") callback();
+        });
+    }
+
+    _getNodeUrl(node)
+    {
+        if (!node) node = this.url;
+        if (node == "default") node = "http://127.0.0.1:9200";
+        if (!lib.rxUrl.test(node)) node = "http://" + node;
+        var h = URL.parse(node) || "";
+        if (!h.port) h.host += ":9200";
+        if (!this._node) this._node = h.host;
+        return h.protocol + "//" + h.host;
+    }
+
+    _retryPrepare(params)
+    {
+        params.retryNodes++;
+        var node = this._nodes.shift();
+        if (node) {
+            this._nodes.push(node);
+            // After we went over all nodes we try the default url again in case all nodes are replaced with new ones
+            if (params.retryNodes > this._nodes.length) {
+                params.retryNodes = 0;
+                node = this.url;
+            }
+        } else {
+            var servers = lib.strSplit(this.configOptions.servers);
+            if (!this._servers || !this._servers.every((x) => (servers.indexOf(x) > -1))) this._servers = servers;
+            node = this._servers.shift();
+            if (node) this._servers.push(node);
+        }
+        // If no nodes yet we need to keep trying the default url assuming the server will be online soon or
+        // it will resolve to some other running node via DNS balancing
+        if (!node) node = this.url;
+        this._node = node;
+        params.nodeHost = this._getNodeUrl(node);
+        params._uri = params.nodeHost + params.nodePath;
+        logger.debug("retryPrepare:", this.name, params.nodeHost, params.nodePath, "trying node:", this._node, "count:", params.retryCount, params.retryTotal, params.retryNodes, "nodes:", this._nodes, this._servers);
+    }
+
+    doQuery(method, path, postdata, query, options, callback)
+    {
+        var self = this;
+        var opts = {
+            nodeHost: this._getNodeUrl(this._node),
+            nodePath: (path[0] == "/" ? "" : "/") + path,
+            method,
+            postdata,
+            query,
+            datatype: "obj",
+            quiet: options.quiet,
+            headers: options.headers,
+            retryCount: options.retryCount || this.configOptions.retryCount,
+            retryTimeout: options.retryTimeout || this.configOptions.retryTimeout,
+            retryOnError: function() { return this.status == 429 || this.status >= 500 },
+            retryPrepare: function() { self._retryPrepare(this) },
+            retryNodes: 0,
+        };
+        lib.fetch(opts.nodeHost + opts.nodePath, opts, (err, params) => {
+            logger.logger(options.logger_db || "debug", "elasticsearchQuery:", params.elapsed, 'ms', opts, "hits:", params.obj?.hits?.hits?.length, err);
+            if (params.obj &amp;&amp; params.retryCount &lt; params.retryTotal) {
+                params.obj.retry_count = params.retryTotal - Math.min(0, params.retryCount);
+            }
+            if (err || !params.status || params.status >= 400) {
+                if (!err) {
+                    var error = params.obj?.error;
+                    err = lib.newError({
+                        message: (error ? lib.objDescr(error) : "") || (method + " Error " + params.status + " " + params.data),
+                        code: error?.type,
+                        status: params.status || 500
+                    });
+                    logger[options.quiet || params.status == 404 ? "debug": "error"]("elasticsearchQuery:", opts, "ERR:", params.status, params.data);
+                } else {
+                    params.obj = null;
+                }
+            }
+            callback(err, params.obj, params);
+        });
+    }
+
+    prepareQuery(req)
+    {
+        switch (req.op) {
+        case "search":
+        case "select":
+            // Always allow full text search across all columns
+            if (!req.custom) req.custom = {};
+            req.custom.q = { allow: 1 };
+            break;
+        }
+    }
+
+    convertError(req, err)
+    {
+        if (err.status == 429) err.code = "OverCapacity";
+        return err;
+    }
+
+    nextToken(client, req, rows)
+    {
+        return req.options?.count &amp;&amp; rows.length == req.options.count ? lib.toNumber(req.options.start) + lib.toNumber(req.options.count) : null;
+    }
+
+    _getKey(keys, obj)
+    {
+        return keys.filter((x) => (obj[x])).map((x) => (obj[x])).join("|");
+    }
+
+    _getTable(name)
+    {
+        return this.configOptions.tableMap[name] || name;
+    }
+
+    exists(table)
+    {
+        return !!this.dbcolumns[this._getTable(table)];
+    }
+
+    _escape(val, options, name)
+    {
+        var prefix = "", noescape;
+        var opts = options || lib.empty;
+
+        switch (typeof val) {
+        case "number":
+        case "boolean":
+            break;
+        case "string":
+            noescape = opts.noescape === 1 ||
+            opts.noescape === true ||
+            opts.noescape === name ||
+            lib.isFlag(opts.noescape, name);
+
+            if (!noescape) {
+                if (opts.subfields) {
+                    var d = val.match(pool.subfieldRx);
+                    if (d) {
+                        prefix = d[1];
+                        val = d[2];
+                    }
+                }
+                val = val.replace(pool.escapeRx, '\\$1');
+            }
+            if (val == "OR" || val == "AND" || val == "NOT" || pool.quoteRx.test(val)) val = '"' + val + '"';
+            break;
+        default:
+            val = null;
+        }
+        val = val !== null ? prefix + val : val;
+        if (name) {
+            if (opts._fuzziness &amp;&amp; opts._fuzziness[name]) val += "~" + opts._fuzziness[name];
+            if (opts._boost &amp;&amp; opts._boost[name]) val += "^" + opts._boost[name];
+            if (lib.isFlag(opts._ends_with, name) &amp;&amp; val.endsWith("\\*")) val = val.slice(0, -2) + "*";
+            if (lib.isFlag(opts._begins_with, name) &amp;&amp; val.startsWith("\\*")) val = "*" + val.substr(2);
+        }
+        return val;
+    }
+
+    parseQueryString(q, options)
+    {
+        return lib.phraseSplit(q).map((y) => (this._escape(y, options))).join(" AND ");
+    }
+
+    getQueryString(req, query, join)
+    {
+        var options = req.options || lib.empty;
+        query = query || req.query;
+
+        return Object.keys(query).map((name) => {
+            var val = query[name];
+            if (val === undefined) return 0;
+            var d = name.match(db.rxOrAnd);
+            if (d) {
+                val = this.getQueryString(req, val, d[1]);
+                if (val) val = "(" + val + ")";
+                return val;
+            }
+
+            const col = db.prepareColumn(req, name, val);
+
+            name = col.name &amp;&amp; col.name != "q" ? col.name + ":" : "";
+            val = col.value;
+
+            // Cannot use empty values
+            if (typeof val == "string") {
+                val = col.value.trim();
+                if (!val &amp;&amp; col.op != "null" &amp;&amp; col.op != "not_null") return 0;
+            } else
+            if (lib.isArray(val)) {
+                val = val.filter((x) => (!lib.isEmpty(x)));
+            }
+
+            switch (col.op) {
+            case "null":
+                return lib.isArray(val) ? '(' + val.map((y) => (`(NOT _exists_:${col.name})`)).join(` ${col.join || "AND"} `) + ')' : `(NOT _exists_:${col.name})`;
+
+            case "not_null":
+                return lib.isArray(val) ? '(' + val.map((y) => (`_exists_:${col.name}`)).join(` ${col.join || "AND"} `) + ')' : "_exists_:" + col.name;
+
+            case "!=":
+            case "ne":
+                return lib.isArray(val) ? '(' + val.map((y) => ("-" + name + this._escape(y, options, col.name))).join(` ${col.join || "AND"} `) + ')' : '-' + name + this._escape(val, options, col.name);
+
+            case ">":
+            case "gt":
+                return lib.isArray(val) ? '(' + val.map((y) => (name + ">" + this._escape(y, options, col.name))).join(` ${col.join || "AND"} `) + ')' : name + '>' + this._escape(val, options, col.name);
+
+            case "&lt;":
+            case "lt":
+                return lib.isArray(val) ? '(' + val.map((y) => (name + "&lt;" + this._escape(y, options, col.name))).join(` ${col.join || "AND"} `) + ')' : name + '&lt;' + this._escape(val, options, col.name);
+
+            case ">=":
+            case "ge":
+                return lib.isArray(val) ? '(' + val.map((y) => (name + ">=" + this._escape(y, options, col.name))).join(` ${col.join || "AND"} `) + ')' : name + '>=' + this._escape(val, options, col.name);
+
+            case "&lt;=":
+            case "le":
+                return lib.isArray(val) ? '(' + val.map((y) => (name + "&lt;=" + this._escape(y, options, col.name))).join(` ${col.join || "AND"} `) + ')' : name + '&lt;=' + this._escape(val, options, col.name);
+
+            case "in":
+            case "all_in":
+                if (lib.isEmpty(val)) break;
+                return lib.isArray(val) ? '(' + val.map((y) => (name + this._escape(y, options, col.name))).join(` ${col.join || col.op == "in" ? "OR" : "AND"} `) + ')' : name + this._escape(val, options, col.name);
+
+            case "not_in":
+                if (lib.isEmpty(val)) break;
+                return lib.isArray(val) ? name + '(' + val.map((y) => ("NOT " + this._escape(y, options, col.name))).join(` ${col.join || "AND"} `) + ')' : "NOT " + name + this._escape(val, options, col.name);
+
+            case "between":
+                if (lib.isEmpty(val)) break;
+                return name + (val.length == 2 ? `[${this._escape(val[0], options, col.name)} TO ${this._escape(val[1], options, col.name)}]` : this._escape(val, options, col.name));
+
+            case "not_between":
+                if (lib.isEmpty(val)) break;
+                return "NOT " + name + (val.length == 2 ? `[${this._escape(val[0], options, col.name)} TO ${this._escape(val[1], options, col.name)}]` : this._escape(val, options, col.name));
+
+            case "begins_with":
+                if (lib.isEmpty(val)) break;
+                return lib.isArray(val) ? val.map((y, i) => (name + this._escape(y, options, col.name) + '*')).join(` ${col.join || "AND"} `) : name + this._escape(val, options, col.name) + '*';
+
+            case "not_begins_with":
+                if (lib.isEmpty(val)) break;
+                return lib.isArray(val) ? val.map((y, i) => (`NOT ${name}${this._escape(y, options, col.name)}*`)).join(` ${col.join || "AND"} `) : `NOT ${name}${this._escape(val, options, col.name)}*`;
+
+            case "ends_with":
+                if (lib.isEmpty(val)) break;
+                return lib.isArray(val) ? val.map((y, i) => (name + "*" + this._escape(y, options, col.name))).join(` ${col.join || "AND"} `) : name + "*" + this._escape(val, options, col.name);
+
+            case "not_ends_with":
+                if (lib.isEmpty(val)) break;
+                return lib.isArray(val) ? val.map((y, i) => (`NOT ${name}*${this._escape(y, options, col.name)}`)).join(` ${col.join || "AND"} `) : `NOT ${name}*${this._escape(val, options, col.name)}`;
+
+            case "like":
+                if (lib.isEmpty(val)) break;
+                return lib.isArray(val) ? val.map((y, i) => (name + this._escape(y, options, col.name) + '~')).join(` ${col.join || "AND"} `) : name + this._escape(val, options, col.name) + '~';
+
+            case "contains":
+                if (lib.isEmpty(val)) break;
+                return lib.isArray(val) ? val.map((y) => (`${name}*${this._escape(y, options, col.name)}*`)).join(` ${col.join || "AND"} `) : `${name}*${this._escape(val, options, col.name)}*`;
+
+            case "not_contains":
+                if (lib.isEmpty(val)) break;
+                return lib.isArray(val) ? name + '(' + val.map((y) => (`NOT *${this._escape(y, options, col.name)}*`)).join(` ${col.join || "AND"} `) + ')' : `NOT ${name}*${this._escape(val, options, col.name)}*`;
+
+            case "=":
+            case "eq":
+            default:
+                if (val === "") break;
+                return Array.isArray(val) ? val.map((y) => (name + this._escape(y, options, col.name))).join(` ${col.join || "AND"} `) : name + this._escape(val, options, col.name);
+            }
+            return null;
+        }).filter((x) => (x)).
+           join(" " + (join || options.join || "AND").toUpperCase() + " ");
+    }
+
+    getGeoQuery(table, query, options)
+    {
+        options.sort_names = ["distance"];
+        var q = typeof query == "string" ? query : this.getQueryString({ table, query, options });
+        var n = options.geopoint_name || Object.entries(db.tables[table]).filter(x => (x[1].type == "geopoint")).map(x => x[0])[0] || "latlon";
+        var ll = lib.isArray(options.latlon) ? [options.latlon[1], options.latlon[0]] :
+        lib.isArray(options.lonlat) ? options.lonlat : [options.longitude, options.latitude];
+        var d = options.distance || this.configOptions.distance;
+        if (options.distance_unit &amp;&amp; lib.isNumeric(d)) d += options.distance_unit;
+        options.no_next_token = 1;
+
+        return {
+            query: {
+                bool: {
+                    must: {
+                        query_string: {
+                            query: q
+                        }
+                    },
+                    filter: {
+                        geo_distance: {
+                            distance: d,
+                            [n]: ll,
+                        }
+                    }
+                }
+            },
+            sort: [
+                {
+                    _geo_distance: {
+                        [n]: ll,
+                        order: options.desc ? "desc" : "asc",
+                        unit: options.distance_unit || "m",
+                        distance_type: options.distance_type || "plane"
+                    }
+                }
+            ]
+        };
+    }
+
+    _getQuery(name, options)
+    {
+        return pool._params[name].reduce((x, y) => {
+            if (options[y]) x[y] = options[y]; else
+            if (this.configOptions.defaultParams[y]) x[y] = this.configOptions.defaultParams[y];
+            return x;
+        }, {});
+    }
+
+    _buildCondition(req, query, expected, join)
+    {
+        var expr = [];
+        for (const p in expected) {
+            const val = expected[p];
+            const d = p.match(db.rxOrAnd);
+            if (d) {
+                const e = this._buildCondition(req, query, val, d[1] == "or" ? "||" : "");
+                if (e) expr.push("(" + e + ")");
+                continue;
+            }
+            const col = db.prepareColumn(req, p, val);
+            var not = col.op.startsWith("not ") ? "!" : "";
+
+            switch (col.op) {
+            case "null":
+                expr.push(`!ctx._source.containsKey('${col.name}')`);
+                break;
+
+            case "not null":
+                expr.push(`ctx._source.containsKey('${col.name}')`);
+                break;
+
+            case "in":
+            case "not in":
+                if (!Array.isArray(col.value)) break;
+                expr.push(`${not}(ctx._source.containsKey('${col.name}') &amp;&amp; params._${p}.contains(ctx._source.${col.name}))`);
+                query.script.params["_" + p] = col.value;
+                break;
+
+            case "between":
+            case "not between":
+                if (!Array.isArray(col.value) || col.value.length != 2) break;
+                expr.push(`${not}(ctx._source.containsKey('${col.name}') &amp;&amp; ctx._source.${col.name} >= _${p} &amp;&amp; ctx._source.${col.name} &lt;= __${p})`);
+                query.script.params["_" + p] = col.value[0];
+                query.script.params["__" + p] = col.value[1];
+                break;
+
+            case "begins with":
+            case "not begins with":
+                expr.push(`${not}(ctx._source.containsKey('${col.name}') &amp;&amp; ctx._source.${col.name}.startsWith(params._${p}))`);
+                query.script.params["_" + p] = col.value;
+                break;
+
+            case "contains":
+            case "not contains":
+                expr.push(`${not}(ctx._source.containsKey('${col.name}') &amp;&amp; ctx._source.${col.name}.contains(params._${p}))`);
+                query.script.params["_" + p] = col.value;
+                break;
+
+            case "!=":
+            case ">":
+            case "&lt;":
+            case ">=":
+            case "&lt;=":
+            case "==":
+                expr.push(`(ctx._source.containsKey('${col.name}') &amp;&amp; ctx._source.${col.name} ${col.op} params._${p})`);
+                query.script.params["_" + p] = col.value;
+                break;
+            }
+        }
+        return expr.join(" " + (join == "or" || join == "OR" ? "||" : "&amp;&amp;") + " ");
+    }
+
+    _buildUpdate(req, obj, query)
+    {
+        if (lib.isEmpty(obj)) return;
+
+        var rc;
+
+        if (!lib.isEmpty(req.options.updateOps) || !lib.isEmpty(query)) {
+            rc = { script: { source: "", params: {} } };
+            if (req.options.upsert) {
+                rc.scripted_upsert = true;
+                rc.upsert = {};
+            }
+            const updateOps = req.options.updateOps || lib.empty;
+            const expr = this._buildCondition(req, rc, query);
+            if (expr) {
+                rc.script.source = `if(!(${expr})){ctx.op="noop";return;}`;
+            }
+
+            for (const p in obj) {
+                let val = obj[p], op = updateOps[p], prop = p, param = p, src = "_source";
+                if (val === null || val === "") op = "remove";
+
+                // Handle dotted columns as nested maps
+                if (p.includes(".")) {
+                    param = p.split(".");
+                    for (let i = 0; i &lt; param.length - 1; i++) {
+                        rc.script.source += `if(!ctx.${src}.containsKey('${param[i]}') || ctx.${src}.${param[i]}==null) ctx.${src}.${param[i]} = new HashMap();`;
+                        src += "." + param[i];
+                    }
+                    prop = param[param.length - 1];
+                    param = param.join("");
+                }
+
+                switch (op) {
+                case "none":
+                    break;
+
+                case "incr":
+                case "append":
+                    rc.script.source += `if(!ctx.${src}.containsKey('${prop}') || ctx.${src}.${prop}==null) ctx.${src}.${prop}=params.${param}; else ctx.${src}.${prop}+=params.${param};`;
+                    rc.script.params[param] = val;
+                    if (req.options.upsert) lib.objSet(rc.upsert, p, 0);
+                    break;
+
+                case "add":
+                    val = Array.isArray(val) ? val : [ val ];
+                    for (const i in val) {
+                        rc.script.source += `if(!ctx.${src}.containsKey('${prop}') || ctx.${src}.${prop}==null) ctx.${src}.${prop}=[params.${param}${i}]; else if(!ctx.${src}.${prop}.contains(params.${param}${i})) ctx.${src}.${prop}.add(params.${param}${i});`;
+                        rc.script.params[param + i] = val[i];
+                    }
+                    if (req.options.upsert) lib.objSet(rc.upsert, p, []);
+                    break;
+
+                case "del":
+                    val = Array.isArray(val) ? val : [ val ];
+                    for (const i in val) {
+                        rc.script.source += `if(ctx.${src}.containsKey('${prop}') &amp;&amp; ctx.${src}.${prop}.indexOf(params.${param}${i})>-1) ctx.${src}.${prop}.remove(ctx.${src}.${prop}.indexOf(params.${param}${i}));`;
+                        rc.script.params[param + i] = val[i];
+                    }
+                    break;
+
+                case "not_exists":
+                    rc.script.source += `if(!ctx.${src}.containsKey('${prop}') || ctx.${src}.${prop}==null) ctx.${src}.${prop}=params.${param};`;
+                    rc.script.params[param] = val;
+                    if (req.options.upsert) lib.objSet(rc.upsert, p, val);
+                    break;
+
+                case "unset":
+                case "remove":
+                    rc.script.source += `ctx._source.remove('${param}');`;
+                    break;
+
+                default:
+                    var col = req.columns[p];
+                    if (col?.type == "json" &amp;&amp; typeof val != "string") val = lib.stringify(val);
+                    if (!req.keys.includes(p)) {
+                        rc.script.source += `ctx._source.${p} = params.${param};`;
+                        rc.script.params[param] = val;
+                    }
+                    if (req.options.upsert) lib.objSet(rc.upsert, p, val);
+                }
+            }
+            if (!rc.script.source) return;
+        } else {
+            rc = { doc: obj };
+            if (!this.configOptions.keepEmpty) {
+                for (const p in obj) if (obj[p] === "") obj[p] = null;
+            }
+            if (req.options.upsert) rc.doc_as_upsert = true;
+        }
+        return rc;
+    }
+
+    cacheColumns(client, options, callback)
+    {
+        var docType = this.configOptions.docType;
+        this.doQuery("GET", "/_mappings", "", "", this.configOptions, (err, data, params) => {
+            if (err || !data) return callback(err);
+            const dbcolumns = {}, dbindexes = {};
+            for (const table in data) {
+                if (!dbindexes[table]) dbindexes[table] = 1;
+                if (!data[table].mappings) continue;
+                if (!dbcolumns[table]) dbcolumns[table] = {};
+                const properties = data[table].mappings.properties || data[table].mappings &amp;&amp; data[table].mappings[docType] &amp;&amp; data[table].mappings[docType].properties;
+                for (const c in properties) {
+                    if (!dbcolumns[table][c]) dbcolumns[table][c] = {};
+                    const col = properties[c];
+                    for (const p in col) {
+                        if (p == "type" &amp;&amp; col[p] == "text") continue;
+                        dbcolumns[table][c][p] = col[p];
+                    }
+                }
+            }
+            this.dbcolumns = dbcolumns;
+            this.dbindexes = dbindexes;
+            callback();
+        });
+        setTimeout(this._getNodes.bind(this), this.configOptions.discoveryDelay || 500);
+    }
+
+    delAll(table, query, options, callback)
+    {
+        db.query(db.prepare({ op: "delall", table, query, options, callback }));
+    }
+
+    query(client, req, callback)
+    {
+        switch (req.op) {
+        case "create":
+        case "upgrade":
+            this.queryCreate(client, req, callback);
+            break;
+
+        case "drop":
+            // Only if one index per table or single table regexp
+            this.doQuery("DELETE", this._getTable(req.table), "", "", this.configOptions, callback);
+            break;
+
+        case "sql":
+            this.querySql(client, req, callback);
+            break;
+
+        case "select":
+        case "search":
+            this.querySelect(client, req, callback);
+            break;
+
+        case "list":
+            this.queryList(client, req, callback);
+            break;
+
+        case "get":
+            this.queryGet(client, req, callback);
+            break;
+
+        case "add":
+            req.options.op_type = "create";
+        case "put":
+            this.queryAdd(client, req, callback);
+            break;
+
+        case "incr":
+            req.options.upsert = true;
+        case "update":
+            this.queryUpdate(client, req, callback);
+            break;
+
+        case "updateall":
+            this.queryUpdateAll(client, req, callback);
+            break;
+
+        case "del":
+            this.queryDel(client, req, callback);
+            break;
+
+        case "delall":
+            this.queryDelAll(client, req, callback);
+            break;
+
+        case "bulk":
+            this.queryBulk(client, req, callback);
+            break;
+
+        default:
+            callback();
+        }
+    }
+
+    queryCreate(client, req, callback)
+    {
+        var table = this._getTable(req.table);
+        var ecols = this.dbcolumns[table], dynamic_templates = [];
+        var properties = {}, missing = 0;
+        var config = req.config;
+
+        for (const name in req.query) {
+            const col = req.query[name];
+            if (req.op == "upgrade" &amp;&amp; ecols &amp;&amp; ecols[name]) continue;
+
+            // All specific properties go as is
+            for (const f in col.elasticsearch) {
+                if (f == "dynamic_templates") {
+                    dynamic_templates.push(...col.elasticsearch[f]);
+                } else {
+                    if (!properties[name]) properties[name] = {};
+                    properties[name][f] = col.elasticsearch[f];
+                }
+            }
+
+            if (col.keyword) {
+                properties[name].type = "keyword";
+            }
+
+            // Predefined properties with types and other field params
+            if (col.params &amp;&amp; col.type == "object") {
+                properties[name] = { properties: {} };
+                for (const param in col.params) {
+                    const prop = col.params[param];
+                    const type = config.typesMap[prop.type] || config.defaultType;
+                    properties[name].properties[param] = typeof type == "object" ? type: { type };
+                    for (const m in this._mappings) {
+                       if (prop[m]) properties[name].properties[param][m] = prop[m];
+                   }
+               }
+            } else {
+                // Just the type mapping
+                const type = col.join ? "text" : config.typesMap[col.type] || config.defaultType;
+                if (type) properties[col] = typeof type == "object" ? type : { type };
+            }
+            if (!properties[col]) continue;
+
+            if (!properties[name].type &amp;&amp; !properties[name].properties) {
+                properties[name].type = config.typesMap[col.type] || config.defaultType;
+            }
+            if (req.op == "upgrade" &amp;&amp; properties[name].type == "text" &amp;&amp; Object.keys(properties[name]).length == 1) {
+                delete properties[name];
+                continue;
+            }
+            if (!(ecols &amp;&amp; ecols[name])) missing++;
+        }
+
+        if (!this.dbindexes[table]) {
+            this.dbcolumns[table] = properties;
+            this.dbindexes[table] = 1;
+            var query = {
+                settings: {
+                    number_of_shards: config[lib.toCamel("shards-" + table, "-")] || config.shards,
+                    number_of_replicas: config[lib.toCamel("replicas-" + table, "-")] || config.replicas,
+                    analysis: {
+                        filter: {
+                            email: {
+                                type: "pattern_capture",
+                                preserve_original: true,
+                                patterns: [ "([^@]+)", "@(.+)" ]
+                            }
+                        },
+                        normalizer: {
+                            keyword_lower: {
+                                type: "custom",
+                                char_filter: [],
+                                filter: ["lowercase", "asciifolding"]
+                            }
+                        },
+                        analyzer: {
+                            email: {
+                                tokenizer: "uax_url_email",
+                                filter: [ "email", "lowercase", "unique" ]
+                            },
+                            keyword_lower: {
+                                type: "custom",
+                                tokenizer: "keyword",
+                                filter: "lowercase"
+                            },
+                            whitespace_lower: {
+                                type: "custom",
+                                tokenizer: "whitespace",
+                                filter: "lowercase"
+                            }
+                        }
+                    }
+                },
+                mappings: {
+                    date_detection: config.date_detection,
+                    numeric_detection: config.numeric_detection,
+                    dynamic_templates,
+                },
+            };
+            query.mappings.properties = properties;
+            lib.series([
+                (next) => {
+                    if (this._version) return next();
+                    this._getNodes(next);
+                },
+                (next) => {
+                    this.doQuery("PUT", table, query, "", config, next);
+                },
+            ], callback, true);
+            return;
+        }
+        if (missing) {
+            return this.doQuery("PUT", table + "/_mappings", { properties: properties }, "", config, callback);
+        }
+    }
+
+    queryGet(client, req, callback)
+    {
+        var table = this._getTable(req.table);
+        var keys = req.keys;
+        var config = req.config;
+        var path = table + "/" + config.docType + "/" + lib.escape(this._getKey(keys, req.query));
+        var query = this._getQuery("get", req.options);
+        if (req.options.select) query.fields = String(req.options.select);
+        this.doQuery("GET", path, null, query, req.options, (err, res) => {
+            if (err?.status == 404) err = null;
+            if (err || !(res?._source || res?.fields)) return callback(err, []);
+            callback(null, [ res._source || res.fields ], res);
+        });
+    }
+
+    querySelect(client, req, callback)
+    {
+        var table = this._getTable(req.table);
+        var config = req.config;
+        var cols = db.getColumns(req.table, req.options);
+        var method = "POST", opts;
+        var path = table + "/" + (req.options.op || "_search");
+        var query = this._getQuery("query", req.options);
+        var obj;
+
+        if (lib.isObject(req.query)) {
+            if (req.query.aggs || req.query.aggregations || req.query.query) {
+                // Native JSON request
+                obj = req.query;
+                opts = obj;
+            } else {
+                if (req.query.q &amp;&amp; typeof req.query.q == "string") {
+                    req.query.q = lib.phraseSplit(req.query.q, req.options.splitOptions);
+                }
+                if (lib.isObject(req.options.filter)) {
+                    obj = {
+                        query: {
+                            bool: {
+                                must: {
+                                    query_string: {
+                                        query: this._getQuery("qs", req.options),
+                                    }
+                                },
+                                filter: req.options.filter
+                            }
+                        },
+                    };
+                    obj.query.bool.must.query_string.query = this.getQueryString(req);
+                    if (!obj.query.bool.must.query_string.query) delete obj.query.bool.must.query_string;
+                } else {
+                    obj = {
+                        query: {
+                            query_string: this._getQuery("qs", req.options),
+                        }
+                    };
+                    obj.query.query_string.query = this.getQueryString(req);
+                    if (!obj.query.query_string.query) delete obj.query;
+                    if (req.options.noscan &amp;&amp; lib.isEmpty(obj)) {
+                        logger.info('select:', this.name, req, "NO EMPTY SCANS ENABLED");
+                        return callback();
+                    }
+                }
+                opts = obj;
+            }
+        } else
+        // Already formatted query string
+        if (typeof req.query == "string" &amp;&amp; req.query) {
+            obj = {
+                query: {
+                    query_string: this._getQuery("qs", req.options),
+                }
+            };
+            obj.query.query_string.query = req.query;
+            opts = obj;
+        } else {
+            return callback();
+        }
+
+        if (req.options.random_score) {
+            obj = {
+                query: {
+                    function_score: {
+                        query: obj.query,
+                        random_score: {},
+                    }
+                }
+            }
+            opts = obj;
+        }
+
+        if (req.options.count > 0) {
+            opts.size = req.options.count;
+        } else
+        if (config.selectSize > 0) {
+            opts.size = config.selectSize;
+        }
+        if (req.options.select) {
+            opts._source = lib.strSplit(req.options.select);
+        } else
+        if (req.options.select_fields) {
+            opts.fields = lib.strSplit(req.options.select_fields);
+            opts._source = false;
+        }
+        if (req.options.scroll_timeout > 0) {
+            query.scroll = req.options.scroll_timeout + "ms";
+        } else
+        if (req.options.fullscan) {
+            query.scroll = config.scroll_timeout;
+        }
+        if (req.options.explain) {
+            query.explain = true;
+        }
+        if (req.options.start) {
+            if (Array.isArray(req.options.start)) {
+                obj.search_after = req.options.start;
+            } else
+            if (lib.isNumeric(req.options.start)) {
+                opts.from = req.options.start;
+            } else
+            if (req.options.start?.scroll_id &amp;&amp; req.options.start?.scroll) {
+                for (const p in query) delete query[p];
+                for (const p in opts) delete opts[p];
+                query.scroll_id = req.options.start.scroll_id;
+                if (!req.options.scroll) query.scroll = req.options.start.scroll;
+                path = "/_search/scroll";
+                method = "GET";
+            }
+        }
+        // Pass a string, or a list of strings/formatted sorting objects
+        if (req.options.sort &amp;&amp; !query.scroll_id) {
+            var sort = lib.strSplit(req.options.sort).map((x) => {
+                if (!x) return null;
+                if (typeof x == "object") return x;
+                if (typeof x != "string") return null;
+                if (x[0] == "_") {
+                    if (x == "_random") {
+                        return { _script: { script: "Math.random()", type: "number", order: "asc" } };
+                    }
+                    return x;
+                }
+                let desc;
+                if (x[0] == "!") {
+                    desc = 1;
+                    x = x.substr(1);
+                }
+                const col = cols[x];
+                if (col) {
+                    if (desc) {
+                        return col.raw ? { [x + ".raw"]: { order: "desc" } } : { [x]: { order: "desc" } };
+                    }
+                    return col.raw ? x + ".raw" : x;
+                }
+                // Nested object
+                if (x.indexOf(".") > -1) {
+                    var y = x.split(".");
+                    if (cols[y[0]]) {
+                        return desc ? { [x]: { order: "desc" } } : x;
+                    }
+                }
+                return null;
+            }).filter((x) => (x));
+
+            if (sort.length) {
+                if (!Array.isArray(opts.sort)) opts.sort = [];
+                for (const i in sort) {
+                    if (req.options.desc || req.options.sort_missing) {
+                        const o = typeof sort[i] == "string" ? { [sort[i]]: {} } : sort[i];
+                        for (const p in o) {
+                            if (req.options.desc) o[p].order = "desc";
+                            if (req.options.sort_missing &amp;&amp; !/_score|_doc/.test(p)) o[p].missing = req.options.sort_missing;
+                        }
+                        opts.sort.push(o);
+                    } else {
+                        opts.sort.push(sort[i]);
+                    }
+                }
+            }
+            if (req.options.sort == "random") {
+                opts.sort = { _script: { script: "Math.random()", type: "number", order: "asc" } };
+            }
+        }
+        if (req.options.total) {
+            path = table + "/_count";
+            delete opts.sort;
+        }
+        if (req.options.track_total_hits &amp;&amp; obj.query) {
+            obj.track_total_hits = true;
+        }
+
+        this.doQuery(method, path, obj, query, req.options, (err, res) => {
+            if (err?.status == 404) {
+                logger.info("elasticsearchQuery:", "notfound:", path, obj, query, err);
+                err = null;
+            }
+            if (err || !res) return callback(err, []);
+
+            if (res._scroll_id) {
+                res.next_token = { scroll_id: res._scroll_id, scroll: query.scroll };
+            }
+            var rows = [];
+            if (res.hits) {
+                if (!res._scroll_id &amp;&amp;
+                    !req.options.no_next_token &amp;&amp;
+                    Array.isArray(opts.sort) &amp;&amp;
+                    res.hits.hits.length == opts.size) {
+                        res.next_token = res.hits.hits[res.hits.hits.length - 1].sort;
+                }
+                rows = res.hits.hits.map((x) => {
+                    if (Array.isArray(req.options.sort_names) &amp;&amp; Array.isArray(x.sort)) {
+                        for (var i = 0; i &lt; req.options.sort_names.length; i++) {
+                            x._source[req.options.sort_names[i]] = x.sort[i];
+                        }
+                    }
+                    return x._source || x.fields || {};
+                });
+                if (!res.total) {
+                    res.total = res.hits.total ? res.hits.total > 0 ? res.hits.total : res.hits.total.value || 0 : 0;
+                }
+                if (!req.options.debug) {
+                    delete res.hits.hits;
+                }
+            }
+            if (req.options.info_query) res.query = obj.query;
+            if (req.options.total) rows = [{ count: res.count }];
+            if (res._scroll_id) {
+                if (!rows.length || (req.options.limit > 0 &amp;&amp; req.options.limit_count + rows.length >= req.options.limit)) {
+                    this.doQuery("DELETE", "/_search/scroll", { scroll_id: res._scroll_id }, "", config, lib.noop);
+                    res.next_token = null;
+                }
+            }
+            callback(null, rows, res);
+        });
+    }
+
+    queryList(client, req, callback)
+    {
+        var table = this._getTable(req.table);
+        var path = table + "/_mget";
+        var query = this._getQuery("list", req.options);
+        if (req.options.select) query._source = lib.strSplit(req.options.select).join(",");
+        var ids = [];
+        for (const i in req.query) ids.push(this._getKey(Object.keys(req.query[i]), req.query[i]));
+            this.doQuery("GET", path, { ids: ids }, query, req.options, (err, res) => {
+                if (err?.status == 404) err = null;
+                if (err || !res) return callback(err, []);
+                var rows = res.docs ? res.docs.map((x) => (x._source || x.fields || {})) : [];
+                if (!req.options.debug) delete res.docs;
+                callback(null, rows, res);
+            });
+    }
+
+    queryAdd(client, req, callback)
+    {
+        var table = this._getTable(req.table);
+        var keys = req.keys;
+        var config = req.config;
+        var path = table + "/" + config.docType + "/" + lib.escape(this._getKey(keys, req.query));
+        var query = this._getQuery("index", req.options);
+        this.doQuery("PUT", path, req.query, query, req.options, (err, res) => {
+            if (!err &amp;&amp; res) res.affected_rows = 1;
+            if (err?.status == 409) err.code = "AlreadyExists";
+            callback(err, [], res);
+        });
+    }
+
+    queryUpdate(client, req, callback)
+    {
+        var table = this._getTable(req.table);
+        var keys = req.keys;
+        var config = req.config;
+        var path = table + "/_update/" + lib.escape(this._getKey(keys, req.query));
+        var query = this._getQuery("index", req.options);
+        var obj = this._buildUpdate(req, req.query, req.options.query);
+        if (!obj) return callback(null, [], {});
+        if (req.options.returning == "*") obj._source = true;
+        if (typeof req.options.retry_on_conflict == "undefined") query.retry_on_conflict = config.retryOnConflict;
+        this.doQuery("POST", path, obj, query, req.options, (err, res) => {
+            if (!err &amp;&amp; res?.result == "updated") res.affected_rows = 1;
+            if (err?.status == 404) err = null;
+            if (err?.status == 409) err.code = "AlreadyExists";
+            callback(err, [], res);
+        });
+    }
+
+    queryUpdateAll(client, req, callback)
+    {
+        var table = this._getTable(req.table);
+        var path = table + "/_update_by_query";
+        var query = this._getQuery("updateall", req.options);
+        var obj;
+        var filter = req.options.query;
+
+        if (lib.isObject(filter)) {
+            if (lib.isObject(filter.query)) {
+                obj = filter;
+            } else {
+                if (filter.q) filter.q = lib.phraseSplit(filter.q);
+                obj = {
+                    query: {
+                        query_string: this._getQuery("qs", req.options),
+                    }
+                };
+                obj.query.query_string.query = this.getQueryString(req, filter);
+                if (!obj.query.query_string.query) obj.query = { match_all: {} };
+            }
+        } else
+        if (typeof filter == "string") {
+            query.q = filter;
+        }
+        var u = this._buildUpdate(req, req.query);
+        if (u?.script) {
+            obj.script = u.script;
+        }
+        this.doQuery("POST", path, obj, query, req.options, (err, res) => {
+            if (!err &amp;&amp; res) res.affected_rows = res.deleted;
+            callback(err, [], res);
+        });
+
+    }
+
+    queryDel(client, req, callback)
+    {
+        var table = this._getTable(req.table);
+        var keys = req.keys;
+        var config = req.config;
+
+        var path = table + "/" + config.docType + "/" + lib.escape(this._getKey(keys, req.query));
+        var query = this._getQuery("del", req.options);
+        this.doQuery("DELETE", path, null, query, req.options, (err, res) => {
+            if (!err &amp;&amp; res) res.affected_rows = 1;
+            if (err?.status == 404) err = null;
+            callback(err, [], res);
+        });
+    }
+
+    queryBulk(client, req, callback)
+    {
+        var keys = req.keys;
+        var config = req.config;
+
+        var info = { retry_count: 0, _size: req.query.length, _retries: 0, _timeout: config.bulkRetryTimeout };
+        var bulk = req.query, bulkSize = req.options.bulkSize || config.bulkSize;
+        var map = {}, errors = [];
+        lib.doWhilst(
+            (next) => {
+                var item, meta, data = "";
+                var batch = bulk.slice(0, bulkSize);
+                bulk = bulk.slice(bulkSize);
+                if (!batch.length) return next();
+                for (const i in batch) {
+                    item = batch[i];
+                    if (item.errstatus) {
+                        errors.push(item);
+                        continue;
+                    }
+                    keys = db.getKeys(item.table, item.options);
+                    meta = { _id: this._getKey(keys, item.obj), _index: this._getTable(item.table) };
+                    switch (item.op) {
+                    case "add":
+                        data += lib.stringify({ create: meta }) + "\n";
+                        data += lib.stringify(item.obj) + "\n";
+                        break;
+                    case "put":
+                        data += lib.stringify({ index: meta }) + "\n";
+                        data += lib.stringify(item.obj) + "\n";
+                        break;
+                    case "incr":
+                    case "update":
+                        if (!item.options || typeof req.options.retry_on_conflict != "number") {
+                            meta.retry_on_conflict = config.retryOnConflict;
+                        }
+                        var d = this._getUpdate(item);
+                        if (!d) {
+                            item.errstatus = 404;
+                            errors.push(item);
+                            break;
+                        }
+                        data += lib.stringify({ update: meta }) + "\n";
+                        data += lib.stringify(d) + "\n";
+                        break;
+                    case "del":
+                        data += lib.stringify({ delete: meta }) + "\n";
+                        break;
+                    }
+                    map[meta._id] = item;
+                }
+                if (!data) return next();
+                req.options.headers = { "content-type": "application/json" };
+                this.doQuery("POST", "/_bulk", data, "", req.options, (err, res) => {
+                    if (!err &amp;&amp; res) {
+                        var retry, item;
+                        for (const i in res.items) {
+                            item = res.items[i].create || res.items[i].index || res.items[i].update || res.items[i].delete;
+                            if (item?.status >= 400 &amp;&amp; map[item._id]) {
+                                if (item.status == 429) {
+                                    bulk.unshift(map[item._id]);
+                                    retry = 1;
+                                } else {
+                                    errors.push(lib.objExtend(map[item._id], { _id: item._id, errstatus: item.status, errmsg: item.error?.reason }, { del: /^(orig|options)/ }));
+                                }
+                            }
+                        }
+                        if (res.retry_count) info.retry_count += res.retry_count;
+                        if (retry) {
+                            info._retries++;
+                            return setTimeout(next, lib.objMult(info, "_timeout", 2, "old"));
+                        }
+                    }
+                    next(err);
+                });
+            },
+            () => (info._retries &lt; config.bulkRetryCount &amp;&amp; bulk.length > 0),
+            (err) => {
+                if (!err) info.affected_rows = info._size - errors.length;
+                callback(err, errors, info);
+            }, true);
+    }
+
+    queryDelAll(client, req, callback)
+    {
+        var table = this._getTable(req.table);
+        var path = table + "/_delete_by_query";
+        var query = this._getQuery("delall", req.options);
+        var obj;
+
+        if (lib.isObject(req.query)) {
+            if (lib.isObject(req.query.query)) {
+                obj = req.query;
+            } else {
+                if (req.query.q) req.query.q = lib.phraseSplit(req.query.q);
+                obj = {
+                    query: {
+                        query_string: this._getQuery("qs", req.options),
+                    }
+                };
+                obj.query.query_string.query = this.getQueryString(req);
+                if (!obj.query.query_string.query) obj.query = { match_all: {} };
+            }
+        } else
+        if (typeof req.query == "string") {
+            query.q = req.query;
+        }
+        this.doQuery("POST", path, obj, query, req.options, (err, res) => {
+            if (!err &amp;&amp; res) res.affected_rows = res.deleted;
+            callback(err, [], res);
+        });
+    }
+
+    querySql(client, req, callback)
+    {
+        var path = "/_sql";
+        var query = this._getQuery("sql", req.options);
+        var obj = { query: req.text };
+        if (req.options.filter) obj.filter = req.options.filter;
+        if (lib.isArray(req.values)) obj.params = req.values;
+        if (req.options.count > 0) obj.fetch_size = req.options.count;
+        if (req.options.multi) obj.field_multi_value_leniency = true;
+        if (req.options.columnar) obj.columnar = true;
+        if (req.options.translate) path += "/translate";
+        this.doQuery("POST", path, obj, query, req.options, (err, res) => {
+            if (err?.status == 404) err = null;
+            if (err || !res) return callback(err, []);
+            var rows = lib.isArray(res.rows, []).map((x) => (x.reduce((r, v, i) => { r[res.columns[i].name] = v; return r }, {})));
+            if (!req.options.no_next_token) res.next_token = res.cursor;
+            if (!req.options.debug) delete res.rows;
+            callback(err, rows, res);
+        });
+    }
+
+}
+
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+    
+    
+</div>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.5</a> using the <a href="https://github.com/vseryakov/docdash">docdash</a> theme.
+</footer>
+
+<script>prettyPrint();</script>
+<script src="scripts/linenumber.js"></script>
+
+<script src="scripts/search.js" defer></script>
+
+
+<script src="scripts/collapse.js" defer></script>
+
+
+</body>
+</html>
