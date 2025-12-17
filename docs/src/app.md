@@ -1,19 +1,4 @@
-# Application structure
-
-The main purpose of the backendjs is to provide API to access the data, the data can be stored in the database or some other way
-but the access to that data will be over HTTP and returned back as JSON. This is default functionality but any custom application
-may return data in whatever format is required.
-
-Basically the backendjs is a Web server with ability to perform data processing using local or remote jobs which can be scheduled similar to Unix cron or
-requested on demand.
-
-The principle behind the system is that the API services just return data and Web or mobiles apps can render it to
-the user without the backend involved. It does not mean this is simple gateway between the database, in many cases it is but if special
-processing of the data is needed before sending it to the user, it is possible to do and backendjs provides many convenient helpers and tools for it.
-
-When the API layer is initialized, the api module contains `app` object which is an Express server.
-
-Special empty module `app` is designated to be used for quick application development/prototyping. This module is available in the same way as `api` and `core` which makes it easy to refer and extend with additional methods and structures.
+# Applications
 
 An example structure of a generic single file application, app.js
 
@@ -65,81 +50,6 @@ the application is structured but has predefined conventions to make it easy.
 
 ## Modules
 
-The primary way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
-home subdirectory `modules/`. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.
-
-Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
-can be shipped regardless of the npm, node modules and other env setup.
-
-All modules are exposed in the top level `modules` module. This is a way for global access to modules by name.
-
-By having module names contain dots it is possible to create a module hierarchy, for example
-modules with names `billing.invoices`, `billing.payable`, `billing.stripe` can be accessed like this:
-
-      const { modules } = require("backendjs");
-      modules.billing.invoices....
-      modules.billing.payable...
-      modules.billing.stripe...
-
-Let's assume the `modules/` contains file facebook.js which implements custom FB logic:
-
-```javascript
-    const { core } = require("backendjs");
-
-    const mod = {
-        name: "facebook",
-        args: [
-            { name: "token", descr: "API token" },
-        ]
-    }
-    module.exports = mod;
-
-    mod.configureWeb = function(options, callback) {
-       ...
-    }
-
-    mod.makeRequest = function(options, callback) {
-         app.fetch({ url: options.path, query: { access_token: fb.token } }, callback);
-    }
-```
-
-This is the main app code:
-
-```javascript
-    const { api, modules, server } = require("backendjs");
-
-    // Using facebook module in the main app
-    api.app.get("/me", (req, res) => {
-
-       modules.facebook.makeRequest({ path: "/me" }, (err, data) => {
-          api.sendJSON(req, err, data);
-       });
-    });
-
-    server.start();
-```
-
-To run:
-
-        node app.js -api -modules-path $(pwd)/modules
-
-## NPM packages as modules
-
-In case different modules is better keep separately for maintenance or development purposes they can be split into
-separate NPM packages, the structure is the same, modules must be in the `modules/` folder and the package must be loadable
-via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
-by the backendjs `app.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
-
-The config parameter `import-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
-application structure all subfolders inside each NPM package will be added to the core:
-
-  - modules will be loaded from the modules/ folder
-  - files in the web/ folder will be added to the static search path
-  - all templates from views/ folder will be used for rendering
-
-If there is a config file present as `etc/config` it will be loaded as well, this way each package can maintain its default config parameters if necessary
-without touching other or global configuration. Although such config files will not be reloaded on changes, when NPM installs or updates packages it
-moves files around so watching the old config is no point because the updated config file will be different.
 
 # Database schema definition
 
@@ -252,30 +162,6 @@ For example:
     > { login: "u1", name: "user", .... }
 
 
-
-# API requests handling
-
-All methods will put input parameters in the `req.query`, GET or POST.
-
-One way to verify input values is to use `api.getQuery`, only specified parameters will be returned and converted according to
-the type or ignored.
-
-Example:
-
-```javascript
-   var params = {
-      test1: { id: { type: "text" },
-               count: { type: "int" },
-               email: { regexp: /^[^@]+@[^@]+$/ }
-      }
-   };
-
-   api.app.all("/endpoint/test1", function(req, res) {
-      const query = api.getQuery(req, params.test1);
-      if (typeof query == "string") return api.sendReply(res, 400, query);
-      ...
-   });
-```
 
 # Example of TODO application
 

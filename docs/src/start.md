@@ -62,7 +62,7 @@ or the same using async/await, same methods with `a` prepended to the name
 
 ## To run an example
 
-* The library is packaged with copies of Bootstrap, jQuery, Knockout.js, Alpine.js for quick Web prototyping
+* The library is packaged with copies of Bootstrap, Alpine.js for quick Web prototyping
 in web/js and web/css directories, all scripts are available from the browser with /js or /css paths.
 
 * Go to `examples` directory, it has several apps with README.md explaining how to run each.
