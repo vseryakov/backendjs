@@ -264,24 +264,54 @@ See {@link module:api.acl}
 ### **api-acl-err-(.+)**
  Error messages for various cases   
 ### **api-acl-add-([a-z0-9_]+)**
- Add URLs to the named ACL which can be used in allow/deny rules per role, ex: -api-acl-add-admins ^/admin   
+ Add URLs to the named ACL which can be used in allow/deny rules per role   
 ##### Type: regexpobj   
+##### Example:
+```
+-api-acl-add-admins ^/admin
+```
+
 ### **api-acl-deny-([a-z0-9_]+)**
- Match all regexps from the specified acls to deny access for the specified role, ex: -api-acl-deny-user admins,billing   
+ Match all regexps from the specified acls to deny access for the specified role   
 ##### Type: list   
+##### Example:
+```
+-api-acl-deny-user admins,billing
+```
+
 ### **api-acl-allow-([a-z0-9_]+)**
- Match all regexps from the specified acls for allow access for the specified role, ex: -api-acl-allow-staff admins,support,-billing   
+ Match all regexps from the specified acls for allow access for the specified role   
 ##### Type: list   
+##### Example:
+```
+-api-acl-allow-staff admins,support,-billing
+```
+
 ### **api-acl-public**
- Match all regexps from the specified acls for public access, ex: -api-acl-public pub,docs,-intdocs   
+ Match all regexps from the specified acls for public access   
 ##### Type: list   
 ##### Default: ["public"]   
+##### Example:
+```
+-api-acl-public pub,docs,-intdocs
+```
+
 ### **api-acl-anonymous**
- Match all regexps from the specified acls to allow access with or without authentication, ex: -api-acl-anonymous pub,docs   
+ Match all regexps from the specified acls to allow access with or without authentication   
 ##### Type: list   
+##### Example:
+```
+-api-acl-anonymous pub,docs
+```
+
 ### **api-acl-authenticated**
- Match all regexps from the specified acls to allow access only with authentication any role, ex: -api-acl-authenticated stats,profile   
+ Match all regexps from the specified acls to allow access only with authentication any role   
 ##### Type: list   
+##### Example:
+```
+-api-acl-authenticated stats,profile
+```
+
 ### **api-acl-reset**
  Reset all rules   
 ##### Type: callback   
@@ -375,11 +405,21 @@ See {@link module:api.redirect}
 ### **api-redirect-err-(.+)**
  Error messages for various cases   
 ### **api-redirect-url**
- Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location, example: { '^[^/]+/path/$': '/path2/index.html', '.+/$': '301:@PATH@/index.html' }    
+ Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
 ##### Type: regexpmap   
+##### Example:
+```
+{ '^[^/]+/path/$': '/path2/index.html', '.+/$': '301:@PATH@/index.html' }
+```
+
 ### **api-redirect-login-(.+)**
- Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url, example: api-redirect-login-^/admin/=/login.html   
+ Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url   
 ##### Type: regexpobj   
+##### Example:
+```
+api-redirect-login-^/admin/=/login.html
+```
+
 ### **api-redirect-reset**
  Reset all rules   
 ##### Type: callback   
@@ -388,11 +428,21 @@ See {@link module:api.routing}
 ### **api-routing-err-(.+)**
  Error messages for various cases   
 ### **api-routing-path-(.+)**
- Locations to be re-routed to other path, this is done inside the server at the beginning, only the path is replaced, same format and placeholders as in redirect-url, use ! in front of regexp to remove particular redirect from the list, example: -api-routing-path-^/user/get /user/read   
+ Locations to be re-routed to other path, this is done inside the server at the beginning, only the path is replaced, same format and placeholders as in redirect-url, use ! in front of regexp to remove particular redirect from the list   
 ##### Type: regexpobj   
+##### Example:
+```
+-api-routing-path-^/user/get /user/read
+```
+
 ### **api-routing-auth-(.+)**
- URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url, example: -api-routing-auth-^/user/get /user/read   
+ URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url   
 ##### Type: regexpobj   
+##### Example:
+```
+-api-routing-auth-^/user/get /user/read
+```
+
 ### **api-routing-reset**
  Reset all rules   
 ##### Type: callback   
@@ -415,8 +465,13 @@ See {@link module:api.session}
 ##### Type: bool   
 ##### Default: true   
 ### **api-session-cookie-(.+)**
- Cookie values for requests that match beginning of the path, ex -api-session-cookie-/testing secure:false,sameSite:None   
+ Cookie values for requests that match beginning of the path   
 ##### Type: map   
+##### Example:
+```
+-api-session-cookie-/testing secure:false,sameSite:None
+```
+
 # <a name="api.signature">api.signature</a>
 See {@link module:api.signature}
 ### **api-signature-header**
