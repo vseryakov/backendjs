@@ -21,7 +21,7 @@
   "devDependencies": {
     "eslint": "8.57.1",
     "esbuild": "0.27.1",
-    "@vseryakov/docdash": ""
+    "docdash": "github:vseryakov/docdash"
   },
   "peerDependencies": {
     "croner": "9.1.0",

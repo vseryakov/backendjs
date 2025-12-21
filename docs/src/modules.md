@@ -76,6 +76,52 @@ If there is a config file present as `etc/config` it will be loaded as well, thi
 without touching other or global configuration. Although such config files will not be reloaded on changes, when NPM installs or updates packages it
 moves files around so watching the old config is no point because the updated config file will be different.
 
+# Database schema definition
+
+The backend support multiple databases and provides the same db layer for access. Common operations are supported and all other
+specific usage can be achieved by using SQL directly or other query language supported by any particular database.
+
+The database operations supported in the unified way provide simple actions like `db.get, db.put, db.update, db.del, db.select`.
+The `db.query` method provides generic access to the database driver and executes given query directly by the db driver,
+it can be SQL or other driver specific query request.
+
+Before the tables can be queried the schema must be defined and created, the backend db layer provides simple functions to do it.
+
+To define tables inside a module just provide a `tables` property in the module object, it will be picked up by database initialization automatically.
+
+```javascript
+exports.modules = {
+    name: "mymodule",
+    tables: {
+     album: {
+         id: { primary: 1 },                         // Primary key for an album
+         name: { pub: 1 },                           // Album name, public column
+         mtime: { type: "now" },                     // Modification timestamp
+     },
+     photo: {
+         album_id: { primary: 1 },                   // Combined primary key
+         id: { primary: 1 },                         // consisting of album and photo id
+         name: { pub: 1, index: 1 },                 // Photo name or description, public column with the index for faster search
+         mtime: { type: "now" }
+     }
+ }
+};
+```
+
+- the system will automatically create the album and photos tables, this definition must remain in the app source code
+  and be called on every app startup. This allows 1) to see the db schema while working with the app and 2) easily maintain it by adding new columns if
+  necessary, all new columns will be detected and the database tables updated accordingly. And it is all JavaScript, no need to learn one more language or syntax to maintain database tables, only schema definition conventions.
+
+Each database may restrict how the schema is defined and used, the db layer does not provide an artificial layer hiding all specifics,
+it just provides the same API and syntax, for example, DynamoDB tables must have only hash primary key or combined hash and range
+key, so when creating table to be used with DynamoDB, only one or two columns can be marked with primary property while for SQL
+databases the composite primary key can consist of more than 2 columns.
+
+The backendjs always creates several tables in the configured database pools by default, these tables are required to support
+default API functionality and some are required for backend operations. Refer below for the JavaScript modules documentation
+that described which tables are created by default. In the custom applications the `db.describeTables` method can modify columns
+in the default table and add more columns if needed.
+
 ## Default methods
 
 ```js

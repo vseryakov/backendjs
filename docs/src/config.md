@@ -266,6 +266,7 @@ See {@link module:api.acl}
 ### **api-acl-add-([a-z0-9_]+)**
  Add URLs to the named ACL which can be used in allow/deny rules per role   
 ##### Type: regexpobj   
+##### Default: {"list":["^/$","\\.htm$","\\.html$","\\.ico$","\\.gif$","\\.png$","\\.jpg$","\\.jpeg$","\\.svg$","\\.ttf$","\\.eot$","\\.woff$","\\.woff2$","\\.js$","\\.css$","^/js/","^/css/","^/img","^/webfonts/","^/public/","^/ping","^/counter"],"rx":{}}   
 ##### Example:
 ```
 -api-acl-add-admins ^/admin
@@ -784,16 +785,18 @@ See {@link module:db}
 ##### Type: bool   
 ### **db-pool**
  Default pool to be used for db access without explicit pool specified   
+##### Default: "sqlite"   
 ### **db-name**
  Default database name to be used for default connections in cases when no db is specified in the connection url   
 ##### Default: "db"   
 ### **db-create-tables**
  Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation   
 ##### Type: bool   
+##### Default: true   
 ### **db-create-tables-roles**
  Only processes with these roles can create tables   
 ##### Type: list   
-##### Default: ["server","shell"]   
+##### Default: ["web"]   
 ### **db-cache-tables**
  List of tables that can be cached: bk_user, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.   
 ##### Type: list   
@@ -863,6 +866,7 @@ See {@link module:db}
 ##### Default: 2   
 ### **db-([a-z0-9]+)-pool**
  A database pool name, depending on the driver it can be an URL, name or pathname   
+##### Default: "counter"   
 ##### Example:
 ```
 `-db-pg-pool`
