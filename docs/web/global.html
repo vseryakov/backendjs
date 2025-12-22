@@ -1194,7 +1194,7 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line218">line 218</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line226">line 226</a>
     </li></ul></dd>
     
 
@@ -1522,7 +1522,7 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line107">line 107</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line115">line 115</a>
     </li></ul></dd>
     
 
@@ -2271,10 +2271,25 @@ returns the query record with new columns from memory</p></td>
 
             
 
-            <td class="description last"><p>operators to use for comparison for properties, an object with column name and operator.
-Common operators are, some databases may support other specific ops:</p>
-<pre class="prettyprint source lang->,"><code>between, match, regexp, iregexp, begins_with, not_begins_with, ends_with, not_ends_with,
-like, like%, ilike%, contains, not_contains```</code></pre></td>
+            <td class="description last"><p>operators to use for for properties, an object with column name and operator.</p>
+<p><strong>Comparison</strong> operators used in select/get:</p>
+<pre class="prettyprint source lang->,"><code>   between, match, regexp, iregexp, begins_with, not_begins_with, ends_with, not_ends_with,
+   like, like%, ilike%, contains, not_contains
+</code></pre>
+<p><strong>Update</strong> operators used in incr/update/del:</p>
+<ul>
+<li>add - add to list</li>
+<li>del - remove from list</li>
+<li>incr - increment a number</li>
+<li>unset/remove - remove column or set to NULL</li>
+<li>append - append to existing column value</li>
+<li>prepend - prepend to existing column value</li>
+<li>not_exists - update only if the value is null, otherwise skip</li>
+</ul>
+<p>As alternative, operators also can be used with column names, the format is <strong>name_$op</strong>:</p>
+<pre class="prettyprint source lang-js"><code>{ flags_$del: &quot;flag&quot; }
+{ count_$incr: 3 }
+</code></pre></td>
         </tr>
 
     
@@ -2305,6 +2320,30 @@ like, like%, ilike%, contains, not_contains```</code></pre></td>
 
         <tr>
             
+                <td class="name"><code>typesOps</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>an object that defines ops by column type, for example <code>typesOps: { list: &quot;add&quot; }</code> will</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
                 <td class="name"><code>typesMap</code></td>
             
 
@@ -2322,7 +2361,8 @@ like, like%, ilike%, contains, not_contains```</code></pre></td>
 
             
 
-            <td class="description last"><p>type mapping between supplied and actual column types, an object</p></td>
+            <td class="description last"><p>type mapping between supplied and actual column types, an object
+make sure all lists will have options.ops set to <code>add</code> if not specified explicitly</p></td>
         </tr>
 
     
@@ -2694,7 +2734,7 @@ by default all properties in the obj not described in the table definition for t
             
 
             <td class="description last"><p>an object with the condition for the update/incr ops,
-it is used instead in addition to the primary keys in the <code>query</code>,
+it is used instead or in addition to the primary keys in the <code>query</code>,
 a property named $or/$and will be treated as a sub-expression if it is an object. For multiple OR/AND use $$or, $$$or,...</p></td>
         </tr>
 
@@ -2720,65 +2760,6 @@ a property named $or/$and will be treated as a sub-expression if it is an object
             
 
             <td class="description last"><p>create a new record if it does not exist</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>updateOps</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>an object with column names and operations to be performed on the named column, for update/incr ops to
-customize how a column should be updated, the following comon actionbs are supported:</p>
-<ul>
-<li>add - add to list</li>
-<li>del - remove from list</li>
-<li>incr - increment a number</li>
-<li>unset/remove - remove column or set to NULL</li>
-<li>append - append to existing column value</li>
-<li>prepend - prepend to existing column value</li>
-<li>not_exists - update only if the value is null, otherwise skip</li>
-</ul></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>typesOps</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>an object that defines updateOps operation by column type, for example <code>typesOps: { list: &quot;add&quot; }</code> will
-make sure all lists will have updateOps set to <code>add</code> if not specified explicitly</p></td>
         </tr>
 
     
@@ -3096,7 +3077,7 @@ not every row individually, batch size is defined by the <code>count</code> prop
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line95">line 95</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line103">line 103</a>
     </li></ul></dd>
     
 
@@ -3440,7 +3421,7 @@ not every row individually, batch size is defined by the <code>count</code> prop
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line119">line 119</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line127">line 127</a>
     </li></ul></dd>
     
 
@@ -3611,7 +3592,7 @@ not every row individually, batch size is defined by the <code>count</code> prop
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line127">line 127</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line135">line 135</a>
     </li></ul></dd>
     
 

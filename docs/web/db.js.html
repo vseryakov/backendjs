@@ -88,13 +88,32 @@ const fs = require("fs");
  *      returns the query record with new columns from memory
  * @property {boolean} cached - if true then run getCached version directly
  * @property {boolean} nocache - disable caching even if configured for the table
- * @property {object} ops - operators to use for comparison for properties, an object with column name and operator.
- *   Common operators are, some databases may support other specific ops:
- *    ```>, gt, &lt;, lt, =, !=, &lt;>, >=, ge, &lt;=, le, in, all_in,
+ * @property {object} ops - operators to use for for properties, an object with column name and operator.
+ *
+ *   **Comparison** operators used in select/get:
+ * ```>, gt, &lt;, lt, =, !=, &lt;>, >=, ge, &lt;=, le, in, all_in,
  *    between, match, regexp, iregexp, begins_with, not_begins_with, ends_with, not_ends_with,
- *    like, like%, ilike%, contains, not_contains```
+ *    like, like%, ilike%, contains, not_contains
+ * ```
+ *
+ *  **Update** operators used in incr/update/del:
+ *    - add - add to list
+ *    - del - remove from list
+ *    - incr - increment a number
+ *    - unset/remove - remove column or set to NULL
+ *    - append - append to existing column value
+ *    - prepend - prepend to existing column value
+ *    - not_exists - update only if the value is null, otherwise skip
+ *
+ * As alternative, operators also can be used with column names, the format is **name_$op**:
+ * ```js
+ * { flags_$del: "flag" }
+ * { count_$incr: 3 }
+ * ```
  * @property {object} opsMap - operator mapping between supplied operators and actual operators supported by the db
+ * @property {object} typesOps - an object that defines ops by column type, for example `typesOps: { list: "add" }` will
  * @property {object} typesMap - type mapping between supplied and actual column types, an object
+ *   make sure all lists will have options.ops set to `add` if not specified explicitly
  * @property {string|string[]} select - a list of columns or expressions to return or all columns if not specified, only existing columns will be returned
  * @property {string|object} start - start records with this primary key, this is the `next_token` passed by the previous query from {@link module.db.select}
  * @property {int} count - how many records to retrieve in a single batch
@@ -113,20 +132,9 @@ const fs = require("fs");
  *        by default all properties in the obj not described in the table definition for the given table will be ignored.
  * @property {string[]} skip_columns - ignore properties by name listed in the this array, the most use case is to skip autogeneratd columns like "now"
  * @property {object} query - an object with the condition for the update/incr ops,
- *    it is used instead in addition to the primary keys in the `query`,
+ *    it is used instead or in addition to the primary keys in the `query`,
  *    a property named $or/$and will be treated as a sub-expression if it is an object. For multiple OR/AND use $$or, $$$or,...
  * @property {boolean} upsert - create a new record if it does not exist
- * @property {object} updateOps - an object with column names and operations to be performed on the named column, for update/incr ops to
- *  customize how a column should be updated, the following comon actionbs are supported:
- *  - add - add to list
- *  - del - remove from list
- *  - incr - increment a number
- *  - unset/remove - remove column or set to NULL
- *  - append - append to existing column value
- *  - prepend - prepend to existing column value
- *  - not_exists - update only if the value is null, otherwise skip
- * @property {object} typesOps - an object that defines updateOps operation by column type, for example `typesOps: { list: "add" }` will
- *   make sure all lists will have updateOps set to `add` if not specified explicitly
  * @property {string} useCapacity - triggers to use specific capacity, default is `read`
  * @property {number} factorCapacity - a factor to apply for the read or write capacity limit and trigger the capacity check, default is `0.9`
  * @property {string} tableCapacity - use a different table for capacity throttling instead of the `table`, useful for cases when the row callback performs
@@ -1099,7 +1107,7 @@ db.aadd = function(table, query, options)
  * Counter operation, increase or decrease column values, similar to update but all specified columns except primary
  * key will be incremented, use negative value to decrease the value.
  *
- * If no `options.updateOps` object specified or no 'incr' operations are provided then
+ * If no `options.ops` object specified or no 'incr' operations are provided then
  * all columns with type 'counter' will use the update op `incr`, i.e. all counters will be incremented
  * by the provided number
  *
@@ -1213,6 +1221,11 @@ db.aput = function(table, query, options)
  * db.update("bk_user", { first_name: 'John' }, { query: { or$: { first_name: "Carl", first_name_$: null } }, (err, rows, info) => {
  *    console.log('updated:', info.affected_rows);
  * });
+ *
+ * // remove "admin" role from the roles column
+ * db.update("bk_user", { login: "test", roles_$del: "admin" }, (err, rows, info) => {
+ *    console.log('updated:', info.affected_rows);
+ * });
  * @memberOf module:db
  * @method update
  */
@@ -1250,8 +1263,7 @@ db.aupdate = function(table, query, options)
  * @param {object} query - condition for update
  * @param {DbRequestOptions} [options]
  * @param {DbResultCallback} [callback]
- * @example
- * // set status ok for all users with type = 'admin' or 'staff'
+ * @example &lt;caption>set status ok for all users with type = 'admin' or 'staff'&lt;/caption>
  * db.updateAll("bk_user", { status: "ok" }, { type: ["admin", "staff"] }, lib.log)
  * @memberOf module:db
  * @method updateAll

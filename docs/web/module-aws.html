@@ -2580,7 +2580,7 @@ aws.ddbQueryTable("users", { id: 1 }, { expr: "status=:s", values: { s: "status"
 for ExpressionAttributeValues parameters</li>
 <li>names - an object with a map to be used for attribute names in condition and update expressions, to be used
 for ExpressionAttributeNames parameter</li>
-<li>updateOps - an object with operators to be used for properties, one of the: set, remove, unset, delete, incr, add, append, prepend, not_exists</li>
+<li>ops - an object with operators to be used for properties, one of the: set, remove, unset, delete, incr, add, append, prepend, not_exists</li>
 <li>query - an object with columns to be used in ConditionExpression, value null means the attribute does not exists,
 any other value to be checked against using regular compare rules. The conditional comparison operator is taken
 from <code>options.ops</code> the same way as for queries.</li>

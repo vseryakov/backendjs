@@ -386,14 +386,14 @@ db.prepareColumn = function(req, name, value)
 
 function prepareForIncr(req)
 {
-    if (!lib.isObject(req.options.updateOps)) {
-        req.options.updateOps = {};
+    if (!lib.isObject(req.options.ops)) {
+        req.options.ops = {};
     }
     for (const p in req.columns) {
-        if (req.columns[p].type == "counter" &amp;&amp; req.query[p] !== undefined) req.options.updateOps[p] = "incr";
+        if (req.columns[p].type == "counter" &amp;&amp; req.query[p] !== undefined) req.options.ops[p] = "incr";
     }
     for (const p in req.custom) {
-        if (req.custom[p].type == "counter" &amp;&amp; req.query[p] !== undefined) req.options.updateOps[p] = "incr";
+        if (req.custom[p].type == "counter" &amp;&amp; req.query[p] !== undefined) req.options.ops[p] = "incr";
     }
 }
 
@@ -404,70 +404,79 @@ function prepareForIncr(req)
  */
 function prepareForUpdate(req)
 {
-    var o = {}, v, col, max, updateOps = req.options.updateOps || lib.empty, failed = [];
+    var o = {}, value, col, max, failed = [];
     var insert = req.op == "add" || req.op == "put";
     var update = req.op == "update" || req.op == "incr";
 
-    for (const p in req.query) {
-        v = req.query[p];
-        col = req.column(p);
+    for (let name in req.query) {
+        value = req.query[name];
+
+        // Extract explicit operator, takes precedence over existing in ops
+        const $d = name.lastIndexOf("_$");
+        if ($d > 0) {
+            let j = $d + 2;
+            while (name[j] === "$") j++;
+            const op = name.substr(j);
+            name = name.substr(0, $d);
+            if (op) {
+                if (!req.options.ops) req.options.ops = {};
+                req.options.ops[name] = op;
+            }
+        }
+
+        col = req.column(name);
 
         // Skip unsupported columns
-        if (!p || p[0] == '_' || v === undefined) continue;
+        if (!name || name[0] == '_' || value === undefined) continue;
+
+        // Allow nested fields if objects supported and the parent exists
         if (!col &amp;&amp; !req.options?.no_columns) {
-            // Allow nested fields if objects supported and the parent exists
             if (req.config.noObjectTypes) continue;
-            var dot = p.indexOf(".");
+            const dot = name.indexOf(".");
             if (dot == -1) continue;
-            col = req.column(p.substr(0, dot));
+            col = req.column(name.substr(0, dot));
             if (!col || !lib.rxObjectType.test(col.type)) continue;
         }
-        if (lib.isFlag(req.options.skip_columns, p)) continue;
+        if (lib.isFlag(req.options.skip_columns, name)) continue;
 
         if (col) {
             // Convert into native data type
-            if (v !== null) {
+            if (value !== null) {
                 // Handle json separately in sync with convertRows
                 switch (col.type) {
                 case "json":
-                    if (typeof v != "string") {
-                        v = lib.stringify(v);
-                        if (v === "{}" || v === "[]") v = null;
+                    if (typeof value != "string") {
+                        value = lib.stringify(value);
+                        if (value === "{}" || value === "[]") value = null;
                     }
                     break;
 
                 case "counter":
-                    if (v === 0 &amp;&amp; updateOps[p] == "incr") continue;
-                    break;
-
-                case "obj":
-                case "object":
-                    if (!lib.isObject(v)) continue;
-                    if (req.config.noObjectTypes &amp;&amp; typeof v != "string") {
-                        v = lib.stringify(v);
-                        if (v === "{}" || v === "[]") v = null;
-                    }
+                    if (value === 0 &amp;&amp; req.options.ops?.[name] == "incr") continue;
                     break;
 
                 case "array":
-                    if (!Array.isArray(v)) continue;
-                    if (req.config.noObjectTypes &amp;&amp; typeof v != "string") {
-                        v = lib.stringify(v);
-                        if (v === "[]" || v === "{}") v = null;
+                    if (!Array.isArray(value)) continue;
+                case "obj":
+                case "object":
+                    if (typeof value != "object") continue;
+                    if (req.config.noObjectTypes &amp;&amp; typeof value != "string") {
+                        value = lib.stringify(value);
+                        if (value === "{}" || value === "[]") value = null;
                     }
                     break;
 
                 case "set":
                 case "list":
                     if (req.config.noListTypes) {
-                        v = Array.isArray(v) ? v.join(col.separator || ",") : typeof v == "string" ? v : String(v);
-                        if (v === "[]" || v === "{}") v = null;
+                        value = Array.isArray(value) ? value.join(col.separator || ",") : typeof value == "string" ? value : String(value);
+                        if (value === "[]" || value === "{}") value = null;
                         break;
                     }
 
                 default:
-                    if ((col.primary &amp;&amp; insert) || col.index || col.type || (v !== undefined &amp;&amp; req.config.defaultType)) {
-                        v = lib.toValue(v, col.type || req.config.defaultType, col);
+                    if ((col.primary &amp;&amp; insert) || col.index || col.type || (value !== undefined &amp;&amp; req.config.defaultType)) {
+                        value = lib.toValue(value, col.type || req.config.defaultType, col);
                     }
                 }
             }
@@ -475,54 +484,55 @@ function prepareForUpdate(req)
             // Max length limit for text fields
             if (typeof v == "string") {
                 max = col.check?.max || req.config.maxSize;
-                if (max > 0 &amp;&amp; v.length > max) {
+                if (max > 0 &amp;&amp; value.length > max) {
                     if (col.check?.trunc) {
-                        v = v.substr(0, max);
+                        value = value.substr(0, max);
                     } else {
-                        failed.push([p, "max", v.length, max]);
+                        failed.push([name, "max", value.length, max]);
                         continue;
                     }
                 }
             }
             // The column must exist but it may not support NULLs, so we replace it with the appropriate default value by datatype
-            if (col.check?.not_empty &amp;&amp; lib.isEmpty(v)) {
+            if (col.check?.not_empty &amp;&amp; lib.isEmpty(value)) {
                 if (!insert) continue;
-                if (!req.config.noNulls) v = null; else
+                if (!req.config.noNulls) value = null; else
                 if (req.config.emptyValue !== undefined) {
-                    v = lib.toValue(req.config.emptyValue, col.type, col);
+                    value = lib.toValue(req.config.emptyValue, col.type, col);
                 }
             }
         }
         // Skip empty values by op and type
-        if (lib.isEmpty(v)) {
+        if (lib.isEmpty(value)) {
             if (col?.check?.skip_empty) continue;
             if (req.config.skipEmpty) {
                 if (lib.testRegexp(col?.type, req.config.skipEmpty[req.op])) continue;
             }
         }
         // Skip NULLs by op and type
-        if ((v === null || v === "") &amp;&amp; !col?.check?.not_empty &amp;&amp; req.config.skipNull) {
+        if ((value === null || value === "") &amp;&amp; !col?.check?.not_empty &amp;&amp; req.config.skipNull) {
             if (lib.testRegexp(col?.type, req.config.skipNull[req.op])) continue;
         }
         // auto update ops
-        if (!updateOps[p] &amp;&amp; req.options.typesOps?.[col.type]) {
-            if (!req.options.updateOps) req.options.updateOps = updateOps = {};
-            updateOps[p] = req.options.typesOps[col.type];
+        if (!req.options.ops?.[name] &amp;&amp; req.options.typesOps?.[col.type]) {
+            if (!req.options.ops) req.options.ops = {};
+            req.options.ops[name] = req.options.typesOps[col.type];
         }
-        o[p] = v;
+        o[name] = value;
     }
     req.query = o;
-    for (const p in req.columns) {
-        col = req.columns[p];
+
+    for (const name in req.columns) {
+        col = req.columns[name];
         // Restrictions
         if ((col.readonly &amp;&amp; update) || (col.writeonly &amp;&amp; insert)) {
-            delete req.query[p];
+            delete req.query[name];
             continue;
         }
         if (insert) {
-            if (col.value !== undefined &amp;&amp; req.query[p] === undefined) req.query[p] = col.value;
-            if (req.query[p] === undefined) {
-                if (col.type == "counter" &amp;&amp; req.config.initCounters) req.query[p] = 0;
+            if (col.value !== undefined &amp;&amp; req.query[name] === undefined) req.query[name] = col.value;
+            if (req.query[name] === undefined) {
+                if (col.type == "counter" &amp;&amp; req.config.initCounters) req.query[name] = 0;
             }
         }
 
@@ -534,80 +544,80 @@ function prepareForUpdate(req)
         // Only use the given timestamp if it is an update with primary key involving the property
         switch (col.type) {
         case "uuid":
-            if (insert &amp;&amp; !lib.isUuid(req.query[p], col.prefix)) req.query[p] = lib.uuid(col.prefix);
+            if (insert &amp;&amp; !lib.isUuid(req.query[name], col.prefix)) req.query[name] = lib.uuid(col.prefix);
             break;
         case "suuid":
-            if (insert &amp;&amp; !req.query[p]) req.query[p] = lib.suuid(col.prefix, col);
+            if (insert &amp;&amp; !req.query[name]) req.query[name] = lib.suuid(col.prefix, col);
             break;
         case "sfuuid":
-            if (insert &amp;&amp; !req.query[p]) req.query[p] = lib.sfuuid(col);
+            if (insert &amp;&amp; !req.query[name]) req.query[name] = lib.sfuuid(col);
             break;
         case "random":
-            if (insert &amp;&amp; !req.query[p]) {
-                req.query[p] = col.max || col.min ? lib.randomInt(col.min, col.max) : lib.randomUInt();
+            if (insert &amp;&amp; !req.query[name]) {
+                req.query[name] = col.max || col.min ? lib.randomInt(col.min, col.max) : lib.randomUInt();
             }
             break;
         case "now":
-            if (insert &amp;&amp; !req.query[p]) {
-                req.query[p] = col.convert?.epoch ? lib.now() : req.now;
+            if (insert &amp;&amp; !req.query[name]) {
+                req.query[name] = col.convert?.epoch ? lib.now() : req.now;
             }
             break;
         case "clock":
-            if (insert &amp;&amp; !req.query[p]) {
-                req.query[p] = lib.clock();
+            if (insert &amp;&amp; !req.query[name]) {
+                req.query[name] = lib.clock();
             }
             break;
         case "ttl":
             // Autoexpire based on the period specified
-            if (insert &amp;&amp; !req.query[p] &amp;&amp; (col.days > 0 || col.hours > 0 || col.minutes > 0)) {
-                req.query[p] = lib.now() + lib.toNumber(col.days) * 86400 + lib.toNumber(col.hours) * 3600 + lib.toNumber(col.minutes) * 60;
-                if (!req.config.epochTtl) req.query[p] *= 1000;
+            if (insert &amp;&amp; !req.query[name] &amp;&amp; (col.days > 0 || col.hours > 0 || col.minutes > 0)) {
+                req.query[name] = lib.now() + lib.toNumber(col.days) * 86400 + lib.toNumber(col.hours) * 3600 + lib.toNumber(col.minutes) * 60;
+                if (!req.config.epochTtl) req.query[name] *= 1000;
             }
             break;
         }
-        if (typeof req.query[p] == "number") {
-            if (col.check?.not_zero &amp;&amp; req.query[p] === 0) delete req.query[p];
-            if (col.convert?.multiplier) req.query[p] *= col.convert?.multiplier;
-            if (col.convert?.increment) req.query[p] += col.convert?.increment;
-            if (col.convert?.decimal > 0) req.query[p] = lib.toNumber(req.query[p].toFixed(col.convert?.decimal));
+        if (typeof req.query[name] == "number") {
+            if (col.check?.not_zero &amp;&amp; req.query[name] === 0) delete req.query[name];
+            if (col.convert?.multiplier) req.query[name] *= col.convert?.multiplier;
+            if (col.convert?.increment) req.query[name] += col.convert?.increment;
+            if (col.convert?.decimal > 0) req.query[name] = lib.toNumber(req.query[name].toFixed(col.convert?.decimal));
         }
-        if (typeof req.query[p] == "string") {
-            if (col.convert?.strip) req.query[p] = req.query[p].replace(col.convert?.strip, "");
-            for (const r in col.convert?.replace) req.query[p] = req.query[p].replaceAll(r, col.convert?.replace[r]);
-            if (col.convert?.trim) req.query[p] = req.query[p].trim();
-            if (col.convert?.lower) req.query[p] = req.query[p].toLowerCase();
-            if (col.convert?.upper) req.query[p] = req.query[p].toUpperCase();
-            if (col.convert?.cap) req.query[p] = lib.toTitle(req.query[p], col.cap);
+        if (typeof req.query[name] == "string") {
+            if (col.convert?.strip) req.query[name] = req.query[name].replace(col.convert?.strip, "");
+            for (const r in col.convert?.replace) req.query[name] = req.query[name].replaceAll(r, col.convert?.replace[r]);
+            if (col.convert?.trim) req.query[name] = req.query[name].trim();
+            if (col.convert?.lower) req.query[name] = req.query[name].toLowerCase();
+            if (col.convert?.upper) req.query[name] = req.query[name].toUpperCase();
+            if (col.convert?.cap) req.query[name] = lib.toTitle(req.query[name], col.cap);
         }
-        if (req.query[p] !== undefined &amp;&amp; col.type == "counter") {
-            req.query[p] = lib.toNumber(req.query[p]);
+        if (req.query[name] !== undefined &amp;&amp; col.type == "counter") {
+            req.query[name] = lib.toNumber(req.query[name]);
         }
-        if (req.query[p] !== undefined &amp;&amp; typeof col.convert?.format == "function") {
-            req.query[p] = col.convert?.format(req.query[p], req);
+        if (req.query[name] !== undefined &amp;&amp; typeof col.convert?.format == "function") {
+            req.query[name] = col.convert?.format(req.query[name], req);
         }
         // Max length limits for arrays and objects, approximate
         max = col.check?.maxlist || req.config.maxList;
-        if (max > 0 &amp;&amp; Array.isArray(req.query[p])) {
-            if (req.query[p].length > max) {
+        if (max > 0 &amp;&amp; Array.isArray(req.query[name])) {
+            if (req.query[name].length > max) {
                 if (col.trunc) {
-                    req.query[p] = req.query[p].slice(0, max);
+                    req.query[name] = req.query[name].slice(0, max);
                 } else {
-                    failed.push([p, "maxlist", req.query[p].length, max]);
-                    delete req.query[p];
+                    failed.push([name, "maxlist", req.query[name].length, max]);
+                    delete req.query[name];
                 }
             }
         }
         max = col.check?.max || req.config.maxSize;
-        if (max > 0 &amp;&amp; lib.isObject(req.query[p])) {
-            v = lib.objSize(req.query[p]);
-            if (v > max) {
-                failed.push([p, "max", v, max]);
-                delete req.query[p];
+        if (max > 0 &amp;&amp; lib.isObject(req.query[name])) {
+            value = lib.objSize(req.query[name]);
+            if (value > max) {
+                failed.push([name, "max", value, max]);
+                delete req.query[name];
             }
         }
 
-        if (insert &amp;&amp; col.check?.fail_ifempty &amp;&amp; lib.isEmpty(req.query[p])) {
-            req.error = lib.newError(col.check?.errmsg_ifempty || ((col.label || p) + " is required"), 400, "EmptyColumn");
+        if (insert &amp;&amp; col.check?.fail_ifempty &amp;&amp; lib.isEmpty(req.query[name])) {
+            req.error = lib.newError(col.check?.errmsg_ifempty || ((col.label || name) + " is required"), 400, "EmptyColumn");
         }
     }
     if (failed.length) req.failed = failed;
@@ -673,20 +683,20 @@ db.convertRows = function(req, rows, options)
 {
     var i, col, opts = options || req.options;
 
-    for (const p in req.columns) {
-        col = req.columns[p];
+    for (const name in req.columns) {
+        col = req.columns[name];
         // Convert from JSON type
         if (!opts?.noconvertrows_json) {
             if (col.type == "json" || (req.config.noObjectTypes &amp;&amp; lib.rxObjectType.test(col.type))) {
                 for (i = 0; i &lt; rows.length; i++) {
-                    if (typeof rows[i][p] == "string" &amp;&amp; rows[i][p]) {
-                        rows[i][p] = lib.jsonParse(rows[i][p], { logger: "error", [p]: col });
+                    if (typeof rows[i][name] == "string" &amp;&amp; rows[i][name]) {
+                        rows[i][name] = lib.jsonParse(rows[i][name], { logger: "error", [name]: col });
                     }
                 }
             } else
             if (req.config.noListTypes &amp;&amp; lib.rxListType.test(col.type)) {
                 for (i = 0; i &lt; rows.length; i++) {
-                    rows[i][p] = lib.toValue(rows[i][p], col.type, col);
+                    rows[i][name] = lib.toValue(rows[i][name], col.type, col);
                 }
             }
         }
@@ -694,20 +704,20 @@ db.convertRows = function(req, rows, options)
         // Split into a list
         if (col.convert?.list &amp;&amp; !opts?.noconvertrows_list) {
             for (i = 0; i &lt; rows.length; i++) {
-                rows[i][p] = lib.toValue(rows[i][p], "list", col);
+                rows[i][name] = lib.toValue(rows[i][name], "list", col);
             }
         }
 
         // Default value on return
-        if (req.columns[p].dflt &amp;&amp; !opts?.noconvertrows_dflt) {
+        if (req.columns[name].dflt &amp;&amp; !opts?.noconvertrows_dflt) {
             for (i = 0; i &lt; rows.length; i++) {
-                if (rows[i][p] === undefined || rows[i][p] === null) {
-                    switch (typeof req.columns[p].dflt) {
+                if (rows[i][name] === undefined || rows[i][name] === null) {
+                    switch (typeof req.columns[name].dflt) {
                     case "object":
-                        rows[i][p] = lib.objClone(req.columns[p].dflt);
+                        rows[i][name] = lib.objClone(req.columns[name].dflt);
                         break;
                     default:
-                        rows[i][p] = req.columns[p].dflt;
+                        rows[i][name] = req.columns[name].dflt;
                     }
                 }
             }
@@ -725,14 +735,14 @@ db.convertRows = function(req, rows, options)
  * after the fact and to keep column definitions in the app for such cases is not realistic. This callback will
  * allow to handle such situations and can be used to set necessary propeties to the table columns.
  *
- * Example, a few public columns, allow an admin to see all the columns
+ * @example &lt;caption>a few public columns, allow an admin to see all the columns&lt;/caption>
  *
- *         db.setProcessColumns(function() {
- *             var cols = db.getColumns("users", { pool: this.name });
- *             for (var p in  cols) {
- *                 if (["id","name"].indexOf(p) > -1) cols[p].pub = 1; else cols[p].admin = 1;
- *             }
- *         })
+ * db.setProcessColumns(function() {
+ *   var cols = db.getColumns("users", { pool: this.name });
+ *   for (var name in cols) {
+ *     if (["id","name"].includes(name)) cols[name].pub = 1; else cols[name].admin = 1;
+ *   }
+ * })
  * @memberof module:db
  * @method setProcessColumns
  */

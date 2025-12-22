@@ -933,7 +933,7 @@ aws.ddbPutItem = function(name, item, options, callback)
  *          for ExpressionAttributeValues parameters
  *      - names - an object with a map to be used for attribute names in condition and update expressions, to be used
  *          for ExpressionAttributeNames parameter
- *      - updateOps - an object with operators to be used for properties, one of the: set, remove, unset, delete, incr, add, append, prepend, not_exists
+ *      - ops - an object with operators to be used for properties, one of the: set, remove, unset, delete, incr, add, append, prepend, not_exists
  *      - query - an object with columns to be used in ConditionExpression, value null means the attribute does not exists,
  *          any other value to be checked against using regular compare rules. The conditional comparison operator is taken
  *          from `options.ops` the same way as for queries.
@@ -979,14 +979,14 @@ aws.ddbUpdateItem = function(name, keys, item, options, callback)
         params.UpdateExpression = item;
     } else
     if (typeof item == "object") {
-        var c = 0, d = 0, names = {}, values = {}, updateOps = options.updateOps || lib.empty;
+        var c = 0, d = 0, names = {}, values = {};
         var actions = { SET: [], REMOVE: [], ADD: [], DELETE: [] };
 
         for (let p in item) {
             if (params.Key[p]) continue;
             var val = item[p], colname = p;
 
-            var op = updateOps[colname];
+            var op = options.ops?.[colname];
             if (val === null || val === undefined) {
                 op = "remove";
             } else
