@@ -1,11 +1,40 @@
 (() => {
   // src/app.js
+  /**
+   * Global application object
+   * @namespace
+   */
   var app = {
+    /**
+     * @var {string} - Defines the root path for the application, must be framed with slashes.
+     * @default
+     */
     base: "/app/",
+    /**
+     * @var {object} - Central app HTML element for rendering main components.
+     * @default
+     */
     $target: "#app-main",
+    /**
+     * @var {string} - Specifies a fallback component for unrecognized paths on initial load, it is used by {@link app.restorePath}.
+     * @default
+     */
     index: "index",
+    /**
+     * @var {string} - Event name components listen
+     * @default
+     */
     event: "component:event",
+    /**
+     * @var {object} - HTML templates, this is the central registry of HTML templates to be rendered on demand,
+     * this is an alternative to using **&lt;template&gt;** tags which are kept in the DOM all the time even if not used.
+     * This object can be populated in the bundle or loaded later as JSON, this all depends on the application environment.
+     */
     templates: {},
+    /**
+     * @var {string} - Component classes, this is the registry of all components logic to be used with corresponding templates.
+     * Only classed derived from **app.AlpineComponent** will be used, internally they are registered with **Alpine.data()** to be reused by name.
+     */
     components: {},
     isF: isFunction,
     isS: isString,
@@ -14,44 +43,119 @@
     isN: isNumber,
     toCamel
   };
+  /**
+   * Returns the num itself if it is a number
+   * @param {any} num
+   * @returns {number|undefined}
+   * @func isN
+   * @memberof app
+   */
   function isNumber(num) {
     return typeof num == "number" ? num : void 0;
   }
+  /**
+   * Returns the str itself if it is not empty or ""
+   * @param {any} str
+   * @returns {string}
+   * @func isS
+   * @memberof app
+   */
   function isString(str) {
     return typeof str == "string" && str;
   }
+  /**
+   * Returns the callback is it is a function
+   * @param {any} callback
+   * @returns {function|undefined}
+   * @func isF
+   * @memberof app
+   */
   function isFunction(callback) {
     return typeof callback == "function" && callback;
   }
+  /**
+   * Returns the obj itself if it is a not null object
+   * @param {any} obj
+   * @returns {object|undefined}
+   * @func isO
+   * @memberof app
+   */
   function isObj(obj) {
     return typeof obj == "object" && obj;
   }
+  /**
+   * Returns the element itself if it is a HTMLElement
+   * @param {any} element
+   * @returns {HTMLElement|undefined}
+   * @func isE
+   * @memberof app
+   */
   function isElement(element) {
     return element instanceof HTMLElement && element;
   }
-  function toCamel(key) {
-    return isString(key) ? key.toLowerCase().replace(/[.:_-](\w)/g, (_, c) => c.toUpperCase()) : "";
+  /**
+   * Convert a string into camelized format
+   * @param {string} str
+   * @returns {string}
+   * @func toCamel
+   * @memberof app
+   */
+  function toCamel(str) {
+    return isString(str) ? str.toLowerCase().replace(/[.:_-](\w)/g, (_, c) => c.toUpperCase()) : "";
   }
 
   // src/util.js
+  /**
+   * Empty function
+   */
   app.noop = () => {
   };
+  /**
+   * Alias to console.log
+   */
   app.log = (...args) => console.log(...args);
+  /**
+   * if __app.debug__ is set then it will log arguments in the console otherwise it is no-op
+   * @param {...any} args
+   */
   app.trace = (...args) => {
     app.debug && app.log(...args);
   };
-  app.call = (obj, method, ...arg) => {
-    if (isFunction(obj)) return obj(method, ...arg);
+  /**
+   * Call a function safely with context and arguments:
+   * @param {object|function} obj
+   * @param {string|function} [method]
+   * @param {any} [...args]
+   * @example
+   * app.call(func,..)
+   * app.call(obj, func, ...)
+   * app.call(obj, method, ...)
+   */
+  app.call = (obj, method, ...args) => {
+    if (isFunction(obj)) return obj(method, ...args);
     if (typeof obj != "object") return;
-    if (isFunction(method)) return method.call(obj, ...arg);
-    if (obj && isFunction(obj[method])) return obj[method].call(obj, ...arg);
+    if (isFunction(method)) return method.call(obj, ...args);
+    if (obj && isFunction(obj[method])) return obj[method].call(obj, ...args);
   };
   var _events = {};
+  /**
+   * Listen on event, the callback is called synchronously, optional namespace allows deleting callbacks later easier by not providing
+   * exact function by just namespace.
+   * @param {string} event
+   * @param {function} callback
+   * @param {string} [namespace]
+   */
   app.on = (event, callback, namespace) => {
     if (!isFunction(callback)) return;
     if (!_events[event]) _events[event] = [];
     _events[event].push([callback, isString(namespace)]);
   };
+  /**
+   * Listen on event, the callback is called only once
+   * @param {string} event
+   * @param {function} callback
+   * @param {string} [namespace]
+   */
   app.once = (event, callback, namespace) => {
     if (!isFunction(callback)) return;
     const cb = (...args) => {
@@ -60,9 +164,28 @@
     };
     app.on(event, cb, namespace);
   };
+  /**
+   * Remove all current listeners for the given event, if a callback is given make it the **only** listener.
+   * @param {string} event
+   * @param {function} callback
+   * @param {string} [namespace]
+   */
   app.only = (event, callback, namespace) => {
     _events[event] = isFunction(callback) ? [callback, isString(namespace)] : [];
   };
+  /**
+   * Remove all event listeners for the event name and exact callback or namespace
+   * @param {string} event|namespace
+   * - event name if callback is not empty
+   * - namespace if no callback
+   * @param {function|string} [callback]
+   * - function - exact callback to remove for the event
+   * - string - namespace for the event
+   * @example
+   * app.on("component:*", (ev) => { ... }, "myapp")
+   * ...
+   * app.off("myapp")
+   */
   app.off = (event, callback) => {
     if (event && callback) {
       if (!_events[event]) return;
@@ -74,6 +197,15 @@
       }
     }
   };
+  /**
+   * Send an event to all listeners at once, one by one.
+   *
+   * If the event ends with **_:*_** it means notify all listeners that match the beginning of the given pattern, for example:
+   * @param {string} event
+   * @param {...any} args
+   * @example <caption>notify topic:event1, topic:event2, ...</caption>
+   * app.emit("topic:*",....)
+   */
   app.emit = (event, ...args) => {
     app.trace("emit:", event, ...args, app.debug > 1 && _events[event]);
     if (_events[event]) {
@@ -89,18 +221,78 @@
   };
 
   // src/dom.js
+  /**
+   * Returns a query parameter value from the current document location
+   * @param {string} name
+   * @param {string} [dflt]
+   * @return {string}
+   */
   app.$param = (name, dflt) => new URLSearchParams(location.search).get(name) || dflt || "";
   var esc = (selector) => selector.replace(/#([^\s"#']+)/g, (_, id) => `#${CSS.escape(id)}`);
+  /**
+   * An alias to **document.querySelector**, doc can be an Element, empty or non-string selectors will return null
+   * @param {string} selector
+   * @param {HTMLElement} [doc]
+   * @returns {null|HTMLElement}
+   * @example
+   * var el = app.$("#div")
+   */
   app.$ = (selector, doc) => isString(selector) ? (isElement(doc) || document).querySelector(esc(selector)) : null;
+  /**
+   * An alias for **document.querySelectorAll**
+   * @param {string} selector
+   * @param {HTMLElement} [doc]
+   * @returns {null|HTMLElement[]}
+   * @example
+   * Array.from(app.$all("input")).find((el) => !(el.readOnly || el.disabled || el.type == "hidden"));
+   */
   app.$all = (selector, doc) => isString(selector) ? (isElement(doc) || document).querySelectorAll(esc(selector)) : null;
+  /**
+   * Send a CustomEvent using DispatchEvent to the given element, true is set to composed, cancelable and bubbles properties.
+   * @param {HTMLElement} element
+   * @param {string} name
+   * @param {object} [detail]
+   */
   app.$event = (element, name, detail = {}) => element instanceof EventTarget && element.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true, cancelable: true }));
+  /**
+   * An alias for **element.addEventListener**
+   * @param {HTMLElement} element
+   * @param {string} event
+   * @param {function} callback
+   * @param {any} [...args] - additional params to addEventListener
+   * @example
+   * app.$on(window, "popstate", () => { ... })
+   */
   app.$on = (element, event, callback, ...arg) => isFunction(callback) && element.addEventListener(event, callback, ...arg);
+  /**
+   * An alias for **element.removeEventListener**
+   * @param {HTMLElement} element
+   * @param {string} event
+   * @param {function} callback
+   * @param {any} [...args] - additional params to removeEventListener
+   */
   app.$off = (element, event, callback, ...arg) => isFunction(callback) && element.removeEventListener(event, callback, ...arg);
+  /**
+   * Return or set attribute by name from the given element.
+   * @param {HTMLElement|string} element
+   * @param {string} attr
+   * @param {any} [value]
+   * - undefined - return the attribute value
+   * - null - remove attribute
+   * - any - assign new value
+   * @returns {undefined|any}
+   */
   app.$attr = (element, attr, value) => {
     if (isString(element)) element = app.$(element);
     if (!isElement(element)) return;
     return value === void 0 ? element.getAttribute(attr) : value === null ? element.removeAttribute(attr) : element.setAttribute(attr, value);
   };
+  /**
+   * Remove all nodes from the given element, call the cleanup callback for each node if given
+   * @param {HTMLElement|string} element
+   * @param {functions} [cleanup]
+   * @returns {HTMLElement}
+   */
   app.$empty = (element, cleanup) => {
     if (isString(element)) element = app.$(element);
     if (!isElement(element)) return;
@@ -111,14 +303,28 @@
     }
     return element;
   };
-  app.$elem = (name, ...arg) => {
+  /**
+   * Create a DOM element with attributes, **-name** means **style.name**, **.name** means a property **name**,
+   * all other are attributes, functions are event listeners
+   * @param {string} name
+   * @param {any|object} [...args]
+   * @param {object} [options]
+   * @example
+   * app.$elem("div", "id", "123", "-display", "none", "._x-prop", "value", "click", () => {})
+   *
+   * @example <caption>Similar to above but all properties and attributes are taken from an object, in this form options can be passed, at the moment only
+   * options for addEventListener are supported.</caption>
+   *
+   * app.$elem("div", { id: "123", "-display": "none", "._x-prop": "value", click: () => {} }, { signal })
+   */
+  app.$elem = (name, ...args) => {
     var element = document.createElement(name), key, val, opts;
-    if (isObj(arg[0])) {
-      arg = Object.entries(arg[0]).flatMap((x) => x);
-      opts = arg[1];
+    if (isObj(args[0])) {
+      args = Object.entries(args[0]).flatMap((x) => x);
+      opts = args[1];
     }
-    for (let i = 0; i < arg.length - 1; i += 2) {
-      key = arg[i], val = arg[i + 1];
+    for (let i = 0; i < args.length - 1; i += 2) {
+      key = args[i], val = args[i + 1];
       if (!isString(key)) continue;
       if (isFunction(val)) {
         app.$on(element, key, val, { capture: opts?.capture, passive: opts?.passive, once: opts?.once, signal: opts?.signal });
@@ -136,10 +342,27 @@
     }
     return element;
   };
+  /**
+   * A shortcut to DOMParser, default is to return the .body.
+   * @param {string} html
+   * @param {string} [format] - defines the result format:
+   *  - list - the result will be an array with all body child nodes, i.e. simpler to feed it to Element.append()
+   *  - doc - return the whole parsed document
+   * @example
+   * document.append(...app.$parse("<div>...</div>"), 'list'))
+   */
   app.$parse = (html, format) => {
     html = new window.DOMParser().parseFromString(html || "", "text/html");
     return format === "doc" ? html : format === "list" ? Array.from(html.body.childNodes) : html.body;
   };
+  /**
+   * Append nodes from the template to the given element, call optional setup callback for each node.
+   * @param {string|HTMLElement} element
+   * @param {string|HTMLElement} template can be a string with HTML or a template element.
+   * @param {function} [setup]
+   * @example
+   * app.$append(document, "<div>...</div>")
+   */
   app.$append = (element, template, setup) => {
     if (isString(element)) element = app.$(element);
     if (!isElement(element)) return;
@@ -162,6 +385,14 @@
     return element;
   };
   var _ready = [];
+  /**
+   * Run callback once the document is loaded and ready, it uses setTimeout to schedule callbacks
+   * @param {function} callback
+   * @example
+   * app.$ready(() => {
+   *
+   * })
+   */
   app.$ready = (callback) => {
     _ready.push(callback);
     if (document.readyState == "loading") return;
@@ -172,6 +403,24 @@
   });
 
   // src/router.js
+  /**
+   * Parses component path and returns an object with at least **{ name, params }** ready for rendering. External urls are ignored.
+   *
+   * Passing an object will retun a shallow copy of it with name and params properties possibly set if not provided.
+   *
+   * The path can be:
+   * - component name
+   * - relative path: name/param1/param2/param3/....
+   * - absolute path: /app/name/param1/param2/...
+   * - URL: https://host/app/name/param1/...
+   *
+   *  All parts from the path and query parameters will be placed in the **params** object.
+   *
+   * The **.html** extention will be stripped to support extrernal loading but other exts will be kept as is.
+   *
+   * @param {string|object} path
+   * @returns {Object} in format { name, params }
+   */
   app.parsePath = (path) => {
     var rc = { name: "", params: {} }, query, loc = window.location;
     if (isObj(path)) return Object.assign(rc, path);
@@ -207,6 +456,14 @@
     }
     return rc;
   };
+  /**
+   * Saves the given component in the history as ** /name/param1/param2/param3/.. **
+   *
+   * It is called on every **component:create** event for main components as a microtask,
+   * meaning immediate callbacks have a chance to modify the behaviour.
+   * @param {Object} options
+   *
+   */
   app.savePath = (options) => {
     if (isString(options)) options = { name: options };
     if (!options?.name) return;
@@ -221,10 +478,25 @@
     app.emit("path:push", window.location.origin + app.base + path);
     window.history.pushState(null, "", window.location.origin + app.base + path);
   };
+  /**
+   * Show a component by path, it is called on **path:restore** event by default from {@link app.start} and is used
+   * to show first component on initial page load. If the path is not recognized or no component is
+   * found then the default {@link app.index} component is shown.
+   * @param {string} path
+   */
   app.restorePath = (path) => {
     app.trace("restorePath:", path, app.index);
     app.render(path, app.index);
   };
+  /**
+   * Setup default handlers:
+   * - on **path:restore** event call {@link app.restorePath} to render a component from the history
+   * - on **path:save** call {@link app.savePath} to save the current component in the history
+   * - on page ready call {@link app.restorePath} to render the initial page
+   *
+   * **If not called then no browser history will not be handled, up to the app to do it some other way.**. One good
+   * reason is to create your own handlers to build different path and then save/restore.
+   */
   app.start = () => {
     app.on("path:save", app.savePath);
     app.on("path:restore", app.restorePath);
@@ -235,6 +507,21 @@
   // src/render.js
   var _plugins = {};
   var _default_plugin;
+  /**
+   *   Register a render plugin, at least 2 functions must be defined in the options object:
+   * @param {string} name
+   * @param {object} options
+   * @param {function} render - (element, options) to show a component, called by {@link app.render}
+   * @param {function} cleanup - (element) - optional, run additional cleanups before destroying a component
+   * @param {function} data - (element) - return the component class instance for the given element or the main
+   * @param {boolean} [options.default] - if not empty make this plugin default
+   * @param {class} [options.Component] - optional base component constructor, it will be registered as app.{Type}Component, like AlpineComponent, KoComponent,... to easy create custom components
+   *
+   * The reason for plugins is that while this is designed for Alpine.js, the idea originated by using Knockout.js with this system,
+   * the plugin can be found at [app.ko.js](https://github.com/vseryakov/backendjs/blob/c97ca152dfd55a3841d07b54701e9d2b8620c516/web/js/app.ko.js).
+   *
+   * There is a simple plugin in examples/simple.js to show how to use it without any rendering engine with vanillla HTML, not very useful though.
+   */
   app.plugin = (name, options) => {
     if (!name || !isString(name)) throw Error("type must be defined");
     if (options) {
@@ -249,6 +536,15 @@
     if (options?.default) _default_plugin = plugin;
     return Object.assign(plugin, options);
   };
+  /**
+   * Return component data instance for the given element or the main component if omitted. This is for
+   * debugging purposes or cases when calling some known method is required.
+   * @param {string|HTMLElement} element
+   * @param {number} [level] - if is not a number then the closest scope is returned otherwise only the requested scope at the level or undefined.
+   * This is useful for components to make sure they use only the parent's scope for example.
+   *
+   * @returns {Proxy|undefined} to get the actual object pass it to **Alpine.raw(app.$data())**
+   */
   app.$data = (element, level) => {
     if (isString(element)) element = app.$(element);
     for (const p in _plugins) {
@@ -257,6 +553,34 @@
       if (d) return d;
     }
   };
+  /**
+   * Returns an object with **template** and **component** properties.
+   *
+   * Calls {@link app.parsePath} first to resolve component name and params.
+   *
+   * Passing an object with 'template' set will reuse it, for case when template is already resolved.
+   *
+   * The template property is set as:
+   *  - try app.templates[.name]
+   *  - try an element with ID name and use innerHTML
+   *  - if not found and dflt is given try the same with it
+   *  - if template texts starts with # it means it is a reference to another element's innerHTML,
+   *     otemplate is set with the original template before replacing the template property
+   *  - if template text starts with $ it means it is a reference to another template in **app.templates**,
+   *     otemplate is set with the original template before replacing the template property
+   *
+   * The component property is set as:
+   *  - try app.components[.name]
+   *  - try app.components[dflt]
+   *  - if resolved to a function return
+   *  - if resolved to a string it refers to another component, try app.templates[component],
+   *     ocomponent is set with the original component string before replacing the component property
+   *
+   * if the component property is empty then this component is HTML template.
+   * @param {string} path
+   * @param {string} [dflt]
+   * @returns {object} in format { name, params, template, component }
+   */
   app.resolve = (path, dflt) => {
     const tmpl = app.parsePath(path);
     app.trace("resolve:", path, dflt, tmpl);
@@ -280,6 +604,27 @@
     tmpl.component = component;
     return tmpl;
   };
+  /**
+   * Show a component, options can be a string to be parsed by {@link app.parsePath} or an object with { name, params } properties.
+   * if no **params.$target** provided a component will be shown inside the main element defined by {@link app.$target}.
+   *
+   * It returns the resolved component as described in {@link app.resolve} method after rendering or nothing if nothing was shown.
+   *
+   * When showing main app the current component is asked to be deleted first by sending an event __prepare:delete__,
+   * a component that is not ready to be deleted yet must set the property __event.stop__ in the event
+   * handler __onPrepareDelete(event)__ in order to prevent rendering new component.
+   *
+   * To explicitly disable history pass __options.$nohistory__ or __params.$nohistory__ otherwise main components are saved automatically by sending
+   * the __path:save__ event.
+   *
+   * A component can globally disable history by creating a static property __$nohistory__ in the class definition.
+   *
+   * To disable history all together set `app.$nohistory = true`.
+   *
+   * @param {string|object} options
+   * @param {string} [dflt]
+   * @returns {object|undefined}
+   */
   app.render = (options, dflt) => {
     var tmpl = app.resolve(options, dflt);
     if (!tmpl) return;
@@ -316,6 +661,12 @@
   });
 
   // src/component.js
+  /**
+   * Base class for components
+   * @param {string} name - component name
+   * @param {object} [params] - properties passed during creation
+   * @class
+   */
   var Component = class {
     params = {};
     constructor(name, params) {
@@ -325,6 +676,11 @@
       this._onCreate = this.onCreate || null;
       this._onDelete = this.onDelete || null;
     }
+    /**
+     * Called immediately after creation, after event handler setup it calls the class
+     * method __onCreate__ to let custom class perform its own initialization
+     * @param {object} params - properties passed
+     */
     init(params) {
       app.trace("init:", this.$type, this.$name);
       Object.assign(this.params, params);
@@ -334,6 +690,9 @@
       }
       app.call(this._onCreate?.bind(this, this.params));
     }
+    /**
+     * Called when a component is about to be destroyed, calls __onDelete__ class method for custom cleanup
+     */
     destroy() {
       app.trace("destroy:", this.$type, this.$name);
       app.off(app.event, this._handleEvent);
@@ -358,6 +717,30 @@
 
   // src/alpine.js
   var _alpine = "alpine";
+  /**
+   * Alpine.js component
+   * @param {string} name - component name
+   * @param {object} [params] - properties passed during creation
+   * @class
+   * @extends Component
+   * @example <caption>Component code</caption>
+   * app.components.items = class extends app.AlpineComponent {
+   *   items = []
+   *
+   *   onCreate() {
+   *       app.fetch("host/items", (err, items) => {
+   *           this.items = items;
+   *       })
+   *   }
+   *}
+   * @example <caption>Component template</caption>
+   * <div x-show="!list.length">
+   *   Your basket is empty
+   * </div>
+   * <template x-for="item in items">
+   *   ID: <div x-text="item.id"></div>
+   * </template>
+   */
   var AlpineComponent = class extends component_default {
     static $type = _alpine;
     constructor(name, params) {
@@ -552,6 +935,24 @@
     }
     return [url, opts];
   }
+  /**
+   * Fetch remote content, wrapper around Fetch API
+   *
+   * @param {string|object} options - can be full URL or an object with `url:`
+   * @param {string} [options.url] - URL to fetch
+   * @param {string} [options.method] - GET, POST,...GET is default (also can be specified as post: 1)
+   * @param {string|object|FormData} [options.body] - a body
+   * @param {string} [options.dataType] - explicit return type: text, blob, default is auto detected between text or json
+   * @param {object} [options.headers] - an object with additional headers to send
+   * @param {object} [options.options] - properties to pass to fetch options according to `RequestInit`
+   * @param {function} [callback] - callback as (err, data, info) where info is an object { status, headers, type }
+   *
+   * @example
+   * app.fetch("http://api.host.com/user/123", (err, data, info) => {
+   *    if (info.status == 200) console.log(data, info);
+   * });
+   * @memberof app
+   */
   app.fetch = function(options, callback) {
     try {
       const [url, opts] = parseOptions(options);
@@ -590,6 +991,19 @@
       app.call(callback, err);
     }
   };
+  /**
+   * Promisified {@link app.fetch} which returns a Promise, all exceptions are passed to the reject handler, no need to use try..catch
+   * Return everything in an object `{ ok, status, err, data, info }`.
+   * @example
+   * const { err, data } = await app.afetch("https://localhost:8000")
+   *
+   * const { ok, err, status, data } = await app.afetch("https://localhost:8000")
+   * if (!ok) console.log(status, err);
+   *
+   * @param {string|object} options
+   * @memberof app
+   * @async
+   */
   app.afetch = function(options) {
     return new Promise((resolve, reject) => {
       app.fetch(options, (err, data2, info) => {

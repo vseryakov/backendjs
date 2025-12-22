@@ -80,12 +80,15 @@ Then save the following lines as **bkjs.conf**
 api-acl-add-public=^/counter
 db-sqlite-pool=counter
 db-pool=sqlite
-db-create-tables=1
 ```
 
-Now run the command ```node index.js```
+Now run the command
 
-Go to _http://localhost:8000/counter_ in your browser, you'll see the current counter value, refresh it and see counter incrementing.
+```
+node index.js -db-create-tables
+```
+
+Go to _http://localhost:8000/counter_ in your browser, you'll see the current counter value, refresh it and see the counter incrementing.
 
 ## Next steps
 
