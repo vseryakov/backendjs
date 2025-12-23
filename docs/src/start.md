@@ -59,10 +59,7 @@ const counter = {
         api.app.get("/counter", (req, res) => {
 
             db.incr("counter", { id: 1, value: 1 }, { returning: "*", first: 1 }, (err, row) => {
-                if (err) {
-                    return api.sendReply(res, err);
-                }
-                api.sendJSON(req, row);
+                api.sendJSON(req, err, row);
             });
         });
         callback();
@@ -88,7 +85,8 @@ Now run the command
 node index.js -db-create-tables
 ```
 
-Go to _http://localhost:8000/counter_ in your browser, you'll see the current counter value, refresh it and see the counter incrementing.
+Go to _http://localhost:8000/counter_ in your browser, you'll see the current counter value,
+refresh it and see the counter value incrementing with mtime timestamp in milliseconds.
 
 ## Next steps
 
