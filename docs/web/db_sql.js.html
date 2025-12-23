@@ -380,6 +380,19 @@ sql.expr = function(req, name, value, column)
         }
         break;
 
+    case "expr":
+        if (!raw &amp;&amp; Array.isArray(value) &amp;&amp; typeof value[0] == "string") {
+            let fmt = value[0];
+            for (let i = 1; i &lt; value.length; i++) {
+                req.values.push(value[i]);
+                fmt = fmt.replaceAll(placeholder + i, "$^" + req.values.length)
+            }
+            expr = name + " = " + fmt.replaceAll("$^", "$");
+        } else {
+            expr += name + " = " + value;
+        }
+        break;
+
     default:
         if (raw) {
             expr += name + " = " + sql.value(value, column);

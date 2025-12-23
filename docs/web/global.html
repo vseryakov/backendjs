@@ -1194,7 +1194,7 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line226">line 226</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line230">line 230</a>
     </li></ul></dd>
     
 
@@ -1522,7 +1522,7 @@ replacing every <code>$1</code>, <code>$2</code>, ... with corresponding matched
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line115">line 115</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line119">line 119</a>
     </li></ul></dd>
     
 
@@ -2274,7 +2274,7 @@ returns the query record with new columns from memory</p></td>
             <td class="description last"><p>operators to use for for properties, an object with column name and operator.</p>
 <p><strong>Comparison</strong> operators used in select/get:</p>
 <pre class="prettyprint source lang->,"><code>   between, match, regexp, iregexp, begins_with, not_begins_with, ends_with, not_ends_with,
-   like, like%, ilike%, contains, not_contains
+   like, like%, ilike%, contains, not_contains, expr
 </code></pre>
 <p><strong>Update</strong> operators used in incr/update/del:</p>
 <ul>
@@ -2285,10 +2285,14 @@ returns the query record with new columns from memory</p></td>
 <li>append - append to existing column value</li>
 <li>prepend - prepend to existing column value</li>
 <li>not_exists - update only if the value is null, otherwise skip</li>
+<li>expr - SQL expression as is or can be an array of values with
+item 0 being expression with the rest values: [&quot;COALESCE(name,$1)||$2&quot;, ...]</li>
 </ul>
 <p>As alternative, operators also can be used with column names, the format is <strong>name_$op</strong>:</p>
 <pre class="prettyprint source lang-js"><code>{ flags_$del: &quot;flag&quot; }
 { count_$incr: 3 }
+{ tag_$expr: &quot;COALESCE(name,'none')||count&quot; }
+{ tag_$expr: [&quot;COALESCE(name,$1)||count&quot;, &quot;N/A&quot;] }
 </code></pre></td>
         </tr>
 
@@ -3077,7 +3081,7 @@ not every row individually, batch size is defined by the <code>count</code> prop
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line103">line 103</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line107">line 107</a>
     </li></ul></dd>
     
 
@@ -3421,7 +3425,7 @@ not every row individually, batch size is defined by the <code>count</code> prop
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line127">line 127</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line131">line 131</a>
     </li></ul></dd>
     
 
@@ -3592,7 +3596,7 @@ not every row individually, batch size is defined by the <code>count</code> prop
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db.js.html">db.js</a>, <a href="db.js.html#line135">line 135</a>
+        <a href="db.js.html">db.js</a>, <a href="db.js.html#line139">line 139</a>
     </li></ul></dd>
     
 
@@ -3686,7 +3690,6 @@ not every row individually, batch size is defined by the <code>count</code> prop
 <li><code>text, string, keyword</code> -  text types</li>
 <li><code>date, time, timestamp</code> -  Date stored in database supported type, usually as text in SQL</li>
 <li><code>mtime</code> -  timestamp in milliseconds</li>
-<li><code>clock</code> -  timestamp in nanoseconds</li>
 <li><code>json</code> -  stored as JSON text but converted to/from native Javascript objects</li>
 <li><code>obj, object</code> -  native JSON object type</li>
 <li><code>array</code> -  native JSON array type</li>
@@ -3697,7 +3700,7 @@ not every row individually, batch size is defined by the <code>count</code> prop
 <li><code>uuid, suuid, sfuuid</code> -  autogenerate the column value with UUID,
 optional <code>prefix</code> property will be prepended, <code>{ type: &quot;uuid&quot;, prefix: &quot;u_&quot; }</code>,
 see <a href="module-lib.html#.uuid">module:lib.uuid</a>, <a href="module-lib.html#.suuid">module:lib.suuid</a>, module:lib.tuuid</li>
-<li><code>now</code> -  defines a column to be automatically filled with the current timestamp, <code>{ type: &quot;now&quot; }</code></li>
+<li><code>now</code> -  defines a column to be automatically filled with the current timestamp</li>
 <li><code>counter</code> -  defines a columns that will be automatically incremented by the <a href="module-db.html#.incr">module:db.incr</a> command, on creation it is set with 0</li>
 <li><code>uid</code> -  defines a columns to be automatically filled with the current user id, this assumes that user object is passed in the options from the API level</li>
 <li><code>uname</code> -  defines a columns to be automatically filled with the current user name, this assumes that user object is passed in the options from the API level</li>
@@ -4674,7 +4677,31 @@ it will use the given record to produce a new property, empty properties will be
 
             
 
-            <td class="description last"><p>for <code>now</code> type save as seconds since the Epoch, not milliseconds</p></td>
+            <td class="description last"><p>for &quot;now&quot; type save as seconds since the Epoch, not milliseconds</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>clock</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>for &quot;now&quot; type timestamp is in nanoseconds</p></td>
         </tr>
 
     

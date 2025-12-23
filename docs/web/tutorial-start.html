@@ -88,10 +88,7 @@ const counter = {
         api.app.get(&quot;/counter&quot;, (req, res) => {
 
             db.incr(&quot;counter&quot;, { id: 1, value: 1 }, { returning: &quot;*&quot;, first: 1 }, (err, row) => {
-                if (err) {
-                    return api.sendReply(res, err);
-                }
-                api.sendJSON(req, row);
+                api.sendJSON(req, err, row);
             });
         });
         callback();
@@ -110,7 +107,24 @@ db-pool=sqlite
 <p>Now run the command</p>
 <pre class="prettyprint source"><code>node index.js -db-create-tables
 </code></pre>
-<p>Go to <em>http://localhost:8000/counter</em> in your browser, you'll see the current counter value, refresh it and see the counter incrementing.</p>
+<p>Go to <em>http://localhost:8000/counter</em> in your browser, you'll see the current counter value,
+refresh it and see the counter value incrementing with mtime timestamp in milliseconds.</p>
+<p>Explanations about this example:</p>
+<ul>
+<li>the <strong>counter</strong> module is just an object with a name, here we created it inside the same index.js but
+modules usually placed in its own separate files</li>
+<li>the <strong>tables</strong> object describes SQL table &quot;counter&quot; with 3 columns</li>
+<li>the <strong>configureWeb</strong> method is called by the server on start, this method is reserved for adding your Express routes,
+it is called only in the &quot;api&quot; mode where <strong>api.app</strong> is the Express application.</li>
+<li>we just created a single GET route <strong>/counter</strong> using Express middlware syntax, inside we directly increment
+the counter in the record with id=1, it is created automatically on first call</li>
+<li>then return the whole record back as JSON, it is ok to do it for such a silly example.</li>
+<li>the <strong>bkjs.conf</strong> file is created for convenience, we could pass all params via the command-line</li>
+<li>the config defines Sqlite database pool with file named &quot;counter&quot; and adds our <strong>/counter</strong> endpoint to the
+public access list, by default all endpoints require some kind of access permissions</li>
+<li>and lastly we pass <strong>-db-create-tables</strong> to the node to initialize the database, this is usually need only once or every time
+the schema changes, so next time it is fine to run the demo as <code>node index.js</code></li>
+</ul>
 <h2>Next steps</h2>
 <p><strong>backendjs</strong> has many, many other capabilities, please explore the documentation and
 examples on https://github.com/vseryakov/backendjs/examples</p>

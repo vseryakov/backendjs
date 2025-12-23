@@ -88,6 +88,22 @@ node index.js -db-create-tables
 Go to _http://localhost:8000/counter_ in your browser, you'll see the current counter value,
 refresh it and see the counter value incrementing with mtime timestamp in milliseconds.
 
+Explanations about this example:
+
+- the __counter__ module is just an object with a name, here we created it inside the same index.js but
+  modules usually placed in its own separate files
+- the __tables__ object describes SQL table "counter" with 3 columns
+- the __configureWeb__ method is called by the server on start, this method is reserved for adding your Express routes,
+  it is called only in the "api" mode where __api.app__ is the Express application.
+- we just created a single GET route __/counter__ using Express middlware syntax, inside we directly increment
+  the counter in the record with id=1, it is created automatically on first call
+- then return the whole record back as JSON, it is ok to do it for such a silly example.
+- the __bkjs.conf__ file is created for convenience, we could pass all params via the command-line
+- the config defines Sqlite database pool with file named "counter" and adds our __/counter__ endpoint to the
+  public access list, by default all endpoints require some kind of access permissions
+- and lastly we pass __-db-create-tables__ to the node to initialize the database, this is usually need only once or every time
+  the schema changes, so next time it is fine to run the demo as `node index.js`
+
 ## Next steps
 
 **backendjs** has many, many other capabilities, please explore the documentation and

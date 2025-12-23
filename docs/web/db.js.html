@@ -93,7 +93,7 @@ const fs = require("fs");
  *   **Comparison** operators used in select/get:
  * ```>, gt, &lt;, lt, =, !=, &lt;>, >=, ge, &lt;=, le, in, all_in,
  *    between, match, regexp, iregexp, begins_with, not_begins_with, ends_with, not_ends_with,
- *    like, like%, ilike%, contains, not_contains
+ *    like, like%, ilike%, contains, not_contains, expr
  * ```
  *
  *  **Update** operators used in incr/update/del:
@@ -104,11 +104,15 @@ const fs = require("fs");
  *    - append - append to existing column value
  *    - prepend - prepend to existing column value
  *    - not_exists - update only if the value is null, otherwise skip
+ *    - expr - SQL expression as is or can be an array of values with
+ *       item 0 being expression with the rest values: ["COALESCE(name,$1)||$2", ...]
  *
  * As alternative, operators also can be used with column names, the format is **name_$op**:
  * ```js
  * { flags_$del: "flag" }
  * { count_$incr: 3 }
+ * { tag_$expr: "COALESCE(name,'none')||count" }
+ * { tag_$expr: ["COALESCE(name,$1)||count", "N/A"] }
  * ```
  * @property {object} opsMap - operator mapping between supplied operators and actual operators supported by the db
  * @property {object} typesOps - an object that defines ops by column type, for example `typesOps: { list: "add" }` will
@@ -194,7 +198,6 @@ const fs = require("fs");
  *  - `text, string, keyword` -  text types
  *  - `date, time, timestamp` -  Date stored in database supported type, usually as text in SQL
  *  - `mtime` -  timestamp in milliseconds
- *  - `clock` -  timestamp in nanoseconds
  *  - `json` -  stored as JSON text but converted to/from native Javascript objects
  *  - `obj, object` -  native JSON object type
  *  - `array` -  native JSON array type
@@ -205,7 +208,7 @@ const fs = require("fs");
  *  - `uuid, suuid, sfuuid` -  autogenerate the column value with UUID,
  *       optional `prefix` property will be prepended, `{ type: "uuid", prefix: "u_" }`,
  *       see {@link module:lib.uuid}, {@link module:lib.suuid}, {@link module:lib.tuuid}
- *  - `now` -  defines a column to be automatically filled with the current timestamp, `{ type: "now" }`
+ *  - `now` -  defines a column to be automatically filled with the current timestamp
  *  - `counter` -  defines a columns that will be automatically incremented by the {@link module:db.incr} command, on creation it is set with 0
  *  - `uid` -  defines a columns to be automatically filled with the current user id, this assumes that user object is passed in the options from the API level
  *  - `uname` -  defines a columns to be automatically filled with the current user name, this assumes that user object is passed in the options from the API level
@@ -246,7 +249,8 @@ const fs = require("fs");
  * @property {int} convert.increment -  for numeric columns add this value before saving
  * @property {int} convert.decimal -  for numeric columns convert into fixed number using this number of decimals
  * @property {function} convert.format -  a function (val, req) => {} that must return new value for the given column, for custom formatting
- * @property {boolean} convert.epoch -  for `now` type save as seconds since the Epoch, not milliseconds
+ * @property {boolean} convert.epoch -  for "now" type save as seconds since the Epoch, not milliseconds
+ * @property {boolean} convert.clock -  for "now" type timestamp is in nanoseconds
  *
  * @property {object} check - validation checks
  * @property {int} check.max -  ignore the column if a `text`, `json` or `obj` value is greater than specified limit, unless `trunc` is provided

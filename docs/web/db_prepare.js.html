@@ -439,6 +439,12 @@ function prepareForUpdate(req)
         }
         if (lib.isFlag(req.options.skip_columns, name)) continue;
 
+        // auto update ops
+        if (!req.options.ops?.[name] &amp;&amp; req.options.typesOps?.[col.type]) {
+            if (!req.options.ops) req.options.ops = {};
+            req.options.ops[name] = req.options.typesOps[col.type];
+        }
+
         if (col) {
             // Convert into native data type
             if (value !== null) {
@@ -475,6 +481,8 @@ function prepareForUpdate(req)
                     }
 
                 default:
+                    // No point converting the value if update op is provided
+                    if (req.options.ops?.[name]) break;
                     if ((col.primary &amp;&amp; insert) || col.index || col.type || (value !== undefined &amp;&amp; req.config.defaultType)) {
                         value = lib.toValue(value, col.type || req.config.defaultType, col);
                     }
@@ -513,11 +521,6 @@ function prepareForUpdate(req)
         if ((value === null || value === "") &amp;&amp; !col?.check?.not_empty &amp;&amp; req.config.skipNull) {
             if (lib.testRegexp(col?.type, req.config.skipNull[req.op])) continue;
         }
-        // auto update ops
-        if (!req.options.ops?.[name] &amp;&amp; req.options.typesOps?.[col.type]) {
-            if (!req.options.ops) req.options.ops = {};
-            req.options.ops[name] = req.options.typesOps[col.type];
-        }
         o[name] = value;
     }
     req.query = o;
@@ -543,28 +546,29 @@ function prepareForUpdate(req)
 
         // Only use the given timestamp if it is an update with primary key involving the property
         switch (col.type) {
+        case "now":
+            if (!req.query[name]) {
+                req.query[name] = col.convert?.epoch ? lib.now() : col.convert?.clock ? lib.clock(): req.now;
+            }
+            break;
         case "uuid":
-            if (insert &amp;&amp; !lib.isUuid(req.query[name], col.prefix)) req.query[name] = lib.uuid(col.prefix);
+            if (insert &amp;&amp; !lib.isUuid(req.query[name], col.prefix)) {
+                req.query[name] = lib.uuid(col.prefix);
+            }
             break;
         case "suuid":
-            if (insert &amp;&amp; !req.query[name]) req.query[name] = lib.suuid(col.prefix, col);
+            if (insert &amp;&amp; !req.query[name]) {
+                req.query[name] = lib.suuid(col.prefix, col);
+            }
             break;
         case "sfuuid":
-            if (insert &amp;&amp; !req.query[name]) req.query[name] = lib.sfuuid(col);
+            if (insert &amp;&amp; !req.query[name]) {
+                req.query[name] = lib.sfuuid(col);
+            }
             break;
         case "random":
             if (insert &amp;&amp; !req.query[name]) {
                 req.query[name] = col.max || col.min ? lib.randomInt(col.min, col.max) : lib.randomUInt();
-            }
-            break;
-        case "now":
-            if (insert &amp;&amp; !req.query[name]) {
-                req.query[name] = col.convert?.epoch ? lib.now() : req.now;
-            }
-            break;
-        case "clock":
-            if (insert &amp;&amp; !req.query[name]) {
-                req.query[name] = lib.clock();
             }
             break;
         case "ttl":

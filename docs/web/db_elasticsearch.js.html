@@ -808,6 +808,7 @@ class ElasticsearchPool extends DbPool {
             }
 
             if (col.keyword) {
+                if (!properties[name]) properties[name] = {};
                 properties[name].type = "keyword";
             }
 
@@ -825,9 +826,9 @@ class ElasticsearchPool extends DbPool {
             } else {
                 // Just the type mapping
                 const type = col.join ? "text" : config.typesMap[col.type] || config.defaultType;
-                if (type) properties[col] = typeof type == "object" ? type : { type };
+                if (type) properties[name] = typeof type == "object" ? type : { type };
             }
-            if (!properties[col]) continue;
+            if (!properties[name]) continue;
 
             if (!properties[name].type &amp;&amp; !properties[name].properties) {
                 properties[name].type = config.typesMap[col.type] || config.defaultType;
@@ -900,6 +901,7 @@ class ElasticsearchPool extends DbPool {
         if (missing) {
             return this.doQuery("PUT", table + "/_mappings", { properties: properties }, "", config, callback);
         }
+        callback();
     }
 
     queryGet(client, req, callback)
@@ -1182,7 +1184,8 @@ class ElasticsearchPool extends DbPool {
             if (!err &amp;&amp; res?.result == "updated") res.affected_rows = 1;
             if (err?.status == 404) err = null;
             if (err?.status == 409) err.code = "AlreadyExists";
-            callback(err, [], res);
+            var rows = obj._source &amp;&amp; res.get?._source ? [res.get?._source] : [];
+            callback(err, rows, res);
         });
     }
 
