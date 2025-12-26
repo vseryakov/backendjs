@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>Reference - Backendjs Documentation</title>
+    <title>exports - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -39,126 +39,257 @@
 
 <div id="main">
     
+    <h1 class="page-title">exports</h1>
+    
 
-    <section>
+    
+
+
+
+
+<section>
+
+
 
 <header>
+    
+        <h2>
+        
+            exports
+        
+        </h2>
+        
+            <div class="class-description usertext"><p>Create a database pool that works with ElasticSearch server, only the hostname and port will be used, by default each table
+is stored in its own index.</p>
+<p>To define shards and replicas per index:</p>
+<ul>
+<li><code>-db-elasticsearch-pool-options-shards-INDEX_NAME=NUM</code></li>
+<li><code>-db-elasticsearch-pool-options-replicas-INDEX_NAME=NUM</code></li>
+</ul>
+<p>To support multiple seed nodes a parameter <code>-db-elasticsearch-pool-options-servers=1.1.1.1,2.2.2.2</code> can be specified, if the primary node
+fails it will switch to other configured nodes. To control the switch retries and timeout there are options:</p>
+<ul>
+<li><code>-db-elasticsearch-pool-options-retry-count=3</code></li>
+<li><code>-db-elasticsearch-pool-options-retry-timeout=250</code></li>
+</ul>
+<p>On successful connect to any node the driver retrieves full list of nodes in the cluster and switches to a random node, this happens
+every <code>discovery-interval</code> in milliseconds, default is 1h, it can be specified as <code>-db-elasticserch-pool-options-discovery-interval=300000</code></p></div>
+        
     
 </header>
 
 <article>
-    <h1>Reference</h1>
-<h1>Dependencies</h1>
-<p>Only core required dependencies are installed but there are many modules which require a module to work correctly.</p>
-<p>All optional dependencies are listed in the package.json under &quot;peerDependencies&quot;, only manual install of required modules is supported or
-it is possible to install all optional dependencies for development purposes.</p>
-<p>Here is the list of modules for each peer feature:</p>
-<ul>
-<li>pg - PostgreSQL database access</li>
-<li>redis - for Redis queue and cache driver</li>
-<li>unix-dgram - for Linux to use local syslog via Unix domain</li>
-<li>web-push - for Web push notifications</li>
-<li>sharp - scaling images in uploads using VPS imaging</li>
-<li>nats - NATS driver for queue and events</li>
-<li>croner - to support jobs via a cronfile or DB</li>
-<li>nodemailer - to support sending emails</li>
-</ul>
-<p>The command below will install all dependencies</p>
-<pre class="prettyprint source lang-shell"><code>npm install --include=peer
-</code></pre>
-<h1>Configuration</h1>
-<p>Almost everything in the backend is configurable using config files or a config database.
-The whole principle behind it is that once deployed in production, sometimes even quick restarts are impossible to do so
-there should be a way to push config changes to the processes without restarting.</p>
-<p>Every module defines a set of config parameters that defines the behavior of the code, due to the single threaded
-nature of the Node.js it is simple to update any config parameter to a new value so the code can operate differently.</p>
-<p>To achieve this the code must be written in a special way, like driven by configuration which can be changed at
-any time.</p>
-<p>All configuration goes through the configuration process that checks all inputs and produces valid output which
-is applied to the module variables. Config file or database table with configuration can be loaded on demand or
-periodically, for example all local config files can be watched for modification and reloaded automatically, the
-config database is loaded periodically which is defined by another config parameter <a href="module-db.html#.configMap">module:db.configMap</a>.</p>
-<h1>Backend runtime</h1>
-<p>When the backendjs server starts in server or watch mode it spawns several processes that perform different tasks.</p>
-<p>There are 2 major tasks of the backend that can be run at the same time or in any combination:</p>
-<ul>
-<li>a Web server (server) with Web workers (web) and/or job workers (worker)</li>
-</ul>
-<p>This is the typical output from the ps command on Linux server:</p>
-<pre class="prettyprint source lang-shell"><code>ec2-user    899  0.0  0.6 1073844 52892 ?  Sl   14:33   0:01 bkjs: server
-ec2-user    917  0.0  0.7 1072820 59008 ?  Sl   14:33   0:01 bkjs: web
-ec2-user    919  0.0  0.7 1072820 60792 ?  Sl   14:33   0:02 bkjs: web
-ec2-user    921  0.0  0.7 1072120 40721 ?  Sl   14:33   0:02 bkjs: worker
-</code></pre>
-<p>To enable any task a command line parameter must be provided, it cannot be specified in the config file. The <strong>bkjs</strong> utility supports several
-commands that simplify running the backend in different modes.</p>
-<ul>
-<li><strong>bkjs start</strong> - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
-the env variable <strong>BKJS_SERVER</strong> must be set in the profile to <strong>server</strong> to start the server</li>
-<li><strong>bkjs watch</strong> - runs the server and Web server in wather mode checking all source files for changes, this is the common command to be used
-in development, it passes the command line switches: <strong>-watch -server</strong></li>
-<li><strong>bkjs server</strong> - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
-the command line parameters are: <strong>-daemon -server -syslog</strong>, web server and workers are started by default</li>
-<li><strong>bkjs run</strong> - this command runs without other parameters, all additional parameters can be added in the command line, this command
-is a barebone helper to be used with any other custom settings.</li>
-<li><strong>bkjs run -api</strong> - this command runs a single process as web server, sutable for Docker</li>
-<li><strong>bkjs run -worker</strong> - this command runs a single process worker, suatable for Docker</li>
-<li><strong>bkjs shell</strong> or <strong>bksh</strong> - start backendjs shell, no API or Web server is initialized, only the database pools</li>
-</ul>
-<h1>Environment variables</h1>
-<p>On startup some env variable will be used for initial configuration:</p>
-<ul>
-<li>BKJS_HOME - home directory where to cd and find files, <strong>-app-home</strong> config parameter overrides it</li>
-<li>BKJS_RUNMODE - initial run mode, <strong>-app-run-mode</strong> overrides it</li>
-<li>BKJS_CONFIG - config file to use instead of 'etc/config', <strong>-app-config</strong> overrides it</li>
-<li>BKJS_PACKAGES - packags to use, <strong>-app-import-packages</strong> overrieds it</li>
-<li>BKJS_DB_POOL - default db pool, <strong>-db-pool</strong> overrides it</li>
-<li>BKJS_DB_CONFIG - config db pool, <strong>-db-config</strong> overrides it</li>
-<li>BKJS_ROLES - additonal roles to use for config, <strong>-app-instance-roles</strong> overrides it</li>
-<li>BKJS_VERSION - default app name and version, <strong>-app-version</strong> overrides it</li>
-<li>BKJS_TAG - initial instance tag, <strong>-app-instance-tag</strong> overrides it, it may be also overridden by AWS instance tag</li>
-<li>BKJS_LOG_OPTIONS - logger options, <strong>-app-log-options</strong> overrides it</li>
-<li>BKJS_PORT - port for web server, <strong>-api-port</strong> overrides it</li>
-<li>BKJS_WSPORT - port for web sockets, <strong>api-ws-port</strong> overrides it</li>
-</ul>
-<h1>Backend library development (Mac OS X, developers)</h1>
-<ul>
-<li>
-<p><strong>git clone https://github.com/vseryakov/backendjs.git</strong></p>
-</li>
-<li>
-<p>cd backendjs</p>
-</li>
-<li>
-<p>if Node.js is already installed skip to the next section</p>
-<ul>
-<li>
-<p>to install binary release run the command, it will install it into ./nodejs</p>
-<p><code>bin/bkjs install-node</code></p>
-</li>
-</ul>
-</li>
-<li>
-<p><code>npm install</code></p>
-</li>
-<li>
-<p>now run local server on port 8000 run command:</p>
-<p><code>bin/bkjs watch -app-log info</code></p>
-</li>
-<li>
-<p>to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
-This command line access allows you to test and run all functions from all modules of the backend without running full server
-similar to Node.js REPL functionality. All modules are accessible from the command line.</p>
-<pre class="prettyprint source"><code>$ bin/bksh
-> app.version
-'bkjs/0.0'
-> logger.setLevel('info')
-</code></pre>
-</li>
-</ul>
+    
+        <div class="container-overview">
+        
+            
+
+    
+    <h2>Constructor</h2>
+    
+
+    <h4 class="name" id="exports"><span class="type-signature"></span>new exports<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="db_elasticsearch.js.html">db/elasticsearch.js</a>, <a href="db_elasticsearch.js.html#line101">line 101</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+        </div>
+    
+
+    
+
+    
+
+    
+
+    
+    
+    
+
+     
+
+    
+
+    
+
+
+    
+        <a name="methods">
+            <h2 class="subsection-title">Methods</h2>
+        </a>
+
+        
+            
+
+    
+
+    <h4 class="name" id="delay"><span class="type-signature"></span>delay<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Returns number of milliseconds to wait till number of tokens can be available again</p></li></ul></dd>
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="metrics_TokenBucket.js.html">metrics/TokenBucket.js</a>, <a href="metrics_TokenBucket.js.html#line129">line 129</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+    
+
+    
 </article>
 
 </section>
+
+
+
 
     
     

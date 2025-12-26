@@ -475,7 +475,7 @@ See {@link module:api.session}
 # <a name="api.signature">api.signature</a>
 See {@link module:api.signature}
 ### **api-signature-header**
- Header name to sotee signature   
+ Header/query name to use for signature   
 ##### Default: "bk-signature"   
 ### **api-signature-age**
  Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts   
@@ -768,7 +768,7 @@ See {@link module:cache}
 ```
 
 ### **cache-([a-z0-9]+)**
- An URL that points to a cache server in the format `PROTO://HOST[:PORT]?PARAMS`, multiple clients can be defined with unique names, all params starting with `bk-` will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url   
+ An URL that points to a cache server in the format PROTO://HOST[:PORT]?PARAMS, multiple clients can be defined with unique names, all params starting with bk- will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url   
 ##### Example:
 ```
 -cache-redis redis://localhost?bk-count=3&bk-ttl=3000
@@ -1019,12 +1019,9 @@ See {@link module:jobs}
  Queue names which ignore the global setting, the queueName is used as usual, local and worker are ignored by default   
 ##### Type: list   
 ##### Default: ["local","worker"]   
-### **jobs-cron**
- Allow cron jobs to be executed from the local etc/crontab file or via config parameter   
-##### Type: bool   
 ### **jobs-cron-file**
  File with cron jobs in JSON format   
-### **jobs-schedule**
+### **jobs-cron**
  Cron jobs to be scheduled, the JSON must be in the same format as crontab file, cron format by https://croner.56k.guru   
 ##### Type: json   
 ### **jobs-unique-cache**
