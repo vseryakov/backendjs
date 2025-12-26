@@ -1,80 +1,30 @@
 # Modules
 
 The primary way to add functionality to the backend is via external modules specific to the backend, these modules are loaded on startup from the backend
-home subdirectory `modules/`. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.
+home subdirectory **modules/**. The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup.
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup.
 
-All modules are exposed in the top level `modules` module. This is a way for global access to modules by name.
+All modules are exposed in the top level {@link module:modules}. This is a way for global access to modules by name.
 
 By having module names contain dots it is possible to create a module hierarchy, for example
-modules with names `billing.invoices`, `billing.payable`, `billing.stripe` can be accessed like this:
-
-      const { modules } = require("backendjs");
-      modules.billing.invoices....
-      modules.billing.payable...
-      modules.billing.stripe...
-
-Let's assume the `modules/` contains file facebook.js which implements custom FB logic:
-
-```javascript
-    const { core } = require("backendjs");
-
-    const mod = {
-        name: "facebook",
-        args: [
-            { name: "token", descr: "API token" },
-        ]
-    }
-    module.exports = mod;
-
-    mod.configureWeb = function(options, callback) {
-       ...
-    }
-
-    mod.makeRequest = function(options, callback) {
-         app.fetch({ url: options.path, query: { access_token: fb.token } }, callback);
-    }
-```
-
-This is the main app code:
-
-```javascript
-    const { api, modules, server } = require("backendjs");
-
-    // Using facebook module in the main app
-    api.app.get("/me", (req, res) => {
-
-       modules.facebook.makeRequest({ path: "/me" }, (err, data) => {
-          api.sendJSON(req, err, data);
-       });
-    });
-
-    server.start();
-```
-
-To run:
-
-        node app.js -api -modules-path $(pwd)/modules
+modules with names billing.invoices, billing.payable, billing.stripe can be accessed like this:
 
 ## NPM packages as modules
 
-In case different modules is better keep separately for maintenance or development purposes they can be split into
-separate NPM packages, the structure is the same, modules must be in the `modules/` folder and the package must be loadable
-via require as usual. In most cases just empty index.js is enough. Such modules will not be loaded via require though but
-by the backendjs `app.loadModule` machinery, the NPM packages are just keep different module directories separate from each other.
+Such modules will NOT be loaded via **require()** but by the backendjs {@link module:app.loadModules} machinery,
+the NPM packages are just to keep different modules separate from each other.
 
-The config parameter `import-packages` can be used to specify NPM package names to be loaded separated by comma, as with the default
+The config parameter **import-packages** can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:
 
   - modules will be loaded from the modules/ folder
   - files in the web/ folder will be added to the static search path
   - all templates from views/ folder will be used for rendering
 
-If there is a config file present as `etc/config` it will be loaded as well, this way each package can maintain its default config parameters if necessary
-without touching other or global configuration. Although such config files will not be reloaded on changes, when NPM installs or updates packages it
-moves files around so watching the old config is no point because the updated config file will be different.
+If there is a config file present specified by {@link module:app.config}, it will be loaded as well, this way each package can maintain its default config parameters if necessary without touching other or global configuration.
+Although such config files will not be reloaded on changes, when NPM installs or updates packages it moves files around so watching the old config is no point because the updated config file will be different.
 
 ## Default methods
 

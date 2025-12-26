@@ -26,11 +26,12 @@ npm install --include=peer
 
 # Configuration
 
-Almost everything in the backend is configurable using config files or a config database.
+Almost everything in the backend is configurable using config files or a config database, see {@tutorial config}.
+
 The whole principle behind it is that once deployed in production, sometimes even quick restarts are impossible to do so
 there should be a way to push config changes to the processes without restarting.
 
-Every module defines a set of config parameters that defines the behavior of the code, due to the single threaded
+Every module has a set of config parameters that defines the behavior of the code, due to the single threaded
 nature of the Node.js it is simple to update any config parameter to a new value so the code can operate differently.
 
 To achieve this the code must be written in a special way, like driven by configuration which can be changed at
