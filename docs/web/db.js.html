@@ -357,6 +357,9 @@ const db =
  * in the code and enable or disable any particular pool at any time.
  *
  * To use PostgreSQL db pool to get a record and update the current pool:
+ *
+ * db-pg-pool=pg://localhost/dbname
+ *
  * ```js
  * db.get("bk_user", { login: "123" }, { pool: "pg" }, (err, row) => {
  *    if (row) {
@@ -376,8 +379,6 @@ const db =
  * ```
  *
  * The following databases are supported with the basic db methods: __Sqlite, PostgreSQL, DynamoDB, Elasticsearch__
- *
- * All public __db.get|put|update|del|select|list__ operations have corresponding promisifed method starting with __a__, like __db.get__ -> __db.aget__,...
  *
  * Multiple pools of the same type can be opened, just add __N__ suffix to all database config parameters where N is a number,
  * referer to such pools in the code as __poolN__ or by an alias.

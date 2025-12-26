@@ -55,6 +55,11 @@ can be shipped regardless of the npm, node modules and other env setup.</p>
 <p>All modules are exposed in the top level <a href="module-modules.html">module:modules</a>. This is a way for global access to modules by name.</p>
 <p>By having module names contain dots it is possible to create a module hierarchy, for example
 modules with names billing.invoices, billing.payable, billing.stripe can be accessed like this:</p>
+<pre class="prettyprint source lang-js"><code>const { modules } = require(&quot;backendjs&quot;);
+modules.billing.invoices.process(...)
+modules.billing.payable.report(...)
+modules.billing.stripe.request(...)
+</code></pre>
 <h2>NPM packages as modules</h2>
 <p>Such modules will NOT be loaded via <strong>require()</strong> but by the backendjs <a href="module-app.html#.loadModules">module:app.loadModules</a> machinery,
 the NPM packages are just to keep different modules separate from each other.</p>

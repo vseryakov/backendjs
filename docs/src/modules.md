@@ -11,6 +11,13 @@ All modules are exposed in the top level {@link module:modules}. This is a way f
 By having module names contain dots it is possible to create a module hierarchy, for example
 modules with names billing.invoices, billing.payable, billing.stripe can be accessed like this:
 
+```js
+const { modules } = require("backendjs");
+modules.billing.invoices.process(...)
+modules.billing.payable.report(...)
+modules.billing.stripe.request(...)
+```
+
 ## NPM packages as modules
 
 Such modules will NOT be loaded via **require()** but by the backendjs {@link module:app.loadModules} machinery,

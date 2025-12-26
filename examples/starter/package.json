@@ -1,0 +1,10 @@
+{
+  "name": "starter",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "init": "node index.js -db-create-tables",
+    "start": "node index.js"
+  }
+}

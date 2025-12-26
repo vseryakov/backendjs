@@ -107,12 +107,13 @@ Explanation about this example:
 - and lastly we pass __-db-create-tables__ to the node to initialize the database, this is usually need only once or every time
   the schema changes, so next time it is fine to just run the demo as `node index.js`
 
+This example is in the repository at [starter](https://github.com/vseryakov/backendjs/tree/master/examples/starter).
+
 ## Next steps
 
 **backendjs** has many, many other capabilities like {@link module:api}, {@link module:db}, {@link module:jobs},
 {@link module:cache}, {@link module:queue}, {@link module:aws}.
 
-Please explore the documentation and examples at https://github.com/vseryakov/backendjs/examples
-
+Please explore the documentation and examples at [examples](https://github.com/vseryakov/backendjs/tree/master/examples).
 
 
