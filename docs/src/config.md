@@ -548,7 +548,7 @@ See {@link module:app}
 ### **app-log-filter**
  Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug   
 ##### Type: callback   
-### **app-no-log-filter**
+### **app-log-clear**
  Clear all log filters   
 ##### Type: bool   
 ### **app-syslog**
@@ -620,34 +620,30 @@ See {@link module:app}
 ### **app-repl-([a-z]+)**
  REPL settings: listen, file, size   
 ##### Type: auto   
-### **app-import-packages**
+### **app-import**
  NPM packages to load on startup, the modules, views, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the bkjs.conf will be parsed if present   
 ##### Type: list   
 ##### Default: []   
-### **app-include-modules**
- Modules to load, the whole path is checked   
+### **app-modules-include**
+ Modules to load only, the whole path is checked   
 ##### Type: regexp   
-### **app-exclude-modules**
+### **app-modules-exclude**
  Modules not to load, the whole path is checked   
 ##### Type: regexp   
-### **app-depth-modules**
+### **app-modules-depth**
  How deep to go looking for modules, it uses lib.findFileSync to locate all .js files   
 ##### Type: int   
-##### Default: 3   
-### **app-host-name**
- Hostname/domain to use for communications, default is current domain of the host machine   
-##### Type: callback   
-### **app-stop-on-error**
- Exit the process on any error when loading modules, for dev purposes   
-##### Type: bool   
-### **app-allow-methods-(.+)**
+### **app-modules-methods-(.+)**
  Modules that allowed to run methods by name, useful to restrict configure methods   
 ##### Type: regexp   
 ##### Example:
 ```
--allow-methods-configureWeb app
+-app-modules-methods-configureWeb app
 ```
 
+### **app-host-name**
+ Hostname/domain to use for communications, default is current domain of the host machine   
+##### Type: callback   
 ### **app-workers**
  Max number of web processes to launch, -1 disables workers, 0 means launch as many as the CPUs available`   
 ##### Type: int   
@@ -666,11 +662,14 @@ See {@link module:app}
 ### **app-no-restart**
  Do not restart any workers   
 ##### Type: bool   
+### **app-stop-on-error**
+ Exit the process on any error when loading modules, for dev purposes   
+##### Type: bool   
 ### **app-exit-on-empty**
  Duration in ms to exit the server process after last worker terminated   
 ##### Type: int   
 ### **app-pid-file**
- server process pid file   
+ Server process pid file   
 ### **app-err-file**
  Server error log file in daemon mode   
 # <a name="aws">aws</a>

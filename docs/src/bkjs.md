@@ -35,35 +35,36 @@ the convention is that argument name must start with a single dash followed by a
 - **get_arg(name, dflt)** - returns the value for the arg **name** or default value if specified
 - **get_flag(name, dflt)** - returns 1 if there is a command lione arg with the **name** or default value
   Example:
-
-      bkjs shell -log debug
+  ```shell
+  bkjs shell -log debug
+  ```
 
 - **concat_arg(name, value)** - returns concatenated value from the arg and provided value, to combine values from multiple sources
   Example:
-
-      ssh=$(concat_arg -ssh $BKJS_SSH_ARGS)
-
+  ```shell
+  ssh=$(concat_arg -ssh $BKJS_SSH_ARGS)
+  ```
 
 - **get_json(file, name, dflt, realpath)** - returns a value from the json file, **name** can be path deep into object, **realpath** flag if nonempty will treat all values as paths and convert each into actual real path (this is used by the internal web bundler)
 - **get_json_flat** - similar to get_json but property names are flattened for deep access
   Example:
-
-      $(get_json package.json config.sync.path)
-      $(get_json package.json name)
-
+  ```shell
+  $(get_json package.json config.sync.path)
+  $(get_json package.json name)
+  ```
 - **get_all_args(except)** - returns all args not present in the **except** list, this is to pass all arguments to other script, for command development
    Example:
 
       The script is called: **bkjs cmd1 -skip 1 -filter 2 -log 3**
 
       Your command handler process -skip but must pass all other args to another except -skip
-
-      cmd1)
-        skip=$(get_arg -skip)
-        ...
-        other_script $(get_all_args "-skip")
-        ;;
-
+    ```shell
+    cmd1)
+      skip=$(get_arg -skip)
+      ...
+      other_script $(get_all_args "-skip")
+      ;;
+    ```
 
 ## Extending bkjs tool
 
@@ -78,7 +79,9 @@ PART1 is the first part of the command before first dash.
 
 For example, when called:
 
-    bkjs ec2-check-hostname
+```shell
+bkjs ec2-check-hostname
+```
 
 it will check the command in main bkjs cript, not found it will search for all files that
 match **bkjs-ec2-*** in all known folders.
@@ -101,7 +104,7 @@ Example of a typical bkjs command:
 
 We need to set BKJS_TOOLS to point to our package(s), on Darwin add it to ~/.bkjs/etc/profile as
 
-```
+```shell
 BKJS_TOOLS="$HOME/src/node-pkg/tools"
 ```
 

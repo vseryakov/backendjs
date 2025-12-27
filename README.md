@@ -20,7 +20,7 @@ A Node.js library to create Web apps with minimal dependencies.
 * Runtime metrics about CPU, DB, requests, cache, memory, rate limits, AWS X-Ray spans.
 * The backend process can be used directly in Docker containers without shim init.
 
-## NOTE: work in progress, major refactor, the NPM version is old and not easy as this version
+## NOTE: work in progress, major refactor, the NPM version 0.x is deprecated.
 
 ## Getting started
 

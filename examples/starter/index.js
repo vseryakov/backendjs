@@ -29,4 +29,4 @@ const mod = {
 app.addModule(mod);
 
 app.start({ api: 1 });
-
+console.log('Server running on http://%s:%s', api.bind, api.port);

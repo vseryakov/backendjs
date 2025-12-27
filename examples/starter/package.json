@@ -6,5 +6,8 @@
   "scripts": {
     "init": "node index.js -db-create-tables",
     "start": "node index.js"
+  },
+  "dependencies": {
+    "backendjs": "github:vseryakov/backendjs"
   }
 }
