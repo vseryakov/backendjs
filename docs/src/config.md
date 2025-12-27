@@ -1095,14 +1095,19 @@ See {@link module:logwatcher}
 # <a name="push">push</a>
 See {@link module:push}
 ### **push-config**
- An object with client configs", example: "-push-config {"wp":{"type":"wp",key":XXX","pubkey":"XXXX"}}   
+ An object with client configs by type   
 ##### Type: json   
+##### Example:
+```
+-push-config {"webpush":{"type":"webpush",key":XXX","pubkey":"XXXX"}}
+```
+
 ### **push-([a-z0-9]+)**
- A client parameters   
+ A single client type parameters   
 ##### Type: map   
 ##### Example:
 ```
--push-wp type:wp,key:K,pubkey:PK,email:XXX
+-push-webpush type:webpush,key:K,pubkey:PK,email:XXX
 ```
 
 # <a name="queue">queue</a>
