@@ -23,7 +23,8 @@
     }
  },
  "scripts": {
-    "init": "bksh -db-create-tables -user-add roles admin login admin secret admin name admin",
+    "init": "mkdir -p node_modules && cd node_modules && ln -sf ../../../ backendjs && ln -sf backendjs/bin .bin",
+    "initdb": "bksh -db-create-tables -user-add roles admin login admin secret admin name admin",
     "start": "bkjs run -api -watch"
  },
  "license": "BSD-3-Clause"

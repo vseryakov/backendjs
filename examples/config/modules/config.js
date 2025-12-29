@@ -5,12 +5,13 @@
 
 const { db, api, lib } = require('../../../lib/index');
 
-// Config module
-const mod = {
+module.exports = {
     name: "config",
+
     args: [
         { name: "roles", type: "list", descr: "List of roles that can access this module, ex: -config-roles admin,user" },
     ],
+
     tables: {
         bk_config: {
             name: { primary: 1 },
@@ -20,27 +21,26 @@ const mod = {
             mtime: { type: "now" },
         },
     },
+
     roles: ["admin"],
+
+    configureWeb(options, callback)
+    {
+        api.app.use("/config",
+            api.express.Router().
+                use(perms).
+                get("/list", select).
+                post("/put", put).
+                post("/update", update).
+                post("/del", del));
+
+        callback();
+    }
 };
-module.exports = mod;
-
-// Create API endpoints
-mod.configureWeb = function(options, callback)
-{
-    api.app.use("/config",
-        api.express.Router().
-            use(perms).
-            get("/list", select).
-            post("/put", put).
-            post("/update", update).
-            post("/del", del));
-
-    callback();
-}
 
 function perms(req, res, next)
 {
-    if (!lib.isFlag(mod.roles, req.user?.roles)) {
+    if (!lib.isFlag(module.exports.roles, req.user?.roles)) {
         return api.sendReply(res, 403, "access denied");
     }
     next();

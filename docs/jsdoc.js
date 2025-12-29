@@ -21,7 +21,10 @@ module.exports = {
         destination: "./docs/web",
         recurse: true,
         readme: "README.md",
-        tutorials: "docs/src",
+        tutorials: "docs/src"
+    },
+    markdown: {
+        idInHeadings: true,
     },
     docdash: {
         sort: true,

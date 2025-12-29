@@ -8,6 +8,8 @@ Run **bkjs help** to see description of all available commands.
 
 The tool is multi-command utility where the first argument is the command to be executed with optional additional arguments if needed.
 
+## Environment
+
 On Linux, when started the bkjs tries to load and source the following global config files:
 
 ```shell
@@ -28,6 +30,8 @@ Any of the following config files can redefine any environment variable thus poi
 customize the running environment, these should be regular shell scripts using bash syntax.
 
 To check all env variables inside bkjs just run the command **bkjs env**
+
+## Functions
 
 The tool provides some simple functions to parse comamndline arguments,
 the convention is that argument name must start with a single dash followed by a value.

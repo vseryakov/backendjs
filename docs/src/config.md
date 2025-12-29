@@ -1,31 +1,5 @@
 # Config parameters
-- [api](#api)
-- [api.access](#api.access)
-- [api.acl](#api.acl)
-- [api.csrf](#api.csrf)
-- [api.files](#api.files)
-- [api.images](#api.images)
-- [api.passkeys](#api.passkeys)
-- [api.redirect](#api.redirect)
-- [api.routing](#api.routing)
-- [api.session](#api.session)
-- [api.signature](#api.signature)
-- [api.users](#api.users)
-- [api.ws](#api.ws)
-- [app](#app)
-- [aws](#aws)
-- [cache](#cache)
-- [db](#db)
-- [events](#events)
-- [ipc](#ipc)
-- [jobs](#jobs)
-- [logwatcher](#logwatcher)
-- [push](#push)
-- [queue](#queue)
-- [sendmail](#sendmail)
-- [sql](#sql)
-- [stats](#stats)
-# <a name="api">api</a>
+## api
 See {@link module:api}
 ### **api-err-(.+)**
  Error messages for various cases   
@@ -252,14 +226,14 @@ api-response-headers={ "^/": ["x-frame-options","sameorigin","x-xss-protection",
 ### **api-proxy-(.+)**
  Proxy matched requests by path to given host   
 ##### Type: regexp   
-# <a name="api.access">api.access</a>
+## api.access
 See {@link module:api.access}
 ### **api-access-err-(.+)**
  Error messages for various cases   
 ### **api-access-disabled**
  Disable default security middleware   
 ##### Type: bool   
-# <a name="api.acl">api.acl</a>
+## api.acl
 See {@link module:api.acl}
 ### **api-acl-err-(.+)**
  Error messages for various cases   
@@ -315,7 +289,7 @@ See {@link module:api.acl}
 ### **api-acl-reset**
  Reset all rules   
 ##### Type: callback   
-# <a name="api.csrf">api.csrf</a>
+## api.csrf
 See {@link module:api.csrf}
 ### **api-csrf-err-(.+)**
  Error messages for various cases   
@@ -354,7 +328,7 @@ See {@link module:api.csrf}
  Set cookie Secure flag   
 ##### Type: bool   
 ##### Default: true   
-# <a name="api.files">api.files</a>
+## api.files
 See {@link module:api.files}
 ### **api-files-raw**
  Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and user id in the file name   
@@ -365,7 +339,7 @@ See {@link module:api.files}
  S3 bucket name where to store files uploaded with the File API   
 ### **api-files-path**
  Path to store files   
-# <a name="api.images">api.images</a>
+## api.images
 See {@link module:api.images}
 ### **api-images-url**
  URL where images are stored, for cases of central image server(s), must be full URL with optional path   
@@ -384,7 +358,7 @@ See {@link module:api.images}
  Images scaling module, sharp   
 ### **api-images-path**
  Path to store images   
-# <a name="api.passkeys">api.passkeys</a>
+## api.passkeys
 See {@link module:api.passkeys}
 ### **api-passkeys-err-(.+)**
  Error messages for various cases   
@@ -400,7 +374,7 @@ See {@link module:api.passkeys}
  Cache for challenges   
 ### **api-passkeys-domain**
  Explicit domain to use instead of host   
-# <a name="api.redirect">api.redirect</a>
+## api.redirect
 See {@link module:api.redirect}
 ### **api-redirect-err-(.+)**
  Error messages for various cases   
@@ -423,7 +397,7 @@ api-redirect-login-^/admin/=/login.html
 ### **api-redirect-reset**
  Reset all rules   
 ##### Type: callback   
-# <a name="api.routing">api.routing</a>
+## api.routing
 See {@link module:api.routing}
 ### **api-routing-err-(.+)**
  Error messages for various cases   
@@ -446,7 +420,7 @@ See {@link module:api.routing}
 ### **api-routing-reset**
  Reset all rules   
 ##### Type: callback   
-# <a name="api.session">api.session</a>
+## api.session
 See {@link module:api.session}
 ### **api-session-disabled**
  Disable cookie session support, all requests must be signed for Web clients   
@@ -472,7 +446,7 @@ See {@link module:api.session}
 -api-session-cookie-/testing secure:false,sameSite:None
 ```
 
-# <a name="api.signature">api.signature</a>
+## api.signature
 See {@link module:api.signature}
 ### **api-signature-header**
  Header/query name to use for signature   
@@ -484,7 +458,7 @@ See {@link module:api.signature}
  Max login and tag length   
 ##### Type: int   
 ##### Default: 140   
-# <a name="api.users">api.users</a>
+## api.users
 See {@link module:api.users}
 ### **api-users-table**
  Table to use for users   
@@ -504,7 +478,7 @@ See {@link module:api.users}
 ##### Default: {}   
 ### **api-users-file**
  A JSON file with users   
-# <a name="api.ws">api.ws</a>
+## api.ws
 See {@link module:api.ws}
 ### **api-ws-port**
  Port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers   
@@ -524,7 +498,7 @@ See {@link module:api.ws}
 ##### Type: regexp   
 ### **api-ws-queue**
  A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets    
-# <a name="app">app</a>
+## app
 See {@link module:app}
 ### **app-log**
  Set debugging level to any of DEV,DEBUG,INFO,LOG,WARN,ERROR,NONE   
@@ -672,7 +646,7 @@ See {@link module:app}
  Server process pid file   
 ### **app-err-file**
  Server error log file in daemon mode   
-# <a name="aws">aws</a>
+## aws
 See {@link module:aws}
 ### **aws-key**
  AWS access key   
@@ -741,7 +715,7 @@ See {@link module:aws}
 ### **aws-conf-file-interval**
  Load S3 config file every specified interval in minites   
 ##### Type: int   
-# <a name="cache">cache</a>
+## cache
 See {@link module:cache}
 ### **cache-config**
  An object with driver configs, an object with at least url or an url string   
@@ -773,7 +747,7 @@ See {@link module:cache}
 -cache-redis redis://localhost?bk-count=3&bk-ttl=3000
 ```
 
-# <a name="db">db</a>
+## db
 See {@link module:db}
 ### **db-cap-(.+)**
  Capability parameters   
@@ -842,7 +816,7 @@ See {@link module:db}
 ```
 
 ### **db-config**
- Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters, set to `default` to use current default pool   
+ Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters   
 ### **db-config-map**
  Config options: `.interval` between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db, `.count` max records to load in one select, see the docs about `.top`, `.main`, `.other` config parameters   
 ##### Type: map   
@@ -906,7 +880,7 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 ##### Type: int   
 ### **db-([a-z0-9]+)-pool-alias**
  Pool alias to refer by an alternative name   
-# <a name="events">events</a>
+## events
 See {@link module:events}
 ### **events-worker-queue-(.+)**
  Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is `queue#channel@consumer`   
@@ -952,7 +926,7 @@ See {@link module:events}
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
 ##### Type: int   
 ##### Default: 50   
-# <a name="ipc">ipc</a>
+## ipc
 See {@link module:ipc}
 ### **ipc-ping**
  Keep alive pings for workers: interval:ms how oftern do pings, kill:ms kill worker after this period   
@@ -960,7 +934,7 @@ See {@link module:ipc}
 ##### Default: {}   
 ### **ipc-system-queue**
  System queue name to send broadcast control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...   
-# <a name="jobs">jobs</a>
+## jobs
 See {@link module:jobs}
 ### **jobs-cap-(.+)**
  Capability parameters   
@@ -1044,7 +1018,7 @@ See {@link module:jobs}
 ### **jobs-task-ignore**
  Ignore matched tasks   
 ##### Type: regexp   
-# <a name="logwatcher">logwatcher</a>
+## logwatcher
 See {@link module:logwatcher}
 ### **logwatcher-pool**
  DB pool to keep track of positions for log files, default is local   
@@ -1091,7 +1065,7 @@ See {@link module:logwatcher}
 ### **logwatcher-cw-matches-(.+)**
  Logwatcher line regexp patterns by group, overrides default regexp patterns   
 ##### Type: regexp   
-# <a name="push">push</a>
+## push
 See {@link module:push}
 ### **push-config**
  An object with client configs by type   
@@ -1109,7 +1083,7 @@ See {@link module:push}
 -push-webpush type:webpush,key:K,pubkey:PK,email:XXX
 ```
 
-# <a name="queue">queue</a>
+## queue
 See {@link module:queue}
 ### **queue-config**
  An object with driver configs, an object with at least url or an url string   
@@ -1141,7 +1115,7 @@ See {@link module:queue}
 -queue-redis redis://localhost?bk-count=3&bk-ttl=3000
 ```
 
-# <a name="sendmail">sendmail</a>
+## sendmail
 See {@link module:sendmail}
 ### **sendmail-from**
  Email address to be used when sending emails from the backend   
@@ -1152,12 +1126,12 @@ See {@link module:sendmail}
 ### **sendmail-smtp**
  SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details   
 ##### Type: map   
-# <a name="sql">sql</a>
+## sql
 See {@link module:sql}
 ### **sql-config-(.+)**
  Common SQL config parameters   
 ##### Type: map   
-# <a name="stats">stats</a>
+## stats
 See {@link module:stats}
 ### **stats-flags**
  Feature flags   

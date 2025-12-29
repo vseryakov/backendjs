@@ -1,6 +1,6 @@
 # Reference
 
-# Dependencies
+## Dependencies
 
 Only core required dependencies are installed but there are many modules which require a module to work correctly.
 
@@ -24,7 +24,7 @@ The command below will install all dependencies
 npm install --include=peer
 ```
 
-# Configuration
+## Configuration
 
 Almost everything in the backend is configurable using config files or a config database, see {@tutorial config}.
 
@@ -74,7 +74,7 @@ commands that simplify running the backend in different modes.
 - __bkjs shell__ or __bksh__ - start backendjs shell, no API or Web server is initialized, only the database pools
 
 
-# Environment variables
+## Environment variables
 
 On startup some env variable will be used for initial configuration:
 
@@ -92,7 +92,7 @@ On startup some env variable will be used for initial configuration:
   - BKJS_WSPORT - port for web sockets, __api-ws-port__ overrides it
 
 
-# Backend library development (Mac OS X, developers)
+## Backend library development (Mac OS X, developers)
 
 * __git clone https://github.com/vseryakov/backendjs.git__
 
