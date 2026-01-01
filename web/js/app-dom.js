@@ -33,14 +33,6 @@ app.util = {
         }, options?.timeout > 0 ? () => { setTimeout(callback, options.timeout) } : callback);
     },
 
-    // Return a random hex string
-    random(size)
-    {
-        var s = "", u = new Uint8Array(size || 16), h = "0123456789abcdef";
-        window.crypto.getRandomValues(u);
-        for (let i = 0; i < u.length; i++) s += h.charAt(u[i] >> 4) + h.charAt(u[i] & 0x0F);
-        return s;
-    },
 }
 
 })();

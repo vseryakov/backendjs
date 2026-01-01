@@ -1,6 +1,7 @@
 # Kanban Board - Alpine.js Implementation
 
-A full-featured Kanban board application built with Alpine.js and Alpinejs-app, featuring drag-and-drop, real-time updates, and SQLite/PostgreSQL persistence.
+A full-featured Kanban board application built with Alpine.js and Alpinejs-app,
+featuring drag-and-drop, real-time updates, and SQLite/PostgreSQL persistence.
 
 ## Tech Stack
 
@@ -23,8 +24,9 @@ The app uses a dual-database setup:
 
 ```bash
 npm install
-npm run setup  # Resets, migrates, and seeds the SQLite database
-npm run dev
+npm run init
+npm run initdb
+npm run start
 ```
 
 Visit [http://localhost:8000](http://localhost:8000)
@@ -34,7 +36,7 @@ Visit [http://localhost:8000](http://localhost:8000)
 ### Subsequent Runs
 
 ```bash
-npm run dev
+npm run start
 ```
 
 ## Database Setup
@@ -43,10 +45,11 @@ The app uses a dual-database setup:
 - **Local Development**: node:sqlite
 - **Production**: PostgreSQL
 
-### Local Database (SQLite)
+### Re-create local Database (SQLite)
 
 ```bash
-npm run setup  # This automatically resets, migrates, and seeds
+rm kanban.db
+npm run initdb
 ```
 
 ## Project Structure

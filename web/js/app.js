@@ -1007,7 +1007,7 @@
   app.afetch = function(options) {
     return new Promise((resolve, reject) => {
       app.fetch(options, (err, data2, info) => {
-        resolve({ ok: !!err, status: info.status, err, data: data2, info });
+        resolve({ ok: !err, status: info.status, err, data: data2, info });
       });
     });
   };

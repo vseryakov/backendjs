@@ -23,8 +23,10 @@
     }
  },
  "scripts": {
-    "setup": "rm -f kanban.db && bksh -db-create-tables -run-file tools/seed",
-    "start": "bkjs run -api -watch"
+    "init": "mkdir -p node_modules && cd node_modules && ln -sf ../../../ backendjs && ln -sf backendjs/bin .bin",
+    "initdb": "rm -f kanban.db && bksh -db-create-tables -run-file tools/seed",
+    "start": "bkjs run -api -watch",
+    "bksh": "bksh"
  },
  "license": "BSD-3-Clause"
 }

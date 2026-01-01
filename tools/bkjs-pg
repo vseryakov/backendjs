@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+[ "$PGSQL_PREFIX" = "" ] && PGSQL_PREFIX=$BKJS_HOME/pgsql
+
+case "$BKJS_CMD" in
+
+  help|pg-help)
+    echo ""
+    echo "  pg-run - run local PostgreSQL server installed in $BKJS_HOME/pgsql"
+    echo "  pg-stop - stop local PostgreSQL server"
+    ;;
+
+  pg-run)
+    mkdir -p $BKJS_HOME/var $BKJS_HOME/log
+
+    [ ! -d "$PGSQL_PREFIX/var/pgsql" ] && $PGSQL_PREFIX/bin/initdb -D $BKJS_HOME/var/pgsql
+    
+    $PGSQL_PREFIX/bin/pg_ctl -D $BKJS_HOME/var/pgsql -l $BKJS_HOME/log/pgsql.log start
+    exit
+    ;;
+
+  pg-stop)
+    pkill -f postgres
+    exit
+    ;;
+
+  pg-init-monit)
+    $0 monit-init -name nats -start "$BKJS_BIN pg-run" -stop "$BKJS_BIN pg-stop"
+    exit
+    ;;
+
+esac
+

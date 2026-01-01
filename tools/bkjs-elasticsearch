@@ -6,6 +6,8 @@
 
 BKJS_USER=$(get_arg -user ${BKJS_USER:-$(whoami)})
 
+[ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_HOME/elasticsearch
+
 case "$BKJS_CMD" in
 
   help|elasticsearch-help)
@@ -20,7 +22,6 @@ case "$BKJS_CMD" in
     ;;
 
   elasticsearch-get)
-    [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_HOME/elasticsearch
     [ "$(get_flag -force)" != "" -a "$ELASTICSEARCH_PREFIX" != "" ] && rm -rf $ELASTICSEARCH_PREFIX
     [ -d $ELASTICSEARCH_PREFIX ] && exit
     mkdir -p $ELASTICSEARCH_PREFIX
@@ -46,8 +47,6 @@ case "$BKJS_CMD" in
     ;;
 
   elasticsearch-config)
-    [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_HOME/elasticsearch
-
     echo "-Dlog4j2.formatMsgNoLookups=true" >> $ELASTICSEARCH_PREFIX/config/jvm.options
 
     cfg=$ELASTICSEARCH_PREFIX/config/elasticsearch.yml
@@ -87,7 +86,6 @@ case "$BKJS_CMD" in
     ;;
 
   elasticsearch-run)
-    [ "$ELASTICSEARCH_PREFIX" = "" ] && ELASTICSEARCH_PREFIX=$BKJS_HOME/elasticsearch
     # Percent from the total memory
     memsize=$(get_arg -memsize)
     [ -n "$memsize" ] && memmax="$(( ($(free -m|grep Mem:|awk '{print $2}') * $memsize) / 100 ))m"

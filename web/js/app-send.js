@@ -14,12 +14,8 @@ app.send = function(options, callback)
 {
     if (app.isS(options)) options = { url: options };
     if (!options.headers) options.headers = {};
-    options.headers["bk-tz"] = (new Date()).getTimezoneOffset();
     for (const p in app.headers) {
         options.headers[p] ??= app.headers[p];
-    }
-    for (const p in options.body) {
-        if (options.body[p] === undefined) delete options.body[p];
     }
     options.method ??= 'POST';
     app.emit("send:start");

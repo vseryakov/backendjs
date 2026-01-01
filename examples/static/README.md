@@ -1,4 +1,5 @@
-# Backend.js sample application with Alpine.js
+
+# Backend.js sample of a static app with Alpine.js
 
 1. Run the app
 

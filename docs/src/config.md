@@ -478,6 +478,9 @@ See {@link module:api.users}
 ##### Default: {}   
 ### **api-users-file**
  A JSON file with users   
+### **api-users-endpoint**
+ Root endpoint for the api routes to remount under differnet top path   
+##### Default: "/"   
 ## api.ws
 See {@link module:api.ws}
 ### **api-ws-port**
@@ -807,12 +810,12 @@ See {@link module:db}
 -db-custom-column-bk_user-^stats=counter
 ```
 
-### **db-describe-column-([a-z0-9_]+)-([a-zA-Z0-9_]+)**
+### **db-describe-column-([a-z0-9_]+)-([a-zA-Z0-9_.]+)**
  Describe a table column properties, can be a new or existing column, overrides existing property   
 ##### Type: map   
 ##### Example:
 ```
--db-describe-column-bk_user-name max:255
+-db-describe-column-bk_user-name.check max:255
 ```
 
 ### **db-config**

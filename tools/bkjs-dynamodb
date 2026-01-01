@@ -4,6 +4,8 @@
 #  Sep 2013
 #
 
+[ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_HOME/dynamodb
+
 case "$BKJS_CMD" in
 
   help|dynamodb-help)
@@ -22,7 +24,6 @@ case "$BKJS_CMD" in
     ;;
 
   dynamodb-get)
-    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_HOME/dynamodb
     [ "$(get_flag -force)" != "" -a "$DYNAMODB_PREFIX" != "" ] && rm -rf $DYNAMODB_PREFIX
     if [ ! -d $DYNAMODB_PREFIX ]; then
        mkdir -p $DYNAMODB_PREFIX
@@ -34,7 +35,6 @@ case "$BKJS_CMD" in
     ;;
 
   dynamodb-run)
-    [ "$DYNAMODB_PREFIX" = "" ] && DYNAMODB_PREFIX=$BKJS_HOME/dynamodb
     mkdir -p $BKJS_HOME/var $BKJS_HOME/log
     params="-Xmx$(get_arg -memmax 256M)"
     export DDB_LOCAL_TELEMETRY=0

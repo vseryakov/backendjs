@@ -1,22 +1,88 @@
-# Backend.js sample config application with Alpine.js
 
-1. Initialize env
+# Backend.js sample config CRUD app with Alpine.js
 
-    npm run init
+## Tech Stack
 
-2. Create tables
+- **Framework**: Backendjs
+- **Database**: SQLite (local) / PostgreSQL (production)
+- **Styling**: Bootstrap 5
+- **UI/UX**: Alpinejs, Alpinejs-app
 
-    npm run initdb
+### First Time Setup
 
-3. Run the app
+```bash
+npm install
+npm run init
+npm run initdb
+npm run start
+```
 
-    npm run start
-
-4. Point browser to http://localhost:8000
+Visit [http://localhost:8000](http://localhost:8000)
 
 Login as user "admin" with password "admin"
 
 
-# Authors
-vlad
+### Subsequent Runs
 
+```bash
+npm run start
+```
+
+### Re-create local Database (SQLite)
+
+```bash
+rm config.db
+npm run initdb
+```
+
+## API Endpoints
+
+The following API endpoints are exposed by the app:
+
+Default endpoints implemented by the api.users module:
+
+  - POST /auth
+  - POST /login
+  - POST /logout
+
+Config endpoints implemeted by the module:
+
+  - GET /config/list
+  - POST /config/put
+  - PUT /config/update
+  - POST /coonfig/del
+
+## Project Structure
+
+```
+src/
+├── web/
+│   ├── config.js      # Config component
+│   ├── config.html    # Config HTML template
+|   ├── index.js       # app startup code
+│   └── index.html     # Home page
+├── modules/
+│   └── config.js      # Config module with routes
+config.db              # Local SQLite database
+```
+
+## Features
+
+- ✅ Create, edit, and delete config records
+- ✅ Responsive design with Bootstrap theme
+- ✅ Alpinejs-app for dynamic updates
+- ✅ Input validation
+- ✅ Bootstratp dialogs
+- ✅ Error handling with loading states
+- ✅ Dual-database support (SQLite + PostgreSQL)
+
+## Learn More
+
+- [Backendjs Documentation](https://vseryakov.github.io/backendjs/docs/web/index.html)
+- [Alpinejs-app Documentation](https://github.com/vseryakov/alpinejs-app)
+- [Alpine.js Documentation](https://alpinejs.dev/)
+- [Boostrap Documentation](https://getboostrap.com/)
+
+## License
+
+MIT

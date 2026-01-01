@@ -83,18 +83,18 @@ app.ui = {
                    keyup: (ev) => { if (ev.which == 13) { app.$('input[type="password"]', popup.form).focus(); ev.preventDefault() } }
                 } },
                 { password: { name: "secret", label: options?.password || "Password", placeholder: "Password",
-                  keyup: (ev) => { if (ev.which == 13) { popup.form.submit(); ev.preventDefault() } }
+                  keyup: (ev) => { if (ev.which == 13) { popup.callback("Login"); ev.preventDefault() } }
                 } },
                 options?.disclaimer ? { div: { html: options.disclaimer } } : null,
              ],
              Login: function(d) {
                 if (typeof options?.onSubmit == "function" && !options.onSubmit(popup, d)) return null;
-                app.send({ url: options.url || "/login", body: d }, (err, rc) => {
+                app.fetch({ url: options.url || "/login", method: "POST", body: d }, (err, rc, info) => {
                     if (err) return popup.showAlert(err);
                     Object.assign(app.user, rc);
                     popup.close();
                     app.call(this, callback, err);
-                    app.emit("user:login");
+                    app.emit("user:login", rc, info);
                 });
                 return null;
             },
@@ -189,7 +189,8 @@ function alertText(text, options)
     text = typeof text == "string" ? options?.safe ? text :
            app.util.escape(text.replaceAll("<br>", "\n")) :
            app.util.escape(JSON.stringify(text, null, " ").replace(/["{}[\]]/g, ""));
-    return app.sanitizer.run(text).replace(/\n/g, "<br>");
+    if (app.sanitizer) text = app.sanitizer.run(text);
+    return text.replace(/\n/g, "<br>");
 }
 
 function cleanupAlerts(alerts, options)
@@ -227,12 +228,19 @@ var _resizing;
 app.$ready(() => {
     setBreakpoint();
 
+    app.ui.setColorScheme();
+    app.$on(window.matchMedia('(prefers-color-scheme: dark)'), 'change', () => {
+        app.ui.setColorScheme();
+    });
+
     app.$on(window, "resize", () => {
         clearTimeout(_resizing);
         _resizing = setTimeout(setBreakpoint, 250);
     });
 
-    app.on("component:create", (data) => { applyPlugins(data?.element) });
+    app.on("component:create", (data) => {
+        applyPlugins(data?.element);
+    });
 
     app.on("alert", app.ui.showAlert);
     app.on("send:start", sendStart);

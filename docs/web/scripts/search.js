@@ -5,7 +5,7 @@ function contains(a,m){
 };
 
 //on search
-document.getElementById("nav-search").addEventListener("keyup", (event) => {
+document.getElementById("nav-search").addEventListener("keyup", function(event) {
     var search = this.value.toUpperCase();
 
     if (!search) {

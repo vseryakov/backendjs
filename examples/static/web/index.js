@@ -7,7 +7,7 @@ app.components.index = class extends app.AlpineComponent {
     template;
 
     toggle() {
-        this.template = !this.template ? "/test.html" : this.template == "config" ? "empty" : "";
+        this.template = !this.template ? "/test.html" : this.template != "empty" ? "empty" : "";
     }
 };
 
