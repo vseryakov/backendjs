@@ -404,6 +404,8 @@ function prepareForUpdate(req)
     var o = {}, value, col, max, failed = [];
     var insert = req.op == "add" || req.op == "put";
 
+    // Step 1: types
+
     for (let name in req.query) {
         value = req.query[name];
 
@@ -521,10 +523,12 @@ function prepareForUpdate(req)
     }
     req.query = o;
 
+    // Step 2, conditions and conversions
+
     for (const name in req.columns) {
         col = req.columns[name];
         // Restrictions
-        if ((col.readonly &amp;&amp; !insert) || (col.writeonly &amp;&amp; insert)) {
+        if ((col.readonly &amp;&amp; !insert &amp;&amp; !col.primary) || (col.writeonly &amp;&amp; insert)) {
             delete req.query[name];
             continue;
         }

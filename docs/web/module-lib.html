@@ -31056,7 +31056,7 @@ Format: time - 41 bit, node - 10 bit, counter - 12 bit</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_uuid.js.html">lib/uuid.js</a>, <a href="lib_uuid.js.html#line54">line 54</a>
+        <a href="lib_uuid.js.html">lib/uuid.js</a>, <a href="lib_uuid.js.html#line56">line 56</a>
     </li></ul></dd>
     
 
@@ -34473,7 +34473,7 @@ The default algorithm is JaroWrinkler, options.type can be used to specify a dif
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Short unique id within a microsecond</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Short unique id within a microsecond or local epoch</p></li></ul></dd>
     
 
     
@@ -34612,7 +34612,69 @@ The default algorithm is JaroWrinkler, options.type can be used to specify a dif
 
             
 
-            <td class="description last"><p>same options as for <a href="module-lib.html#.getHashid">module:lib.getHashid</a></p></td>
+            <td class="description last"><p>same options as for <a href="module-lib.html#.getHashid">module:lib.getHashid</a></p>
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>epoch</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">int</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>local epoch type via <a href="module-lib.html#.localEpoch">module:lib.localEpoch</a>, default is milliseconds, <code>m</code> for microseconds, <code>s</code> for seconds</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
         </tr>
 
     
