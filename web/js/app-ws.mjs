@@ -3,10 +3,7 @@
  *  Vlad Seryakov vseryakov@gmail.com 2018
  */
 
-(() => {
-var app = window.app;
-
-class WS {
+export class WS {
     path = "/"
     query = null
     retry_timeout = 500
@@ -17,6 +14,11 @@ class WS {
     ping_interval = 300000
     _retries = 0
     _pending = []
+
+    constructor(options)
+    {
+        app.$on(window, "online", this.online.bind(this));
+    }
 
     // Open a new websocket connection
     connect(options)
@@ -43,7 +45,7 @@ class WS {
 
         var ws = this.ws = new WebSocket(url);
         ws.onopen = () => {
-            if (this.debug) app.log("ws.open:", url);
+            app.trace("ws.open:", url);
             app.emit("ws:open", url);
             this._ctime = Date.now();
             this._timeout = this.retry_timeout;
@@ -54,7 +56,7 @@ class WS {
             this.ping();
         }
         ws.onclose = () => {
-            if (this.debug) app.log("ws.closed:", url, this._timeout, this._retries);
+            app.trace("ws.closed:", url, this._timeout, this._retries);
             this.ws = null;
             app.emit("ws:close", url);
             if (++this._retries < this.max_retries) this.timer();
@@ -63,11 +65,11 @@ class WS {
             var data = msg.data;
             if (data === "bye") return this.close(1);
             if (typeof data == "string" && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
-            if (this.debug) app.log('ws.message:', data);
+            app.trace('ws.message:', data);
             app.emit("ws:message", data);
         }
         ws.onerror = (err) => {
-            if (this.debug) app.log('ws.error:', url, err);
+            app.trace('ws.error:', url, err);
         }
     }
 
@@ -79,7 +81,7 @@ class WS {
         if (typeof timeout == "number") this._timeout = timeout;
         this._timer = setTimeout(this.connect.bind(this), this._timeout);
         this._timeout *= this._timeout == this.max_timeout ? 0 : this.retry_factor;
-        this._timeout = app.util.toClamp(this._timeout, this.retry_timeout, this.max_timeout);
+        this._timeout = app.util.toNumber(this._timeout, { min: this.retry_timeout, max: this.max_timeout });
     }
 
     // Send a ping and shcedule next one
@@ -97,13 +99,12 @@ class WS {
     close(disable)
     {
         this.disabled = disable;
-        if (this.ws) {
-            this.ws.close();
-            delete this.ws;
-        }
+        if (!this.ws) return;
+        this.ws.close();
+        delete this.ws;
     }
 
-    // Send a string data or an object in jQuery ajax format { url:.., data:.. } or as an object to be stringified
+    // Send a string data or an object
     send(data)
     {
         if (this.ws?.readyState != WebSocket.OPEN) {
@@ -122,26 +123,17 @@ class WS {
                 data = JSON.stringified(data);
             }
         }
-        this.send(data);
+        this.ws.send(data);
     }
 
     // Check the status of websocket connection, reconnect if needed
     online()
     {
-        if (this.debug) app.log('ws.online:', navigator.onLine, this.ws?.readyState, this.path, this._ctime);
+        app.trace('ws.online:', navigator.onLine, this.ws?.readyState, this.path, this._ctime);
         if (this.ws?.readyState !== WebSocket.OPEN && this._ctime) {
             this.connect();
         }
     }
 }
-
-app.ws = new WS();
-
-app.$ready(() => {
-    app.$on(window, "online", app.ws.online.bind(app.ws));
-});
-
-
-})();
 
 

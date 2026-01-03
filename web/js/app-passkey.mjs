@@ -5,16 +5,13 @@
 
 // Passkey support
 
-(() => {
+export class Passkeys {
 
-var app = window.app;
+    constructor(options, callback)
+    {
+        this.reg_path = options?.reg_path || "/passkey/register"
+        this.login_path = options?.login_path || "/passkey/login"
 
-app.passkey = {
-
-    reg_path: "/passkey/register",
-    login_path: "/passkey/login",
-
-    init(callback) {
         if (this.client) return;
         import("/js/webauthn.min.mjs").then(mod => {
             this.client = mod.client;
@@ -22,44 +19,46 @@ app.passkey = {
         }).catch(err => {
             app.call(callback, err);
         });
-    },
+    }
 
-    start(options, callback) {
-        app.send({ url: this.reg_path, data: options?.data }, callback);
-    },
+    start(options, callback)
+    {
+        app.fetch(this.reg_path, { body: options?.body }, callback);
+    }
 
-    finish(config, options, callback) {
+    finish(config, options, callback)
+    {
         this.client.register(options?.name || app.user?.name, config?.challenge, {
             attestation: true,
             userHandle: config?.id,
             domain: config?.domain,
         }).then(data => {
-            app.send({ url: this.reg_path, body: Object.assign(data || {}, options?.body) }, callback);
+            app.fetch(this.reg_path, { body: Object.assign(data || {}, options?.body) }, callback);
         }).catch(err => {
             app.call(callback, err);
         });
-    },
+    }
 
-    register(options, callback) {
+    register(options, callback)
+    {
         this.start(options, (err, config) => {
             if (err) return app.call(callback, err);
             this.finish(config, options, callback);
         });
-    },
+    }
 
-    login(options, callback) {
-        app.fetch({ url: this.login_path }, (err, config) => {
+    login(options, callback)
+    {
+        app.fetch(this.login_path, (err, config) => {
             if (err) return app.call(callback, err);
 
             this.client.authenticate(app.util.split(options?.ids), config.challenge, {
                 domain: config.domain,
             }).then(data => {
-                app.send({ url: this.login_path, body: Object.assign(data, options?.body) }, callback);
+                app.fetch(this.login_path, { body: Object.assign(data, options?.body) }, callback);
             }).catch(err => {
                 app.call(callback, err);
             });
         });
-    },
+    }
 }
-
-})();

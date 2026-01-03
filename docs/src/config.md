@@ -314,7 +314,7 @@ See {@link module:api.csrf}
 ##### Default: {}   
 ### **api-csrf-header**
  Name for the CSRF header   
-##### Default: "bk-csrf"   
+##### Default: "x-csrf-token"   
 ### **api-csrf-secret**
  Secret for encryption   
 ### **api-csrf-age**

@@ -6,21 +6,7 @@
 
 /* global document window HTMLElement bootstrap bootpopup */
 
-(() => {
-var app = window.app;
-
 app.ui = {
-
-    breakpoint()
-    {
-        var w = document.documentElement.clientWidth;
-        return w < 576 ? 'xs' : w < 768 ? 'sm' : w < 992 ? 'md' : w < 1200 ? 'lg' : w < 1400 ? 'xl' : 'xxl';
-    },
-
-    setColorScheme()
-    {
-        document.documentElement.setAttribute("data-bs-theme", window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light");
-    },
 
     showAlert(obj, type, text, options)
     {
@@ -189,7 +175,7 @@ function alertText(text, options)
     text = typeof text == "string" ? options?.safe ? text :
            app.util.escape(text.replaceAll("<br>", "\n")) :
            app.util.escape(JSON.stringify(text, null, " ").replace(/["{}[\]]/g, ""));
-    if (app.sanitizer) text = app.sanitizer.run(text);
+    if (app.sanitizer) text = app.sanitizer(text);
     return text.replace(/\n/g, "<br>");
 }
 
@@ -201,50 +187,12 @@ function cleanupAlerts(alerts, options)
     delete alerts.dataset.alert;
 }
 
-function setBreakpoint()
-{
-    app.isMobile = /xs|sm|md/.test(app.ui.breakpoint());
-    document.documentElement.style.setProperty('--height', (window.innerHeight * 0.01) + "px");
-    app.emit("breakpoint");
-}
-
-var _sending = 0;
-
-function sendStart()
-{
-    if (_sending++ > 0) return;
-    app.$all('.loading').forEach(img => { img.style.visibility = "visible" })
-}
-
-function sendStop()
-{
-    if (--_sending > 0) return;
-    _sending = 0;
-    app.$all('.loading').forEach(img => { img.style.visibility = "hidden" })
-}
-
-var _resizing;
-
 app.$ready(() => {
-    setBreakpoint();
-
-    app.ui.setColorScheme();
-    app.$on(window.matchMedia('(prefers-color-scheme: dark)'), 'change', () => {
-        app.ui.setColorScheme();
+    app.on("component:create", (ev) => {
+        applyPlugins(ev?.element);
     });
-
-    app.$on(window, "resize", () => {
-        clearTimeout(_resizing);
-        _resizing = setTimeout(setBreakpoint, 250);
+    app.on("dom:changed", (ev) => {
+        document.documentElement.setAttribute("data-bs-theme", ev.colorScheme);
     });
-
-    app.on("component:create", (data) => {
-        applyPlugins(data?.element);
-    });
-
     app.on("alert", app.ui.showAlert);
-    app.on("send:start", sendStart);
-    app.on("send:stop", sendStop);
 });
-
-})();

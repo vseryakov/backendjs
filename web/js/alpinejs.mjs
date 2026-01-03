@@ -468,6 +468,10 @@ var theEvaluatorFunction = normalEvaluator;
 function setEvaluator(newEvaluator) {
   theEvaluatorFunction = newEvaluator;
 }
+var theRawEvaluatorFunction;
+function setRawEvaluator(newEvaluator) {
+  theRawEvaluatorFunction = newEvaluator;
+}
 function normalEvaluator(el, expression) {
   let overriddenMagics = {};
   injectMagics(overriddenMagics, el);
@@ -478,6 +482,10 @@ function normalEvaluator(el, expression) {
 function generateEvaluatorFromFunction(dataStack, func) {
   return (receiver = () => {
   }, { scope: scope2 = {}, params = [], context } = {}) => {
+    if (!shouldAutoEvaluateFunctions) {
+      runIfTypeOfFunction(receiver, func, mergeProxies([scope2, ...dataStack]), params);
+      return;
+    }
     let result = func.apply(mergeProxies([scope2, ...dataStack]), params);
     runIfTypeOfFunction(receiver, result);
   };
@@ -541,6 +549,38 @@ function runIfTypeOfFunction(receiver, value, scope2, params, el) {
     value.then((i) => receiver(i));
   } else {
     receiver(value);
+  }
+}
+function evaluateRaw(...args) {
+  return theRawEvaluatorFunction(...args);
+}
+function normalRawEvaluator(el, expression, extras = {}) {
+  let overriddenMagics = {};
+  injectMagics(overriddenMagics, el);
+  let dataStack = [overriddenMagics, ...closestDataStack(el)];
+  let scope2 = mergeProxies([extras.scope ?? {}, ...dataStack]);
+  let params = extras.params ?? [];
+  if (expression.includes("await")) {
+    let AsyncFunction = Object.getPrototypeOf(async function() {
+    }).constructor;
+    let rightSideSafeExpression = /^[\n\s]*if.*\(.*\)/.test(expression.trim()) || /^(let|const)\s/.test(expression.trim()) ? `(async()=>{ ${expression} })()` : expression;
+    let func = new AsyncFunction(
+      ["scope"],
+      `with (scope) { let __result = ${rightSideSafeExpression}; return __result }`
+    );
+    let result = func.call(extras.context, scope2);
+    return result;
+  } else {
+    let rightSideSafeExpression = /^[\n\s]*if.*\(.*\)/.test(expression.trim()) || /^(let|const)\s/.test(expression.trim()) ? `(()=>{ ${expression} })()` : expression;
+    let func = new Function(
+      ["scope"],
+      `with (scope) { let __result = ${rightSideSafeExpression}; return __result }`
+    );
+    let result = func.call(extras.context, scope2);
+    if (typeof result === "function" && shouldAutoEvaluateFunctions) {
+      return result.apply(scope2, params);
+    }
+    return result;
   }
 }
 
@@ -797,6 +837,9 @@ function findClosest(el, callback) {
     return el;
   if (el._x_teleportBack)
     el = el._x_teleportBack;
+  if (el.parentNode instanceof ShadowRoot) {
+    return findClosest(el.parentNode.host, callback);
+  }
   if (!el.parentElement)
     return;
   return findClosest(el.parentElement, callback);
@@ -1662,7 +1705,7 @@ var Alpine = {
   get raw() {
     return raw;
   },
-  version: "3.15.2",
+  version: "3.15.3",
   flushAndStopDeferringMutations,
   dontAutoEvaluateFunctions,
   disableEffectScheduling,
@@ -1683,7 +1726,10 @@ var Alpine = {
   mapAttributes,
   evaluateLater,
   interceptInit,
+  initInterceptors,
+  injectMagics,
   setEvaluator,
+  setRawEvaluator,
   mergeProxies,
   extractProp,
   findClosest,
@@ -1702,6 +1748,7 @@ var Alpine = {
   throttle,
   debounce,
   evaluate,
+  evaluateRaw,
   initTree,
   nextTick,
   prefixed: prefix,
@@ -3404,6 +3451,7 @@ function warnMissingPluginDirective(name, directiveName, slug) {
 
 // packages/alpinejs/src/index.js
 alpine_default.setEvaluator(normalEvaluator);
+alpine_default.setRawEvaluator(normalRawEvaluator);
 alpine_default.setReactivityEngine({ reactive: reactive2, effect: effect2, release: stop, raw: toRaw });
 var src_default = alpine_default;
 

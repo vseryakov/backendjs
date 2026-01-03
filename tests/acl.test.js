@@ -73,7 +73,7 @@ describe("Auth tests", () => {
 
         lib.forEachSeries(checks, (check, next) => {
             req.user.id = check.roles || "anon";
-            req.user.roles = lib.strSplit(check.roles);
+            req.user.roles = lib.split(check.roles);
             req.options.path = check.path;
             logger.debug("checking:", check);
             api.access.authorize(req, (err) => {
