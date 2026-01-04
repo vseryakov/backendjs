@@ -7,7 +7,7 @@ app.components.index = class extends app.AlpineComponent {
 
     async onCreate() {
         const { err, data } = await app.afetch("/api/boards");
-        if (err) return app.ui.showToast("error", err);
+        if (err) return app.showToast("error", err);
         this.boards = data;
     }
 }
@@ -18,12 +18,11 @@ app.components.board = class extends app.AlpineComponent {
 
     async onCreate() {
         const { err, data } = await app.afetch("/api/board/" + this.params.id);
-        if (err) return app.ui.showToast("error", err);
+        if (err) return app.showToast("error", err);
         this.cards = data;
     }
 }
 
 app.$ready(() => {
-    app.ui.setColorScheme();
     app.start();
 });

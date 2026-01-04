@@ -17,8 +17,6 @@
     <!-- These scripts below are included in backendjs, we only load what we need -->
 
     <script src="/js/bootstrap.js"></script>
-    <script src="/js/app.js"></script>
-    <script src="/js/app-util.js"></script>
     <script src="/js/app-bootstrap.js"></script>
     <script src="/js/bootpopup.js"></script>
     <script src="/js/alpinejs.js"></script>
@@ -49,7 +47,7 @@
             You need top login in order to manage the config.
         </div>
 
-        <a class="btn btn-primary" x-show="!$user.id" @click="app.ui.showLogin">
+        <a class="btn btn-primary" x-show="!$user.id" @click="app.showLogin">
             <i class="fa fa-user fa-fw"></i>
             Login
         </a>

@@ -35,13 +35,62 @@ var app = {
    * Only classed derived from **app.AlpineComponent** will be used, internally they are registered with **Alpine.data()** to be reused by name.
    */
   components: {},
+  /**
+   * global defaults for the {@link app.fetch} will be used if not passed
+   * @var {object} app.fetchOptions
+   */
   isF: isFunction,
   isS: isString,
   isE: isElement,
-  isO: isObj,
+  isO: isObject,
   isN: isNumber,
-  toCamel
+  isA: isArray,
+  toCamel,
+  call,
+  escape,
+  noop,
+  log,
+  trace,
+  __
 };
+/**
+ * Empty function
+ */
+function noop() {
+}
+/**
+   * if __app.debug__ is set then it will log arguments in the console otherwise it is no-op
+   * @param {...any} args
+   */
+function trace(...args) {
+  app.debug && app.log(...args);
+}
+/**
+ * Alias to console.log
+ */
+function log(...args) {
+  console.log(...args);
+}
+/**
+ * Empty locale translator
+ * @param {...any} args
+ * @returns {string}
+ * @func __
+ * @memberof app
+ */
+function __(...args) {
+  return args.join("");
+}
+/**
+ * Returns the array if the value is non empty array or dflt value if given or undefined
+ * @param {any} val
+ * @returns {any|any[]}
+ * @func isA
+ * @memberof app
+ */
+function isArray(val, dflt) {
+  return Array.isArray(val) && val.length ? val : dflt;
+}
 /**
  * Returns the num itself if it is a number
  * @param {any} num
@@ -79,7 +128,7 @@ function isFunction(callback) {
  * @func isO
  * @memberof app
  */
-function isObj(obj) {
+function isObject(obj) {
   return typeof obj == "object" && obj;
 }
 /**
@@ -102,24 +151,6 @@ function isElement(element) {
 function toCamel(str) {
   return isString(str) ? str.toLowerCase().replace(/[.:_-](\w)/g, (_, c) => c.toUpperCase()) : "";
 }
-
-// src/util.js
-/**
- * Empty function
- */
-app.noop = () => {
-};
-/**
- * Alias to console.log
- */
-app.log = (...args) => console.log(...args);
-/**
- * if __app.debug__ is set then it will log arguments in the console otherwise it is no-op
- * @param {...any} args
- */
-app.trace = (...args) => {
-  app.debug && app.log(...args);
-};
 /**
  * Call a function safely with context and arguments:
  * @param {object|function} obj
@@ -130,12 +161,24 @@ app.trace = (...args) => {
  * app.call(obj, func, ...)
  * app.call(obj, method, ...)
  */
-app.call = (obj, method, ...args) => {
+function call(obj, method, ...args) {
   if (isFunction(obj)) return obj(method, ...args);
   if (typeof obj != "object") return;
   if (isFunction(method)) return method.call(obj, ...args);
   if (obj && isFunction(obj[method])) return obj[method].call(obj, ...args);
-};
+}
+var _entities = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" };
+/**
+ * Convert common special symbols into xml entities
+ * @param {string} str
+ * @returns {string}
+ */
+function escape(str) {
+  if (typeof str != "string") return "";
+  return str.replace(/([&<>'":])/g, (_, x) => _entities[x] || x);
+}
+
+// src/events.js
 var _events = {};
 /**
  * Listen on event, the callback is called synchronously, optional namespace allows deleting callbacks later easier by not providing
@@ -318,7 +361,7 @@ app.$empty = (element, cleanup) => {
  */
 app.$elem = (name, ...args) => {
   var element = document.createElement(name), key, val, opts;
-  if (isObj(args[0])) {
+  if (isObject(args[0])) {
     args = Object.entries(args[0]).flatMap((x) => x);
     opts = args[1];
   }
@@ -400,6 +443,22 @@ app.$ready = (callback) => {
 app.$on(window, "DOMContentLoaded", () => {
   while (_ready.length) setTimeout(app.call, 0, _ready.shift());
 });
+function domChanged() {
+  var w = document.documentElement.clientWidth;
+  app.emit("dom:changed", {
+    breakPoint: w < 576 ? "xs" : w < 768 ? "sm" : w < 992 ? "md" : w < 1200 ? "lg" : w < 1400 ? "xl" : "xxl",
+    colorScheme: window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  });
+}
+app.$ready(() => {
+  domChanged();
+  app.$on(window.matchMedia("(prefers-color-scheme: dark)"), "change", domChanged);
+  var _resize;
+  app.$on(window, "resize", () => {
+    clearTimeout(_resize);
+    _resize = setTimeout(domChanged, 250);
+  });
+});
 
 // src/router.js
 /**
@@ -422,7 +481,7 @@ app.$on(window, "DOMContentLoaded", () => {
  */
 app.parsePath = (path) => {
   var rc = { name: "", params: {} }, query, loc = window.location;
-  if (isObj(path)) return Object.assign(rc, path);
+  if (isObject(path)) return Object.assign(rc, path);
   if (!isString(path)) return rc;
   var base = app.base;
   if (path.startsWith(loc.origin)) path = path.substr(loc.origin.length);
@@ -507,7 +566,7 @@ app.$on(window, "popstate", () => app.emit("path:restore", window.location.href)
 var _plugins = {};
 var _default_plugin;
 /**
- *   Register a render plugin, at least 2 functions must be defined in the options object:
+ * Register a render plugin, at least 2 functions must be defined in the options object:
  * @param {string} name
  * @param {object} options
  * @param {function} render - (element, options) to show a component, called by {@link app.render}
@@ -653,11 +712,163 @@ app.render = (options, dflt) => {
   plugin.render(element, tmpl);
   return tmpl;
 };
+/**
+ * Add a callback to process classes for new components, all registered callbacks will be called on component:create
+ * event with top HTMLElement as parameter. This is for UI frameworks intergation to apply logic to added elements
+ * @param {function} callback
+ * @example
+ * app.stylePlugin((el) => {
+ *     app.$all(".carousel", element).forEach(el => (bootstrap.Carousel.getOrCreateInstance(el)));
+ * })
+ */
+app.stylePlugin = function(callback) {
+  if (isFunction(callback)) _stylePlugins.push(callback);
+};
+var _stylePlugins = [];
+function applyStylePlugins(element) {
+  if (!(element instanceof HTMLElement)) return;
+  for (const cb of _stylePlugins) cb(element);
+}
 app.on("alpine:init", () => {
   for (const p in _plugins) {
     app.call(_plugins[p], "init");
   }
+  app.on("component:create", (ev) => {
+    if (isElement(ev?.element)) applyStylePlugins(ev.element);
+  });
 });
+
+// src/fetch.js
+var fetchOptions = app.fetchOptions = {
+  method: "GET",
+  cache: "default",
+  headers: {}
+};
+function parseOptions(url, options) {
+  const headers = options?.headers || {};
+  const opts = Object.assign({
+    headers,
+    method: options?.method || options?.post && "POST" || void 0
+  }, options?.request);
+  for (const p in fetchOptions.headers) {
+    headers[p] ??= fetchOptions.headers[p];
+  }
+  for (const p of ["method", "cache", "credentials", "duplex", "integrity", "keepalive", "mode", "priority", "redirect", "referrer", "referrerPolicy", "signal"]) {
+    if (fetchOptions[p] !== void 0) {
+      opts[p] ??= fetchOptions[p];
+    }
+  }
+  var body = options?.body;
+  if (opts.method == "GET" || opts.method == "HEAD") {
+    if (isObject(body)) {
+      url += "?" + new URLSearchParams(body).toString();
+    }
+  } else if (isString(body)) {
+    opts.body = body;
+    headers["content-type"] ??= "application/x-www-form-urlencoded; charset=UTF-8";
+  } else if (body instanceof FormData) {
+    opts.body = body;
+    delete headers["content-type"];
+  } else if (isObject(body)) {
+    opts.body = JSON.stringify(body);
+    headers["content-type"] = "application/json; charset=UTF-8";
+  } else if (body) {
+    opts.body = body;
+    headers["content-type"] ??= "application/octet-stream";
+  }
+  return [url, opts];
+}
+function parseResponse(res) {
+  const info = { status: res.status, headers: {}, type: res.type, url: res.url, redirected: res.redirected };
+  for (const h of res.headers) {
+    info.headers[h[0].toLowerCase()] = h[1];
+  }
+  const h_csrf = fetchOptions.csrfHeader || "x-csrf-token";
+  const v_csrf = info?.headers[h_csrf];
+  if (v_csrf) {
+    if (v_csrf <= 0) {
+      delete fetchOptions.headers[h_csrf];
+    } else {
+      fetchOptions.headers[h_csrf] = v_csrf;
+    }
+  }
+  return info;
+}
+/**
+ * Fetch remote content, wrapper around Fetch API
+ *
+ * __NOTE: Saves X-CSRF-Token header and sends it back with subsequent requests__
+ * @param {string} url - URL to fetch
+ * @param {object} [options]
+ * @param {string} [options.method] - GET, POST,...GET is default or from app.fetchOptions.method
+ * @param {boolean} [options.post] - set method to POST
+ * @param {string|object|FormData} [options.body] - a body accepted by window.fetch
+ * @param {string} [options.dataType] - explicit return type: text, blob, default is auto detected between text or json
+ * @param {object} [options.headers] - an object with additional headers to send, all global headers from app.fetchOptions.headers also are merged
+ * @param {object} [options.request] - properties to pass to fetch options according to Web API `RequestInit`
+ * @param {function} [callback] - callback as (err, data, info) where info is an object { status, headers, type }
+ *
+ * @example
+ * app.fetch("http://api.host.com/user/123", (err, data, info) => {
+ *    if (info.status == 200) console.log(data, info);
+ * });
+ * @memberof app
+ */
+app.fetch = function(url, options, callback) {
+  if (isFunction(options)) callback = options, options = null;
+  try {
+    const [uri, opts] = parseOptions(url, options);
+    app.trace("fetch:", uri, opts, options);
+    window.fetch(uri, opts).then(async (res) => {
+      var err, data2, info = parseResponse(res);
+      if (!res.ok) {
+        if (/\/json/.test(info.headers["content-type"])) {
+          const d = await res.json();
+          err = { status: res.status };
+          for (const p in d) err[p] = d[p];
+        } else {
+          err = { message: await res.text(), status: res.status };
+        }
+        return call(callback, err, data2, info);
+      }
+      switch (options?.dataType) {
+        case "text":
+          data2 = await res.text();
+          break;
+        case "blob":
+          data2 = await res.blob();
+          break;
+        default:
+          data2 = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
+      }
+      call(callback, null, data2, info);
+    }).catch((err) => {
+      call(callback, err);
+    });
+  } catch (err) {
+    call(callback, err);
+  }
+};
+/**
+ * Promisified {@link app.fetch} which returns a Promise, all exceptions are passed to the reject handler, no need to use try..catch
+ * Return everything in an object `{ ok, status, err, data, info }`.
+ * @example
+ * const { err, data } = await app.afetch("https://localhost:8000")
+ *
+ * const { ok, err, status, data } = await app.afetch("https://localhost:8000")
+ * if (!ok) console.log(status, err);
+ * @param {string} url
+ * @param {object} [options]
+ * @memberof app
+ * @async
+ */
+app.afetch = function(url, options) {
+  return new Promise((resolve, reject) => {
+    app.fetch(url, options, (err, data2, info) => {
+      resolve({ ok: !err, status: info.status, err, data: data2, info });
+    });
+  });
+};
 
 // src/component.js
 /**
@@ -799,11 +1010,11 @@ function init() {
 }
 function $render(el, value, modifiers, callback) {
   const cache = modifiers.includes("cache");
-  const opts = { url: value, post: modifiers.includes("post") };
+  const opts = { post: modifiers.includes("post") };
   if (!value.url && !(!cache && /^(https?:\/\/|\/|.+\.html(\?|$)).+/.test(value))) {
     if (callback(el, value)) return;
   }
-  app.fetch(opts, (err, text, info) => {
+  app.fetch(value, opts, (err, text, info) => {
     if (err || !isString(text)) {
       return console.warn("$render: Text expected from", value, "got", err, text);
     }
@@ -824,7 +1035,7 @@ function $template(el, value, modifiers) {
       switch (mod) {
         case "params":
           var scope = Alpine.$data(el);
-          if (!isObj(scope[modifiers[i + 1]])) break;
+          if (!isObject(scope[modifiers[i + 1]])) break;
           tmpl.params = Object.assign(scope[modifiers[i + 1]], tmpl.params);
           break;
         case "inline":
@@ -905,112 +1116,6 @@ app.$on(document, "alpine:init", () => {
   });
 });
 
-// src/fetch.js
-function parseOptions(options) {
-  var url = isString(options) ? options : options?.url || "";
-  var headers = options?.headers || {};
-  var opts = Object.assign({
-    headers,
-    method: options?.method || options?.post && "POST" || "GET",
-    cache: "default"
-  }, options?.options);
-  var body = options?.body;
-  if (opts.method == "GET" || opts.method == "HEAD") {
-    if (isObj(body)) {
-      url += "?" + new URLSearchParams(body).toString();
-    }
-  } else if (isString(body)) {
-    opts.body = body;
-    headers["content-type"] ??= "application/x-www-form-urlencoded; charset=UTF-8";
-  } else if (body instanceof FormData) {
-    opts.body = body;
-    delete headers["content-type"];
-  } else if (isObj(body)) {
-    opts.body = JSON.stringify(body);
-    headers["content-type"] = "application/json; charset=UTF-8";
-  } else if (body) {
-    opts.body = body;
-    headers["content-type"] ??= "application/octet-stream";
-  }
-  return [url, opts];
-}
-/**
- * Fetch remote content, wrapper around Fetch API
- *
- * @param {string|object} options - can be full URL or an object with `url:`
- * @param {string} [options.url] - URL to fetch
- * @param {string} [options.method] - GET, POST,...GET is default (also can be specified as post: 1)
- * @param {string|object|FormData} [options.body] - a body
- * @param {string} [options.dataType] - explicit return type: text, blob, default is auto detected between text or json
- * @param {object} [options.headers] - an object with additional headers to send
- * @param {object} [options.options] - properties to pass to fetch options according to `RequestInit`
- * @param {function} [callback] - callback as (err, data, info) where info is an object { status, headers, type }
- *
- * @example
- * app.fetch("http://api.host.com/user/123", (err, data, info) => {
- *    if (info.status == 200) console.log(data, info);
- * });
- * @memberof app
- */
-app.fetch = function(options, callback) {
-  try {
-    const [url, opts] = parseOptions(options);
-    app.trace("fetch:", url, opts, options);
-    window.fetch(url, opts).then(async (res) => {
-      var err, data2;
-      var info = { status: res.status, headers: {}, type: res.type, url: res.url, redirected: res.redirected };
-      for (const h of res.headers) {
-        info.headers[h[0].toLowerCase()] = h[1];
-      }
-      if (!res.ok) {
-        if (/\/json/.test(info.headers["content-type"])) {
-          const d = await res.json();
-          err = { status: res.status };
-          for (const p in d) err[p] = d[p];
-        } else {
-          err = { message: await res.text(), status: res.status };
-        }
-        return app.call(callback, err, data2, info);
-      }
-      switch (options?.dataType) {
-        case "text":
-          data2 = await res.text();
-          break;
-        case "blob":
-          data2 = await res.blob();
-          break;
-        default:
-          data2 = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
-      }
-      app.call(callback, null, data2, info);
-    }).catch((err) => {
-      app.call(callback, err);
-    });
-  } catch (err) {
-    app.call(callback, err);
-  }
-};
-/**
- * Promisified {@link app.fetch} which returns a Promise, all exceptions are passed to the reject handler, no need to use try..catch
- * Return everything in an object `{ ok, status, err, data, info }`.
- * @example
- * const { err, data } = await app.afetch("https://localhost:8000")
- *
- * const { ok, err, status, data } = await app.afetch("https://localhost:8000")
- * if (!ok) console.log(status, err);
- *
- * @param {string|object} options
- * @memberof app
- * @async
- */
-app.afetch = function(options) {
-  return new Promise((resolve, reject) => {
-    app.fetch(options, (err, data2, info) => {
-      resolve({ ok: !err, status: info.status, err, data: data2, info });
-    });
-  });
-};
-
 // src/index.js
 app.Component = component_default;
 var src_default = app;
@@ -1018,5 +1123,6 @@ var src_default = app;
 // builds/module.js
 var module_default = src_default;
 export {
+  src_default as app,
   module_default as default
 };

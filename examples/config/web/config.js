@@ -16,7 +16,7 @@ app.components.config = class extends app.AlpineComponent {
     }
 
     async close() {
-        await app.afetch({ url: "/logout", method: "POST" });
+        await app.afetch("/logout", { post: 1 });
         app.user.id = "";
         app.render("index")
     }
