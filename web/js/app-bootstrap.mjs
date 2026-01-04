@@ -142,7 +142,7 @@ app.ui = {
         element.prepend(toast);
         toast._timer = o.notimer ? "" : setInterval(() => {
             if (!toast.parentElement) return clearInterval(toast._timer);
-            app.$(".timer", toast).textContent = o.countdown ? app.util.toDuration(delay - (Date.now() - o.now)) : app.util.toAge(o.now) + " ago";
+            app.$(".timer", toast).textContent = o.countdown ? app.util.toDuration(delay - (Date.now() - o.now)) : app.util.toDuration(o.now, 1) + " ago";
         }, o.countdown ? o.delay/2 : o.delay);
         app.$on(toast, "hidden.bs.toast", (ev) => { clearInterval(ev.target._timer); ev.target.remove() });
         return toast;
