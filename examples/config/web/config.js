@@ -62,7 +62,7 @@ app.components.config = class extends app.AlpineComponent {
             Save: (d) => {
                 if (!d.type || !d.name || !d.value) return popup.showAlert("Type, name and value are required");
                 d.ctime = data?.ctime;
-                app.fetch({ url: `/config/${d.ctime ? "update" : "put"}`, body: d, method: d.ctime ? "PUT" : "POST" }, (err) => {
+                app.fetch(`/config/${d.ctime ? "update" : "put"}`, { body: d, method: d.ctime ? "PUT" : "POST" }, (err) => {
                     if (err) return popup.showAlert(err);
                     this.show();
                     popup.close();
@@ -71,7 +71,7 @@ app.components.config = class extends app.AlpineComponent {
             },
 
             Copy: async (d) => {
-                app.fetch({ url: '/config/put', body: d, post: 1 }, (err) => {
+                app.fetch('/config/put', { body: d, post: 1 }, (err) => {
                     if (err) return popup.showAlert(err);
                     this.show();
                     popup.close();
@@ -81,7 +81,7 @@ app.components.config = class extends app.AlpineComponent {
 
             Delete: (d) => {
                 bootpopup.confirm("Delete this parameter?", () => {
-                    app.fetch({ url: '/config/del', body: { ctime: data?.ctime, name: data?.name }, post: 1 }, (err) => {
+                    app.fetch('/config/del', { body: { ctime: data?.ctime, name: data?.name }, post: 1 }, (err) => {
                         if (err) return popup.showAlert(err);
                         this.show();
                         popup.close();
