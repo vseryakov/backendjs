@@ -88,7 +88,7 @@ kanban.db              # Local SQLite database
 
 ## Learn More
 
-- [Backendjs Documentation](https://vseryakov.github.io/backendjs/docs/web/index.html)
+- [Backendjs Documentation](https://vseryakov.github.io/backendjs)
 - [Alpinejs-app Documentation](https://github.com/vseryakov/alpinejs-app)
 - [Alpine.js Documentation](https://alpinejs.dev/)
 - [Boostrap Documentation](https://getboostrap.com/)

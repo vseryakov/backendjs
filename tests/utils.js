@@ -1,5 +1,5 @@
 
-const { api, app, ipc, jobs, lib, db, cache, queue, logger, modules } = require("../");
+const { api, app, ipc, jobs, lib, cache, queue, logger, modules } = require("../");
 const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
@@ -9,7 +9,6 @@ exports.init = function(options, callback)
     options = Object.assign({}, options, { config: __dirname + "/bkjs.conf" });
 
     api.accessTokenSecret = lib.random();
-    db.createTablesRoles.push(app.role);
 
     app.init(options, () => {
 

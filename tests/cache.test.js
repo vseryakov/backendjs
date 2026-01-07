@@ -182,14 +182,14 @@ describe("Cache tests", () => {
                 await cache.adel(["counter1","counter2"], opts);
                 var rc = await cache.aincr(["counter1","counter2"], 1, Object.assign({ returning: "*" }, opts));
                 try {
-                    assert.deepEqual(rc, [1, 1]);
+                    assert.partialDeepStrictEqual(rc, { data: [1, 1] });
                 } catch (err) {
                     return next(err);
                 }
 
                 rc = await cache.aincr(["counter1","counter2"], 1, Object.assign({ ttl: [100], returning: "*" }, opts));
                 try {
-                    assert.deepEqual(rc, [2, 2]);
+                    assert.partialDeepStrictEqual(rc, { data: [2, 2] });
                 } catch (err) {
                     return next(err);
                 }
@@ -198,14 +198,14 @@ describe("Cache tests", () => {
 
                 rc = await cache.aincr("", { counter1: 1, counter2: 2 }, Object.assign({ returning: "*" }, opts));
                 try {
-                    assert.deepEqual(rc, [1, 4]);
+                    assert.partialDeepStrictEqual(rc, { data: [1, 4] });
                 } catch (err) {
                     return next(err);
                 }
 
                 rc = await cache.aincr("", { counter1: 1, counter2: 2 }, Object.assign({ ttl: { counter1: 1000 }, returning: "*" }, opts));
                 try {
-                    assert.deepEqual(rc, [2, 6]);
+                    assert.partialDeepStrictEqual(rc, { data: [2, 6] });
                 } catch (err) {
                     return next(err);
                 }

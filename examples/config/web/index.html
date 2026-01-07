@@ -42,12 +42,28 @@
 </template>
 
 <template id=login>
-    <div class="d-flex justify-content-center align-items-center">
+    <div class="d-flex flex-column justify-content-center align-items-center">
         <div class="p-3">
             You need top login in order to manage the config.
         </div>
 
-        <a class="btn btn-primary" x-show="!$user.id" @click="app.showLogin">
+        <form class="form-horizontal" role="form">
+            <h4 class="text-center py-4" >Please Login</h4>
+            <div class="mb-3 row">
+                <label for="login" class=" col-form-label col-sm-4">Username</label>
+                <div class="col-sm-8">
+                    <input id="login" type="text" class="form-control" x-model="login">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label for="secret" class=" col-form-label col-sm-4">Password</label>
+                <div class="col-sm-8">
+                    <input id="secret" placeholder="Password" type="password" class="form-control" x-model="secret">
+                </div>
+            </div>
+        </form>
+
+        <a class="btn btn-primary" x-show="!$user.id" @click="submit">
             <i class="fa fa-user fa-fw"></i>
             Login
         </a>

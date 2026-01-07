@@ -4,7 +4,7 @@
 ## Tech Stack
 
 - **Framework**: Backendjs
-- **Database**: SQLite (local) / PostgreSQL (production)
+- **Database**: SQLite / PostgreSQL
 - **Styling**: Bootstrap 5
 - **UI/UX**: Alpinejs, Alpinejs-app
 
@@ -19,7 +19,7 @@ npm run start
 
 Visit [http://localhost:8000](http://localhost:8000)
 
-Login as user "admin" with password "admin"
+Login as user "admin" with password "Test12345!"
 
 
 ### Subsequent Runs
@@ -71,6 +71,7 @@ config.db              # Local SQLite database
 - ✅ Create, edit, and delete config records
 - ✅ Responsive design with Bootstrap theme
 - ✅ Alpinejs-app for dynamic updates
+- ✅ Alpinejs custom magic $user
 - ✅ Input validation
 - ✅ Bootstratp dialogs
 - ✅ Error handling with loading states
@@ -78,7 +79,7 @@ config.db              # Local SQLite database
 
 ## Learn More
 
-- [Backendjs Documentation](https://vseryakov.github.io/backendjs/docs/web/index.html)
+- [Backendjs Documentation](https://vseryakov.github.io/backendjs)
 - [Alpinejs-app Documentation](https://github.com/vseryakov/alpinejs-app)
 - [Alpine.js Documentation](https://alpinejs.dev/)
 - [Boostrap Documentation](https://getboostrap.com/)

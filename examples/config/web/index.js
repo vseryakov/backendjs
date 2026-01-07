@@ -10,3 +10,18 @@ app.$ready(async () => {
 
     app.start();
 });
+
+app.components.index = class extends app.AlpineComponent {
+
+    login
+    secret
+
+    async submit()
+    {
+        const body = { login: this.login, secret: this.secret };
+        const { err, data } = await app.afetch("/login", { post: 1, body });
+        if (err) return app.showAlert("error", err);
+        Object.assign(app.user, data);
+    }
+}
+

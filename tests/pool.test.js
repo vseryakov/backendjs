@@ -1,6 +1,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { lib, dbPool } = require("../");
+const { lib } = require("../");
+const DbPool = require('../lib/db/pool');
 
 describe("Pool tests", async (t) => {
 
@@ -11,7 +12,7 @@ describe("Pool tests", async (t) => {
     var list = [], pool;
 
     await it("use 5 connections", async () => {
-        pool = new dbPool(options);
+        pool = new DbPool(options);
         for (var i = 0; i < 5; i++) {
             pool.use((err, obj) => { list.push(obj) });
         }

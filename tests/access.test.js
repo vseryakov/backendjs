@@ -23,7 +23,10 @@ describe('Access Tests', (t) => {
     });
 
     after((t, done) => {
-        app.stop(done)
+        app.stop(() => {
+            console.log("done")
+            done()
+        })
     })
 })
 
