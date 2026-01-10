@@ -5,7 +5,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>queue/redis.js - Backendjs Documentation</title>
+    <title>api/passkey.js - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,7 +41,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">queue/redis.js</h1>
+    <h1 class="page-title">api/passkey.js</h1>
     
 
     
@@ -53,309 +53,281 @@
         <article>
             <pre class="prettyprint source linenums"><code>/*
  *  Author: Vlad Seryakov vseryakov@gmail.com
- *  backendjs 2018
+ *  backendjs 2024
  */
 
-const logger = require(__dirname + '/../logger');
+const api = require(__dirname + '/../api');
 const lib = require(__dirname + '/../lib');
-const QueueClient = require(__dirname + "/client");
+const cache = require(__dirname + '/../cache');
+const logger = require(__dirname + '/../logger');
 
-const scripts = {
+/**
+  * @module api/passkey
+  */
 
-    monitor: [
-        "local time = tonumber(KEYS[2]);",
-        "local vals = redis.call('zrangebyscore', KEYS[1] .. '#', 0, time);",
-        "redis.call('zremrangebyscore', KEYS[1] .. '#', 0, time);",
-        "for i, val in ipairs(vals) do redis.call('zadd', KEYS[1], time+i, (val)); end;",
-        "return redis.call('zcount', KEYS[1], '-inf', '+inf');"
-    ].join("\n"),
+const mod = {
+    name: "api.passkey",
+    args: [
+        { name: "err-(.+)", descr: "Error messages for various cases" },
+        { name: "cap-(.+)", type: "int", strip: "cap-", descr: "Capability parameters" },
+        { name: "secret", descr: "Cookies secret" },
+        { name: "cache", descr: "Cache for challenges" },
+        { name: "cookie", descr: "Cookie name" },
+        { name: "domain", descr: "Explicit domain to use instead of host" },
+        { name: "endpoint", descr: "Root endpoint for the api routes to remount under differnet top path" },
+    ],
+    ttl: 30000,
+    max: 5,
 
-    vpoller: [
-        "local val = redis.call('zrange', KEYS[1], 0, 0)[1];",
-        "if val then ",
-        "  redis.call('zremrangebyrank', KEYS[1], 0, 0);",
-        "  redis.call('zadd', KEYS[1] .. '#', tonumber(KEYS[2]), val);",
-        "end;",
-        "local count1 = redis.call('zcount', KEYS[1], '-inf', '+inf');",
-        "local count2 = redis.call('zcount', KEYS[1] .. '#', '-inf', '+inf');",
-        "return {val,count1,count2};"
-    ].join(""),
+    /**
+     * Router base endpoint
+     * @var {string}
+     * @default
+     */
+    endpoint: "/passkey",
 
-    poller: [
-        "local val = redis.call('zrange', KEYS[1], 0, 0)[1];",
-        "if val then redis.call('zremrangebyrank', KEYS[1], 0, 0); end;",
-        "local count = redis.call('zcount', KEYS[1], '-inf', '+inf');",
-        "return {val,count};"
-    ].join(""),
+    /**
+     * Cookie name
+     * @var {string}
+     * @default
+     */
+    cookie: "bk_passkey",
 
-    stats: [
-        "local count1 = redis.call('zcount', KEYS[1], '-inf', '+inf');",
-        "local count2 = redis.call('zcount', KEYS[1] .. '#', '-inf', '+inf');",
-        "return {count1,count2};"
-    ].join(""),
-
+    errPasskeyMax: "No more passkeys can be added to your profile",
+    errPasskeyChallenge: "Your passkey request has expired, please try again",
+    errPasskeyRegistration: "Passkey provided cannot be registered, please try again",
+    errPasskeyVerification: "Passkey provided cannot be verified, please try again",
 };
 
 /**
- * Queue client based on Redis server using https://github.com/NodeRedis/node_redis3
+ * Passkey management
  *
- * The queue client implements reliable queue using sorted sets, one for the new messages and one for the
- * messages that are being processed if timeout is provided. With the timeout this queue works similar to AWS SQS.
+ * To allow login via passkey enable
  *
- * @param {int} [options.interval] config property defines in ms how often to check for new messages after processing a message, i.e. after a messages processed
- * it can poll immediately or after this amount of time
- *
- * @param {int} [options.retryInterval] config property defines in ms how often to check for new messages after an error or no data, i.e. on empty
- * pool when no messages are processed it can poll immediately or after this amount of time
- *
- * @param {int} [options.visibilityTimeout] property specifies to use a shadow queue where all messages that are being processed are stored,
- * while the message is processed the timestamp will be updated so the message stays in the queue, if a worker exists or crashes without
- * confirming the message finished it will be put back into the work queue after `visibilityTimeout` milliseconds. The queue name that
- * keeps active messages is appended with #.
- *
- * @param {int} [options.threshold] property defines the upper limit of how many active messages can be in the queue when to show an error message, this is
- * for monitoring queue performance
- *
- * @param {boolean|int|object} [options.tls] can be true or 1 to just enable default TLS properties
- *
- * @example
- *  -queue-default=redis://host1
- *  -queue-default-options-interval=1000
- *  -queue-redis=redis://host1?bk-visibilityTimeout=30000&amp;bk-count=2
- *  -queue-default=redis://host1?bk-tls=1
- *
- * @memberOf module:queue
+ *    -api-passkey-cap-enabled 1
  */
 
-var redis;
+module.exports = mod;
 
-class RedisClient extends QueueClient {
+mod.configureWeb = function(options, callback)
+{
+    if (!this.enabled) return callback();
 
-    constructor(options) {
-        super(options);
-        this.name = "redis";
-        this.applyOptions();
+    api.registerAccessCheck('', /^\/passkey\/login$/, (req, cb) => {
+        cb({ status: 200 });
+    });
 
-        if (this.options.tls === true || this.options.tls === 1) {
-            this.options.tls = {};
-        }
+    this.init();
 
-        // For reconnect or failover to work need retry policy
-        this.options.retry_strategy = (options) => {
-            logger.logger(options.attempt == 2 ? "error": "dev", "connect:", this.url, options);
-            if (this.options.max_attempts > 0 &amp;&amp; options.attempt > this.options.max_attempts) undefined;
-            return Math.min(options.attempt * 200, this.options.retry_max_delay);
-        }
-        this.client = this.connect(this.hostname, this.port);
-    }
+    api.app.use(mod.endpoint,
+        api.express.Router().
+            get(/^\/(login|register)$/, (req, res) => {
+                if (!this.enabled) return api.sendReply(res, 400, "disabled");
+                api.sendJSON(req, null, mod.createChallenge(req));
+            }).
+            post("/login", mod.login).
+            post("/register", mod.register));
 
-    close() {
-        super.close();
-        if (this.client) this.client.quit();
-        if (this.subclient) this.subclient.quit();
-        delete this.client;
-        delete this.subclient;
-        delete this.options.retry_strategy;
-        clearInterval(this._monitorTimer);
-    }
-
-    applyOptions(options) {
-        super.applyOptions(options);
-        this.options.interval = lib.toNumber(this.options.interval, { dflt: 1000, min: 50 });
-        this.options.retryInterval = lib.toNumber(this.options.retryInterval, { dflt: 3000, min: 50 });
-        this.options.visibilityTimeout = lib.toNumber(this.options.visibilityTimeout, { min: 0 });
-        this.options.threshold = lib.toNumber(this.options.threshold, { min: 0 });
-        this.options.maxTimeout = lib.toNumber(this.options.maxTimeout, { dflt: 3600000, min: 60000 });
-        this.options.enable_offline_queue = lib.toBool(this.options.enable_offline_queue);
-        this.options.retry_max_delay = lib.toNumber(this.options.retry_max_delay, { min: 1000, dflt: 30000 });
-        this.options.max_attempts = lib.toNumber(this.options.max_attempts, { min: 0 });
-    }
-
-    connect(hostname, port) {
-        if (!redis) redis = require("redis");
-        var host = String(hostname).split(":");
-        var client = new redis.createClient(host[1] || port || this.options.port || 6379, host[0] || "127.0.0.1", this.options);
-        client.on("error", (err) => { logger.error("redis:", this.queueName, this.url, err) });
-        client.on("ready", this.emit.bind(this, "ready"));
-        client.on("message", this.onMessage.bind(this));
-        logger.debug("connect:", this.url, host, port, this.options);
-        return client;
-    }
-
-    onMessage(channel, msg) {
-        logger.dev("onMessage:", this.url, channel, msg);
-        this.emit(channel, msg);
-    }
-
-    subscribe(channel, options, callback) {
-        if (!this.subclient) {
-            this.subclient = this.connect(this.hostname, this.port);
-        }
-        super.subscribe(channel, options, callback);
-        if (!this.subclient.enable_offline_queue) this.subclient.enable_offline_queue = true;
-        this.subclient.subscribe(channel);
-    }
-
-    unsubscribe(channel, options, callback) {
-        super.unsubscribe(channel, options, callback);
-        if (this.subclient) {
-            if (!this.subclient.enable_offline_queue) this.subclient.enable_offline_queue = true;
-            this.subclient.unsubscribe(channel);
-        }
-    }
-
-    publish(channel, msg, options, callback) {
-        if (!this.client.enable_offline_queue) this.client.enable_offline_queue = true;
-        this.client.publish(channel, msg, callback);
-    }
-
-    stats(options, callback) {
-        var rc = {};
-        var chan = this.channel(options);
-        this.client.eval(scripts.stats, 1, chan, (err, count) => {
-            if (!err) {
-                rc.queueCount = lib.toNumber(count[0]);
-                rc.queueRunning = lib.toNumber(count[1]);
-            }
-            lib.tryCall(callback, err, rc);
-        });
-    }
-
-    submit(job, options, callback) {
-        var chan = this.channel(options);
-        if (typeof job != "string") job = lib.stringify(job);
-        this.client.zadd(chan, Date.now(), job, callback);
-    }
-
-    _monitor(options) {
-        if (!this.client.ready) return;
-        var chan = this.channel(options);
-        var now = Date.now() - lib.validPositive(options.visibilityTimeout, this.options.visibilityTimeout);
-        this.client.eval(scripts.monitor, 2, chan, now, (err, count) => {
-            if (err) logger.error("monitor:", this.url, err);
-            // Report when queue size reaches configured threshold
-            if (!count || !this.options.threshold) return;
-            count = lib.toNumber(count);
-            if (count >= this.options.threshold) logger.error("monitor:", this.url, this.options, "queue size:", count);
-        });
-    }
-
-    monitor(options) {
-        var visibilityTimeout = lib.validPositive(options.visibilityTimeout, this.options.visibilityTimeout);
-        if (!this._monitorTimer &amp;&amp; visibilityTimeout) {
-            this._monitorTimer = setInterval(this._monitor.bind(this, options), visibilityTimeout);
-            this._monitor(options);
-        }
-    }
-
-    poll(options) {
-        if (!this.client) return;
-        var visibilityTimeout = lib.validPositive(options.visibilityTimeout, this.options.visibilityTimeout);
-        var retryInterval = lib.validPositive(options.retryInterval, this.options.retryInterval);
-        var interval = lib.validPositive(options.interval, this.options.interval);
-        var script = visibilityTimeout ? scripts.vpoller : scripts.poller;
-        var chan = this.channel(options);
-
-        this.client.eval(script, 2, chan, Date.now(), (err, rc) => {
-            if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
-            if (!rc || !rc[0] || err) {
-                this.schedule(options, retryInterval);
-                return;
-            }
-            var vtimer, done, data = rc[0];
-            var msg = lib.jsonParse(data, { datatype: "obj", logger: "error" }) || data;
-            if (rc[1]) msg.queueAvailableCount = rc[1];
-            if (rc[2]) msg.queueInvisibleCount = rc[2];
-            // Check message timestamps if not ready yet then keep it hidden
-            if (visibilityTimeout) {
-                var now = Date.now();
-                if (msg.endTime > 0 &amp;&amp; msg.endTime &lt; now) {
-                    this.client.zrem(chan + "#", data, (err) => {
-                        if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
-                        this.schedule(options, retryInterval);
-                    });
-                    return;
-                }
-                if (msg.startTime > 0 &amp;&amp; msg.startTime - now > this.options.interval) {
-                    let timeout = msg.startTime - now;
-                    if (timeout > this.options.maxTimeout) timeout = this.options.maxTimeout;
-                    this.client.zadd(chan + "#", now + timeout, data, (err) => {
-                        if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
-                        this.schedule(options, retryInterval);
-                    });
-                    return;
-                }
-                // Delete immediately, this is a one-off message not to be handled or repeated
-                if (msg.noWait) {
-                    this.client.zrem(chan + "#", data);
-                } else
-                // Delay deletion in case checks need to be done for uniqueness or something else
-                if (msg.noWaitTimeout > 0) {
-                    setTimeout(() => {
-                        if (done || !this.client) return;
-                        msg.noWait = 1;
-                        this.client.zrem(chan + "#", data);
-                    }, msg.noWaitTimeout * 1000);
-                }
-            }
-            // Keep updating timestamp to prevent the job being placed back to the active queue
-            var vtimeout = msg.visibilityTimeout > 0 ? msg.visibilityTimeout : visibilityTimeout;
-            if (vtimeout &amp;&amp; !msg.noWait) {
-                Object.defineProperty(msg, "__msgid", { enumerable: false, value: data });
-                if (msg.visibilityTimeout > 0) this.client.zadd(chan + "#", Date.now(), data);
-                vtimer = setInterval(() => {
-                    if (done || !this.client) {
-                        clearInterval(vtimer);
-                        return;
-                    }
-                    this.client.zadd(chan + "#", Date.now(), data, (err) => {
-                        if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
-                        if (err) clearInterval(vtimer);
-                    });
-                }, vtimeout * 0.8);
-            }
-
-            if (!this.emit(chan, msg, (err, next) => {
-                if (done) return;
-                done = 1;
-                clearInterval(vtimer);
-
-                if (!msg.noVisibility &amp;&amp; (err &amp;&amp; err.status >= 500 || msg.noWait)) {
-                    setTimeout(() => {
-                        if (!this.client) return;
-                        const timeout = Date.now() + lib.toNumber(msg.retryVisibilityTimeout &amp;&amp; msg.retryVisibilityTimeout[err.status]);
-                        this.client.zadd(chan + (visibilityTimeout ? "#" : ""), timeout, data, (err) => {
-                            if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
-                            this.schedule(options, interval);
-                        });
-                    }, this.options.visibilityTimeout ? 0 : retryInterval);
-                } else {
-                    if (visibilityTimeout) {
-                        this.client?.zrem(chan + "#", data, (err) => {
-                            if (err) logger.error("poll:", this.name, chan, lib.traceError(err));
-                            this.schedule(options, interval);
-                        });
-                    } else {
-                        this.schedule(options, interval);
-                    }
-                }
-            })) {
-                done = 1;
-                clearInterval(vtimer);
-                this.schedule(options, interval);
-            }
-        });
-    }
-
-    drop(msg, options, callback) {
-        if (!msg.__msgid) return lib.tryCall(callback);
-        var chan = this.channel(options);
-        this.client.zrem(chan + "#", msg.__msgid, callback);
-    }
-
+    callback();
 }
 
-module.exports = RedisClient;
+
+mod.register = function(req, res)
+{
+    var query = api.getQuery(req, {
+        username: { required: 1 },
+        credential: { type: "object", required: 1, max: 1024 },
+        authenticatorData: { required: 1, max: 1024 },
+        clientData: { required: 1, max: 1024 },
+    });
+    if (typeof query == "string") return api.sendReply(res, 400, query);
+
+    lib.series([
+        function(next) {
+            mod.verifyChallenge(req, next);
+        },
+        function(next, challenge) {
+            mod.verifyRegistration(req, { query, challenge }, next);
+        },
+        function(next, passkey) {
+            mod.update({ user: req.user, passkey: passkey.credential }, next);
+        }
+    ], (err) => {
+        api.sendJSON(req, err);
+    }, true);
+}
+
+mod.login = function(req, res)
+{
+    var query = api.getQuery(req, {
+        credentialId: { required: 1 },
+        authenticatorData: { required: 1, max: 1024 },
+        clientData: { required: 1, max: 1024 },
+        signature: { required: 1, max: 1024 },
+        userHandle: { required: 1, base64: 1 },
+    });
+    if (typeof query == "string") return api.sendReply(res, 400, query);
+
+    lib.series([
+        function(next) {
+            mod.verifyChallenge(req, next);
+        },
+        function(next, challenge) {
+            mod.read(query.userHandle, query.credentialId, (err, user, passkey) => {
+                if (err || !passkey) return next(err || { status: 401, message: mod.errInvalidPasskey, code: "NOLOGIN" });
+
+                mod.verifyAuthentication(req, { query, challenge, passkey }, (err) => {
+                    if (!err) {
+                        api.access.setUser(req, user);
+                        api.session.setup(req, next);
+                    }
+                    next(err, user);
+                });
+            });
+        },
+    ], (err) => {
+        req.options.cleanup = api.users.table;
+        req.options.cleanup_strict = 1;
+        api.sendJSON(req, err, req.user);
+    }, true);
+}
+
+mod.init = async function()
+{
+    if (mod.server) return;
+    try {
+        var w = await import(__dirname + "/../../web/js/webauthn.min.mjs");
+        mod.server = w.server;
+    } catch (e) {
+        logger.error("init:", "passkey", e);
+    }
+}
+
+mod.createChallenge = function(req)
+{
+    var uuid = lib.uuid();
+    var ttl = Date.now() + mod.ttl;
+
+    if (req.res) {
+        var cookie = `${ttl},${uuid},${req.user?.id?1:0}`;
+        req.res.cookie(mod.cookie,
+            lib.encrypt(mod.secret || api.accessTokenSecret, cookie), {
+            path: mod.endpoint,
+            httpOnly: true,
+            sameSite: "strict",
+            maxAge: mod.ttl,
+        });
+    }
+    logger.debug("createChallenge:", "passkey", req.user?.id, cookie);
+    return {
+        challenge: uuid,
+        domain: mod.domain &amp;&amp; lib.domainName(req.options?.host) || undefined,
+        id: req.user?.id,
+        ttl: ttl,
+    }
+}
+
+mod.getChallenge = function(req, callback)
+{
+    var cookie = req.cookies?.[mod.cookie];
+    var rc = lib.decrypt(mod.secret || api.accessTokenSecret, cookie).split(",");
+    logger.debug("getChallenge:", "passkey", req.user?.id, "H:", rc);
+    return lib.toNumber(rc[0]) > Date.now() ? rc[1] : "";
+}
+
+mod.verifyChallenge = function(req, callback)
+{
+    var challenge = mod.getChallenge(req);
+    if (!challenge) return callback({ status: 429, message: mod.errPasskeyChallenge, code: "PSKC" });
+
+    cache.incr("PSK:" + challenge, 1, { ttl: mod.ttl, cacheName: mod.cache || api.limiterCache }, (err, rc) => {
+        logger.debug("verifyChallenge:", "passkey", req.user?.id, challenge, rc);
+        callback(rc !== 1 ? { status: 429, message: mod.errPasskeyChallenge, code: "PSKC" + rc } : null, challenge);
+    });
+}
+
+mod.verifyRegistration = async function(req, options, callback)
+{
+    const expected = {
+        challenge: options.challenge,
+        origin: `http${req.options?.secure ? "s" : ""}://${req.headers?.host}`,
+    }
+    try {
+        var passkey = await mod.server.verifyRegistration(options.query, expected);
+    } catch (e) {
+        logger.info("verifyRegistration:", "passkey", req.user?.id, options, "ERR:", e.stack);
+        return callback({ status: 403, message: mod.errPasskeyRegistration, code: "PSKR" })
+    }
+    // Keep device and date for each passkey
+    passkey.credential.mtime = Date.now();
+    passkey.credential.aname = passkey.authenticator.name;
+
+    logger.debug("verifyRegistration:", "passkey", req.user?.id, passkey);
+    callback(null, passkey);
+}
+
+mod.verifyAuthentication = async function(req, options, callback)
+{
+    const expected = {
+        challenge: options.challenge,
+        origin: `http${req.options?.secure ? "s" : ""}://${req.headers?.host}`,
+        domain: mod.domain &amp;&amp; lib.domainName(req.options?.host) || undefined,
+        userVerified: true,
+    }
+    try {
+       await mod.server.verifyAuthentication(options.query, options.passkey, expected);
+    } catch (e) {
+        logger.info("verifyAuthentication:", "passkey", req.user?.id, options, "ERR:", e.stack);
+        return callback({ status: 403, message: mod.errPasskeyVerification, code: "PSKA" })
+    }
+    logger.debug("verifyAuthentication:", "passkey", options.passkey);
+    callback();
+}
+
+// Return a list of all passkyes for the user
+mod.get = function(options)
+{
+    return lib.jsonParse(options?.passkey, { datatype: "list" });
+}
+
+// Read a user and passkey, user can be id/login or an user object
+mod.read = function(options, passkeyId, callback)
+{
+    api.users.get(options, (err, row) => {
+        callback(err, row, mod.get(row).filter((x) => (x.id == passkeyId)).pop());
+    });
+}
+
+/**
+ * Add/delete a passkey,
+ * - user - full user record
+ * - passkey - a registration credential object to add or just { id: id } to remove
+ * - query - optional additional fields to update
+ */
+mod.update = function(options, callback)
+{
+    var allkeys = mod.get(options.user);
+    var passkeys = allkeys.filter((x) => (x.id != options.passkey?.id));
+
+    if (options.passkey?.id &amp;&amp; options.passkey?.publicKey &amp;&amp; options.passkey?.algorithm) {
+        passkeys.push(options.passkey);
+    }
+
+    if (passkeys.length > mod.passkey.max) {
+        return lib.tryCall(callback, { status: 400, message: mod.errPasskeyMax });
+    }
+
+    if (allkeys.length == passkeys.length) {
+        return lib.tryCall(callback);
+    }
+
+    var query = Object.assign({ login: options.user?.login, passkey: lib.stringify(passkeys) }, options.query);
+
+    logger.info("update:", "passkey", query);
+
+    api.users.update(query, { isInternal: 1 }, callback);
+}
+
 </code></pre>
         </article>
     </section>

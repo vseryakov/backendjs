@@ -358,22 +358,25 @@ See {@link module:api.images}
  Images scaling module, sharp   
 ### **api-images-path**
  Path to store images   
-## api.passkeys
-See {@link module:api.passkeys}
-### **api-passkeys-err-(.+)**
+## api.passkey
+See {@link module:api.passkey}
+### **api-passkey-err-(.+)**
  Error messages for various cases   
-### **api-passkeys-cap-(.+)**
+### **api-passkey-cap-(.+)**
  Capability parameters   
 ##### Type: int   
-### **api-passkeys-path**
- Cookies path   
-##### Default: "/passkey/"   
-### **api-passkeys-secret**
+### **api-passkey-secret**
  Cookies secret   
-### **api-passkeys-cache**
+### **api-passkey-cache**
  Cache for challenges   
-### **api-passkeys-domain**
+### **api-passkey-cookie**
+ Cookie name   
+##### Default: "bk_passkey"   
+### **api-passkey-domain**
  Explicit domain to use instead of host   
+### **api-passkey-endpoint**
+ Root endpoint for the api routes to remount under differnet top path   
+##### Default: "/passkey"   
 ## api.redirect
 See {@link module:api.redirect}
 ### **api-redirect-err-(.+)**
