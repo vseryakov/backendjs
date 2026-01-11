@@ -1,11 +1,9 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     
     <meta charset="utf-8">
-    <title>api/redirect.js - Backendjs Documentation</title>
+    <title>api/static - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,96 +39,154 @@
 
 <div id="main">
     
-    <h1 class="page-title">api/redirect.js</h1>
+    <h1 class="page-title">api/static</h1>
     
 
     
 
 
 
+
+<section>
+
+
+    <div class="toc">
     
-    <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>/*
- *  Author: Vlad Seryakov vseryakov@gmail.com
- *  backendjs 2018
- */
-const util = require("util");
-const lib = require(__dirname + '/../lib');
-const logger = require(__dirname + '/../logger');
+    
+    
+    
+    </div>
 
-/**
-  * @module api/redirect
-  */
 
-const mod = {
-    name: "api.redirect",
-    args: [
-        { name: "err-(.+)", descr: "Error messages for various cases" },
-        { name: "url", type: "regexpmap", descr: "Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location", example: "{ '^[^/]+/path/$': '/path2/index.html', '.+/$': '301:@PATH@/index.html' }" },
-        { name: "login-(.+)", type: "regexpobj", reverse: 1, nocamel: 1, obj: "login", descr: "Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url", example: "api-redirect-login-^/admin/=/login.html" },
-        { name: "reset", type: "callback", callback: function(v) { if (v) this.reset() }, descr: "Reset all rules" },
-    ],
+<header>
+    
+        
+            
+        
+    
+</header>
 
-};
+<article>
+    
+        <div class="container-overview">
+        
+            
 
-/**
- * Configuration based request redirection
- * @example
- * api-redirect-login-^/app = ^/login.html?path=@PATH@
- *
- * api-redirect-url = { "^(app\\.)?host\\.io": "https://app.host.com@PATH@" }
- * api-redirect-url = { "^/support": "https://myapp.zendesk.com" }
- *
- */
+            
+                
 
-module.exports = mod;
+    
 
-mod.reset = function()
-{
-    delete this.url;
-    delete this.login;
-}
+    <h4 class="name" id="module:api/static"><span class="type-signature"></span>module:api/static<span class="type-signature"></span></h4>
 
-/**
- * Check a request for possible redirection condition based on the configuration.
- * This is used by API servers for early redirections. It returns null
- * if no redirects or errors happend, otherwise an object with status that is expected by the {@link module:api.sendStatus} method.
- * uses {@link module:api.checkRedirectPlaceholders} for placeholders.
- * @param {Request} req
- * The req.options is expected to contain the following cached request properties:
- * - path - from req.path or the request pathname only
- * - host - from req.hostname or the hostname part only
- * - port - port from the host: header if specified
- * - secure - if the protocol is https
- * @param {string} [name=url]
- * @memberof module:api/redirect
- * @method check
- */
-mod.check = function(req, name = "url")
-{
-    var url = req.url, location = req.options.host + url;
-    var rules = this[name];
-    for (var i in rules) {
-        const rx = util.types.isRegExp(rules[i]?.rx) ? rules[i].rx : util.types.isRegExp(rules[i]) ? rules[i] : null;
-        if (rx &amp;&amp; (rx.test(url) || rx.test(location))) {
-            let loc = !lib.isNumeric(i) ? i : rules[i].value || "";
-            if (!loc) continue;
-            var status = 302;
-            if (loc[0]== "3" &amp;&amp; loc[1] == "0" &amp;&amp; loc[3] == ":") {
-                status = lib.toNumber(loc.substr(0, 3), { dflt: 302 });
-                loc = loc.substr(4);
-            }
-            loc = this.checkRedirectPlaceholders(req, loc);
-            logger.debug("checkRedirectRules:", name, location, req.options.path, "=>", status, loc, "rule:", i, rules[i]);
-            return { status: status, url: loc };
-        }
-    }
-    return null;
-}
-</code></pre>
-        </article>
-    </section>
+    
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Default module to return assets using Express static</p></li></ul></dd>
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="api_static.js.html">api/static.js</a>, <a href="api_static.js.html#line46">line 46</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            
+        
+        </div>
+    
+
+    
+
+    
+
+    
+
+    
+    
+    
+
+     
+
+    
+
+    
+
+
+    
+
+    
+</article>
+
+</section>
 
 
 

@@ -5,7 +5,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>api/redirect.js - Backendjs Documentation</title>
+    <title>api/static.js - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,7 +41,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">api/redirect.js</h1>
+    <h1 class="page-title">api/static.js</h1>
     
 
     
@@ -55,78 +55,95 @@
  *  Author: Vlad Seryakov vseryakov@gmail.com
  *  backendjs 2018
  */
-const util = require("util");
+
+/**
+ * @module api/static
+ */
+const path = require("path")
+const app = require(__dirname + '/../app');
+const api = require(__dirname + '/../api');
 const lib = require(__dirname + '/../lib');
 const logger = require(__dirname + '/../logger');
 
-/**
-  * @module api/redirect
-  */
-
 const mod = {
-    name: "api.redirect",
+    name: "api.static",
     args: [
-        { name: "err-(.+)", descr: "Error messages for various cases" },
-        { name: "url", type: "regexpmap", descr: "Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location", example: "{ '^[^/]+/path/$': '/path2/index.html', '.+/$': '301:@PATH@/index.html' }" },
-        { name: "login-(.+)", type: "regexpobj", reverse: 1, nocamel: 1, obj: "login", descr: "Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url", example: "api-redirect-login-^/admin/=/login.html" },
-        { name: "reset", type: "callback", callback: function(v) { if (v) this.reset() }, descr: "Reset all rules" },
+        { name: "disabled", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
+        { name: "options", type: "map", obj: "staticOptions", merge: 1, descr: "Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified" },
+        { name: "vhost-([^/]+)", type: "regexp", obj: "vhost", nocamel: 1, regexp: "i", descr: "Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match", example: "api-static-vhost-test_dir=test.com$" },
+        { name: "no-vhost", type: "regexpobj", descr: "Add to the list of URL paths that should be served for all virtual hosts" },
+        { name: "mime-(.+)", obj: "mime", descr: "File extension to MIME content type mapping, this is used by static-serve", example: "-api-static-mime-mobileconfig application/x-apple-aspen-config" },
+        { name: "no-cache-files", type: "regexpobj", descr: "Set cache-control=no-cache header for matching static files", },
+        { name: "compressed-([^/]+)", type: "regexp", obj: "compressed", nocamel: 1, strip: "compressed-", reverse: 1, regexp: "i", descr: "Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention", example: "-api-static-compress-bundle.js gz" },
     ],
 
+    // Collect body MIME types as binary blobs
+    mime: {},
+
+    // Static content options
+    options: {
+        maxAge: 0,
+        setHeaders: function(res, file) {
+            var ext = path.extname(file), type = mod.mime[ext.substr(1)];
+            if (type) res.setHeader("content-type", type);
+            if (app.runMode == "dev" || lib.testRegexpObj(file, mod.noCacheFiles)) {
+                res.setHeader("cache-control", "max-age=0, no-cache, no-store");
+            }
+        }
+    },
 };
 
 /**
- * Configuration based request redirection
- * @example
- * api-redirect-login-^/app = ^/login.html?path=@PATH@
- *
- * api-redirect-url = { "^(app\\.)?host\\.io": "https://app.host.com@PATH@" }
- * api-redirect-url = { "^/support": "https://myapp.zendesk.com" }
- *
+ * Default module to return assets using Express static
  */
-
 module.exports = mod;
 
-mod.reset = function()
+// Templating and static paths
+mod.configureStaticWeb = function(options, next)
 {
-    delete this.url;
-    delete this.login;
+    api.app.set('view engine', 'html');
+
+    // Use app specific views path if created even if it is empty
+    api.app.set('views', app.path.views.concat([app.home + "/views", __dirname + '/../views']));
+
+    // Serve from default web location in the package or from application specific location
+    if (!mod.disabled) {
+        api.app.use((req, res, next) => {
+            if (req.method !== 'GET' &amp;&amp; req.method !== 'HEAD') return next();
+            mod.checkRouting(req);
+            next();
+        });
+
+        for (var i = 0; i &lt; app.path.web.length; i++) {
+            api.app.use(api.express.static(app.path.web[i], mod.options));
+        }
+        api.app.use(api.express.static(__dirname + "/../web", mod.options));
+        logger.debug("configureStatic:", app.path.web, __dirname + "/../web");
+    }
+
+    next();
 }
 
-/**
- * Check a request for possible redirection condition based on the configuration.
- * This is used by API servers for early redirections. It returns null
- * if no redirects or errors happend, otherwise an object with status that is expected by the {@link module:api.sendStatus} method.
- * uses {@link module:api.checkRedirectPlaceholders} for placeholders.
- * @param {Request} req
- * The req.options is expected to contain the following cached request properties:
- * - path - from req.path or the request pathname only
- * - host - from req.hostname or the hostname part only
- * - port - port from the host: header if specified
- * - secure - if the protocol is https
- * @param {string} [name=url]
- * @memberof module:api/redirect
- * @method check
- */
-mod.check = function(req, name = "url")
+mod.checkRouting = function(req)
 {
-    var url = req.url, location = req.options.host + url;
-    var rules = this[name];
-    for (var i in rules) {
-        const rx = util.types.isRegExp(rules[i]?.rx) ? rules[i].rx : util.types.isRegExp(rules[i]) ? rules[i] : null;
-        if (rx &amp;&amp; (rx.test(url) || rx.test(location))) {
-            let loc = !lib.isNumeric(i) ? i : rules[i].value || "";
-            if (!loc) continue;
-            var status = 302;
-            if (loc[0]== "3" &amp;&amp; loc[1] == "0" &amp;&amp; loc[3] == ":") {
-                status = lib.toNumber(loc.substr(0, 3), { dflt: 302 });
-                loc = loc.substr(4);
+    if (!lib.testRegexpObj(req.options.path, mod.noVhost)) {
+        for (const p in api.vhost) {
+            if (lib.testRegexp(req.options.host, mod.vhost[p])) {
+                api.replacePath(req, "/" + p + req.options.path);
+                logger.debug("vhost:", req.options.host, "rerouting to", req.url);
+                break;
             }
-            loc = this.checkRedirectPlaceholders(req, loc);
-            logger.debug("checkRedirectRules:", name, location, req.options.path, "=>", status, loc, "rule:", i, rules[i]);
-            return { status: status, url: loc };
         }
     }
-    return null;
+    for (const p in mod.compressed) {
+        if (lib.testRegexp(req.options.path, mod.compressed[p])) {
+            api.replacePath(req, req.options.path + "." + p);
+            req.res.setHeader("Content-Encoding", p == "br" ? "brotli" : "gzip");
+            req.res.setHeader("Content-Type", app.mime.lookup(req.options.opath));
+            logger.debug("compressed:", req.options.opath, "rerouting to", req.url);
+            break;
+        }
+    }
 }
 </code></pre>
         </article>

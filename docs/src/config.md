@@ -71,29 +71,8 @@ See {@link module:api}
 ##### Type: regexpobj   
 ### **api-qs-options-(.+)**
  Options to pass to qs when parsing the body: depth, arrayLimit, allowDots, comma, plainObjects, allowPrototypes, parseArrays   
-### **api-no-static**
- Disable static files from /web folder, no .js or .html files will be served by the server   
-##### Type: bool   
-### **api-static-options**
- Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified   
-##### Type: map   
-##### Default: {"maxAge":0}   
-### **api-vhost-path-([^/]+)**
- Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match   
-##### Type: regexp   
-##### Example:
-```
-api-vhost-path-test_dir=test.com$
-```
-
-### **api-no-vhost-path**
- Add to the list of URL paths that should be served for all virtual hosts   
-##### Type: regexpobj   
 ### **api-query-token-secret**
  Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_user can be used, if empty no secret is used, if not a valid property then it is used as the secret   
-### **api-no-cache-files**
- Set cache-control=no-cache header for matching static files   
-##### Type: regexpobj   
 ### **api-access-token-secret**
  A generic secret to be used for API access or signatures   
 ### **api-allow-configure-(web|middleware)**
@@ -121,13 +100,6 @@ api-vhost-path-test_dir=test.com$
 ### **api-body-multipart**
  URLs that expect multipart/form-data payloads, parsing will happend after the signature processed   
 ##### Type: regexpobj   
-### **api-mime-map-(.+)**
- File extension to MIME content type mapping, this is used by static-serve   
-##### Example:
-```
--api-mime-map-mobileconfig application/x-apple-aspen-config
-```
-
 ### **api-cors-origin**
  Origin header for CORS requests   
 ##### Default: "*"   
@@ -200,14 +172,6 @@ api-response-headers={ "^/": ["x-frame-options","sameorigin","x-xss-protection",
 ##### Example:
 ```
 -api-delays-401 1000 -api-delays-403:DENY -1
-```
-
-### **api-compressed-([^/]+)**
- Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention   
-##### Type: regexp   
-##### Example:
-```
--api-compress-bundle.js gz
 ```
 
 ### **api-restart-hours**
