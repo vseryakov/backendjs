@@ -12,19 +12,13 @@
   },
   "dependencies": {
     "express": "5.2.1",
-    "formidable": "3.5.4",
     "mime-types": "3.0.2",
-    "qs": "6.14.0",
-    "ws": "8.18.3",
+    "qs": "6.14.1",
     "fast-xml-parser": "5.3.3"
-  },
-  "devDependencies": {
-    "eslint": "8.57.1",
-    "esbuild": "0.27.2",
-    "docdash": "github:vseryakov/docdash"
   },
   "peerDependencies": {
     "croner": "9.1.0",
+    "formidable": "3.5.4",
     "nodemailer": "7.0.12",
     "nats": "2.29.3",
     "pg": "8.16.3",
@@ -32,7 +26,21 @@
     "sharp": "0.34.5",
     "unix-dgram": "2.0.7",
     "web-push": "3.6.7",
+    "ws": "8.18.3",
     "@parse/node-apn": "7.0.1"
+  },
+  "peerDependenciesMeta": {
+    "croner": { "optional": true },
+    "formidable": { "optional": true },
+    "nodemailer": { "optional": true },
+    "nats": { "optional": true },
+    "pg": { "optional": true },
+    "redis": { "optional": true },
+    "sharp": { "optional": true },
+    "unix-dgram": { "optional": true },
+    "web-push": { "optional": true },
+    "ws": { "optional": true },
+    "@parse/node-apn": { "optional": true }
   },
   "keywords": [
     "webservice",

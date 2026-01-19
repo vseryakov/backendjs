@@ -1,6 +1,7 @@
 
 app.components.config = class extends app.AlpineComponent {
 
+    list = [];
     rows = [];
     types = [];
     query = "";
@@ -9,6 +10,10 @@ app.components.config = class extends app.AlpineComponent {
         this.show();
 
         app.$("input", this.$el)?.focus();
+
+        this.$watch("query", () => {
+            this.list = this.filter();
+        });
     }
 
     refresh() {
@@ -21,25 +26,33 @@ app.components.config = class extends app.AlpineComponent {
         app.render("index")
     }
 
+    collapse(o) {
+        this.list.forEach(x => { x.o = o })
+    }
+
     filter() {
         var list = this.rows, q = this.query;
-        if (q) list = this.rows.filter((x) => (x.type.includes(q) || x.name.includes(q) || x.value.includes(q)));
+        if (q) {
+            list = this.rows.filter((x) => (x.type.includes(q) || x.name.includes(q) || x.value.includes(q)));
+        }
         list.sort((a,b) => (a.type < b.type ? -1 : a.type > b.type ? 1 : parseInt(a.sort) - parseInt(b.sort) || (a.ctime - b.ctime)));
 
-        var types = {};
-        list.forEach((x) => {
+        var open = this.list.reduce((a, b) => { a[b.type] = b.o; return a }, {});
+
+        var types = Object.groupBy(list, (x) => {
             x.icon = x.status == "ok" ? "fa-check" : "fa-ban";
             x.text = x.name + " = " + x.value;
-            if (!types[x.type]) types[x.type] = [];
-            types[x.type].push(x);
+            return x.type;
         });
-        return Object.keys(types).map(x => ({ type: x, rows: types[x], q }));
+        var keys = Object.keys(types);
+        return keys.map((x, i) => ({ type: x, rows: types[x], q, o: open[x] || (q && types[x]?.length) || 0, e: i == keys.length - 1 }));
     }
 
     async show() {
         const { err, data } = await app.afetch('/config/list')
         if (err) return app.emit("alert", "error", err);
         this.rows = data.data;
+        this.list = this.filter();
     }
 
     edit(data) {

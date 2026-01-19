@@ -2,7 +2,13 @@
 
 ## Dependencies
 
-Only core required dependencies are installed but there are many modules which require a module to work correctly.
+Only core required dependencies are required but there are many modules which require a module to work correctly.
+
+The command below will install minimal dependencies to serve API and worker jobs
+
+```shell
+npm install
+```
 
 All optional dependencies are listed in the package.json under "peerDependencies", only manual install of required modules is supported or
 it is possible to install all optional dependencies for development purposes.
@@ -17,6 +23,8 @@ Here is the list of modules for each peer feature:
 - nats - NATS driver for queue and events
 - croner - to support jobs via a cronfile or DB
 - nodemailer - to support sending emails
+- ws - to enable WebSockets routes in the server
+- formidable - to enable multi-part uploads
 
 The command below will install all dependencies
 
@@ -100,7 +108,7 @@ On startup some env variable will be used for initial configuration:
 
 * if Node.js is already installed skip to the next section
 
-    * to install binary release run the command, it will install it into ./nodejs
+    * to install binary release run the command, it will install it into current dir as ./nodejs
 
         `bin/bkjs install-node`
 

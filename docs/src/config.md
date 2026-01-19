@@ -425,6 +425,44 @@ See {@link module:api.signature}
  Max login and tag length   
 ##### Type: int   
 ##### Default: 140   
+## api.static
+See {@link module:api.static}
+### **api-static-disabled**
+ Disable static files from /web folder, no .js or .html files will be served by the server   
+##### Type: bool   
+### **api-static-options**
+ Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified   
+##### Type: map   
+##### Default: {"maxAge":0}   
+### **api-static-vhost-([^/]+)**
+ Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match   
+##### Type: regexp   
+##### Example:
+```
+api-static-vhost-test_dir=test.com$
+```
+
+### **api-static-no-vhost**
+ Add to the list of URL paths that should be served for all virtual hosts   
+##### Type: regexpobj   
+### **api-static-mime-(.+)**
+ File extension to MIME content type mapping, this is used by static-serve   
+##### Example:
+```
+-api-static-mime-mobileconfig application/x-apple-aspen-config
+```
+
+### **api-static-no-cache-files**
+ Set cache-control=no-cache header for matching static files   
+##### Type: regexpobj   
+### **api-static-compressed-([^/]+)**
+ Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention   
+##### Type: regexp   
+##### Example:
+```
+-api-static-compress-bundle.js gz
+```
+
 ## api.users
 See {@link module:api.users}
 ### **api-users-table**
@@ -734,7 +772,7 @@ See {@link module:db}
  Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation   
 ##### Type: bool   
 ### **db-cache-tables**
- List of tables that can be cached: bk_user, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.   
+ List of tables that can be cached: users, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.   
 ##### Type: list   
 ##### Default: []   
 ### **db-skip-tables**
@@ -774,7 +812,7 @@ See {@link module:db}
  A column that is allowed to be used in any table, the name is a column name regexp with the value to be a type   
 ##### Example:
 ```
--db-custom-column-bk_user-^stats=counter
+-db-custom-column-users-^stats=counter
 ```
 
 ### **db-describe-column-([a-z0-9_]+)-([a-zA-Z0-9_.]+)**
@@ -782,7 +820,7 @@ See {@link module:db}
 ##### Type: map   
 ##### Example:
 ```
--db-describe-column-bk_user-name.check max:255
+-db-describe-column-users-name.check max:255
 ```
 
 ### **db-config**

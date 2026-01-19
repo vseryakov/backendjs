@@ -17,21 +17,23 @@
         <div class="row pt-1 pb-3">
             <div class="col-6 d-flex justify-content-left">
                 <input type="text" class="form-control custom max-vw-35" placeholder="Search" x-model.debounce="query"/>
-                <button type="button" class="btn btn-default" title="Clear search" @click="query=''"><span class="fa fa-fw fa-times"></span> </button>
+                <button type="button" class="btn btn-default" title="Clear search" @click="query=''">❌ </button>
+                <button type="button" class="btn btn-default" title="Collapse all" @click="collapse(0)">− </button>
+                <button type="button" class="btn btn-default" title="Open all" @click="collapse(1)">✚ </button>
             </div>
         </div>
 
         <div class="py-2">
-            <template x-for="type in filter">
+            <template x-for="type in list">
                 <div>
                     <button class="btn" :data-bs-target="'#' + type.type" data-bs-toggle="collapse" aria-expanded="false">
                         <i class="m-1" x-text="type.q ? '🔎' : type.o ? '📂' : '📁'"></i>
                         <span x-text="type.type"></span>
                     </button>
 
-                    <div class="ms-4 collapse" :class="{ 'show': type.q }" :id="type.type" @show-bs-collapse.dot="type.o=1" @hide-bs-collapse.dot="type.o=0">
+                    <div class="ms-4 collapse" :class="{ 'show': type.q, 'show': type.o }" :id="type.type" @show-bs-collapse.dot="type.o=1" @hide-bs-collapse.dot="type.o=0">
                         <template x-for="row in type.rows">
-                            <div class="py-1 border-bottom" role="button" @click="edit(row)">
+                            <div class="py-2 pe-2 border-top" role="button" @click="edit(row)">
                                 <i class="fa fa-fw m-1" :class="row.icon"></i>
                                 <span class="m-1" x-text="row.text"></span>
                             </div>
