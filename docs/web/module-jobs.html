@@ -99,9 +99,22 @@ configured job queues or the default queue and listen for messages.</p>
 but jobs sent to worker queue will be run in a worker.</p>
 <p>A job is an object that defines what method from which module to run with the options as the first argument and a callback as the second.</p>
 <p>A job can be in the following formats:</p>
-<pre class="prettyprint source"><code>&quot;module.method&quot;
-{ job: { &quot;module.method&quot;: { ... } } }
-{ job: { &quot;module.method&quot;: { ... }, &quot;module2.method2&quot;: { ... } } }
+<pre class="prettyprint source lang-json"><code>&quot;module.method&quot;
+
+{
+  job: &quot;module.method&quot;
+}
+
+{
+  job: { &quot;module.method&quot;: { ... } }
+}
+
+{
+ job: {
+    &quot;module.method&quot;: { ... },
+    &quot;module2.method2&quot;: { ... }
+ }
+}
 </code></pre>
 <p>Any task in string format &quot;module.method&quot; will be converted into { &quot;module.method: {} } automatically</p>
 <p>Once configured, then all calls to <a href="module-jobs.html#.submitJob">module:jobs.submitJob</a> will push jobs to be executed to the provided or default queue.</p>
@@ -162,7 +175,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line117">line 117</a>
+        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line130">line 130</a>
     </li></ul></dd>
     
 
@@ -269,7 +282,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line148">line 148</a>
+        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line161">line 161</a>
     </li></ul></dd>
     
 
@@ -344,7 +357,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line640">line 640</a>
+        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line659">line 659</a>
     </li></ul></dd>
     
 
@@ -525,7 +538,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line359">line 359</a>
+        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line372">line 372</a>
     </li></ul></dd>
     
 
@@ -775,7 +788,7 @@ time another job with the same arguments can be submitted.</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line343">line 343</a>
+        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line356">line 356</a>
     </li></ul></dd>
     
 
@@ -1303,7 +1316,7 @@ the format of the job objects.</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line458">line 458</a>
+        <a href="jobs.js.html">jobs.js</a>, <a href="jobs.js.html#line477">line 477</a>
     </li></ul></dd>
     
 

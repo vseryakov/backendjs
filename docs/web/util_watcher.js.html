@@ -182,7 +182,7 @@ mod.startProcess = function()
 
     process.stdin.pipe(this.child.stdin);
 
-    logger.log('startProcess:', app.role, 'version:', app.version, 'home:', app.home, 'port:', api.port, 'uid:', lib.getuid(), 'pid:', process.pid, 'app:', app.appName, app.runMode, app.instance);
+    logger.log('startProcess:', app.role, 'version:', app.version, 'home:', app.home, 'port:', api.port, 'uid:', lib.getuid(), 'pid:', process.pid, 'app:', app.runMode, app.instance);
 }
 
 function _restart(file)

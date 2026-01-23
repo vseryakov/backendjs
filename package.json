@@ -21,12 +21,12 @@
     "formidable": "3.5.4",
     "nodemailer": "7.0.12",
     "nats": "2.29.3",
-    "pg": "8.16.3",
+    "pg": "8.17.2",
     "redis": "3.1.2",
     "sharp": "0.34.5",
     "unix-dgram": "2.0.7",
     "web-push": "3.6.7",
-    "ws": "8.18.3",
+    "ws": "8.19.0",
     "@parse/node-apn": "7.0.1"
   },
   "peerDependenciesMeta": {
