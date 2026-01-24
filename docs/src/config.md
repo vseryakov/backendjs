@@ -1101,7 +1101,7 @@ See {@link module:queue}
 -queue-config {"redis":{"url":redis://localhost","count":1},"nats":"nats://localhost:4222"}
 ```
 
-### **queue-([a-z0-9]+)-options$**
+### **queue-([a-z0-9_]+)-options$**
  Additional parameters for drivers, specific to each implementation   
 ##### Type: map   
 ##### Example:
@@ -1109,14 +1109,14 @@ See {@link module:queue}
 -queue-redis-options count:10,interval:100
 ```
 
-### **queue-([a-z0-9]+)-options-(.+)**
+### **queue-([a-z0-9_]+)-options-(.+)**
  Additional parameters for drivers, specific to each implementation   
 ##### Example:
 ```
 -queue-default-options-count 10
 ```
 
-### **queue-([a-z0-9]+)**
+### **queue-([a-z0-9_]+)**
  An URL that points to a server in the format `PROTO://HOST[:PORT]?PARAMS`, multiple clients can be defined with unique names, all params starting with `bk-` will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url   
 ##### Example:
 ```

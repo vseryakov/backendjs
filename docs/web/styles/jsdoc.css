@@ -20,6 +20,8 @@
   --params-color: #333;
   --params-bg: #f0f0f0;
   --disabled-color: #454545;
+  --code-color: #948D00;
+  --code-bg-color: #CFD8E8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,6 +45,8 @@
       --params-color: #ccc;
       --params-bg: #333333;
       --disabled-color: #454545;
+      --code-color: #C3C965;
+      --code-bg-color: #3A4D68;
   }
 }
 
@@ -195,7 +199,6 @@ h6 {
     color: var(--h5-color);
 }
 
-
 tt, code, kbd, samp, pre {
     font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     background-color: var(--bg-source);
@@ -210,6 +213,12 @@ pre {
     padding-bottom: 1em;
 }  
 
+p > code {
+    font-weight: lighter;
+    color: var(--code-color);
+    background: var(--code-bg-color);
+}
+
 .class-description {
     line-height: 140%;
     margin-bottom: 1em;
@@ -217,25 +226,25 @@ pre {
 }
 
 .class-description:empty {
-  margin: 0
+    margin: 0
 }
 
 #main {
-  float: right;
-  width: calc(100% - 240px);
+    float: right;
+    width: calc(100% - 240px);
 }
 
 header {
-  display: block
+    display: block
 }
 
 section {
-  display: block;
-  padding: 0 0 0 30px;
+    display: block;
+    padding: 0 0 0 30px;
 }
 
 .variation {
-  display: none
+    display: none
 }
 
 .signature-attributes {
@@ -420,6 +429,7 @@ footer {
   font-style: italic;
   font-size: 107%;
   margin: 0;
+  white-space: pre-line;
 }
 
 .prettyprint {
