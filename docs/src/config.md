@@ -1128,9 +1128,7 @@ See {@link module:sendmail}
 ### **sendmail-from**
  Email address to be used when sending emails from the backend   
 ### **sendmail-transport**
- Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used   
-### **sendmail-sendgrid-key**
- SendGrid API key   
+ Send emails via supported transports: ses:, ses2:, fake:, file:, json:, if not set default SMTP settings are used   
 ### **sendmail-smtp**
  SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details   
 ##### Type: map   

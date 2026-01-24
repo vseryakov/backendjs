@@ -51,7 +51,7 @@
 <h2 id="dependencies">Dependencies</h2>
 <p>Only core required dependencies are required but there are many modules which require a module to work correctly.</p>
 <p>The command below will install minimal dependencies to serve API and worker jobs</p>
-<pre class="prettyprint source lang-shell"><code>npm install
+<pre class="prettyprint source lang-shell"><code>npm install --save backendjs
 </code></pre>
 <p>All optional dependencies are listed in the package.json under &quot;peerDependencies&quot;, only manual install of required modules is supported or
 it is possible to install all optional dependencies for development purposes.</p>
@@ -68,8 +68,8 @@ it is possible to install all optional dependencies for development purposes.</p
 <li>ws - to enable WebSockets routes in the server</li>
 <li>formidable - to enable multi-part uploads</li>
 </ul>
-<p>The command below will install all dependencies</p>
-<pre class="prettyprint source lang-shell"><code>npm install --include=peer
+<p>For example if Redis and croner will be used run inside your project</p>
+<pre class="prettyprint source lang-shell"><code>npm install --save croner redis
 </code></pre>
 <h2 id="configuration">Configuration</h2>
 <p>Almost everything in the backend is configurable using config files or a config database, see <a href="tutorial-config.html">Config parameters</a>.</p>

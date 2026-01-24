@@ -120,12 +120,15 @@ const jobs =
  *
  * ## Example:
  *
- * ### The common queue is shared via config gfile or DB between all processes
+ * ### This SQS queue is shared via config file or DB between all processes
  * ```
  * queue-users=sqs://users
  * ```
  *
- * ### Execute jobs in a module defined and run somewhere in a worker process
+ * ### The module below accepts requests via API and then process jobs in the background
+ *
+ * -  /process/users endpoint just submits a job request into SQS queue and returns immediately, for simplicity no validation in this example
+ * -  mymod.processUsers is a job function which is run by a worker process, it can be a different host
  *
  * ```js
  * const { app, api, db, jobs } = require("backendjs");
@@ -133,24 +136,24 @@ const jobs =
  * module.exports = {
  *     name: "mymod",
  *
- *     processUsers(options, callback)
- *     {
- *         db.select("bk_user", { type: options.type || "user" }, (err, rows) => {
- *         ...
- *         callback();
- *     });
- *
  *     configureWeb(options, callback)
  *     {
  *         api.app.post("/process/users", (req, res) => {
- *              ...
  *             jobs.submitJob({ job: { "mymod.processUsers": { type: req.query.type } } }, { queueName: "users" }, (err) => {
  *                 api.sendReply(res, err);
  *             });
  *         });
  *         callback();
  *     }
+ *
+ *     processUsers(options, callback)
+ *     {
+ *         db.select("bk_user", { type: options.type || "user" }, (err, rows) => {
+ *         ...
+ *         callback();
+ *     });
  * }
+ *
  * app.start({ server: true });
  * ```
  *
@@ -567,8 +570,8 @@ jobs.checkOptions = function(jobspec, options)
  * @param {int} [options.endTime] - job must not start after this date
  *
  * @param {int} [options.delay] - is only supported by SQS currently, it delays the job execution for the specified amount of ms
- * @param {int} [options.dedup_ttl] - if set it defines number of ms to keep track of duplicate messages, it tries to preserver only-once behaviour. To make
- *  some queue to automatically use dedup mode it can be set in the queue options: `-queue[-NAME]-options-dedup_ttl 86400000`.
+ * @param {int} [options.dedupTtl] - if set it defines number of ms to keep track of duplicate messages, it tries to preserver only-once behaviour. To make
+ *  some queue to automatically use dedup mode it can be set in the queue options: `-queue[-NAME]-options-dedup-ttl 86400000`.
  *  Note: `uniqueTtl` settings take precedence and if present dedup is ignored.
  * @callback callback
  * @memberOf module:jobs
@@ -596,7 +599,7 @@ jobs.submitJob = function(jobspec, options, callback)
     var q = queue.getQueue(qname);
 
     // Ignore duplicate messages
-    var ttl = lib.toNumber(q.options.dedup_ttl || options?.dedup_ttl);
+    var ttl = lib.toNumber(q.options.dedupTtl || options?.dedupTtl);
     if (ttl > 0) {
         jobspec.dedup = `${ttl}-${lib.uuid()}`;
     }

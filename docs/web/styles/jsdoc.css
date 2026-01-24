@@ -394,11 +394,11 @@ footer {
    margin-bottom: 6px;
 }
 
-.details ul {
+.details dd > ul {
    margin: 0
 }
 
-.details ul {
+.details dd > ul {
    list-style-type: none
 }
 

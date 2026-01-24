@@ -70,8 +70,7 @@ const sendmail = {
     name: "sendmail",
     args: [
         { name: "from", descr: "Email address to be used when sending emails from the backend" },
-        { name: "transport", descr: "Send emails via supported transports: ses:, sendgrid://?key=SG, if not set default SMTP settings are used" },
-        { name: "sendgrid-key", descr: "SendGrid API key" },
+        { name: "transport", descr: "Send emails via supported transports: ses:, ses2:, fake:, file:, json:, if not set default SMTP settings are used" },
         { name: "smtp", obj: "smtp", type: "map", merge: 1, descr: "SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details" },
     ],
 };
@@ -88,7 +87,6 @@ module.exports = sendmail;
  * - fake: - same as json
  * - json: - return message as JSON
  * - file: - save to a file in the `/tmp/`
- * - sendgrid: - send via SendGrid
  * - ses: - send via AWS SES service v1, ses2: use V2
  * @param {string} [options.subject] - subject line
  * @param {string} [options.from] - FROM address
@@ -133,11 +131,6 @@ sendmail.send = function(options, callback)
             opts.protocol = h.protocol;
             for (const [k, v] of h.searchParams) opts[k] = v;
             transport = new SESTransport(opts);
-            break;
-
-        case "sendgrid:":
-            for (const [k, v] of h.searchParams) opts[k] = v
-            transport = new SendGridTransport(opts);
             break;
         }
         if (!sendmail.nodemailer) sendmail.nodemailer = require("nodemailer");
@@ -220,83 +213,6 @@ SESTransport.prototype.send = function(mail, callback)
                 lib.tryCall(callback, err, rc);
             });
         });
-    });
-}
-
-function SendGridTransport(options)
-{
-    this.options = options || {};
-    this.name = 'SendGrid';
-    this.version = app.vesion;
-}
-
-SendGridTransport.prototype.send = function(mail, callback)
-{
-    mail.normalize((err, data) => {
-        if (err) return lib.tryCall(callback, err);
-
-        var req = {
-            from: { email: data.from?.address, name: data.from?.name },
-            subject: data.subject,
-            personalizations: [{}],
-        };
-        if (lib.isArray(data.to)) {
-            const to = data.to.filter((x) => (x.address)).map((x) => ({ email: x.address, name: x.name }));
-            if (to.length) req.personalizations[0].to = to;
-        }
-        if (lib.isArray(data.cc)) {
-            const cc = data.cc.filter((x) => (x.address)).map((x) => ({ email: x.address, name: x.name }));
-            if (cc.length) req.personalizations[0].cc = cc;
-        }
-        if (lib.isArray(data.bcc)) {
-            const bcc = data.bcc.filter((x) => (x.address)).map((x) => ({ email: x.address, name: x.name }));
-            if (bcc.length) req.personalizations[0].bcc = bcc;
-        }
-
-        if (lib.isArray(data.replyTo)) {
-            req.reply_to_list = data.replyTo.filter((x) => (x.address)).map((x) => ({ email: x.address, name: x.name }));
-        }
-        if (data.text) {
-            if (!req.content) req.content = [];
-            req.content.push({ type: "text/plain", value: data.text });
-        }
-        if (data.html) {
-            if (!req.content) req.content = [];
-            req.content.push({ type: "text/html", value: data.html });
-        }
-        if (lib.isArray(data.attachments)) {
-            for (const a of data.attachments) {
-                if (!a.content) continue;
-                if (a.encoding != "base64") a.content = Buffer.from(a.content).toString('base64');
-                if (!req.attachments) req.attachments = [];
-                req.attachments.push({ type: a.contentType, content: a.content, filename: a.filename, disposition: a.disposition, content_id: a.cid });
-            }
-        }
-        if (data.sendgrid) {
-            for (const p of ["template_id", "categories", "headers", "custom_args", "batch_id", "asm", "ip_pool_name", "mail_settings", "tracking_settings"]) {
-                if (data.sendgrid[p]) req[p] = data.sendgrid[p];
-            }
-        }
-        if (this.options.dryrun) {
-            return lib.tryCall(callback, null, { data, req });
-        }
-
-        lib.fetch("https://api.sendgrid.com/v3/mail/send",
-            { headers: {
-                Authorization: `Bearer ${this.options.apikey || sendmail.sendgridKey}`,
-                "content-type": "application/json",
-            },
-            method: "POST",
-            postdata: req,
-            retryOnError: function() { return this.status == 429 || this.status >= 500 },
-            retryCount: this.options.retryCount || 3,
-            retryTimeout: this.options.retryTimeout || 5000,
-        }, (err, rc) => {
-           if (!err &amp;&amp; rc.status >= 400) {
-               err = { status: rc.status, message: rc.obj?.errors?.length &amp;&amp; rc.obj.errors[0].message || rc.data };
-           }
-           lib.tryCall(callback, err, { messageId: data.messageId });
-       });
     });
 }
 </code></pre>

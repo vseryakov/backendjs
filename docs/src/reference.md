@@ -7,7 +7,7 @@ Only core required dependencies are required but there are many modules which re
 The command below will install minimal dependencies to serve API and worker jobs
 
 ```shell
-npm install
+npm install --save backendjs
 ```
 
 All optional dependencies are listed in the package.json under "peerDependencies", only manual install of required modules is supported or
@@ -26,10 +26,10 @@ Here is the list of modules for each peer feature:
 - ws - to enable WebSockets routes in the server
 - formidable - to enable multi-part uploads
 
-The command below will install all dependencies
+For example if Redis and croner will be used run inside your project
 
 ```shell
-npm install --include=peer
+npm install --save croner redis
 ```
 
 ## Configuration
