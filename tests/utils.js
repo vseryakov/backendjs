@@ -154,6 +154,13 @@ exports.checkAccess = function(options, callback)
     }, callback, true);
 }
 
+exports.acheckAccess = async function(options)
+{
+    return new Promise((resolve, reject) => {
+        exports.checkAccess(options, resolve);
+    })
+}
+
 exports.testJob = function(options, callback)
 {
     logger.logger("info", "testJob:", "start", options);

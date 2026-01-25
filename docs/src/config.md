@@ -591,7 +591,7 @@ See {@link module:app}
  List of subsystems to disable instead of using many inidividual -no-NNN parameters   
 ##### Type: callback   
 ### **app-no-([a-z]+)**
- Do not start or disbale a service, server, web, jobs, ipc, db, dbconf, watch, modules, packages, configure   
+ Do not start or disable a service, server, web, jobs, ipc, db, dbconf, watch, modules, packages, configure   
 ##### Type: callback   
 ### **app-ok-(.+)**
  Enable disabled service, opposite of -no   

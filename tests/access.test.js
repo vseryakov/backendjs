@@ -1,7 +1,7 @@
 /* global  */
 
 const { describe, it, before, after } = require('node:test');
-const { checkAccess, init } = require("./utils");
+const { acheckAccess, ainit } = require("./utils");
 const { app } = require("../");
 
 const config = [
@@ -12,21 +12,18 @@ const config = [
     { url: "/auth" },
 ];
 
-describe('Access Tests', (t) => {
+describe('Access Tests', async () => {
 
-    before((t, done) => {
-        init({ api: 1, nodb: 1, noipc: 1, roles: "users" }, done)
+    before(async () => {
+        await ainit({ api: 1, nodb: 1, noipc: 1, roles: "users" })
     });
 
-    it("checks basic endpoints", (t, done) => {
-        checkAccess({ config }, done);
+    it("checks basic endpoints", async () => {
+        await acheckAccess({ config });
     });
 
-    after((t, done) => {
-        app.stop(() => {
-            console.log("done")
-            done()
-        })
+    after(async () => {
+        await app.astop()
     })
 })
 
