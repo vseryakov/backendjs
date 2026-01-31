@@ -78,7 +78,7 @@
     "devbuild": "npm run build",
     "node": "./bkjs install-node",
     "deps": "PATH=$(pwd)/nodejs/bin:$PATH npm install",
-    "test": "node --test --test-concurrency=1 tests/**/*.test.js tests/**/*-test.js",
+    "test": "node --test tests/**/*.test.js tests/**/*-test.js",
     "docs": "rm -rf docs/web && bksh -help-config > docs/src/config.md && jsdoc -c docs/jsdoc.js"
   }
 }

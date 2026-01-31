@@ -614,8 +614,8 @@ db.init = function(options, callback)
 
 /**
  * Execute query using native database driver, the query is passed directly to the driver.
- * @param {DbRequest} req - an object with request data prepared by {@link module:db.prepareRequest} or similar,
- *   missing required fileds will be filled in by calling db.prepareRequest on the object
+ * @param {DbRequest} req - an object with request data prepared by {@link module:db.Request} or similar,
+ *   missing required fileds will be filled by db.Request
  * @param {DbResultCallback} [callback] - an error or result
  *
  * @example
@@ -639,7 +639,7 @@ db.init = function(options, callback)
 db.query = function(req, callback)
 {
     if (!(req instanceof db.Request)) {
-        req = db.prepareRequest(req);
+        req = new db.Request(req);
     }
 
     // Metrics collection
@@ -867,13 +867,13 @@ db.queryProcessSync = function(pool, req, row)
         var table = req.op == "bulk" ? req.query[0]?.table : req.table;
         if (!lib.isFlag(pool.configOptions.tables, table)) return;
 
-        req = db.prepareRequest({
+        req = new db.Request({
             pool: pool.name,
             table,
             op: req.op,
             query: req.query,
             options: req.options,
-            test: req.text,
+            text: req.text,
             values: req.values,
         });
         switch (req.op) {

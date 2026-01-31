@@ -11,6 +11,7 @@
 unset CDPATH
 BKJS_BIN="$(readlink -f $0)"
 BKJS_DIR="$(cd "${BKJS_BIN%/*}" ; pwd -P)"
+BKJS_DIR=${BKJS_DIR%/bin}
 
 # The command is $1 or a special file name
 BKJS_NAME=$(basename $0)
@@ -305,7 +306,7 @@ case "$BKJS_CMD" in
 
   run|run-server|server|watch|sh|shell|bksh|run-none|none)
     [ -f app.js ] && SCRIPT=app.js
-    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/../lib/index.js
+    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/index.js
 
     debug Starting $NODE_ARGS $SCRIPT $BKJS_RUN_ARGS $@
 
