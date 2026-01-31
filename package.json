@@ -14,7 +14,7 @@
     "express": "5.2.1",
     "mime-types": "3.0.2",
     "qs": "6.14.1",
-    "fast-xml-parser": "5.3.3"
+    "fast-xml-parser": "5.3.4"
   },
   "peerDependencies": {
     "croner": "9.1.0",
