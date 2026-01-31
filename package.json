@@ -19,7 +19,7 @@
   "peerDependencies": {
     "croner": "9.1.0",
     "formidable": "3.5.4",
-    "nodemailer": "7.0.12",
+    "nodemailer": "7.0.13",
     "nats": "2.29.3",
     "pg": "8.17.2",
     "redis": "3.1.2",
@@ -27,7 +27,7 @@
     "unix-dgram": "2.0.7",
     "web-push": "3.6.7",
     "ws": "8.19.0",
-    "@parse/node-apn": "7.0.1"
+    "@parse/node-apn": "7.1.0"
   },
   "peerDependenciesMeta": {
     "croner": { "optional": true },
