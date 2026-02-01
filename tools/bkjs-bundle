@@ -8,7 +8,7 @@ case "$BKJS_CMD" in
 
   help|bundle-help)
     echo
-    echo "  bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dir D] [-dirs DIRS...] [-find DIRS...] [-gzip] [-dev DEV] [-uglifyargs ARGS] [-all] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
+    echo "  bundle [-file FILE|(js|css|html)|BUNDLE.(js|css|html)] [-dir D] [-dirs DIRS...] [-find DIRS...] [-gzip] [-purgecss] [-dev DEV] [-uglifyargs ARGS] [-all] [-force] [-clean] - produce a web bundle by uglifying js/css/html files into one file, resolves files from package.json"
     ;;
 
   bundle)
@@ -133,7 +133,10 @@ case "$BKJS_CMD" in
             case $file in
             *.js|*.html)
                 mkdir -p $dir/web/js
-                echo "" > $dir/web/js/$bundle.bundle.js
+
+                jsfile=$dir/web/js/$bundle.bundle.js
+                echo "" > $jsfile
+
                 jsfiles=""
                 for f in $files; do
                     [ ! -s $f ] && msg "$bundle.$type: $f not found" && exit 1
@@ -142,20 +145,20 @@ case "$BKJS_CMD" in
 
                     case $f in
                     *.min.js|*.bundle.js)
-                        cat $f >> $dir/web/js/$bundle.bundle.js
+                        cat $f >> $jsfile
                         ;;
 
                     *.js)
                         if [[ -z "$dev" ]]; then
                             jsfiles="$jsfiles $f"
                         else
-                            cat $f >> $dir/web/js/$bundle.bundle.js
+                            cat $f >> $jsfile
                         fi
                         ;;
 
                     *.html)
                         n=$(basename $f .html)
-                        echo "app.templates[\"$n\"]='$(cat $f|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $dir/web/js/$bundle.bundle.js
+                        echo "app.templates[\"$n\"]='$(cat $f|tr -d '\r\n'|sed "s/['\\]/\\\&/g")';" >> $jsfile
                         ;;
                     esac
                 done
@@ -167,23 +170,31 @@ case "$BKJS_CMD" in
 
                         if [ -n "$(get_flag -esbuild)" ]; then
                             esbuildargs="--minify $(get_arg -esbuildargs)"
-                            esbuild $esbuildargs $jsfiles >> $dir/web/js/$bundle.bundle.js
+                            esbuild $esbuildargs $jsfiles >> $jsfile
                             [ "$?" != "0" ] && exit 1
                         else
                             uglifyargs="-c -m --comments /^!/ $(get_arg -uglifyargs)"
-                            uglifyjs $jsfiles $uglifyargs >> $dir/web/js/$bundle.bundle.js
+                            uglifyjs $jsfiles $uglifyargs >> $jsfile
                             [ "$?" != "0" ] && exit 1
                         fi
                     fi
                 fi
-                [ -n "$gzip" ] && gzip -9 -c $dir/web/js/$bundle.bundle.js > $dir/web/js/$bundle.bundle.js.gz
+                [ -n "$gzip" ] && gzip -9 -c $jsfile > $jsfile.gz
                 ;;
 
             *.css)
                 mkdir -p $dir/web/css
-                (cd $dir && cat $files > web/css/$bundle.bundle.css)
+                cssfile=web/css/$bundle.bundle.css
+
+                (cd $dir && cat $files > $cssfile)
                 [ "$?" != "0" ] && exit 1
-                [ -n "$gzip" ] && gzip -9 -c $dir/web/css/$bundle.bundle.css > $dir/web/css/$bundle.bundle.css.gz
+
+                if [ -n "$(get_flag -purgecss)" ]; then
+                    purgecss -css $dir/$cssfile -content $dir/web/js/*.bundle.js > $dir/$cssfile.css
+                    [ "$?" != "0" ] && exit 1
+                    [ -s "$dir/$cssfile.css" ] && mv $dir/$cssfile.css $dir/$cssfile
+                fi
+                [ -n "$gzip" ] && gzip -9 -c $dir/$cssfile > $dir/$cssfile.gz
                 ;;
             esac
 
