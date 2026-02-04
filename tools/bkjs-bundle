@@ -190,7 +190,7 @@ case "$BKJS_CMD" in
                 [ "$?" != "0" ] && exit 1
 
                 if [ -n "$(get_flag -purgecss)" ]; then
-                    purgecss -css $dir/$cssfile -content $dir/web/js/*.bundle.js > $dir/$cssfile.css
+                    purgecss -css $dir/$cssfile -con $dir/web/js/*.bundle.js $(get_arg -purgecssargs) > $dir/$cssfile.css
                     [ "$?" != "0" ] && exit 1
                     [ -s "$dir/$cssfile.css" ] && mv $dir/$cssfile.css $dir/$cssfile
                 fi
