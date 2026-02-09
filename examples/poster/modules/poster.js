@@ -4,7 +4,7 @@
 //
 
 const fs = require("fs")
-const { app, api, lib } = require('../../../lib/index');
+const { api } = require('../../../lib/index');
 
 //
 // A demo module that implements a CRUD app to create social poster images
@@ -59,7 +59,6 @@ module.exports = {
             gravity: "east",
             padding: 70,
             width: 400,
-            fit: "outside",
         }
     },
 
@@ -148,26 +147,26 @@ mod.compose = async function(options)
 
 mod.sample = async function(options)
 {
-    if (options?.cwd) process.chdir(options.cwd);
-
-    const rc = await mod.compose(Object.assign({
+    const root = options.root || "";
+    const rc = await mod.compose({
         image: {
-            file: "bg2.jpg",
+            file: root + "bg2.jpg",
         },
         logo: {
-            file: "salesforce.png",
+            file: root + "salesforce.png",
         },
         avatar: {
-            file: "files/vlad4.jpg",
+            file: root + "files/vlad.jpg",
             color: "#F093DC",
             gravity: "northwest",
             radius: 5,
         },
         title: {
             text: "Join me to learn about programming",
-            gravity: "east",
+            gravity: "center",
             color: "#F8F82A",
             width: 900,
+            padding_top: 300,
         },
         subtitle: {
             text: "Feb 23 1PM Developers Cafe\n<small>Town Center</small>",
@@ -178,12 +177,11 @@ mod.sample = async function(options)
             gravity: "north",
             color: "#fff"
         }
-    }, options));
+    });
 
     for (const file in rc) {
-        fs.writeFileSync(file + ".png", rc[file].buffer);
+        fs.writeFileSync(root + file + ".png", rc[file].buffer);
     }
-    process.chdir(app.cwd);
     return rc;
 }
 
