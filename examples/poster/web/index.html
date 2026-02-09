@@ -1,0 +1,49 @@
+<head>
+    <title>Poster Composer</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
+    <link rel="icon" href="/img/logo.png" type="image/png" />
+
+    <link href="/css/bootstrap.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container h-100 w-100">
+        <div class="alerts"></div>
+        <div id="app-main"></div>
+    </div>
+
+    <script src="/js/bootstrap.js"></script>
+    <script src="/js/app-bootstrap.js"></script>
+    <script src="/js/bootpopup.js"></script>
+    <script src="/js/alpinejs.js"></script>
+
+    <script src="/index.js"></script>
+</body>
+
+<template id=index>
+    <div class="card border-0">
+        <div class="d-flex justify-content-center align-items-top">
+            <div class="d-flex flex-row align-items-center">
+                <img class="h5 me-2" src=/img/logo.png>
+                <span class="h5 font-slab fw-bold">Alpinejs-app Components and Backendjs Playground</span>
+            </div>
+        </div>
+
+        <div class="py-3 text-center">
+            <a class="nav-link my-2" role=button @click="toggle" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Click to go over templates">
+                <i class="fa fa-cog fa-fw"></i> Toggle `index.template` ->
+                (Template is set to <span x-text="template||'none'"></span>)
+            </a>
+
+            <a class="nav-link my-2" x-render="'/test.html?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Test HTML plugin below</a>
+
+        </div>
+    </div>
+
+    <div x-template.cache="template"></div>
+
+    <div class="py-2" id=section></div>
+</template>
+

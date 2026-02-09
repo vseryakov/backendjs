@@ -5,6 +5,7 @@
 
 const call = (callback, ...args) => (typeof callback == "function" && callback(...args))
 
+// eslint-disable-next-line
 export class Passkey {
 
     headers = {}

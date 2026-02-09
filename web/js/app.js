@@ -54,6 +54,7 @@
     start: () => start,
     stylePlugin: () => stylePlugin,
     toCamel: () => toCamel,
+    toNumber: () => toNumber,
     trace: () => trace
   });
 
@@ -107,6 +108,7 @@
     /** @var {function}  - see {@link isArray} */
     isA: isArray,
     toCamel,
+    toNumber,
     call,
     escape,
     noop,
@@ -195,6 +197,56 @@
    */
   function toCamel(str) {
     return isString(str) ? str.toLowerCase().replace(/[.:_-](\w)/g, (_, c) => c.toUpperCase()) : "";
+  }
+  /**
+   * Safe convertion to a number, no expections, uses 0 instead of NaN, handle booleans, if float specified, returns as float.
+   * @param {any} val - to be converted to a number
+   * @param {object} [options]
+   * @param {int} [options.dflt] - default value
+   * @param {int} [options.float] - treat as floating number
+   * @param {int} [options.min] - minimal value, clip
+   * @param {int} [options.max] - maximum value, clip
+   * @param {int} [options.incr] - a number to add before checking for other conditions
+   * @param {int} [options.mult] - a number to multiply before checking for other conditions
+   * @param {int} [options.novalue] - replace this number with default
+   * @param {int} [options.zero] - replace with this number if result is 0
+   * @param {int} [options.digits] - how many digits to keep after the floating point
+   * @param {int} [options.bigint] - return BigInt if not a safe integer
+   * @return {number}
+   * @example
+   * toNumber("123")
+   * 123
+   * toNumber("1.23", { float: 1, dflt: 0, min: 0, max: 2 })
+   * 1.23
+   */
+  function toNumber(val, options) {
+    var n = 0;
+    if (typeof val == "number") {
+      n = val;
+    } else if (typeof val == "boolean") {
+      n = val ? 1 : 0;
+    } else {
+      if (typeof val != "string") {
+        n = options?.dflt || 0;
+      } else {
+        var f = typeof options?.float == "undefined" || options?.float == null ? /^(-|\+)?([0-9]+)?\.[0-9]+$/.test(val) : options?.float;
+        n = val[0] == "t" ? 1 : val[0] == "f" ? 0 : val == "infinity" ? Infinity : f ? parseFloat(val, 10) : parseInt(val, 10);
+      }
+    }
+    n = isNaN(n) ? options?.dflt || 0 : n;
+    if (options) {
+      if (typeof options.novalue == "number" && n === options.novalue) n = options.dflt || 0;
+      if (typeof options.incr == "number") n += options.incr;
+      if (typeof options.mult == "number") n *= options.mult;
+      if (isNaN(n)) n = options.dflt || 0;
+      if (typeof options.min == "number" && n < options.min) n = options.min;
+      if (typeof options.max == "number" && n > options.max) n = options.max;
+      if (typeof options.float != "undefined" && !options.float) n = Math.round(n);
+      if (typeof options.zero == "number" && !n) n = options.zero;
+      if (typeof options.digits == "number") n = parseFloat(n.toFixed(options.digits));
+      if (options.bigint && typeof n == "number" && !Number.isSafeInteger(n)) n = BigInt(n);
+    }
+    return n;
   }
   /**
    * Call a function safely with context and arguments:
