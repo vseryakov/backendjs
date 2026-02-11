@@ -23,27 +23,52 @@
 </body>
 
 <template id=index>
-    <div class="card border-0">
-        <div class="d-flex justify-content-center align-items-top">
-            <div class="d-flex flex-row align-items-center">
-                <img class="h5 me-2" src=/img/logo.png>
-                <span class="h5 font-slab fw-bold">Alpinejs-app Components and Backendjs Playground</span>
+    <div class="container">
+        <h1 class="mb-3">Create a Poster</h1>
+
+        <div class="row">
+            <div class="col-md-4">
+                <form>
+                    <div class="mb-3">
+                        <label for="background" class="form-label">Background</label>
+                        <input type="file" class="form-control" id="background">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="avatar" class="form-label">Avatar</label>
+                        <input type="file" class="form-control" id="avatar">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="logo" class="form-label">Logo</label>
+                        <input type="file" class="form-control" id="logo">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name</label>
+                        <textarea class="form-control" id="name" rows="2" wrap=hard></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title</label>
+                        <textarea class="form-control" id="title" rows="2" wrap=hard></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="subtitle" class="form-label">Subtitle</label>
+                        <textarea class="form-control" id="subtitle" rows="2" wrap=hard></textarea>
+                    </div>
+
+                    <div class="mb=3">
+                        <button class="btn btn-primary" @click.stop.prevent="create">Create</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="col-md-8 bg-light">
+                <img src="/img/1.png" id="image" class="img-fluid" alt="Poster">
             </div>
         </div>
-
-        <div class="py-3 text-center">
-            <a class="nav-link my-2" role=button @click="toggle" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Click to go over templates">
-                <i class="fa fa-cog fa-fw"></i> Toggle `index.template` ->
-                (Template is set to <span x-text="template||'none'"></span>)
-            </a>
-
-            <a class="nav-link my-2" x-render="'/test.html?$target=#section'"><i class="fa fa-cog fa-fw"></i> Render Test HTML plugin below</a>
-
-        </div>
     </div>
-
-    <div x-template.cache="template"></div>
-
-    <div class="py-2" id=section></div>
 </template>
 
