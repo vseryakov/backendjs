@@ -523,7 +523,7 @@ See {@link module:app}
 ### **app-log-inspect**
  Install custom secure logger inspection instead of util.inspect   
 ##### Type: callback   
-##### Default: {"depth":7,"count":200,"keys":50,"func":0,"keepempty":1,"length":1024,"replace":{" ":{}},"ignore":{}}   
+##### Default: {"depth":7,"count":200,"keys":100,"func":0,"keepempty":1,"length":1024,"replace":{" ":{}},"ignore":{}}   
 ### **app-log-inspect-map**
  Properties for the custom log inspect via objDescr   
 ##### Type: map   
@@ -718,6 +718,14 @@ See {@link module:aws}
 ### **aws-set-parameters**
  AWS Config Parameters Store to set on start, supports @..@ app.instance placeholders: format is: path:value,....   
 ##### Type: list   
+### **aws-config-secrets**
+ Secrets to load and parse as config before initializing the database pools   
+##### Type: list   
+##### Example:
+```
+/bkjs/config/
+```
+
 ### **aws-conf-file**
  S3 url for config file to download on start   
 ### **aws-conf-file-interval**
@@ -912,7 +920,7 @@ See {@link module:events}
 ### **events-max-runtime**
  Max number of seconds an event processing can run before being killed   
 ##### Type: int   
-##### Default: 60   
+##### Default: 60000   
 ### **events-routing**
  Routing map by event subject or type   
 ##### Type: map   
