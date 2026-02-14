@@ -31,14 +31,12 @@ module.exports = {
         const query = api.toParams(req, schema.schema);
         if (typeof query == "string") return api.sendReply(res, 400, query);
 
-        this.compose(query, (err, rc) => {
-            if (err) return api.sendReply(res, err);
-
+        this.compose(query).then(rc => {
             req.res.header("pragma", "no-cache");
             res.setHeader("cache-control", "max-age=0, no-cache, no-store");
             res.type("image/png");
             res.send(rc.image.buffer);
-        });
+        }).catch(err => api.sendReply(res, err));
     },
 };
 

@@ -54,7 +54,18 @@ module.exports.defaults = {
     },
 };
 
-const image = module.image = {
+const element = module.exports.element = {
+    text: {},
+    size: {},
+    font: {},
+    fontfile: {},
+    spacing: { type: "int" },
+    align: {},
+    justify: { type: "bool" },
+    wrap: {},
+    dpi: { type: "int" },
+    bold: { type: "bool" },
+    italic: { type: "bool" },
     file: {},
     width: { type: "int" },
     height: { type: "int" },
@@ -76,51 +87,32 @@ const image = module.image = {
     withoutEnlargement: { type: "bool" },
     withoutReduction: { type: "bool" },
     fastShrinkOnLoad: { type: "bool" },
-
 };
-
-const text = module.exports.text = {
-    text: {},
-    size: {},
-    font: {},
-    fontfile: {},
-    width: { type: "int" },
-    height: { type: "int" },
-    spacing: { type: "int" },
-    align: {},
-    justify: { type: "bool" },
-    wrap: {},
-    gravity: {},
-    color: {},
-    dpi: { type: "int" },
-    bold: { type: "bool" },
-    italic: { type: "bool" },
-}
 
 module.exports.schema ={
     image: {
         type: "obj",
-        params: image,
+        params: element,
     },
     logo: {
         type: "obj",
-        params: image,
+        params: element,
     },
     avatar: {
         type: "obj",
-        params: image,
+        params: element,
     },
     name: {
         type: "obj",
-        params: text,
+        params: element,
     },
     title: {
         type: "obj",
-        params: text,
+        params: element,
     },
     subtitle: {
         type: "obj",
-        params: text,
+        params: element,
     },
 }
 

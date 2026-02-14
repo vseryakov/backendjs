@@ -50,6 +50,16 @@ is applied to the module variables. Config file or database table with configura
 periodically, for example all local config files can be watched for modification and reloaded automatically, the
 config database is loaded periodically which is defined by another config parameter {@link module:db.configMap}.
 
+## Config sources
+
+All sources provide plain text where each line contains one config parameter.
+
+ - `file`: using {@link module:app.config} parameter (`app-config`) to point initial confi gfile to load, config files support `include ...` directive to includee other config files
+ - `DB`: using {@link module:db.config} parameter `db-config` to point to the database pool with bk_config table
+ - `S3`: using parameter `aws-config-s3-file` to point to a file in a S3 bucket
+ - `AWS Secrets Manager`: using parameter `aws-config-secrets` with a list of secrets to pull from AWS Secrets Manager
+ - `AWS Config Parameters`: using parameter `aws-config-parameters` with a path for all parameters from AWS Config Parameters store
+
 # Backend runtime
 
 When the backendjs server starts in server or watch mode it spawns several processes that perform different tasks.

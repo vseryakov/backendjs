@@ -257,17 +257,32 @@ See {@link module:api.acl}
 See {@link module:api.csrf}
 ### **api-csrf-err-(.+)**
  Error messages for various cases   
-### **api-csrf-set-path**
- Regexp for URLs to set CSRF token for all methods, token type(user|pub) is based on the current session   
+### **api-csrf-origin-(.+)**
+ Regexp for URLs to by allowed by origin   
 ##### Type: regexpobj   
-##### Default: {}   
-### **api-csrf-pub-path**
- Regexp for URLs to set public CSRF token only if no valid CSRF token detected   
+##### Example:
+```
+api-csrf-origin-http://app.host.com = ^/account
+```
+
+### **api-csrf-sec-fetch-(.+)**
+ Regexp for URLs to use specific Sec-Fetch-Site header validation by: same-origin, same-site, cross-site, none   
 ##### Type: regexpobj   
+##### Example:
+```
+api-csrf-sec-fetch-cross-site = ^/webhook
+api-csrf-sec-fetch-same-origin = ^/
+```
+
 ### **api-csrf-check-path**
- Regexp for URLs to set CSRF token for skip methods and verify for others   
+ Regexp for URLs to check and set CSRF token for allowed methods   
 ##### Type: regexpobj   
-##### Default: {}   
+### **api-csrf-set-path**
+ Regexp for URLs to set CSRF token for all methods, token type(user|pub) is based on the current session, can be used to set initial token   
+##### Type: regexpobj   
+### **api-csrf-pub-path**
+ Regexp for URLs to set public CSRF token for all methods only if no valid CSRF token detected, to be used for initial token for public endpoints   
+##### Type: regexpobj   
 ### **api-csrf-skip-method**
  Do not check for CSRF token for specified methods   
 ##### Type: regexp   
@@ -277,19 +292,19 @@ See {@link module:api.csrf}
 ##### Type: regexp   
 ##### Default: {}   
 ### **api-csrf-header**
- Name for the CSRF header   
+ Name for the CSRF double cookie mode header   
 ##### Default: "x-csrf-token"   
 ### **api-csrf-secret**
- Secret for encryption   
+ Secret for CSRF double cookie mode encryption   
 ### **api-csrf-age**
  CSRF token age in milliseconds   
 ##### Type: int   
 ##### Default: 3600000   
 ### **api-csrf-same-site**
- Session SameSite option, for cookie based authentication   
+ Session SameSite option, for CSRF double cookie based authentication   
 ##### Default: "strict"   
 ### **api-csrf-secure**
- Set cookie Secure flag   
+ Set CSRF double cookie Secure flag   
 ##### Type: bool   
 ##### Default: true   
 ## api.files
@@ -715,20 +730,17 @@ See {@link module:aws}
 /bkjs/config/
 ```
 
-### **aws-set-parameters**
- AWS Config Parameters Store to set on start, supports @..@ app.instance placeholders: format is: path:value,....   
-##### Type: list   
 ### **aws-config-secrets**
- Secrets to load and parse as config before initializing the database pools   
+ AWS Secrets manager filters to load and parse as config before initializing the database pools, supports @..@ app.instance placeholders in filters   
 ##### Type: list   
 ##### Example:
 ```
-/bkjs/config/
+production,production-@tag@,production-@role@
 ```
 
-### **aws-conf-file**
- S3 url for config file to download on start   
-### **aws-conf-file-interval**
+### **aws-config-s3-file**
+ S3 url for config file to download on start, may include @placeholders@ to refer properties from app.instance   
+### **aws-config-s3-interval**
  Load S3 config file every specified interval in minites   
 ##### Type: int   
 ## cache

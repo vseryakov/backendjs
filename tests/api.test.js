@@ -34,12 +34,12 @@ describe('API session Tests', (t) => {
     assert.strictEqual(c?.secure, true, "expect secure: true for host.com/ " + lib.objDescr(c));
     assert.strictEqual(c?.domain, "host.com", "expect domain:host.com for host.com/ "+ lib.objDescr(c));
 
-    c = api.session.makeCookie({ options: { path: "/", host: "www.host.com", domain: "host.com" } })
+    c = api.session.makeCookie({ options: { path: "/", hostname: "www.host.com", domain: "host.com" } })
 
     assert.strictEqual(c?.secure, false, "expect secure: false for www.host.com/ " + lib.objDescr(c));
     assert.ok(!c?.domain, "expect no domain for www.host.com/ " + lib.objDescr(c));
 
-    c = api.session.makeCookie({ options: { path: "/", host: "api.host.com", domain: "host.com" } })
+    c = api.session.makeCookie({ options: { path: "/", hostname: "api.host.com", domain: "host.com" } })
 
     assert.strictEqual(c?.domain, "host.com", "expect domain:host.com for api.host.com/ " + lib.objDescr(c));
     assert.strictEqual(c?.secure, true, "expect secure: true for api.host.com/ " + lib.objDescr(c));

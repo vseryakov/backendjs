@@ -2,20 +2,49 @@
 
 const { describe, it, before, after } = require('node:test');
 const { acheckAccess, ainit } = require("./utils");
-const { app } = require("../");
+const { app, api } = require("../");
 
-const config = [
-    { get: "/ping" },
-    { url: "/auth", status: 417 },
-    { url: "/login", data: { login: "test", secret: "test1" }, status: 401 },
-    { url: "/login", data: { login: "test", secret: "test" } },
-    { url: "/auth" },
-];
-
-describe('Access Tests', async () => {
+describe('Access Tests with CSRF1', async () => {
 
     before(async () => {
-        await ainit({ api: 1, nodb: 1, noipc: 1, roles: "users" })
+        await ainit({ api: 1, nodb: 1, noipc: 1, roles: "users,csrf-origin" })
+    });
+
+    it("checks basic endpoints", async () => {
+
+        const origin = "http://127.0.0.1:" + api.port;
+        const config = [
+            { url: "/login", data: { login: "test", secret: "test" }, status: 403 },
+            { url: "/auth", status: 417 },
+            { get: "/ping" },
+            { url: "/login", data: { login: "test", secret: "test1" }, headers: { origin: "http://127.0.0.1" }, status: 403 },
+            { url: "/login", data: { login: "test", secret: "test" }, headers: { origin, "sec-fetch-site": "same-origin" }, },
+            { url: "/auth", headers: { origin: "http://127.0.0.1:8000", "sec-fetch-site": "cross-origin" }, status: 403 },
+            { url: "/auth", headers: { origin, "sec-fetch-site": "same-site" }, status: 403 },
+            { url: "/auth", headers: { origin, "sec-fetch-site": "cross-site" } },
+        ];
+
+        await acheckAccess({ config });
+    });
+
+    after(async () => {
+        await app.astop()
+    })
+})
+
+describe('Access Tests with CSRF2', async () => {
+
+    const config = [
+        { url: "/login", data: { login: "test", secret: "test" }, status: 403 },
+        { url: "/auth", status: 417 },
+        { get: "/ping" },
+        { url: "/login", data: { login: "test", secret: "test1" }, status: 401 },
+        { url: "/login", data: { login: "test", secret: "test" } },
+        { url: "/auth" },
+    ];
+
+    before(async () => {
+        await ainit({ api: 1, nodb: 1, noipc: 1, roles: "users,csrf-token" })
     });
 
     it("checks basic endpoints", async () => {
