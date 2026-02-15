@@ -58,7 +58,7 @@ All sources provide plain text where each line contains one config parameter.
  - `DB`: using {@link module:db.config} parameter `db-config` to point to the database pool with bk_config table
  - `S3`: using parameter `aws-config-s3-file` to point to a file in a S3 bucket
  - `AWS Secrets Manager`: using parameter `aws-config-secrets` with a list of secrets to pull from AWS Secrets Manager
- - `AWS Config Parameters`: using parameter `aws-config-parameters` with a path for all parameters from AWS Config Parameters store
+ - `AWS Systems Manager Parameters`: using parameter `aws-config-parameters` with a path for all parameters from AWS System Manager parameters store
 
 # Backend runtime
 

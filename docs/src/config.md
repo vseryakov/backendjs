@@ -724,14 +724,14 @@ See {@link module:aws}
  AWS Elastic Network Interfaces to attach on start, format is: eni[:index],eni...   
 ##### Type: list   
 ### **aws-config-parameters**
- Prefix for AWS Config Parameters Store to load and parse as config before initializing the database pools   
+ Prefix for AWS Systems Manager parameters to load and parse as config before initializing the database pools   
 ##### Example:
 ```
 /bkjs/config/
 ```
 
 ### **aws-config-secrets**
- AWS Secrets manager filters to load and parse as config before initializing the database pools, supports @..@ app.instance placeholders in filters   
+ AWS Secrets Manager filters to load and parse as config before initializing the database pools, supports @..@ app.instance placeholders in filters   
 ##### Type: list   
 ##### Example:
 ```

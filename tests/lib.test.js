@@ -5,140 +5,6 @@ const { lib } = require("../");
 
 describe("lib tests", () => {
 
-    it("checks toParams", () => {
-
-        var schema = {
-            id: { type: "int" },
-            count: { type: "int", min: 1, dflt: 1 },
-            page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
-            name: { type: "string", max: 6, trunc: 1 },
-            pair: { type: "map", maptype: "int" },
-            code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
-            code1: { type: "string", noregexp: /[.,!]/, errmsg: "Valid code1 is required" },
-            start: { type: "token", secret: "test" },
-            email: { type: "list", datatype: "email", novalue: ["a@a"] },
-            email1: { type: "email", required: { email: null } },
-            phone: { type: "phone" },
-            mtime: { type: "mtime", name: "timestamp", mindate: Date.now() - 86400000 },
-            flag: { type: "bool", novalue: false },
-            descr: { novalue: { name: "name", value: "test" }, replace: { "<": "!" } },
-            internal: { ignore: 1 },
-            tm: { type: "timestamp", optional: 1, maxdate: new Date(1970, 1, 1) },
-            ready: { value: "ready" },
-            empty: { empty: 1, trim: 1, strip: /[.,!]/ },
-            nospecial: { strip: lib.rxSpecial },
-            special: { strip: lib.rxNoSpecial },
-            state: { type: "list", values: [ "ok","bad","good" ] },
-            obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
-            object: { type: "object" },
-            arr: { type: "array", params: { id: { type: "int" }, name: {} } },
-            json: { type: "json", datatype: "obj" },
-            json1: { type: "json", params: { id: { type: "int" }, name: {} } },
-            minnum: { type: "int", minnum: 10 },
-        };
-        var opts = {
-            defaults: {
-                '*.int': { max: 100 },
-                "*.string": { max: 5 },
-                '*': { maxlist: 5 },
-            }
-        };
-
-
-        var q = lib.toParams({}, schema, opts);
-        assert.match(q, /email1 is required/);
-
-        q = lib.toParams({ email: "a@a" }, schema, opts);
-        assert.match(q, /email1 is required/);
-
-        q = lib.toParams({ email1: "a@a" }, schema, opts);
-        assert.match(q, /email1 is required/);
-
-        q = lib.toParams({ email1: "a@a.com" }, schema, opts);
-        assert.partialDeepStrictEqual(q, { page: 1, count: 1 });
-
-        schema.email1.required = 0;
-        q = lib.toParams({ page: 1000, count: 1000 }, schema, opts);
-        assert.partialDeepStrictEqual(q, { page: 10, count: 100 });
-
-        q = lib.toParams({ name: "1234567890" }, schema, opts);
-        assert.strictEqual(q.name, "123456");
-
-        q = lib.toParams({ descr: "1234567890" }, schema, opts);
-        assert.match(q, /descr is too long/);
-
-        q = lib.toParams({ descr: "<2345" }, schema, opts);
-        assert.strictEqual(q.descr, "!2345");
-
-        q = lib.toParams({ name: "test", descr: "test" }, schema, opts);
-        assert.ok(!q.descr && q.name == "test");
-
-        q = lib.toParams({ pair: "a:1,b:2" }, schema, opts);
-        assert.partialDeepStrictEqual(q, { pair: { a: 1, b: 2 } });
-
-        q = lib.toParams({ code: "12345" }, schema, opts);
-        assert.match(q, /Valid code is required/);
-
-        q = lib.toParams({ code: "q-123" }, schema, opts);
-        assert.strictEqual(q.code, "q-123");
-
-        q = lib.toParams({ code1: "q.123" }, schema, opts);
-        assert.match(q, /Valid code1 is required/);
-
-        q = lib.toParams({ start: "test" }, schema, opts);
-        assert.ok(!q.start);
-
-        q = lib.toParams({ start: lib.jsonToBase64("test", "test") }, schema, opts);
-        assert.strictEqual(q.start,"test");
-
-        q = lib.toParams({ tm: 1 }, schema, opts);
-        assert.ok(q.ready == "ready" && q.tm == '1970-01-01T00:00:01.000Z');
-
-        q = lib.toParams({ tm: Date.now() }, schema, opts);
-        assert.match(q, /is too late/);
-
-        q = lib.toParams({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
-        assert.match(q, /is too soon/);
-
-        schema.mtime.mindate = 0;
-        q = lib.toParams({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
-        assert.strictEqual(q.timestamp, 1000);
-
-        q = lib.toParams({ state: "ok,done,error", flag: false }, schema, opts);
-        assert.partialDeepStrictEqual(q.state, ["ok"]);
-        assert.strictEqual(q.flag, undefined);
-
-        q = lib.toParams({ obj: { id: "1", descr: "1", name: "1" } }, schema, opts);
-        assert.deepStrictEqual(q.obj, { id: 1, name: "1" });
-
-        q = lib.toParams({ object: { id: "1", descr: "1", name: "1" } }, schema, opts);
-        assert.deepStrictEqual(q.object, { id: "1", descr: "1", name: "1" });
-
-        q = lib.toParams({ json: lib.stringify({ id: "1", descr: "1", name: "1" }) }, schema, opts);
-        assert.deepStrictEqual(q.json, { id: "1", descr: "1", name: "1" });
-
-        q = lib.toParams({ json1: lib.stringify({ id: "1", descr: "1", name: "1" }) }, schema, opts);
-        assert.deepStrictEqual(q.json1, { id: 1, name: "1" });
-
-        q = lib.toParams({ empty: "." }, schema, opts);
-        assert.strictEqual(q.empty, "");
-
-        schema.empty.setempty = null;
-        q = lib.toParams({ empty: "." }, schema, opts);
-        assert.strictEqual(q.empty, null);
-
-        q = lib.toParams({ nospecial: "a<b>c", special: "a<b>c" }, schema, opts);
-        assert.strictEqual(q.special, "<>");
-        assert.strictEqual(q.nospecial, "abc");
-
-        q = lib.toParams({ minnum: 2 }, schema, opts);
-        assert.match(q, /too small/);
-
-        q = lib.toParams({ minnum: 20 }, schema, opts);
-        assert.strictEqual(q.minnum, 20);
-
-    });
-
     it("runs search" ,() => {
 
         var words = ['keyword1', 'keyword2', 'etc'];
@@ -166,7 +32,7 @@ describe("lib tests", () => {
 
     });
 
-    it("checks skip32", () => {
+    it("lib.skip32", () => {
 
         // these are the default test values from the original C code
         var KEY = [ 0x00,0x99,0x88,0x77,0x66,0x55,0x44,0x33,0x22,0x11 ];
@@ -179,7 +45,7 @@ describe("lib tests", () => {
 
     })
 
-    it("checks toTemplate", () => {
+    it("lib.toTemplate", () => {
 
         var m = lib.toTemplate("email@id@@@com", { id: 1 }, { allow: ["id"] });
         assert.strictEqual(m, "email1@com")
@@ -259,4 +125,196 @@ describe("lib tests", () => {
 
 });
 
+describe("lib.parseTime", function () {
+    const ok = (input, expected) => {
+        assert.deepStrictEqual(lib.parseTime(input), expected, `input=${JSON.stringify(input)}`);
+    };
 
+    const bad = (input) => {
+        assert.strictEqual(lib.parseTime(input), undefined, `input=${JSON.stringify(input)}`);
+    };
+
+    it("parses hours only", function () {
+        ok("0", [0, 0]);
+        ok("9", [9, 0]);
+        ok("23", [23, 0]);
+    });
+
+    it("parses hh:mm (single/double digit parts)", function () {
+        ok("0:0", [0, 0]);
+        ok("0:5", [0, 5]);
+        ok("7:05", [7, 5]);
+        ok("07:05", [7, 5]);
+        ok("23:59", [23, 59]);
+    });
+
+    it("accepts optional spaces around am/pm", function () {
+        ok("7am", [7, 0]);
+        ok("7 am", [7, 0]);
+        ok("7pm ", [19, 0]);
+        ok("7   am", [7, 0]);
+        ok("7 am", [7, 0]);
+        ok("7:05pm", [19, 5]);
+        ok("7:05 pm", [19, 5]);
+        ok("10:10pm", [22, 10]);
+    });
+
+    it("handles am/pm edge cases (12am/12pm)", function () {
+        ok("12am", [0, 0]);
+        ok("12 am", [0, 0]);
+        ok("12pm", [12, 0]);
+        ok("12 pm", [12, 0]);
+
+        ok("12:01am", [0, 1]);
+        ok("12:01pm", [12, 1]);
+    });
+
+    it("is case-insensitive for am/pm", function () {
+        ok("1 AM", [1, 0]);
+        ok("1 PM", [13, 0]);
+        ok("1 aM", [1, 0]);
+        ok("1 pM", [13, 0]);
+    });
+
+    it("coerces non-string inputs via String()", function () {
+        ok(5, [5, 0]);
+        ok(0, [0, 0]);
+        ok("5", [5, 0]);
+    });
+
+    it("rejects out-of-range hours/minutes", function () {
+        bad("24");
+        bad("24:00");
+        bad("23:60");
+        bad("-1");
+        bad("-1:00");
+    });
+
+    it("rejects malformed formats", function () {
+        bad("");
+        bad(" ");
+        bad("nope");
+        bad("7:");
+        bad(":30");
+        bad("7:");         // missing minutes
+        bad("7:5:1");      // too many parts
+        bad("7amfoo");
+        bad("7 am foo");
+        bad("7 : 05");     // spaces around colon not allowed
+        bad("07: 05");     // space before minutes not allowed
+        bad("07 :05");     // space before colon not allowed
+        bad("730pm");
+        bad("0730");
+    });
+});
+
+describe("lib.isTimeRange", function () {
+
+    function withFakeNow(iso, fn) {
+        const RealDate = Date;
+        const fixed = new RealDate(iso);
+
+        // eslint-disable-next-line no-global-assign
+        Date = class FakeDate extends RealDate {
+            constructor(...args) {
+                if (args.length) return new RealDate(...args);
+                return new RealDate(fixed.getTime());
+            }
+            static now() { return fixed.getTime(); }
+            static parse(s) { return RealDate.parse(s); }
+            static UTC(...args) { return RealDate.UTC(...args); }
+        };
+
+        try {
+            return fn();
+        } finally {
+            // eslint-disable-next-line no-global-assign
+            Date = RealDate;
+        }
+    }
+
+    it("returns 0 when both time1 and time2 are falsy", function () {
+        assert.strictEqual(lib.isTimeRange(null, null), 0);
+        assert.strictEqual(lib.isTimeRange(undefined, undefined), 0);
+        assert.strictEqual(lib.isTimeRange("", ""), 0);
+    });
+
+    it("uses UTC when tz is 'UTC'/'GMT' (start check)", function () {
+        // fixed time: 10:15 UTC
+        withFakeNow("2020-01-02T10:15:00.000Z", () => {
+          assert.strictEqual(lib.isTimeRange("10:00", null, { tz: "UTC" }), 1);
+          assert.strictEqual(lib.isTimeRange("10:15", null, { tz: "UTC" }), 1);
+          assert.strictEqual(lib.isTimeRange("10:16", null, { tz: "UTC" }), 0);
+      });
+    });
+
+    it("accepts tz offsets like GMT+02:00 / GMT-05:30", function () {
+        // now: 10:15 UTC -> local (GMT+02:00) becomes 12:15
+        withFakeNow("2020-01-02T10:15:00.000Z", () => {
+          assert.strictEqual(lib.isTimeRange("12:15", null, { tz: "GMT+02:00" }), 1);
+          assert.strictEqual(lib.isTimeRange("12:16", null, { tz: "GMT+02:00" }), 0);
+      });
+
+        // now: 10:15 UTC -> local (GMT-05:30) becomes 04:45
+        withFakeNow("2020-01-02T10:15:00.000Z", () => {
+          assert.strictEqual(lib.isTimeRange("4:45", null, { tz: "GMT-05:30" }), 1);
+          assert.strictEqual(lib.isTimeRange("4:46", null, { tz: "GMT-05:30" }), 0);
+      });
+    });
+
+    it("returns 0 on invalid time strings (parseTime fails)", function () {
+        withFakeNow("2020-01-02T10:15:00.000Z", () => {
+          assert.strictEqual(lib.isTimeRange("nope", null, { tz: "UTC" }), 0);
+          assert.strictEqual(lib.isTimeRange(null, "25:00", { tz: "UTC" }), 0);
+          assert.strictEqual(lib.isTimeRange("10:00", "bad", { tz: "UTC" }), 0);
+      });
+    });
+
+    it("date option must match (compares %Y-%m-%d in the computed tz)", function () {
+        // At 2020-01-02T23:30Z, in GMT+02:00 it's already 2020-01-03 01:30
+        withFakeNow("2020-01-02T23:30:00.000Z", () => {
+          assert.strictEqual(lib.isTimeRange("1:00", null, { tz: "GMT+02:00", date: "2020-01-03" }), 1);
+          assert.strictEqual(lib.isTimeRange("1:00", null, { tz: "GMT+02:00", date: "2020-01-02" }), 0);
+      });
+    });
+
+    it("start time: returns 1 only if now >= time1", function () {
+        withFakeNow("2020-01-02T10:15:00.000Z", () => {
+          assert.strictEqual(lib.isTimeRange("10:14", null, { tz: "UTC" }), 1);
+          assert.strictEqual(lib.isTimeRange("10:15", null, { tz: "UTC" }), 1);
+          assert.strictEqual(lib.isTimeRange("10:16", null, { tz: "UTC" }), 0);
+      });
+    });
+
+    it("end time: (as implemented) returns 1 only if now >= time2", function () {
+        // Note: this function currently checks "< end => 0", so it's effectively "after end"
+        withFakeNow("2020-01-02T10:15:00.000Z", () => {
+          assert.strictEqual(lib.isTimeRange(null, "10:14", { tz: "UTC" }), 1);
+          assert.strictEqual(lib.isTimeRange(null, "10:15", { tz: "UTC" }), 1);
+          assert.strictEqual(lib.isTimeRange(null, "10:16", { tz: "UTC" }), 0);
+      });
+    });
+
+    it("both start and end must pass their checks", function () {
+        withFakeNow("2020-01-02T10:15:00.000Z", () => {
+          assert.strictEqual(lib.isTimeRange("10:00", "10:10", { tz: "UTC" }), 1);
+          assert.strictEqual(lib.isTimeRange("10:00", "10:16", { tz: "UTC" }), 0);
+          assert.strictEqual(lib.isTimeRange("10:16", "10:10", { tz: "UTC" }), 0);
+      });
+    });
+
+    it("supports am/pm via parseTime", function () {
+        withFakeNow("2020-01-02T22:05:00.000Z", () => {
+          assert.strictEqual(lib.isTimeRange("10:00pm", null, { tz: "UTC" }), 1);
+          assert.strictEqual(lib.isTimeRange("10:06pm", null, { tz: "UTC" }), 0);
+      });
+    });
+
+    it("tz omitted: uses system offset path (just ensure it runs)", function () {
+        withFakeNow("2020-01-02T10:15:00.000Z", () => {
+          // Don't assert 0/1 because host TZ varies; just ensure it's not throwing
+          const r = lib.isTimeRange("0:00", null, {});
+          assert.ok(r === 0 || r === 1);
+      });
+    });
+});

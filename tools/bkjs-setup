@@ -489,7 +489,7 @@ case "$BKJS_CMD" in
   setup-mfa)
     [ "$(whoami)" != "root" ] && echo "Run as root please" && exit 1
     case "$OS_NAME" in
-      *Alpine*))
+      *Alpine*)
         apk add google-authenticator openssh-server-pam
 
         echo -e "auth required pam_env.so" > /etc/pam.d/sshd
