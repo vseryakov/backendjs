@@ -65,36 +65,258 @@
 
     <section class="readme usertext">
         <article><h1 id="backend-library-for-node.js"><img src="https://vseryakov.github.io/backendjs/web/img/logo.png" alt="logo"> Backend library for Node.js</h1>
-<p>A Node.js library to create Web apps with minimal dependencies.</p>
-<h2 id="features%3A">Features:</h2>
+<p>The <code>backendjs</code> provides a comprehensive set of modules and utilities for
+building scalable, distributed applications with features like database management, caching, job queues, event processing, and more.</p>
+<p>Visit the <a href="https://vseryakov.github.io/backendjs/docs/web/tutorial-start.html">tutorial</a> or <a href="https://vseryakov.github.io/backendjs/docs/web/index.html">all docs</a>.</p>
+<hr>
+<h2 id="core-features"><strong>Core Features</strong></h2>
+<ol>
+<li>
+<p><strong>Modular Architecture</strong></p>
 <ul>
-<li>Express 5 is used for the API access.</li>
-<li>Web sessions with CSRF protection, Webauthn/Passkeys.</li>
-<li>Web server runs in separate processes to utilize multiple CPU cores.</li>
-<li>WebSocket connections are processed by the same Express routes.</li>
-<li>Rate limiter based on TokenBucket algorithm can be run in-process or in Redis.</li>
-<li>PUB/SUB modes of operations using Redis, NATS.</li>
-<li>Async jobs processing using queue implementation on top of SQS, Redis, NATS, jobs can be scheduled with croner or run on-demand in separate processes.</li>
-<li>REPL (command line) interface for debugging and looking into server internals.</li>
-<li>Push notifications via Webpush.</li>
-<li>Can be used with any MVC, MVVC or other types of frameworks that work on top of, or with the included Express server.</li>
-<li>Simple DB layer for CRUD operations like Get/Select/Put/Del/Update for supported databases (SQLite, PostreSQL, DynamoDB, ElasticSearch).</li>
-<li>AWS support is very well integrated by using APIs directly without AWS SDK, includes EC2, ECS, S3, DynamoDB, SQS, CloudWatch and more.</li>
-<li>Includes a simple log watcher to monitor the log files and CloudWatch logs.</li>
-<li>Runtime metrics about CPU, DB, requests, cache, memory, rate limits, AWS X-Ray spans.</li>
-<li>The backend process can be used directly in Docker containers without shim init.</li>
+<li>The framework is built around a modular design, where each module (e.g., <code>db</code>, <code>cache</code>, <code>queue</code>, <code>api</code>) can be loaded independently.</li>
+<li>Modules can be configured via command-line arguments or configuration files.</li>
 </ul>
-<h2 id="note%3A-work-in-progress%2C-major-refactor%2C-the-npm-version-0.x-is-deprecated.">NOTE: work in progress, major refactor, the NPM version 0.x is deprecated.</h2>
+</li>
+<li>
+<p><strong>Database Abstraction</strong></p>
+<ul>
+<li>Supports multiple databases: <strong>SQLite, PostgreSQL, DynamoDB, Elasticsearch</strong>.</li>
+<li>Provides a unified API for CRUD operations, caching, and transactions.</li>
+<li>Supports <strong>primary keys, indexes, and schema migrations</strong>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Caching</strong></p>
+<ul>
+<li>Built-in caching with support for <strong>Redis, NATS, and local memory caches</strong>.</li>
+<li>Features like <strong>LRU (Least Recently Used) caching</strong>, <strong>token bucket rate limiting</strong>, and <strong>locking mechanisms</strong>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Job Queue &amp; Event Processing</strong></p>
+<ul>
+<li>Supports <strong>SQS, NATS, and Redis queues</strong> for job processing.</li>
+<li>Workers can be spawned to handle jobs asynchronously.</li>
+<li>Event-based architecture for real-time processing.</li>
+</ul>
+</li>
+<li>
+<p><strong>API Layer</strong></p>
+<ul>
+<li>Built on <strong>Express.js</strong> with middleware for authentication, rate limiting, and logging.</li>
+<li>Supports <strong>RESTful APIs</strong> with JSON responses.</li>
+<li>Includes <strong>WebSocket support</strong> for real-time communication.</li>
+</ul>
+</li>
+<li>
+<p><strong>AWS Integration</strong></p>
+<ul>
+<li>Supports <strong>AWS services</strong> like <strong>S3, SQS, SNS, DynamoDB, and EC2</strong>.</li>
+<li>Automated instance metadata retrieval and configuration.</li>
+</ul>
+</li>
+<li>
+<p><strong>Logging &amp; Monitoring</strong></p>
+<ul>
+<li>Advanced logging with <strong>syslog, file, and console support</strong>.</li>
+<li>Metrics collection for <strong>CPU, memory, network, and API performance</strong>.</li>
+<li>Integration with <strong>Elasticsearch</strong> for log aggregation.</li>
+</ul>
+</li>
+<li>
+<p><strong>Push Notifications</strong></p>
+<ul>
+<li>Supports <strong>WebPush, FCM (Firebase Cloud Messaging), and APNs (Apple Push Notification Service)</strong>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Configuration Management</strong></p>
+<ul>
+<li>Supports <strong>remote configuration</strong> via databases or files.</li>
+<li>Dynamic reloading of configurations without restarting the server.</li>
+</ul>
+</li>
+<li>
+<p><strong>Security</strong></p>
+<ul>
+<li><strong>CSRF protection</strong>, <strong>signature verification</strong>, and <strong>rate limiting</strong>.</li>
+<li><strong>JWT (JSON Web Tokens)</strong> support for authentication.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="key-modules"><strong>Key Modules</strong></h2>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>app</code></td>
+<td>Core application module for initialization, configuration, and process management.</td>
+</tr>
+<tr>
+<td><code>db</code></td>
+<td>Database abstraction layer for SQLite, PostgreSQL, DynamoDB, and Elasticsearch.</td>
+</tr>
+<tr>
+<td><code>cache</code></td>
+<td>Caching layer with Redis, NATS, and local memory support.</td>
+</tr>
+<tr>
+<td><code>queue</code></td>
+<td>Job queue and event processing with SQS, NATS, and Redis.</td>
+</tr>
+<tr>
+<td><code>api</code></td>
+<td>HTTP API layer built on Express.js with middleware for auth, logging, etc.</td>
+</tr>
+<tr>
+<td><code>aws</code></td>
+<td>AWS SDK integration for S3, SQS, SNS, DynamoDB, and EC2.</td>
+</tr>
+<tr>
+<td><code>jobs</code></td>
+<td>Job processing with worker pools and cron-like scheduling.</td>
+</tr>
+<tr>
+<td><code>events</code></td>
+<td>Event-based messaging and subscriptions.</td>
+</tr>
+<tr>
+<td><code>push</code></td>
+<td>Push notifications for mobile and web clients.</td>
+</tr>
+<tr>
+<td><code>stats</code></td>
+<td>Metrics collection and reporting.</td>
+</tr>
+<tr>
+<td><code>logger</code></td>
+<td>Advanced logging with syslog, file, and console support.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h3 id="architecture-overview"><strong>Architecture Overview</strong></h3>
+<ol>
+<li>
+<p><strong>Server Process</strong></p>
+<ul>
+<li>Manages worker processes, job queues, and event subscriptions.</li>
+<li>Handles configuration and dynamic reloading.</li>
+</ul>
+</li>
+<li>
+<p><strong>Worker Processes</strong></p>
+<ul>
+<li>Execute jobs and process events.</li>
+<li>Can be spawned dynamically based on workload.</li>
+</ul>
+</li>
+<li>
+<p><strong>API Workers</strong></p>
+<ul>
+<li>Handle HTTP requests and WebSocket connections.</li>
+<li>Use Express.js middleware for routing and authentication.</li>
+</ul>
+</li>
+<li>
+<p><strong>Database Pools</strong></p>
+<ul>
+<li>Maintain connections to databases (SQLite, PostgreSQL, DynamoDB, Elasticsearch).</li>
+<li>Support for <strong>connection pooling</strong> and <strong>schema migrations</strong>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Caching Layer</strong></p>
+<ul>
+<li>Distributed caching with Redis/NATS.</li>
+<li>Local LRU caching for performance.</li>
+</ul>
+</li>
+<li>
+<p><strong>Job Queue</strong></p>
+<ul>
+<li>Supports <strong>SQS, NATS, and Redis</strong> for job processing.</li>
+<li>Workers pull jobs from queues and execute them.</li>
+</ul>
+</li>
+<li>
+<p><strong>Event System</strong></p>
+<ul>
+<li>Pub/Sub model for real-time event processing.</li>
+<li>Supports <strong>Redis, NATS, and SQS</strong> for event distribution.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="use-cases"><strong>Use Cases</strong></h2>
+<ol>
+<li>
+<p><strong>Microservices</strong></p>
+<ul>
+<li>Deploy multiple services with shared databases and caching.</li>
+</ul>
+</li>
+<li>
+<p><strong>Real-Time Applications</strong></p>
+<ul>
+<li>Use WebSockets and event processing for live updates.</li>
+</ul>
+</li>
+<li>
+<p><strong>Batch Processing</strong></p>
+<ul>
+<li>Schedule jobs via cron or SQS for background tasks.</li>
+</ul>
+</li>
+<li>
+<p><strong>Serverless &amp; Cloud Deployments</strong></p>
+<ul>
+<li>Integrate with AWS Lambda, ECS, and EC2 for scalable deployments.</li>
+</ul>
+</li>
+<li>
+<p><strong>Data Processing</strong></p>
+<ul>
+<li>Use DynamoDB/Elasticsearch for NoSQL data storage and search.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="configuration"><strong>Configuration</strong></h2>
+<p>The library is configured via:</p>
+<ul>
+<li><strong>Command-line arguments</strong> (e.g., <code>-db-pg-pool pg://localhost/dbname</code>).</li>
+<li><strong>Configuration files</strong> (e.g., <code>bkjs.conf</code>).</li>
+<li><strong>Environment variables</strong> (e.g., <code>BKJS_DB_POOL=pg://localhost/dbname</code>).</li>
+<li><strong>Database</strong> (e. g. <code>-db-config dynamodb</code>)</li>
+<li><strong>AWS Secrets Manager</strong> (e. g. <code>-aws-config-secrets production-worker</code>)</li>
+<li><strong>AWS S3 file</strong> (e. g. <code>-aws-config-s3-file mybucjet/config</code>)</li>
+<li><strong>AWS Config Parameters Store</strong> (e. g. <code>-aws-config-parameters /my-config</code>)</li>
+</ul>
+<hr>
+<h2 id="deployment"><strong>Deployment</strong></h2>
+<ul>
+<li><strong>Docker</strong>: Can be containerized for easy deployment.</li>
+<li><strong>Kubernetes</strong>: Supports scaling via Kubernetes deployments.</li>
+<li><strong>AWS ECS/EC2</strong>: Can be deployed on AWS for cloud scalability.</li>
+</ul>
+<hr>
 <h2 id="getting-started">Getting started</h2>
 <p>Visit the <a href="https://vseryakov.github.io/backendjs/docs/web/tutorial-start.html">tutorial</a>.</p>
 <h2 id="full-documentation">Full documentation</h2>
-<p>Visit the <a href="https://vseryakov.github.io/backendjs/docs/web/index.html">documentation</a>.</p>
-<h2 id="documentation">Documentation</h2>
-<p>Visit the <a href="https://vseryakov.github.io/backendjs/docs/web/index.html">documentation</a>.</p>
+<p>Visit the <a href="https://vseryakov.github.io/backendjs/docs/web/index.html">docs</a>.</p>
 <h2 id="license">License</h2>
 <p><a href="/LICENSE">MIT</a></p>
 <h2 id="author">Author</h2>
-<p>Vlad Seryakov</p></article>
+<p>Vlad Seryakov</p>
+<p><em>(summary is generated by local LLM with manual edits)</em></p></article>
     </section>
 
 
