@@ -318,3 +318,114 @@ describe("lib.isTimeRange", function () {
       });
     });
 });
+
+describe("lib.toNumber", function () {
+  it("returns 0 for null/undefined/empty without options", function () {
+    assert.strictEqual(lib.toNumber(null), 0);
+    assert.strictEqual(lib.toNumber(undefined), 0);
+    assert.strictEqual(lib.toNumber(""), 0); // parseInt("")/parseFloat("") => NaN => 0
+  });
+
+  it("passes through numbers", function () {
+    assert.strictEqual(lib.toNumber(5), 5);
+    assert.strictEqual(lib.toNumber(-2.5), -2.5);
+    assert.strictEqual(lib.toNumber(NaN), 0);
+  });
+
+  it("converts booleans", function () {
+    assert.strictEqual(lib.toNumber(true), 1);
+    assert.strictEqual(lib.toNumber(false), 0);
+  });
+
+  it("uses default for non-string non-number non-boolean", function () {
+    assert.strictEqual(lib.toNumber({}), 0);
+    assert.strictEqual(lib.toNumber({}, { dflt: 7 }), 7);
+    assert.strictEqual(lib.toNumber([]), 0);
+    assert.strictEqual(lib.toNumber([], { dflt: 3 }), 3);
+  });
+
+  it("parses integer strings by default", function () {
+    assert.strictEqual(lib.toNumber("123"), 123);
+    assert.strictEqual(lib.toNumber("0010"), 10);
+    assert.strictEqual(lib.toNumber("-7"), -7);
+    assert.strictEqual(lib.toNumber("12.9", { float: 0 }), 12);
+  });
+
+  it("autodetects floats if options.float is undefined", function () {
+    // depends on lib.rxFloat; assuming "1.23" matches float regex
+    assert.strictEqual(lib.toNumber("1.23"), 1.23);
+  });
+
+  it("forces float parsing when options.float = 1", function () {
+    assert.strictEqual(lib.toNumber("1.23", { float: 1 }), 1.23);
+    assert.strictEqual(lib.toNumber("10", { float: 1 }), 10);
+  });
+
+  it("handles string starting with t/f as booleans", function () {
+    assert.strictEqual(lib.toNumber("true"), 1);
+    assert.strictEqual(lib.toNumber("false"), 0);
+    assert.strictEqual(lib.toNumber("t"), 1);
+    assert.strictEqual(lib.toNumber("f"), 0);
+  });
+
+  it('handles string "infinity"', function () {
+    assert.strictEqual(lib.toNumber("infinity"), Infinity);
+  });
+
+  it("uses dflt when result is NaN", function () {
+    assert.strictEqual(lib.toNumber("nope"), 0);
+    assert.strictEqual(lib.toNumber("nope", { dflt: 9 }), 9);
+  });
+
+  it("applies novalue replacement", function () {
+    assert.strictEqual(lib.toNumber("5", { novalue: 5, dflt: 2 }), 2);
+    assert.strictEqual(lib.toNumber(5, { novalue: 5, dflt: 2 }), 2);
+  });
+
+  it("applies incr and mult in order", function () {
+    // n=10 => incr => 12 => mult => 36
+    assert.strictEqual(lib.toNumber("10", { incr: 2, mult: 3 }), 36);
+  });
+
+  it("clips to min/max", function () {
+    assert.strictEqual(lib.toNumber("1", { min: 5 }), 5);
+    assert.strictEqual(lib.toNumber("10", { max: 7 }), 7);
+    assert.strictEqual(lib.toNumber("6", { min: 5, max: 7 }), 6);
+  });
+
+  it("rounds when options.float is explicitly falsey (0)", function () {
+    assert.strictEqual(lib.toNumber("1.4", { float: 0 }), 1);
+    assert.strictEqual(lib.toNumber("1.5", { float: 0 }), 1);
+    assert.strictEqual(lib.toNumber(2.49, { float: 0 }), 2);
+  });
+
+  it("replaces 0 with options.zero", function () {
+    assert.strictEqual(lib.toNumber("0", { zero: 9 }), 9);
+    assert.strictEqual(lib.toNumber(0, { zero: 9 }), 9);
+    assert.strictEqual(lib.toNumber(false, { zero: 9 }), 9);
+  });
+
+  it("keeps digits after decimal with options.digits", function () {
+    assert.strictEqual(lib.toNumber("1.2345", { float: 1, digits: 2 }), 1.23);
+    assert.strictEqual(lib.toNumber("1.235", { float: 1, digits: 2 }), 1.24);
+  });
+
+  it("bigint: returns BigInt if not a safe integer", function () {
+    const big = "9007199254740993"; // > Number.MAX_SAFE_INTEGER
+    const out = lib.toNumber(big, { bigint: 1 });
+    assert.strictEqual(typeof out, "bigint");
+    assert.strictEqual(out, BigInt(big));
+  });
+
+  it("bigint: does not convert safe integers", function () {
+    const out = lib.toNumber("123", { bigint: 1 });
+    assert.strictEqual(typeof out, "number");
+    assert.strictEqual(out, 123);
+  });
+
+  it("handles incr/mult producing NaN -> dflt", function () {
+    // Force n to be a number, then multiply by NaN using a non-number? mult must be number to apply.
+    // Instead: start with NaN string -> becomes dflt, then mult works.
+    assert.strictEqual(lib.toNumber("nope", { dflt: 2, mult: 3 }), 6);
+  });
+});
