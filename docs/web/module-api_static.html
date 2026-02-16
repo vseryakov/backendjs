@@ -63,6 +63,8 @@
         
             
         
+            
+        
     
 </header>
 
@@ -71,6 +73,113 @@
         <div class="container-overview">
         
             
+
+            
+                
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>API Static Module - Handles serving static files and templates with Express.</p>
+<h2 id="features%3A">Features:</h2>
+<ul>
+<li>Static file serving from multiple directories</li>
+<li>View templating engine (e.g., EJS, Pug)</li>
+<li>Virtual hosting with custom paths</li>
+<li>Regex-based path matching for rules</li>
+<li>Compression (GZIP/Brotli) for static assets</li>
+<li>Custom MIME type definitions</li>
+<li>Development/production caching controls</li>
+</ul>
+<h2 id="explanation-of-the-example-below">Explanation of the example below</h2>
+<ul>
+<li><code>disabled=true</code> → The app acts like a pure API (no static files at all).</li>
+<li><code>views-{regex}</code> acts like URL-to-template routing (e.g., <code>/user</code> loads <code>show-user.ejs</code>,
+you have to register ejs egine in your <code>configureStaticWeb</code> method).</li>
+<li><code>vhost-{blog}=blog.com</code> → Rewrites <code>/css/page.css</code> to <code>/web/blog/css/page.css</code> if host is <code>blog.com</code>.</li>
+<li><code>compressed-js=gz</code> → Serves <code>index.js</code> as <code>index.js.gz</code> if the file exists.</li>
+</ul></li></ul></dd>
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="api_static.js.html">api/static.js</a>, <a href="api_static.js.html#line6">line 6</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>api-static-disabled=false
+api-static-views-^/user=show-user.ejs
+api-static-vhost-blog=blog.com
+api-static-compressed-js=gz</code></pre>
+
+
+
+
 
             
                 
@@ -93,7 +202,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_static.js.html">api/static.js</a>, <a href="api_static.js.html#line40">line 40</a>
+        <a href="api_static.js.html">api/static.js</a>, <a href="api_static.js.html#line65">line 65</a>
     </li></ul></dd>
     
 

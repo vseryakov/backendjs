@@ -449,6 +449,14 @@ See {@link module:api.static}
  Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified   
 ##### Type: map   
 ##### Default: {"maxAge":0}   
+### **api-static-views-(.+)**
+ Locations to be rendered as views, use ! in front of regexp to remove particular redirect from the list   
+##### Type: regexpobj   
+##### Example:
+```
+-api-static-views-^/user/get show-user
+```
+
 ### **api-static-vhost-([^/]+)**
  Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match   
 ##### Type: regexp   

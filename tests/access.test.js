@@ -4,6 +4,27 @@ const { describe, it, before, after } = require('node:test');
 const { acheckAccess, ainit } = require("./utils");
 const { app, api } = require("../");
 
+describe('Access public endpoints', async () => {
+
+    before(async () => {
+        await ainit({ api: 1, nodb: 1, noipc: 1 })
+    });
+
+    it("checks public endpoints", async () => {
+
+        const config = [
+            { get: "/ping" },
+            { url: "/render.html", regexp: /Mocked/ },
+        ];
+
+        await acheckAccess({ config });
+    });
+
+    after(async () => {
+        await app.astop()
+    })
+})
+
 describe('Access Tests with CSRF1', async () => {
 
     before(async () => {
@@ -38,7 +59,7 @@ describe('Access Tests with CSRF2', async () => {
         { url: "/login", data: { login: "test", secret: "test" }, status: 403 },
         { url: "/auth", status: 417 },
         { get: "/ping" },
-        { url: "/login", data: { login: "test", secret: "test1" }, status: 401 },
+        { url: "/login", data: { login: "test", secret: "test1" }, status: 403 },
         { url: "/login", data: { login: "test", secret: "test" } },
         { url: "/auth" },
     ];

@@ -76,11 +76,37 @@ lib.randomBytes = function(size, encode)
 }
 
 /**
- * Encrypt data with the given key, GCM mode is default
- * @param {string|Buffer} key
- * @param {string|Buffer} data
- * @param {object} [options]
- * @return {string|Buffer}
+ * Encrypts data using AES-GCM-256 (or specified algorithm) with optional configuration.
+ *
+ * Uses PBKDF2 for key derivation and generates a unique initialization vector (IV) for each encryption.
+ *
+ * **Note:** Error handling logs the error but returns an empty string (`''`).
+ * In production environments, ensure proper error handling in the calling code.
+ *
+ * @param {string|Buffer} key - The encryption key, can be plain text or Buffer.
+ * @param {string|Buffer} data - Input data to encrypt.
+ * @param {Object} [options] - Optional configuration.
+ * @param {string} [options.encode='base64'] - Output encoding ("base64" or "binary")
+ * @param {number} [options.iv_length=16] - IV (Initialization Vector) length in bytes (default: 16).
+ * @param {number} [options.key_iterations=10000] - Number of iterations for PBKDF2 (higher = more secure but slower).
+ * @param {number} [options.key_length=32] - Key length for PBKDF2 output in bytes (for AES-256GCM, use 32).
+ * @param {string} [options.key_hash='sha256'] - Hash algorithm for PBKDF2 ("sha256", "sha512", etc.).
+ * @param {number} [options.tag_length=16] - Length of the authentication tag in bytes (default: 16).
+ * @param {string} [options.algorithm='aes-256-gcm'] - Encryption algorithm (default: AES-GCM-256).
+ * @returns {string|Buffer} - Encrypted output as string (base64/binary) or Buffer, or `''` if an error occurs.
+ *
+ * @example
+ * const key = 'someSecretKey';
+ * const plaintext = 'sensitiveData';
+ * // Return Base64
+ * const encrypted = lib.encrypt(key, plaintext);
+ *
+ * @example
+ * const ciphertextBuffer = lib.encrypt(key, data, { encode: 'binary' });
+ *
+ * @example
+ * // Custom algorithm &amp; tag length
+ * const encryptedCustom = lib.encrypt(key, data, { algorithm: 'aes-128-gcm', tag_length: 12 });
  * @memberof module:lib
  * @method encrypt
  */
@@ -106,10 +132,12 @@ lib.encrypt = function(key, data, options)
 }
 
 /**
- * Decrypt data with the given key, GCM mode is default
+ * Decrypt data with the given key, AES-GCM-256 mode is default
  * @param {string|Buffer} key
  * @param {string|Buffer} data
- * @param {object} [options]
+ * @param {object} [options] - see {@link module:lib.encrypt} for more properties
+ * @param {string} [options.encode=base64] - encrypted data in this encoding
+ * @param {string} [options.decode=utf8] - return data in this encoding
  * @return {string}
  * @memberof module:lib
  * @method decrypt
@@ -127,7 +155,9 @@ lib.decrypt = function(key, data, options)
         const decipher = crypto.createDecipheriv(options.algorithm || 'aes-256-gcm', password, iv, { authTagLength: options.tag_length || 16 });
         const tag = data.slice(iv.length, iv.length + (options.tag_length || 16));
         decipher.setAuthTag(tag);
-        var msg = Buffer.concat([decipher.update(data.slice(iv.length + tag.length)), decipher.final()]).toString("utf8");
+        var msg = Buffer.concat([decipher.update(data.slice(iv.length + tag.length)), decipher.final()]);
+        const decode = options.decode === "binary" ? undefined : options.decode || "utf8";
+        if (decode) msg = msg.toString(decode);
     } catch (e) {
         msg = '';
         logger.debug('decrypt:', options, e.stack);

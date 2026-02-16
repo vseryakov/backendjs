@@ -54,7 +54,7 @@ module.exports.defaults = {
     },
 };
 
-const element = module.exports.element = {
+const properties = module.exports.properties = {
     text: {},
     size: {},
     font: {},
@@ -92,27 +92,27 @@ const element = module.exports.element = {
 module.exports.schema ={
     image: {
         type: "obj",
-        params: element,
+        params: properties,
     },
     logo: {
         type: "obj",
-        params: element,
+        params: properties,
     },
     avatar: {
         type: "obj",
-        params: element,
+        params: properties,
     },
     name: {
         type: "obj",
-        params: element,
+        params: properties,
     },
     title: {
         type: "obj",
-        params: element,
+        params: properties,
     },
     subtitle: {
         type: "obj",
-        params: element,
+        params: properties,
     },
 }
 

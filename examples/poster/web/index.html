@@ -14,6 +14,7 @@
         <div id="app-main"></div>
     </div>
 
+    <script src="/js/popper2.js"></script>
     <script src="/js/bootstrap.js"></script>
     <script src="/js/app-bootstrap.js"></script>
     <script src="/js/bootpopup.js"></script>
@@ -31,36 +32,54 @@
                 <form>
                     <div class="mb-3">
                         <label for="background" class="form-label">Background</label>
-                        <input type="file" class="form-control" id="background">
+                        <div class="input-group">
+                            <input type="file" class="form-control" id="background">
+                            <span class="input-group-text p-0" x-template="'element-options'"></span>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="avatar" class="form-label">Avatar</label>
-                        <input type="file" class="form-control" id="avatar">
+                        <div class="input-group">
+                            <input type="file" class="form-control" id="avatar">
+                            <span class="input-group-text p-0" x-template="'element-options'"></span>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="logo" class="form-label">Logo</label>
-                        <input type="file" class="form-control" id="logo">
+                        <div class="input-group">
+                            <input type="file" class="form-control" id="logo">
+                            <span class="input-group-text p-0" x-template="'element-options'"></span>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="name" class="form-label">Name</label>
-                        <textarea class="form-control" id="name" rows="2" wrap=hard></textarea>
+                        <div class="input-group">
+                            <textarea class="form-control" id="name" rows="2" wrap="hard"></textarea>
+                            <span class="input-group-text p-0" x-template="'element-options'"></span>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="title" class="form-label">Title</label>
-                        <textarea class="form-control" id="title" rows="2" wrap=hard></textarea>
+                        <div class="input-group">
+                            <textarea class="form-control" id="title" rows="2" wrap="hard"></textarea>
+                            <span class="input-group-text p-0" x-template="'element-options'"></span>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="subtitle" class="form-label">Subtitle</label>
-                        <textarea class="form-control" id="subtitle" rows="2" wrap=hard></textarea>
+                        <div class="input-group">
+                            <textarea class="form-control" id="subtitle" rows="2" wrap="hard"></textarea>
+                            <span class="input-group-text p-0" x-template="'element-options'"></span>
+                        </div>
                     </div>
 
-                    <div class="mb=3">
-                        <button class="btn btn-primary" @click.stop.prevent="create">Create</button>
+                    <div class="mb-3">
+                        <button class="btn btn-primary" @click.stop.prevent="create">Preview</button>
                     </div>
                 </form>
             </div>
@@ -72,3 +91,29 @@
     </div>
 </template>
 
+
+<template id="element-options">
+    <button type="button" class="btn w-100 h-100 dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"></button>
+
+    <form class="dropdown-menu p-4">
+        <div class="mb-3">
+            <label for="gravity" class="form-label">Gravity</label>
+            <select class="form-select" id="gravity">
+                <option selected>Choose...</option>
+                <option>north</option>
+                <option>south</option>
+                <option>west</option>
+                <option>east</option>
+                <option>northwest</option>
+                <option>northeast</option>
+                <option>southwest</option>
+                <option>southeast</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label for=color>Color</label>
+            <input type="color" class="form-control form-control-color" id=color>
+        </div>
+    </form>
+</template>

@@ -5121,7 +5121,7 @@ console.log(data)
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line100">line 100</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line98">line 98</a>
     </li></ul></dd>
     
 
@@ -5282,7 +5282,7 @@ console.log(data)
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line117">line 117</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line115">line 115</a>
     </li></ul></dd>
     
 
@@ -5419,7 +5419,7 @@ console.log(data)
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line49">line 49</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line47">line 47</a>
     </li></ul></dd>
     
 
@@ -5585,7 +5585,7 @@ console.log(data)
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line61">line 61</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line59">line 59</a>
     </li></ul></dd>
     
 
@@ -5775,7 +5775,7 @@ console.log(data)
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line76">line 76</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line74">line 74</a>
     </li></ul></dd>
     
 
@@ -8098,13 +8098,13 @@ The [global] section can appear anytime to return to global mode</p></li></ul></
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Decrypt data with the given key, GCM mode is default</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Decrypt data with the given key, AES-GCM-256 mode is default</p></li></ul></dd>
     
 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line55">line 55</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line81">line 81</a>
     </li></ul></dd>
     
 
@@ -8273,7 +8273,117 @@ The [global] section can appear anytime to return to global mode</p></li></ul></
 
             
 
-            <td class="description last"></td>
+            <td class="description last"><p>see <a href="module-lib.html#.encrypt">module:lib.encrypt</a> for more properties</p>
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+        <th>Default</th>
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>encode</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>base64</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>encrypted data in this encoding</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>decode</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>utf8</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>return data in this encoding</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
         </tr>
 
     
@@ -9526,7 +9636,10 @@ lib.doWhilst(
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Encrypt data with the given key, GCM mode is default</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Encrypts data using AES-GCM-256 (or specified algorithm) with optional configuration.</p>
+<p>Uses PBKDF2 for key derivation and generates a unique initialization vector (IV) for each encryption.</p>
+<p><strong>Note:</strong> Error handling logs the error but returns an empty string (<code>''</code>).
+In production environments, ensure proper error handling in the calling code.</p></li></ul></dd>
     
 
     
@@ -9632,7 +9745,7 @@ lib.doWhilst(
 
             
 
-            <td class="description last"></td>
+            <td class="description last"><p>The encryption key, can be plain text or Buffer.</p></td>
         </tr>
 
     
@@ -9667,7 +9780,7 @@ lib.doWhilst(
 
             
 
-            <td class="description last"></td>
+            <td class="description last"><p>Input data to encrypt.</p></td>
         </tr>
 
     
@@ -9680,7 +9793,7 @@ lib.doWhilst(
             <td class="type">
             
                 
-<span class="param-type">object</span>
+<span class="param-type">Object</span>
 
 
 
@@ -9701,7 +9814,317 @@ lib.doWhilst(
 
             
 
-            <td class="description last"></td>
+            <td class="description last"><p>Optional configuration.</p>
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+        <th>Default</th>
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>encode</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>'base64'</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>Output encoding (&quot;base64&quot; or &quot;binary&quot;)</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>iv_length</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>16</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>IV (Initialization Vector) length in bytes (default: 16).</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>key_iterations</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>10000</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>Number of iterations for PBKDF2 (higher = more secure but slower).</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>key_length</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>32</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>Key length for PBKDF2 output in bytes (for AES-256GCM, use 32).</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>key_hash</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>'sha256'</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>Hash algorithm for PBKDF2 (&quot;sha256&quot;, &quot;sha512&quot;, etc.).</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>tag_length</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>16</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>Length of the authentication tag in bytes (default: 16).</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>algorithm</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>'aes-256-gcm'</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>Encryption algorithm (default: AES-GCM-256).</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
         </tr>
 
     
@@ -9749,6 +10172,10 @@ lib.doWhilst(
             </td>
             <td class="description last">
                 
+                <ul>
+<li>Encrypted output as string (base64/binary) or Buffer, or <code>''</code> if an error occurs.</li>
+</ul>
+                
             </td>
         </tr>
     </tbody>
@@ -9757,6 +10184,19 @@ lib.doWhilst(
     
 
 
+
+
+    <h5 class="h5-examples">Examples</h5>
+    
+    <pre class="prettyprint"><code>const key = 'someSecretKey';
+const plaintext = 'sensitiveData';
+// Return Base64
+const encrypted = lib.encrypt(key, plaintext);</code></pre>
+
+    <pre class="prettyprint"><code>const ciphertextBuffer = lib.encrypt(key, data, { encode: 'binary' });</code></pre>
+
+    <pre class="prettyprint"><code>// Custom algorithm &amp; tag length
+const encryptedCustom = lib.encrypt(key, data, { algorithm: 'aes-128-gcm', tag_length: 12 });</code></pre>
 
 
 
@@ -25766,7 +26206,7 @@ these created new but all other types are just references as in Object.assign</p
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line129">line 129</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line127">line 127</a>
     </li></ul></dd>
     
 
@@ -25986,7 +26426,7 @@ these created new but all other types are just references as in Object.assign</p
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line514">line 514</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line512">line 512</a>
     </li></ul></dd>
     
 
@@ -26732,7 +27172,7 @@ the third argument can be an options object that can control how the properties 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line214">line 214</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line212">line 212</a>
     </li></ul></dd>
     
 
@@ -26991,7 +27431,7 @@ lib.objExtend({ a:1, c:5 }, { c: { b: 2 }, d: [{ d: 3 }], _e: 4, f: 5, x: 2 }, {
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line174">line 174</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line172">line 172</a>
     </li></ul></dd>
     
 
@@ -27214,7 +27654,7 @@ the name uses . to separate objects. This is a convenient method to extract prop
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line359">line 359</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line357">line 357</a>
     </li></ul></dd>
     
 
@@ -27476,7 +27916,7 @@ It uses <code>lib.objSet</code> so the property name can be a nested path.</p></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line472">line 472</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line470">line 470</a>
     </li></ul></dd>
     
 
@@ -27741,7 +28181,7 @@ It uses <code>lib.objSet</code> so the property name can be a nested path.</p></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line502">line 502</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line500">line 500</a>
     </li></ul></dd>
     
 
@@ -27907,7 +28347,7 @@ It uses <code>lib.objSet</code> so the property name can be a nested path.</p></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line279">line 279</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line277">line 277</a>
     </li></ul></dd>
     
 
@@ -28109,7 +28549,7 @@ o = { a:1, b:2, c:5, d:1 }</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line488">line 488</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line486">line 486</a>
     </li></ul></dd>
     
 
@@ -28374,7 +28814,7 @@ o = { a:1, b:2, c:5, d:1 }</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line300">line 300</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line298">line 298</a>
     </li></ul></dd>
     
 
@@ -28581,7 +29021,7 @@ objects will be create automatically. The options can have the folowing properti
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line411">line 411</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line409">line 409</a>
     </li></ul></dd>
     
 
@@ -28870,7 +29310,7 @@ summarizes approximate size of each property recursively</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line762">line 762</a>
+        <a href="lib_obj.js.html">lib/obj.js</a>, <a href="lib_obj.js.html#line760">line 760</a>
     </li></ul></dd>
     
 
@@ -30006,7 +30446,7 @@ The default separator is space and default quotes are both double and single quo
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line106">line 106</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line136">line 136</a>
     </li></ul></dd>
     
 
@@ -30422,7 +30862,7 @@ By default encode is &quot;hex&quot;, can be any encoding supported by Buffer, &
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line151">line 151</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line181">line 181</a>
     </li></ul></dd>
     
 
@@ -30539,7 +30979,7 @@ https://github.com/joepie91/node-random-number-csprng</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line162">line 162</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line192">line 192</a>
     </li></ul></dd>
     
 
@@ -30734,7 +31174,7 @@ Optional third parameter indicates the number of decimal points to return:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line189">line 189</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line219">line 219</a>
     </li></ul></dd>
     
 
@@ -30976,7 +31416,7 @@ Optional third parameter indicates the number of decimal points to return:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line129">line 129</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line159">line 159</a>
     </li></ul></dd>
     
 
@@ -31092,7 +31532,7 @@ Optional third parameter indicates the number of decimal points to return:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line140">line 140</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line170">line 170</a>
     </li></ul></dd>
     
 
@@ -31208,7 +31648,7 @@ Optional third parameter indicates the number of decimal points to return:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line118">line 118</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line148">line 148</a>
     </li></ul></dd>
     
 
@@ -32779,7 +33219,7 @@ Format: time - 41 bit, node - 10 bit, counter - 12 bit</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line85">line 85</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line115">line 115</a>
     </li></ul></dd>
     
 
@@ -37422,7 +37862,7 @@ mdate is a Date object with last modified time</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line207">line 207</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line237">line 237</a>
     </li></ul></dd>
     
 
@@ -44367,7 +44807,7 @@ Version 2.0
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line274">line 274</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line304">line 304</a>
     </li></ul></dd>
     
 
@@ -46366,7 +46806,7 @@ be removed, underscores will be treated as dots. Returns a floating number which
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line226">line 226</a>
+        <a href="lib_crypto.js.html">lib/crypto.js</a>, <a href="lib_crypto.js.html#line256">line 256</a>
     </li></ul></dd>
     
 

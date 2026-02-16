@@ -4,11 +4,26 @@ const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
 
+const mock = {
+    name: "mock",
+
+    configureStaticWeb(options, callback)
+    {
+        api.app.engine('html', (path, opts, cb) => {
+            cb(null, `Mocked ${path} with ${JSON.stringify(options)}`);
+        });
+
+        callback();
+    }
+};
+
 exports.init = function(options, callback)
 {
     options = Object.assign({}, options, { config: __dirname + "/bkjs.conf" });
 
     api.accessTokenSecret = lib.random();
+
+    app.addModule(mock);
 
     app.init(options, () => {
 
@@ -29,7 +44,7 @@ exports.init = function(options, callback)
         }
 
         if (options.api) {
-            api.init();
+            api.init()
         }
 
         if (options.jobs) {
@@ -137,7 +152,10 @@ exports.checkAccess = function(options, callback)
                         assert.ok(conf.match(rc, conf), util.inspect({ err: "match failed", obj: rc.obj, conf, tmp }, { depth: null }));
                     } else
                     if (conf.match) {
-                        assert.ok(lib.isMatched(rc.obj, conf.match), util.inspect({ err: "match failed", objk: rc.obj, conf, tmp }, { depth: null }));
+                        assert.ok(lib.isMatched(rc.obj, conf.match), util.inspect({ err: "match failed", obj: rc.obj, conf, tmp }, { depth: null }));
+                    } else
+                    if (conf.regexp) {
+                        assert.ok(lib.testRegexp(rc.data, conf.regexp), util.inspect({ err: "regexp failed", data: rc.data, conf, tmp }, { depth: null }));
                     }
                     if (conf.delay) {
                         return setTimeout(next2, conf.delay, null, rc);

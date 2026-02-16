@@ -86,6 +86,7 @@ mod.compose = async function(options)
         await add(rc, "logo", opts, image);
     }
 
+    // Render all text elements
     const promises = ["title", "subtitle", "name" ].
         filter(name => options[name]?.text).
         map(name => {
@@ -98,6 +99,7 @@ mod.compose = async function(options)
 
     await Promise.all(promises);
 
+    // Render the main background image
     const opts = Object.assign({}, defaults.image, options.image);
     const input = opts.file || { create: { width: opts.width, height: opts.height, channels: 4, background: opts.background } };
     const image = api.images.sharp(input);
@@ -106,6 +108,7 @@ mod.compose = async function(options)
 
     applyOps(opts, image);
 
+    // Composite all elements into the background
     const buffers = Object.keys(rc).map(x => ({ input: rc[x].buffer, gravity: rc[x].gravity }));
     image.composite(buffers).
         png();

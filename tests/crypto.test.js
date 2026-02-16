@@ -4,13 +4,10 @@ const assert = require('node:assert/strict');
 const { lib } = require("../");
 
 describe("lib.encrypt", function () {
-  it("returns empty string for missing key", function () {
-    const out = lib.encrypt(null, "data");
+  it("returns empty string for missing key, data", function () {
+    let out = lib.encrypt(null, "data");
     assert.strictEqual(out, "");
-  });
-
-  it("returns empty string for missing data", function () {
-    const out = lib.encrypt("key", null);
+    out = lib.encrypt("key", null);
     assert.strictEqual(out, "");
   });
 
@@ -71,20 +68,20 @@ describe("lib.encrypt", function () {
     assert.strictEqual(iv.length, 12);
     assert.strictEqual(tag.length, 16);
 
-    const dec = lib.decrypt("secret", enc);
+    const dec = lib.decrypt("secret", enc, opts);
 
     assert.deepStrictEqual(dec, "hello");
   });
 
   it("can be decrypted using the same derivation parameters (aes-256-gcm)", function () {
+    const opts = { encode: "binary", decode: "binary" };
     const plaintext = Buffer.from("hello world");
     const key = "secret";
 
-    const enc = lib.encrypt(key, plaintext);
+    const enc = lib.encrypt(key, plaintext, opts);
     assert.ok(Buffer.isBuffer(enc));
 
-    const dec = lib.decrypt(key, enc);
-
+    const dec = lib.decrypt(key, enc, opts);
     assert.deepStrictEqual(dec, plaintext);
   });
 

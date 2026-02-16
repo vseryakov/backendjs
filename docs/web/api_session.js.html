@@ -168,7 +168,8 @@ mod.setCookie = function(req, name, value)
 mod.setup = function(req, callback)
 {
     req.options.session = req.user?.login &amp;&amp; req.user?.secret &amp;&amp; req.headers ? true : false;
-    var hooks = api.hooks.find('sig', req.method, req.path);
+
+    var hooks = api.hooks.find('sig', req.method, req.options.path || req.path);
     logger.debug("setup:", mod.name, hooks.length, "hooks", req.options);
 
     if (!hooks.length) {

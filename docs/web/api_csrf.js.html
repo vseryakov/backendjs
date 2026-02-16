@@ -174,9 +174,10 @@ mod.checkOrigin = function(req, options)
 
     if (lib.testRegexp(req.method, mod.skipMethod)) return;
 
+    const path = req.options.path;
     const origin = req.header('origin');
     if (!origin ||
-        !(lib.testRegexpObj(req.path, mod.origin?.[origin]) ||
+        !(lib.testRegexpObj(path, mod.origin?.[origin]) ||
             origin === URL.parse(req.options.origin)?.origin)) {
         logger.debug("checkOrigin:", mod.name, req.options, "HDR:", req.headers, "CONF:", mod.origin);
         return { status: 403, message: mod.errInvalidCsrf, code: "NOORIGIN" };
@@ -185,7 +186,7 @@ mod.checkOrigin = function(req, options)
     const secFetchSite = req.header('sec-fetch-site');
     if (!secFetchSite ||
         !_secFetchSiteValues.includes(secFetchSite) ||
-        !(secFetchSite === "same-origin" || lib.testRegexpObj(req.path, mod.secFetch?.[secFetchSite]))) {
+        !(secFetchSite === "same-origin" || lib.testRegexpObj(path, mod.secFetch?.[secFetchSite]))) {
         logger.debug("checkSecFetchSite:", mod.name, req.options, "HDR:", req.headers, "CONF:", mod.secFetch);
         return { status: 403, message: mod.errInvalidCsrf, code: "NOSECFETCHSITE" };
     }

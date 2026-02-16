@@ -604,7 +604,7 @@ api.handleServerRequest = function(req, res)
 
     var d = domain.create();
     d.on('error', (err) => {
-        logger.error('handleServerRequest:', api.port, req.path, lib.traceError(err));
+        logger.error('handleServerRequest:', api.port, req.url, lib.traceError(err));
         if (!res.headersSent) api.sendReply(res, err);
         api.shutdown({}, () => { process.exit(0); });
     });
@@ -868,7 +868,7 @@ api.handleBody = function(req, res, next)
 
     if (req.options.clength > 0 &amp;&amp; req.options.clength >= this.queryLimit) {
         this.metrics.large_count++;
-        logger.debug("handleBody:", "too large:", req.path, req.headers);
+        logger.debug("handleBody:", "too large:", req.url, req.headers);
         return next(lib.newError({ message: "too large", _msg: api.errTooLarge, status: 413, length: req.options.clength }));
     }
 
@@ -880,7 +880,7 @@ api.handleBody = function(req, res, next)
         size += chunk.length;
         if (size > api.queryLimit) {
             this.metrics.large_count++;
-            logger.debug("handleBody:", "too large:", req.path, req.headers, buf);
+            logger.debug("handleBody:", "too large:", req.url, req.headers, buf);
             return next(lib.newError({ message: "too large", _msg: api.errTooLarge, status: 413, maxsize: api.queryLimit, length: size }));
         }
         buf += chunk;
@@ -889,7 +889,7 @@ api.handleBody = function(req, res, next)
         try {
             if (size > api.queryLimit) {
                 this.metrics.large_count++;
-                logger.debug("handleBody:", "too large:", req.path, req.headers, buf);
+                logger.debug("handleBody:", "too large:", req.url, req.headers, buf);
                 return next(lib.newError({ message: "too large", _msg: api.errTooLarge, status: 413, maxsize: api.queryLimit, length: size }));
             }
 
@@ -994,7 +994,7 @@ api.handleMultipart = function(req, res, next)
     });
 
     form.parse(req, (err) => {
-        logger.debug("handleMultipart:", err, req.path, req.headers, data, Object.keys(files));
+        logger.debug("handleMultipart:", err, req.url, req.headers, data, Object.keys(files));
         if (err) {
             if (err &amp;&amp; /maxFile|maxField|maxTotal/.test(err.message)) {
                 this.metrics.large_count++;

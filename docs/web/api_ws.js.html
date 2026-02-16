@@ -294,8 +294,6 @@ mod.handleWebSocketUpgrade = function(req, socket, head)
 // Wrap external WebSocket connection into the Express routing, respond on backend command
 mod.handleWebSocketConnect = function(ws, req)
 {
-    logger.debug("handleWebSocketConnect:", req.socket.remoteAddress, req.path, req.query, req.user?.id);
-
     ws.wsid = lib.uuid();
     ws.path = req.path;
     ws.remoteAddress = req.ip;
@@ -305,6 +303,8 @@ mod.handleWebSocketConnect = function(ws, req)
     ws.alive = true;
     ws.secure = req.secure;
     ws.hostname = req.hostname;
+
+    logger.debug("handleWebSocketConnect:", req.socket.remoteAddress, ws.path, req.query, req.user?.id);
 
     ws.on('pong', () => { ws.alive = true });
 
