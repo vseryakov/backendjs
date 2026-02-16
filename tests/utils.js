@@ -10,9 +10,8 @@ const mock = {
     configureStaticWeb(options, callback)
     {
         api.app.engine('html', (path, opts, cb) => {
-            cb(null, `Mocked ${path} with ${JSON.stringify(options)}`);
+            cb(null, `Mocked ${path} with ${JSON.stringify(opts)}`);
         });
-
         callback();
     }
 };
@@ -100,6 +99,7 @@ exports.astop = async function(options)
 // - nocsrf/nosig - do not use CSRF or signature in request
 // - preprocess - function(conf, cb) to be called before making request
 // - postprocess - function(conf, rc, cb) to be called after the request, rc is the response object from the request
+// - noredirects - disable auto redirecting on 302
 // - delay - wait before making next request
 exports.checkAccess = function(options, callback)
 {
@@ -116,6 +116,7 @@ exports.checkAccess = function(options, callback)
             cookies: conf.cookies || {},
             login: conf.user?.login,
             secret: conf.user?.secret,
+            noredirects: conf.noredirects,
             _rc: conf.status || 200,
         };
         if (q.url[0] == "/") q.url = "http://127.0.0.1:" + api.port + q.url;
@@ -156,6 +157,11 @@ exports.checkAccess = function(options, callback)
                     } else
                     if (conf.regexp) {
                         assert.ok(lib.testRegexp(rc.data, conf.regexp), util.inspect({ err: "regexp failed", data: rc.data, conf, tmp }, { depth: null }));
+                    }
+                    if (conf.resheaders) {
+                        for (const h in conf.resheaders) {
+                            assert.ok(lib.testRegexp(rc.resheaders[h], conf.resheaders[h]), util.inspect({ err: "header failed: " + h, VALUE: rc.resheaders[h], RX: rc.resheaders[h], conf, tmp }, { depth: null }));
+                        }
                     }
                     if (conf.delay) {
                         return setTimeout(next2, conf.delay, null, rc);
