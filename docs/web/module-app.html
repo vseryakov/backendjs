@@ -2697,7 +2697,7 @@ Running the shell will make the object **mymod** available
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line495">line 495</a>
+        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line508">line 508</a>
     </li></ul></dd>
     
 
@@ -4366,7 +4366,7 @@ formatted as: <code>role:process pid:IP address:tag:current time</code></p></li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line36">line 36</a>
+        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line49">line 49</a>
     </li></ul></dd>
     
 
@@ -4573,7 +4573,9 @@ formatted as: <code>role:process pid:IP address:tag:current time</code></p></li>
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Parse config lines for the file or other place,</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Parse and apply config lines for the file or other place, uses module:lib.parseConfig.</p>
+<p>The following properties are exposed only for conditions in sections:
+<code>role, roles, tag, instance&quot;, runMode, version, config, arch, host, platform, env</code></p></li></ul></dd>
     
 
     
@@ -4768,6 +4770,18 @@ formatted as: <code>role:process pid:IP address:tag:current time</code></p></li>
 
 
 
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>[instance.type=]
+db-pool=sqlite
+db-sqlite-pool=/tmp/test
+
+[instance.type=aws]
+db-pool=dynamodb
+db-config=dynamodb
+db-dynamodb-pool=default</code></pre>
+
+
 
 
 
@@ -4792,7 +4806,7 @@ formatted as: <code>role:process pid:IP address:tag:current time</code></p></li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line97">line 97</a>
+        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line110">line 110</a>
     </li></ul></dd>
     
 
@@ -4926,7 +4940,7 @@ formatted as: <code>role:process pid:IP address:tag:current time</code></p></li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line55">line 55</a>
+        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line68">line 68</a>
     </li></ul></dd>
     
 
@@ -5171,7 +5185,7 @@ formatted as: <code>role:process pid:IP address:tag:current time</code></p></li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line81">line 81</a>
+        <a href="app_args.js.html">app/args.js</a>, <a href="app_args.js.html#line94">line 94</a>
     </li></ul></dd>
     
 

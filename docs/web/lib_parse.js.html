@@ -63,33 +63,39 @@ const fxp = require("fast-xml-parser");
 /**
  * Parse data as config format name=value per line
  *
- * Include supports:
- * - The format is: `$include filename`
+ * ## Including other files:
+ * - The format is: `include filename`
  *   the contents of the given file will be included in place and parsed. File name may contain placeholders
- *   formatted as @name@ where name can refer to any property inside the `options` or inside the `modules` as
- *   `@module.name@`
+ *   formatted as @name@ where name can refer to any property inside the `options`.
  *
- * Supports sections:
- * - The format is: `[name=value,...]` or `[name!=value,...]`
+ * ## Section with filters:
+ * - The format is: `[name=value,...]` or `[name!=value,...]` or [name=]
  *   where name is a property name with optional value(s).
  * - if the value is empty then it just checks if the property is empty.
  * - `!=` denotes negative condition, i.e. not matching or NOT empty
- * - section names may refer deep into objects like `aws.region` or `instance.tag`,
- *   all modules will be checked inside `options.modules` object only,
- *   all other names are checked in the top level options.
+ * - section names may refer deep into objects passed like `instance.tag`
  *
  * Sections work like a filter, only if a property matches it is used otherwise skipped completely, it uses `lib.isTrue` for matching
  * so checking an item in an array will work as well.
- * The [global] section can appear anytime to return to global mode
+ *
+ * The [global] section can appear anytime to return to the global mode
  *
  * @memberof module:lib
  * @param {string|string[]} data - a string or array with config lines, a string will be split by newline
- * @param {object} [options] - options with context
- * @param {object} [options.modules] - an object with modules to use for section conditions, in most cases it is {$link module:modules}
+ * @param {object} [options] - options with context, all properties from the options can be used in the sections
  * @param {boolean} [options.obj] - return as an object by { key1: value, key2: value }
  * @param {boolean} [options.list] - return as an array of [key1, value]
  * @returns {string[]} an array of config keys and values as [-key1, val1, -key2, val2,...]
  * @method configParse
+ * @example
+ * include bkjs-@production@.conf
+ * [tag=service]
+ * [runMode=dev]
+ * [role=worker]
+ * [roles=role1,role2]
+ * [instance.tag=ec2]
+ * [instance.roles=dev]
+ * [env.NAME=V]
  */
 lib.configParse = function(data, options)
 {
@@ -120,9 +126,6 @@ lib.configParse = function(data, options)
                 }
                 if (section.name.includes(".")) {
                     section.name = section.name.split(".");
-                    if (options.modules &amp;&amp; options.modules[section.name[0]]) {
-                        section.name.unshift("modules");
-                    }
                 }
                 if (key[1] !== undefined) section.value = key.slice(1);
                 if (!section.value) section.op += "null";

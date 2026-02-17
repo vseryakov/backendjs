@@ -112,15 +112,15 @@ sendmail.send = function(options, callback)
     try {
         var transport, opts = { dryrun: options.dryrun };
         var h = URL.parse(options.transport || this.emailTransport || "");
-        var proto = h?.protocol?.slice(-1);
+        var proto = h?.protocol?.slice(0, -1);
 
         switch (proto) {
-        case "fake:":
-        case "json:":
+        case "fake":
+        case "json":
             transport = { jsonTransport: true };
             break;
 
-        case "file:":
+        case "file":
             transport = {
                 send: function(mail, done) {
                     mail.normalize((err, data) => {
@@ -130,7 +130,7 @@ sendmail.send = function(options, callback)
             };
             break;
 
-        case "ses:":
+        case "ses":
         case "sendgrid":
             if (!mods[proto]) mods[proto] = lib.tryRequire(__dirname + "/sendmail/" + proto);
             if (!mods[proto]) return lib.tryCall(callback, { status: 500, message: "service unavailable" });
@@ -145,7 +145,7 @@ sendmail.send = function(options, callback)
             mods.nodemailer = lib.tryRequire("nodemailer");
             if (!mods.nodemailer) return lib.tryCall(callback, { status: 500, message: "service unavailable" });
         }
-        var mailer = sendmail.nodemailer.createTransport(transport || sendmail.smtp || { host: "localhost", port: 25 });
+        var mailer = mods.nodemailer.createTransport(transport || sendmail.smtp || { host: "localhost", port: 25 });
         mailer.sendMail(options, (err, rc) => {
             if (err) logger.error('sendmail:', err, options, rc);
             lib.tryCall(callback, err, rc);

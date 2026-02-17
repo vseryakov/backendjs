@@ -7015,26 +7015,23 @@ lib.call(context, method, ...)</code></pre>
     
     <dt class="tag-description">Description:</dt>
     <dd class="tag-description"><ul class="dummy"><li><p>Parse data as config format name=value per line</p>
-<p>Include supports:</p>
+<h2 id="including-other-files%3A">Including other files:</h2>
 <ul>
-<li>The format is: <code>$include filename</code>
+<li>The format is: <code>include filename</code>
 the contents of the given file will be included in place and parsed. File name may contain placeholders
-formatted as @name@ where name can refer to any property inside the <code>options</code> or inside the <code>modules</code> as
-<code>@module.name@</code></li>
+formatted as @name@ where name can refer to any property inside the <code>options</code>.</li>
 </ul>
-<p>Supports sections:</p>
+<h2 id="section-with-filters%3A">Section with filters:</h2>
 <ul>
-<li>The format is: <code>[name=value,...]</code> or <code>[name!=value,...]</code>
+<li>The format is: <code>[name=value,...]</code> or <code>[name!=value,...]</code> or [name=]
 where name is a property name with optional value(s).</li>
 <li>if the value is empty then it just checks if the property is empty.</li>
 <li><code>!=</code> denotes negative condition, i.e. not matching or NOT empty</li>
-<li>section names may refer deep into objects like <code>aws.region</code> or <code>instance.tag</code>,
-all modules will be checked inside <code>options.modules</code> object only,
-all other names are checked in the top level options.</li>
+<li>section names may refer deep into objects passed like <code>instance.tag</code></li>
 </ul>
 <p>Sections work like a filter, only if a property matches it is used otherwise skipped completely, it uses <code>lib.isTrue</code> for matching
-so checking an item in an array will work as well.
-The [global] section can appear anytime to return to global mode</p></li></ul></dd>
+so checking an item in an array will work as well.</p>
+<p>The [global] section can appear anytime to return to the global mode</p></li></ul></dd>
     
 
     
@@ -7174,7 +7171,7 @@ The [global] section can appear anytime to return to global mode</p></li></ul></
 
             
 
-            <td class="description last"><p>options with context</p>
+            <td class="description last"><p>options with context, all properties from the options can be used in the sections</p>
                 <h6>Properties</h6>
                 
 
@@ -7198,40 +7195,6 @@ The [global] section can appear anytime to return to global mode</p></li></ul></
     </thead>
 
     <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>modules</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>an object with modules to use for section conditions, in most cases it is {$link module:modules}</p></td>
-        </tr>
-
     
 
         <tr>
@@ -7359,6 +7322,18 @@ The [global] section can appear anytime to return to global mode</p></li></ul></
     
 
 
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>include bkjs-@production@.conf
+[tag=service]
+[runMode=dev]
+[role=worker]
+[roles=role1,role2]
+[instance.tag=ec2]
+[instance.roles=dev]
+[env.NAME=V]</code></pre>
 
 
 
@@ -22617,7 +22592,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_parse.js.html">lib/parse.js</a>, <a href="lib_parse.js.html#line101">line 101</a>
+        <a href="lib_parse.js.html">lib/parse.js</a>, <a href="lib_parse.js.html#line104">line 104</a>
     </li></ul></dd>
     
 
@@ -29840,7 +29815,7 @@ Borrowed from https://github.com/jshttp/cookie</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_parse.js.html">lib/parse.js</a>, <a href="lib_parse.js.html#line199">line 199</a>
+        <a href="lib_parse.js.html">lib/parse.js</a>, <a href="lib_parse.js.html#line202">line 202</a>
     </li></ul></dd>
     
 
@@ -50786,7 +50761,7 @@ lib.whilst(
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_parse.js.html">lib/parse.js</a>, <a href="lib_parse.js.html#line119">line 119</a>
+        <a href="lib_parse.js.html">lib/parse.js</a>, <a href="lib_parse.js.html#line122">line 122</a>
     </li></ul></dd>
     
 

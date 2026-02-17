@@ -50,6 +50,9 @@ is applied to the module variables. Config file or database table with configura
 periodically, for example all local config files can be watched for modification and reloaded automatically, the
 config database is loaded periodically which is defined by another config parameter {@link module:db.configMap}.
 
+Including files and filters is supported in the config allowing to apply different config parameters based on the environment,
+see {@link module:lib.configParse} and {@link module:app.parseConfig} for more details.
+
 ## Config sources
 
 All sources provide plain text where each line contains one config parameter.

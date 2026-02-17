@@ -83,6 +83,8 @@ any time.</p>
 is applied to the module variables. Config file or database table with configuration can be loaded on demand or
 periodically, for example all local config files can be watched for modification and reloaded automatically, the
 config database is loaded periodically which is defined by another config parameter <a href="module-db.html#.configMap">module:db.configMap</a>.</p>
+<p>Including files and filters is supported in the config allowing to apply different config parameters based on the environment,
+see <a href="module-lib.html#.configParse">module:lib.configParse</a> and <a href="module-app.html#.parseConfig">module:app.parseConfig</a> for more details.</p>
 <h2 id="config-sources">Config sources</h2>
 <p>All sources provide plain text where each line contains one config parameter.</p>
 <ul>
