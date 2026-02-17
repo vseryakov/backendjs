@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poster Creator: Vibe Coded</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;400;600;700&family=Pacifico&family=Playfair+Display:wght@400;600;700&family=Roboto+Slab:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            margin: 0 auto;
+            background: #f0f0f0;
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        #background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            z-index: 1;
+        }
+        
+        .draggable {
+            position: absolute;
+            z-index: 10;
+            cursor: move;
+            user-select: none;
+        }
+        
+        #logo {
+            max-width: 150px;
+            max-height: 150px;
+        }
+        
+        #photo {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        #name {
+            position: absolute;
+            z-index: 10;
+            cursor: move;
+            user-select: none;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(255,255,255,0.8);
+            white-space: nowrap;
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        .remove-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 20px;
+            height: 20px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            cursor: pointer;
+            z-index: 20;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .draggable:hover .remove-btn {
+            display: block;
+        }
+        
+        .drop-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        
+        .drop-zone.dragover {
+            border-color: #0d6efd;
+            background: rgba(13, 110, 253, 0.1);
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .control-group label {
+            font-weight: 500;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .control-group .form-label {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        
+        .color-picker-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .color-picker-container label {
+            margin-bottom: 0;
+            font-weight: 500;
+        }
+        
+        .color-picker-container input[type="color"] {
+            width: 50px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .resize-container {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .photo-settings {
+            border-left: 3px solid #0d6efd;
+            margin-bottom: 15px;
+        }
+        
+        .logo-settings {
+            border-left: 3px solid #198754;
+            margin-bottom: 15px;
+        }
+        
+        .scale-badge {
+            font-size: 0.75rem;
+            background: #6c757d;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body class="bg-light py-5" x-data="{ nameText: '' }">
+    <div class="container">
+        <h1 class="text-center mb-4">🎨 Poster Creator: Vibe Coded</h1>
+        
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <ul class="nav nav-tabs mb-3" id="controlTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#tab-upload" type="button" role="tab" aria-controls="tab-upload" aria-selected="true">Background</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="name-tab" data-bs-toggle="tab" data-bs-target="#tab-name" type="button" role="tab" aria-controls="tab-name" aria-selected="false">Name</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="photo-tab" data-bs-toggle="tab" data-bs-target="#tab-photo" type="button" role="tab" aria-controls="tab-photo" aria-selected="false">Photo</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="logo-tab" data-bs-toggle="tab" data-bs-target="#tab-logo" type="button" role="tab" aria-controls="tab-logo" aria-selected="false">Logo</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="controlTabsContent">
+                    <div class="tab-pane fade show active" id="tab-upload" role="tabpanel" aria-labelledby="upload-tab" tabindex="0">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Background Controls</h5>
+                        
+                        <div class="drop-zone mb-3" id="bgDropZone">
+                            <input type="file" id="backgroundInput" accept="image/*" class="d-none">
+                            <p>Click or drag background here</p>
+                        </div>
+
+                        <div id="errorMsg" class="alert alert-danger d-none mt-2 mb-0"></div>
+                    </div>
+                </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-name" role="tabpanel" aria-labelledby="name-tab" tabindex="0">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Name Controls</h5>
+                        
+                        <div class="color-picker-container mb-3">
+                            <label for="nameColor" class="form-label mb-0">Text Color:</label>
+                            <input type="color" id="nameColor" class="form-control form-control-color" value="#333333">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="nameInput" class="form-label">Name Text</label>
+                            <input type="text" id="nameInput" class="form-control" placeholder="Enter your name" maxlength="50" x-model="nameText">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="nameFont" class="form-label">Font</label>
+                            <select id="nameFont" class="form-select">
+                                <option value="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif">System (SF)</option>
+                                <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
+                                <option value="'Avenir Next', Avenir, sans-serif">Avenir Next</option>
+                                <option value="'Avenir', sans-serif">Avenir</option>
+                                <option value="'Futura', sans-serif">Futura</option>
+                                <option value="'Gill Sans', 'Gill Sans MT', sans-serif">Gill Sans</option>
+                                <option value="'Optima', sans-serif">Optima</option>
+                                <option value="'Palatino', 'Palatino Linotype', serif">Palatino</option>
+                                <option value="'Didot', serif">Didot</option>
+                                <option value="'American Typewriter', serif">American Typewriter</option>
+                                <option value="'Copperplate', 'Copperplate Gothic Light', serif">Copperplate</option>
+                                <option value="'Marker Felt', 'Comic Sans MS', cursive">Marker Felt</option>
+                                <option value="'Menlo', 'SF Mono', monospace">Menlo / SF Mono</option>
+                                <option value="'Montserrat', sans-serif" selected>Montserrat</option>
+                                <option value="'Playfair Display', serif">Playfair Display</option>
+                                <option value="'Roboto Slab', serif">Roboto Slab</option>
+                                <option value="'Bebas Neue', sans-serif">Bebas Neue</option>
+                                <option value="'Pacifico', cursive">Pacifico</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="nameSize" class="form-label">Font Size: <span id="nameSizeValue">24</span>px</label>
+                            <input type="range" id="nameSize" class="form-range" min="12" max="120" value="24">
+                            <div class="d-flex gap-3 mt-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="nameBold">
+                                    <label class="form-check-label" for="nameBold">Bold</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="nameItalic">
+                                    <label class="form-check-label" for="nameItalic">Italic</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-muted small">Type to update the name on canvas in real time.</div>
+                    </div>
+                </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-photo" role="tabpanel" aria-labelledby="photo-tab" tabindex="0">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Photo Controls</h5>
+
+                        <div class="drop-zone mb-3" id="photoDropZone">
+                            <input type="file" id="photoInput" accept="image/*" class="d-none">
+                            <p>Click or drag photo here</p>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <label for="photoBorder" class="form-label mb-1">Photo Border</label>
+                            <select id="photoBorder" class="form-select form-select-sm">
+                                <option value="none">None</option>
+                                <option value="solid" selected>Solid</option>
+                                <option value="dashed">Dashed</option>
+                                <option value="dotted">Dotted</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label for="photoBorderWidth" class="form-label mb-1">Border Width: <span id="photoBorderWidthValue">3</span>px</label>
+                            <input type="range" id="photoBorderWidth" class="form-range" min="1" max="20" value="3">
+                        </div>
+                        <div class="mb-2">
+                            <label for="photoBorderColor" class="form-label mb-1">Border Color</label>
+                            <input type="color" id="photoBorderColor" class="form-control form-control-color" value="#ffffff" style="width: 50px; height: 30px;">
+                        </div>
+                        <div class="mb-0">
+                            <label for="photoScale" class="form-label mb-1">Photo Scale: <span id="photoScaleValue">100</span>%</label>
+                            <input type="range" id="photoScale" class="form-range" min="10" max="200" value="100">
+                        </div>
+                    </div>
+                </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-logo" role="tabpanel" aria-labelledby="logo-tab" tabindex="0">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Logo Controls</h5>
+                        <div class="drop-zone mb-3" id="logoDropZone">
+                            <input type="file" id="logoInput" accept="image/*" class="d-none">
+                            <p>Click or drag logo here</p>
+                        </div>
+                        <div class="mb-0">
+                            <label for="logoScale" class="form-label mb-1">Logo Scale: <span id="logoScaleValue">100</span>%</label>
+                            <input type="range" id="logoScale" class="form-range" min="10" max="200" value="100">
+                        </div>
+                    </div>
+                </div>
+                    </div>
+                </div>
+                
+                <button id="downloadBtn" class="btn btn-success w-100 mt-3">
+                    📥 Download Image
+                </button>
+            </div>
+            
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Canvas</h5>
+                        <div class="canvas-container" id="canvas">
+                            <img id="background" src="" style="display: none;">
+                            <img id="logo" class="draggable" src="" style="display: none;">
+                            <img id="photo" class="draggable" src="" style="display: none;">
+                            <div id="name" class="draggable" x-show="nameText.length > 0">
+                                <span x-text="nameText"></span>
+                                <span class="remove-btn">×</span>
+                            </div>
+                        </div>
+                        <p class="text-muted mt-3">Drag elements to position them on the background</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script>
+        const backgroundInput = document.getElementById('backgroundInput');
+        const logoInput = document.getElementById('logoInput');
+        const photoInput = document.getElementById('photoInput');
+        const nameInput = document.getElementById('nameInput');
+        const nameColor = document.getElementById('nameColor');
+        const nameFont = document.getElementById('nameFont');
+        const nameSize = document.getElementById('nameSize');
+        const nameSizeValue = document.getElementById('nameSizeValue');
+        const nameBold = document.getElementById('nameBold');
+        const nameItalic = document.getElementById('nameItalic');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const errorMsg = document.getElementById('errorMsg');
+
+        const background = document.getElementById('background');
+        const logo = document.getElementById('logo');
+        const photo = document.getElementById('photo');
+        const nameEl = document.getElementById('name');
+        
+        nameBold.checked = true;
+        toggleNameBold();
+        toggleNameItalic();
+        
+        // Settings
+        const photoBorder = document.getElementById('photoBorder');
+        const photoBorderWidth = document.getElementById('photoBorderWidth');
+        const photoBorderColor = document.getElementById('photoBorderColor');
+        const logoScale = document.getElementById('logoScale');
+        const photoScale = document.getElementById('photoScale');
+        
+        // Value displays
+        const photoBorderWidthValue = document.getElementById('photoBorderWidthValue');
+        const logoScaleValue = document.getElementById('logoScaleValue');
+        const photoScaleValue = document.getElementById('photoScaleValue');
+        
+        const dropZones = {
+            bg: document.getElementById('bgDropZone'),
+            logo: document.getElementById('logoDropZone'),
+            photo: document.getElementById('photoDropZone')
+        };
+        
+        let currentDraggable = null;
+        let offset = { x: 0, y: 0 };
+        
+        // File upload handlers
+        backgroundInput.addEventListener('change', (e) => handleFileSelect(e, 'background'));
+        logoInput.addEventListener('change', (e) => handleFileSelect(e, 'logo'));
+        photoInput.addEventListener('change', (e) => handleFileSelect(e, 'photo'));
+        
+        // Drop zone handlers
+        Object.keys(dropZones).forEach(key => {
+            const zone = dropZones[key];
+            zone.addEventListener('click', () => {
+                if (key === 'bg') backgroundInput.click();
+                if (key === 'logo') logoInput.click();
+                if (key === 'photo') photoInput.click();
+            });
+            
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('dragover');
+            });
+            
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('dragover');
+            });
+            
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    if (key === 'bg') handleFile(files[0], 'background');
+                    if (key === 'logo') handleFile(files[0], 'logo');
+                    if (key === 'photo') handleFile(files[0], 'photo');
+                }
+            });
+        });
+        
+        function handleFileSelect(e, type) {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0], type);
+            }
+        }
+        
+        function handleFile(file, type) {
+            if (!file.type.startsWith('image/')) {
+                showError('Please select an image file.');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if (type === 'background') {
+                    background.src = e.target.result;
+                    background.style.display = 'block';
+                } else if (type === 'logo') {
+                    logo.src = e.target.result;
+                    logo.style.display = 'block';
+                    applyLogoScale();
+                } else if (type === 'photo') {
+                    photo.src = e.target.result;
+                    photo.style.display = 'block';
+                    applyPhotoSettings();
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        nameInput.addEventListener('input', () => {
+            if (!nameEl.dataset.positioned && nameInput.value.trim().length > 0) {
+                nameEl.style.left = '50%';
+                nameEl.style.top = '50%';
+                nameEl.style.transform = 'translate(-50%, -50%)';
+                nameEl.dataset.positioned = 'true';
+            }
+        });
+        
+        nameColor.addEventListener('input', updateNameColor);
+        nameFont.addEventListener('change', updateNameFont);
+        nameSize.addEventListener('input', updateNameSize);
+        nameBold.addEventListener('change', toggleNameBold);
+        nameItalic.addEventListener('change', toggleNameItalic);
+        
+        function updateNameColor() {
+            const color = nameColor.value;
+            nameEl.style.color = color;
+        }
+
+        function updateNameFont() {
+            nameEl.style.fontFamily = nameFont.value;
+        }
+
+        function updateNameSize() {
+            nameSizeValue.textContent = nameSize.value;
+            nameEl.style.fontSize = `${nameSize.value}px`;
+        }
+
+        function toggleNameBold() {
+            nameEl.style.fontWeight = nameBold.checked ? '700' : '400';
+        }
+
+        function toggleNameItalic() {
+            nameEl.style.fontStyle = nameItalic.checked ? 'italic' : 'normal';
+        }
+        
+        // Border settings
+        photoBorder.addEventListener('change', applyPhotoSettings);
+        photoBorderWidth.addEventListener('input', () => {
+            photoBorderWidthValue.textContent = photoBorderWidth.value;
+            applyPhotoSettings();
+        });
+        photoBorderColor.addEventListener('input', applyPhotoSettings);
+        
+        // Scale settings
+        logoScale.addEventListener('input', () => {
+            logoScaleValue.textContent = logoScale.value;
+            applyLogoScale();
+        });
+        
+        photoScale.addEventListener('input', () => {
+            photoScaleValue.textContent = photoScale.value;
+            applyPhotoSettings();
+        });
+        
+        function applyPhotoSettings() {
+            if (photo.style.display === 'none') return;
+            
+            const borderWidth = photoBorderWidth.value + 'px';
+            const borderColor = photoBorderColor.value;
+            
+            photo.style.border = photoBorder.value === 'none' ? 'none' : `${borderWidth} ${photoBorder.value} ${borderColor}`;
+            photo.style.width = photoScale.value + '%';
+            photo.style.height = photoScale.value + '%';
+        }
+        
+        function applyLogoScale() {
+            if (logo.style.display === 'none') return;
+            
+            logo.style.width = logoScale.value + '%';
+        }
+        
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.remove('d-none');
+            setTimeout(() => {
+                errorMsg.classList.add('d-none');
+            }, 3000);
+        }
+        
+        // Drag functionality
+        const draggables = [logo, photo, nameEl];
+        
+        draggables.forEach(el => {
+            el.addEventListener('mousedown', startDrag);
+            el.addEventListener('touchstart', startDrag, { passive: false });
+        });
+        
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        
+        document.addEventListener('mouseup', endDrag);
+        document.addEventListener('touchend', endDrag);
+        
+        function startDrag(e) {
+            e.preventDefault();
+            const target = e.target.closest('.draggable');
+            if (!target) return;
+            currentDraggable = target;
+            
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const rect = currentDraggable.getBoundingClientRect();
+            const containerRect = document.getElementById('canvas').getBoundingClientRect();
+            
+            offset.x = clientX - rect.left;
+            offset.y = clientY - rect.top;
+            
+            // Remove transform for absolute positioning
+            currentDraggable.style.transform = 'none';
+        }
+        
+        function drag(e) {
+            if (!currentDraggable) return;
+            e.preventDefault();
+            
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const containerRect = document.getElementById('canvas').getBoundingClientRect();
+            
+            let x = clientX - containerRect.left - offset.x;
+            let y = clientY - containerRect.top - offset.y;
+            
+            // Boundary constraints
+            const draggableRect = currentDraggable.getBoundingClientRect();
+            x = Math.max(0, Math.min(x, containerRect.width - draggableRect.width));
+            y = Math.max(0, Math.min(y, containerRect.height - draggableRect.height));
+            
+            currentDraggable.style.left = x + 'px';
+            currentDraggable.style.top = y + 'px';
+        }
+        
+        function endDrag() {
+            currentDraggable = null;
+        }
+        
+        function centerElement(el) {
+            const container = document.getElementById('canvas');
+            const rect = el.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            const x = (containerRect.width / 2) - (rect.width / 2);
+            const y = (containerRect.height / 2) - (rect.height / 2);
+            
+            el.style.left = Math.max(0, x) + 'px';
+            el.style.top = Math.max(0, y) + 'px';
+        }
+        
+        // Download functionality
+        downloadBtn.addEventListener('click', async () => {
+            if (background.style.display === 'none') {
+                showError('Please upload a background image.');
+                return;
+            }
+            
+            const container = document.getElementById('canvas');
+            const containerRect = container.getBoundingClientRect();
+            
+            const scale = background.naturalWidth / containerRect.width;
+            const renderedCanvas = await html2canvas(container, {
+                backgroundColor: null,
+                useCORS: true,
+                scale,
+                width: containerRect.width,
+                height: containerRect.height
+            });
+            
+            const link = document.createElement('a');
+            link.download = 'background-creation.png';
+            link.href = renderedCanvas.toDataURL('image/png');
+            setTimeout(() => { link.click(); }, 100);
+        });
+    </script>
+</body>
+</html>

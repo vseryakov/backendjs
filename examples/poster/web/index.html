@@ -49,7 +49,10 @@
                     <div class="mb-3">
                         <label for="logo" class="form-label">Logo</label>
                         <div class="input-group">
-                            <input type="file" class="form-control" id="logo">
+                            <div class="form-control p-2 d-flex justify-content-center align-content-center" :class="{ 'border-primary': dragging }" x-droppable="$component">
+                                <p>Click or drag background here</p>
+                                <input type="file" id="logo" accept="image/*" class="d-none" @change="onFileDropped">
+                            </div>
                             <span class="input-group-text p-0" x-template="'element-options'"></span>
                         </div>
                     </div>
@@ -57,7 +60,7 @@
                     <div class="mb-3">
                         <label for="name" class="form-label">Name</label>
                         <div class="input-group">
-                            <textarea class="form-control" id="name" rows="2" wrap="hard"></textarea>
+                            <textarea class="form-control" id="name" rows="1" wrap="hard"></textarea>
                             <span class="input-group-text p-0" x-template="'element-options'"></span>
                         </div>
                     </div>
@@ -65,7 +68,7 @@
                     <div class="mb-3">
                         <label for="title" class="form-label">Title</label>
                         <div class="input-group">
-                            <textarea class="form-control" id="title" rows="2" wrap="hard"></textarea>
+                            <textarea class="form-control" id="title" rows="1" wrap="hard"></textarea>
                             <span class="input-group-text p-0" x-template="'element-options'"></span>
                         </div>
                     </div>
@@ -73,19 +76,25 @@
                     <div class="mb-3">
                         <label for="subtitle" class="form-label">Subtitle</label>
                         <div class="input-group">
-                            <textarea class="form-control" id="subtitle" rows="2" wrap="hard"></textarea>
+                            <textarea class="form-control" id="subtitle" rows="1" wrap="hard"></textarea>
                             <span class="input-group-text p-0" x-template="'element-options'"></span>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <button class="btn btn-primary" @click.stop.prevent="create">Preview</button>
+                        <button class="btn btn-primary" @click.stop.prevent="preview">Preview</button>
                     </div>
                 </form>
             </div>
 
-            <div class="col-md-8 bg-light">
-                <img src="/img/1.png" id="image" class="img-fluid" alt="Poster">
+            <div class="col-md-8">
+                <div class="card shadow-sm w-100 h-100">
+                    <div class="card-body">
+                        <div class="bg-light rounded p-2 w-100 h-100">
+                            <img src="/img/1.png" id="image" class="img-fluid" alt="Poster">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

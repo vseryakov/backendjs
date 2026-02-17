@@ -1156,10 +1156,19 @@ See {@link module:sendmail}
 ### **sendmail-from**
  Email address to be used when sending emails from the backend   
 ### **sendmail-transport**
- Send emails via supported transports: ses:, ses2:, fake:, file:, json:, if not set default SMTP settings are used   
+ Send emails via supported transports: ses:, sendgrid:, fake:, file:, json:, if not set default SMTP settings are used   
 ### **sendmail-smtp**
  SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details   
 ##### Type: map   
+### **sendmail-options-(.+)**
+ Transport specific parameters   
+##### Type: map   
+##### Example:
+```
+sendmail-options-sendgrid = key:xxxx
+sendmail-options-ses = config:cfg1,region:us-west-2
+```
+
 ## sql
 See {@link module:sql}
 ### **sql-config-(.+)**
