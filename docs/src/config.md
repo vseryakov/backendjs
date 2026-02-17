@@ -450,7 +450,7 @@ See {@link module:api.static}
 ##### Type: map   
 ##### Default: {"maxAge":0}   
 ### **api-static-views-(.+)**
- Locations to be rendered as views, use ! in front of regexp to remove particular redirect from the list   
+ Locations to be rendered as views, use ! in front of regexp to remove particular redirect from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@,   
 ##### Type: regexpobj   
 ##### Example:
 ```

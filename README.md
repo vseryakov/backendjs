@@ -3,7 +3,8 @@
 The `backendjs` provides a comprehensive set of modules and utilities for
 building scalable, distributed applications with features like database management, caching, job queues, event processing, and more.
 
-Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-start.html) or [all docs](https://vseryakov.github.io/backendjs/docs/web/index.html).
+Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-start.html) or
+[all docs](https://vseryakov.github.io/backendjs/docs/web/index.html).
 
 
 ---
@@ -140,8 +141,7 @@ The library is configured via:
 
 ## **Deployment**
 
-- **Docker**: Can be containerized for easy deployment.
-- **Kubernetes**: Supports scaling via Kubernetes deployments.
+- **Docker**: Can be containerized for easy deployment, no init-shim required.
 - **AWS ECS/EC2**: Can be deployed on AWS for cloud scalability.
 
 ---
