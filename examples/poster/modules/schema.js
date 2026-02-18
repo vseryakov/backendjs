@@ -1,10 +1,14 @@
 
 module.exports.defaults = {
-    image: {
-        width: 1280,
-        height: 1280,
-        background: "#000",
-        fit: "cover",
+
+    avatar: {
+        gravity: "east",
+        padding: 70,
+        width: 500,
+        height: 500,
+        radius: 10,
+        border: 15,
+        color: "#ffffff70"
     },
 
     logo: {
@@ -37,16 +41,6 @@ module.exports.defaults = {
         style: "italic",
     },
 
-    avatar: {
-        gravity: "east",
-        padding: 70,
-        width: 500,
-        height: 500,
-        radius: 10,
-        border: 15,
-        color: "#ffffff70"
-    },
-
     name: {
         gravity: "southeast",
         padding: 70,
@@ -55,9 +49,17 @@ module.exports.defaults = {
         color: "#fff",
         weight: "bold",
     },
+
+    image: {
+        width: 1280,
+        height: 1280,
+        background: "#000",
+        fit: "cover",
+    },
 };
 
-const properties = module.exports.properties = {
+module.exports.properties = {
+    file: {},
     text: {},
     size: {},
     font: {},
@@ -67,17 +69,17 @@ const properties = module.exports.properties = {
     justify: { type: "bool" },
     wrap: {},
     dpi: { type: "int" },
-    bold: { type: "bool" },
-    italic: { type: "bool" },
-    file: {},
+    weight: {},
+    style: { type: "bool" },
     width: { type: "int" },
     height: { type: "int" },
     background: {},
     color: {},
-    bcolor: {},
     gravity: {},
     radius: { type: "int" },
     border: { type: "int" },
+    bcolor: {},
+    bradius: { type: "int" },
     padding: { type: "int" },
     padding_x: { type: "int" },
     padding_y: { type: "int" },
@@ -92,31 +94,3 @@ const properties = module.exports.properties = {
     withoutReduction: { type: "bool" },
     fastShrinkOnLoad: { type: "bool" },
 };
-
-module.exports.schema ={
-    image: {
-        type: "obj",
-        params: properties,
-    },
-    logo: {
-        type: "obj",
-        params: properties,
-    },
-    avatar: {
-        type: "obj",
-        params: properties,
-    },
-    name: {
-        type: "obj",
-        params: properties,
-    },
-    title: {
-        type: "obj",
-        params: properties,
-    },
-    subtitle: {
-        type: "obj",
-        params: properties,
-    },
-}
-

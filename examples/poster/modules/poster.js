@@ -3,9 +3,10 @@
 //  backendjs 2025
 //
 
+const sharp = require("sharp");
 const { api } = require('../../../lib/index');
 
-const { schema, defaults } = require("./schema");
+const { properties, defaults } = require("./schema");
 
 //
 // A demo module that implements a CRUD app to create social poster images
@@ -28,8 +29,18 @@ module.exports = {
     },
 
     render(req, res) {
-        const query = api.toParams(req, schema.schema);
+        const schema = Object.keys(defaults).reduce((a, b) => {
+            a[b] = { type: "obj", params: properties }
+            return a;
+        }, {});
+        const query = api.toParams(req, schema);
         if (typeof query == "string") return api.sendReply(res, 400, query);
+
+        for (const p in query) {
+            if (query[p].file && req.files[p]) {
+                query[p].file = req.files[p].path;
+            }
+        }
 
         this.compose(query).then(rc => {
             req.res.header("pragma", "no-cache");
@@ -60,54 +71,49 @@ const applyOps = (opts, image) => {
     }
 }
 
+const hex = (n) => ("" + ((n/16) & 0xff) + (n % 16))
+
 mod.compose = async function(options)
 {
     const rc = {};
 
-    if (options.avatar?.file) {
-        const opts = Object.assign({}, defaults.avatar, options.avatar);
+    // Render the main background image
+    const imgopts = Object.assign({}, defaults.image, options.image);
+    const input = imgopts.file || { create: { width: imgopts.width, height: imgopts.height, channels: 4, background: imgopts.background } };
+    const image = sharp(input).resize(imgopts);
+    applyOps(imgopts, image);
 
-        const image = await api.images.createImage(opts);
-        applyOps(opts, image);
-        await add(rc, "avatar", opts, image);
-    }
+    const buffer = await image.toBuffer();
 
-    if (options.logo?.file) {
-        const opts = Object.assign({}, defaults.logo, options.logo);
+    const regions = {};
 
-        const image = await api.images.createImage(opts);
-        applyOps(opts, image);
-        await add(rc, "logo", opts, image);
-    }
-
-    // Render all text elements
-    const promises = ["title", "subtitle", "name" ].
-        filter(name => options[name]?.text).
-        map(name => {
+    // Render all elements first
+    await Promise.all(Object.keys(defaults).
+        filter(name => (name != "image" && (options[name]?.text || options[name]?.file))).
+        map(async (name) => {
             const opts = Object.assign({}, defaults[name], options[name]);
+
+            // Autodetect text color if not given from the background
+            if (opts.text && !opts.color && opts.gravity) {
+                if (!regions[opts.gravity]) {
+                    const region = api.images.getGravityRegion(opts.gravity, imgopts.width, imgopts.height);
+                    const stats = await sharp(buffer).extract(region).stats();
+                    regions[opts.gravity] = `#${hex(255 - stats.dominant.r)}${hex(255 - stats.dominant.g)}${hex(255 - stats.dominant.b)}`;
+                }
+                opts.color = regions[opts.gravity];
+            }
+
             return api.images.createImage(opts).then(async (image) => {
                 applyOps(opts, image);
                 await add(rc, name, opts, image);
             });
-        });
-
-    await Promise.all(promises);
-
-    // Render the main background image
-    const opts = Object.assign({}, defaults.image, options.image);
-    const input = opts.file || { create: { width: opts.width, height: opts.height, channels: 4, background: opts.background } };
-    const image = api.images.sharp(input);
-
-    image.resize(opts);
-
-    applyOps(opts, image);
+        }));
 
     // Composite all elements into the background
     const buffers = Object.keys(rc).map(x => ({ input: rc[x].buffer, gravity: rc[x].gravity }));
-    image.composite(buffers).
-        png();
+    image.composite(buffers).png();
 
-    await add(rc, "image", opts, image);
+    await add(rc, "image", imgopts, image);
 
     return rc;
 }
