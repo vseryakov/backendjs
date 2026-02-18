@@ -67,7 +67,7 @@ mod.compose = async function(options)
     if (options.avatar?.file) {
         const opts = Object.assign({}, defaults.avatar, options.avatar);
 
-        const image = await api.images.createAvatar(opts);
+        const image = await api.images.createImage(opts);
         applyOps(opts, image);
         await add(rc, "avatar", opts, image);
     }
@@ -75,13 +75,7 @@ mod.compose = async function(options)
     if (options.logo?.file) {
         const opts = Object.assign({}, defaults.logo, options.logo);
 
-        const image = await api.images.sharp(opts.file).
-            resize(opts).
-            extend(Object.assign({
-                background: { r: 0, g: 0, b: 0, alpha: 0 }
-            }, api.images.toPadding(opts))).
-            png();
-
+        const image = await api.images.createImage(opts);
         applyOps(opts, image);
         await add(rc, "logo", opts, image);
     }
@@ -91,7 +85,7 @@ mod.compose = async function(options)
         filter(name => options[name]?.text).
         map(name => {
             const opts = Object.assign({}, defaults[name], options[name]);
-            return api.images.createText(opts).then(async (image) => {
+            return api.images.createImage(opts).then(async (image) => {
                 applyOps(opts, image);
                 await add(rc, name, opts, image);
             });

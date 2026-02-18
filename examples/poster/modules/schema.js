@@ -10,6 +10,7 @@ module.exports.defaults = {
     logo: {
         gravity: "northwest",
         width: 160,
+        height: 160,
         padding: 200,
         fit: "cover",
     },
@@ -22,7 +23,7 @@ module.exports.defaults = {
         dpi: 600,
         font: "Roboto",
         color: "#fff",
-        bold: 1,
+        weight: "bold",
     },
 
     subtitle: {
@@ -32,15 +33,17 @@ module.exports.defaults = {
         dpi: 400,
         font: "Sans Serif",
         color: "#eee",
-        bold: 1,
-        italic: 1,
+        weight: "bold",
+        style: "italic",
     },
 
     avatar: {
         gravity: "east",
         padding: 70,
         width: 500,
+        height: 500,
         radius: 10,
+        border: 15,
         color: "#ffffff70"
     },
 
@@ -50,7 +53,7 @@ module.exports.defaults = {
         dpi: 300,
         font: "Montserrat, Helvetica Neue, Arial, Sans Serif",
         color: "#fff",
-        bold: 1,
+        weight: "bold",
     },
 };
 
@@ -71,6 +74,7 @@ const properties = module.exports.properties = {
     height: { type: "int" },
     background: {},
     color: {},
+    bcolor: {},
     gravity: {},
     radius: { type: "int" },
     border: { type: "int" },
