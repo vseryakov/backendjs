@@ -6,6 +6,11 @@
     <link rel="icon" href="/img/logo.png" type="image/png" />
 
     <link href="/css/bootstrap.css" rel="stylesheet">
+    <style type="text/css">
+        .border-dashed {
+            border-style: dashed;
+        }
+    </style>
 </head>
 
 <body>
@@ -49,7 +54,7 @@
                     <div class="mb-3">
                         <label for="logo" class="form-label">Logo</label>
                         <div class="input-group">
-                            <div class="form-control p-2 d-flex justify-content-center align-content-center " :class="{ 'border-primary': dragging }" x-droppable="$component" style="border-style: dashed;">
+                            <div class="form-control border-dashed p-2 d-flex justify-content-center align-content-center " :class="{ 'border-primary': dragging }" x-droppable="$component">
                                 Click or drag background here
                                 <input type="file" id="logo" accept="image/*" class="d-none" @change="onFileDropped">
                             </div>

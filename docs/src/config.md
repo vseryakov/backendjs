@@ -457,6 +457,13 @@ See {@link module:api.static}
 -api-static-views-^/user/get show-user
 ```
 
+### **api-static-mime-(.+)**
+ File extension to MIME content type mapping, this is used by static-serve   
+##### Example:
+```
+-api-static-mime-mobileconfig application/x-apple-aspen-config
+```
+
 ### **api-static-vhost-([^/]+)**
  Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match   
 ##### Type: regexp   
@@ -468,16 +475,14 @@ api-static-vhost-test_dir=test.com$
 ### **api-static-no-vhost**
  Add to the list of URL paths that should be served for all virtual hosts   
 ##### Type: regexpobj   
-### **api-static-mime-(.+)**
- File extension to MIME content type mapping, this is used by static-serve   
-##### Example:
-```
--api-static-mime-mobileconfig application/x-apple-aspen-config
-```
-
-### **api-static-no-cache-files**
+### **api-static-no-cache**
  Set cache-control=no-cache header for matching static files   
 ##### Type: regexpobj   
+##### Example:
+```
+api-static-no-cache = .+
+```
+
 ### **api-static-compressed-([^/]+)**
  Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention   
 ##### Type: regexp   
@@ -594,10 +599,13 @@ See {@link module:app}
  Set app name/version explicitely and skip reading it from the package.json   
 ##### Default: "bkjs/0.0"   
 ### **app-instance-([a-z0-9_-]+)**
- Set instance properties explicitly: tag, region, zone, roles   
-### **app-run-mode**
- Running mode for the app, used to separate different running environment and configurations   
-##### Default: "dev"   
+ Set instance/container properties explicitly: tag, region, zone, roles, ...   
+##### Example:
+```
+app-instance-roles = dev,web
+app-instance-tag = api
+```
+
 ### **app-daemon**
  Daemonize the process, go to the background, can be specified only in the command line   
 ##### Type: none   
@@ -856,7 +864,7 @@ See {@link module:db}
 ### **db-config-map**
  Config options: `.interval` between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db, `.count` max records to load in one select, see the docs about `.top`, `.main`, `.other` config parameters   
 ##### Type: map   
-##### Default: {"count":1000,"interval":1440,"top":"runMode","main":"role,roles,tag","other":"role"}   
+##### Default: {"count":1000,"interval":1440,"top":"roles","main":"role,tag","other":"role"}   
 ### **db-skip-drop**
  A pattern of table names which will skipp in db.drop operations to prevent accidental table deletion   
 ##### Type: regexpobj   
@@ -1064,7 +1072,7 @@ See {@link module:logwatcher}
  Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses   
 ### **logwatcher-subject**
  Email subject template, all placeholders have access to the core module only   
-##### Default: "logwatcher: @counter@ @type@s: @hostname@/@ipaddr@/@instance.id@/@instance.tag@/@runMode@/@instance.region@"   
+##### Default: "logwatcher: @counter@ @type@s: @hostname@/@ipaddr@/@instance.id@/@instance.tag@/@instance.roles@/@instance.region@"   
 ### **logwatcher-interval**
  How often to check for errors in the log files in seconds, 0 to disable   
 ##### Type: number   

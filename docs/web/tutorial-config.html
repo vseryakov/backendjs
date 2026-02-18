@@ -464,27 +464,30 @@ api-csrf-sec-fetch-same-origin = ^/
 <h5 id="example%3A-20">Example:</h5>
 <pre class="prettyprint source"><code>-api-static-views-^/user/get show-user
 </code></pre>
+<h3 id="api-static-mime-(.%2B)"><strong>api-static-mime-(.+)</strong></h3>
+<p>File extension to MIME content type mapping, this is used by static-serve</p>
+<h5 id="example%3A-21">Example:</h5>
+<pre class="prettyprint source"><code>-api-static-mime-mobileconfig application/x-apple-aspen-config
+</code></pre>
 <h3 id="api-static-vhost-(%5B%5E%2F%5D%2B)"><strong>api-static-vhost-([^/]+)</strong></h3>
 <p>Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match</p>
 <h5 id="type%3A-regexp-4">Type: regexp</h5>
-<h5 id="example%3A-21">Example:</h5>
+<h5 id="example%3A-22">Example:</h5>
 <pre class="prettyprint source"><code>api-static-vhost-test_dir=test.com$
 </code></pre>
 <h3 id="api-static-no-vhost"><strong>api-static-no-vhost</strong></h3>
 <p>Add to the list of URL paths that should be served for all virtual hosts</p>
 <h5 id="type%3A-regexpobj-16">Type: regexpobj</h5>
-<h3 id="api-static-mime-(.%2B)"><strong>api-static-mime-(.+)</strong></h3>
-<p>File extension to MIME content type mapping, this is used by static-serve</p>
-<h5 id="example%3A-22">Example:</h5>
-<pre class="prettyprint source"><code>-api-static-mime-mobileconfig application/x-apple-aspen-config
-</code></pre>
-<h3 id="api-static-no-cache-files"><strong>api-static-no-cache-files</strong></h3>
+<h3 id="api-static-no-cache"><strong>api-static-no-cache</strong></h3>
 <p>Set cache-control=no-cache header for matching static files</p>
 <h5 id="type%3A-regexpobj-17">Type: regexpobj</h5>
+<h5 id="example%3A-23">Example:</h5>
+<pre class="prettyprint source"><code>api-static-no-cache = .+
+</code></pre>
 <h3 id="api-static-compressed-(%5B%5E%2F%5D%2B)"><strong>api-static-compressed-([^/]+)</strong></h3>
 <p>Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention</p>
 <h5 id="type%3A-regexp-5">Type: regexp</h5>
-<h5 id="example%3A-23">Example:</h5>
+<h5 id="example%3A-24">Example:</h5>
 <pre class="prettyprint source"><code>-api-static-compress-bundle.js gz
 </code></pre>
 <h2 id="api.users">api.users</h2>
@@ -595,10 +598,11 @@ api-csrf-sec-fetch-same-origin = ^/
 <p>Set app name/version explicitely and skip reading it from the package.json</p>
 <h5 id="default%3A-%22bkjs%2F0.0%22">Default: &quot;bkjs/0.0&quot;</h5>
 <h3 id="app-instance-(%5Ba-z0-9_-%5D%2B)"><strong>app-instance-([a-z0-9_-]+)</strong></h3>
-<p>Set instance properties explicitly: tag, region, zone, roles</p>
-<h3 id="app-run-mode"><strong>app-run-mode</strong></h3>
-<p>Running mode for the app, used to separate different running environment and configurations</p>
-<h5 id="default%3A-%22dev%22">Default: &quot;dev&quot;</h5>
+<p>Set instance/container properties explicitly: tag, region, zone, roles, ...</p>
+<h5 id="example%3A-25">Example:</h5>
+<pre class="prettyprint source"><code>app-instance-roles = dev,web
+app-instance-tag = api
+</code></pre>
 <h3 id="app-daemon"><strong>app-daemon</strong></h3>
 <p>Daemonize the process, go to the background, can be specified only in the command line</p>
 <h5 id="type%3A-none">Type: none</h5>
@@ -642,7 +646,7 @@ api-csrf-sec-fetch-same-origin = ^/
 <h3 id="app-modules-methods-(.%2B)"><strong>app-modules-methods-(.+)</strong></h3>
 <p>Modules that allowed to run methods by name, useful to restrict configure methods</p>
 <h5 id="type%3A-regexp-11">Type: regexp</h5>
-<h5 id="example%3A-24">Example:</h5>
+<h5 id="example%3A-26">Example:</h5>
 <pre class="prettyprint source"><code>-app-modules-methods-configureWeb app
 </code></pre>
 <h3 id="app-host-name"><strong>app-host-name</strong></h3>
@@ -732,13 +736,13 @@ api-csrf-sec-fetch-same-origin = ^/
 <h5 id="type%3A-list-13">Type: list</h5>
 <h3 id="aws-config-parameters"><strong>aws-config-parameters</strong></h3>
 <p>Prefix for AWS Systems Manager parameters to load and parse as config before initializing the database pools</p>
-<h5 id="example%3A-25">Example:</h5>
+<h5 id="example%3A-27">Example:</h5>
 <pre class="prettyprint source"><code>/bkjs/config/
 </code></pre>
 <h3 id="aws-config-secrets"><strong>aws-config-secrets</strong></h3>
 <p>AWS Secrets Manager filters to load and parse as config before initializing the database pools, supports @..@ app.instance placeholders in filters</p>
 <h5 id="type%3A-list-14">Type: list</h5>
-<h5 id="example%3A-26">Example:</h5>
+<h5 id="example%3A-28">Example:</h5>
 <pre class="prettyprint source"><code>production,production-@tag@,production-@role@
 </code></pre>
 <h3 id="aws-config-s3-file"><strong>aws-config-s3-file</strong></h3>
@@ -751,23 +755,23 @@ api-csrf-sec-fetch-same-origin = ^/
 <h3 id="cache-config"><strong>cache-config</strong></h3>
 <p>An object with driver configs, an object with at least url or an url string</p>
 <h5 id="type%3A-json-3">Type: json</h5>
-<h5 id="example%3A-27">Example:</h5>
+<h5 id="example%3A-29">Example:</h5>
 <pre class="prettyprint source"><code>-cache-config {&quot;redis&quot;:{&quot;url&quot;:redis://localhost&quot;,&quot;count&quot;:1},&quot;nats&quot;:&quot;nats://localhost:4222&quot;}
 </code></pre>
 <h3 id="cache-(%5Ba-z0-9%5D%2B)-options%24"><strong>cache-([a-z0-9]+)-options$</strong></h3>
 <p>Additional parameters for clients, specific to each implementation</p>
 <h5 id="type%3A-map-8">Type: map</h5>
-<h5 id="example%3A-28">Example:</h5>
+<h5 id="example%3A-30">Example:</h5>
 <pre class="prettyprint source"><code>-cache-redis-options count:10,interval:100
 </code></pre>
 <h3 id="cache-(%5Ba-z0-9%5D%2B)-options-(.%2B)"><strong>cache-([a-z0-9]+)-options-(.+)</strong></h3>
 <p>Additional parameters for clients, specific to each implementation</p>
-<h5 id="example%3A-29">Example:</h5>
+<h5 id="example%3A-31">Example:</h5>
 <pre class="prettyprint source"><code>-cache-default-options-count 10
 </code></pre>
 <h3 id="cache-(%5Ba-z0-9%5D%2B)"><strong>cache-([a-z0-9]+)</strong></h3>
 <p>An URL that points to a cache server in the format PROTO://HOST[:PORT]?PARAMS, multiple clients can be defined with unique names, all params starting with bk- will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url</p>
-<h5 id="example%3A-30">Example:</h5>
+<h5 id="example%3A-32">Example:</h5>
 <pre class="prettyprint source"><code>-cache-redis redis://localhost?bk-count=3&bk-ttl=3000
 </code></pre>
 <h2 id="db">db</h2>
@@ -825,13 +829,13 @@ api-csrf-sec-fetch-same-origin = ^/
 <h5 id="type%3A-int-24">Type: int</h5>
 <h3 id="db-custom-column-(%5Ba-za-z0-9_%5D%2B)-(.%2B)"><strong>db-custom-column-([a-zA-Z0-9_]+)-(.+)</strong></h3>
 <p>A column that is allowed to be used in any table, the name is a column name regexp with the value to be a type</p>
-<h5 id="example%3A-31">Example:</h5>
+<h5 id="example%3A-33">Example:</h5>
 <pre class="prettyprint source"><code>-db-custom-column-users-^stats=counter
 </code></pre>
 <h3 id="db-describe-column-(%5Ba-z0-9_%5D%2B)-(%5Ba-za-z0-9_.%5D%2B)"><strong>db-describe-column-([a-z0-9_]+)-([a-zA-Z0-9_.]+)</strong></h3>
 <p>Describe a table column properties, can be a new or existing column, overrides existing property</p>
 <h5 id="type%3A-map-9">Type: map</h5>
-<h5 id="example%3A-32">Example:</h5>
+<h5 id="example%3A-34">Example:</h5>
 <pre class="prettyprint source"><code>-db-describe-column-users-name.check max:255
 </code></pre>
 <h3 id="db-config"><strong>db-config</strong></h3>
@@ -839,7 +843,7 @@ api-csrf-sec-fetch-same-origin = ^/
 <h3 id="db-config-map"><strong>db-config-map</strong></h3>
 <p>Config options: <code>.interval</code> between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db, <code>.count</code> max records to load in one select, see the docs about <code>.top</code>, <code>.main</code>, <code>.other</code> config parameters</p>
 <h5 id="type%3A-map-10">Type: map</h5>
-<h5 id="default%3A-%7B%22count%22%3A1000%2C%22interval%22%3A1440%2C%22top%22%3A%22runmode%22%2C%22main%22%3A%22role%2Croles%2Ctag%22%2C%22other%22%3A%22role%22%7D">Default: {&quot;count&quot;:1000,&quot;interval&quot;:1440,&quot;top&quot;:&quot;runMode&quot;,&quot;main&quot;:&quot;role,roles,tag&quot;,&quot;other&quot;:&quot;role&quot;}</h5>
+<h5 id="default%3A-%7B%22count%22%3A1000%2C%22interval%22%3A1440%2C%22top%22%3A%22roles%22%2C%22main%22%3A%22role%2Ctag%22%2C%22other%22%3A%22role%22%7D">Default: {&quot;count&quot;:1000,&quot;interval&quot;:1440,&quot;top&quot;:&quot;roles&quot;,&quot;main&quot;:&quot;role,tag&quot;,&quot;other&quot;:&quot;role&quot;}</h5>
 <h3 id="db-skip-drop"><strong>db-skip-drop</strong></h3>
 <p>A pattern of table names which will skipp in db.drop operations to prevent accidental table deletion</p>
 <h5 id="type%3A-regexpobj-18">Type: regexpobj</h5>
@@ -851,7 +855,7 @@ api-csrf-sec-fetch-same-origin = ^/
 <h5 id="default%3A-2-1">Default: 2</h5>
 <h3 id="db-(%5Ba-z0-9%5D%2B)-pool"><strong>db-([a-z0-9]+)-pool</strong></h3>
 <p>A database pool name, depending on the driver it can be an URL, name or pathname</p>
-<h5 id="example%3A-33">Example:</h5>
+<h5 id="example%3A-35">Example:</h5>
 <pre class="prettyprint source"><code>`-db-pg-pool`
 `-db-dynamodb-pool`
 url format: `protocol://[user:password@]hostname[:port]/dbname`
@@ -902,13 +906,13 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="events-worker-queue-(.%2B)"><strong>events-worker-queue-(.+)</strong></h3>
 <p>Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is <code>queue#channel@consumer</code></p>
 <h5 id="type%3A-list-24">Type: list</h5>
-<h5 id="example%3A-34">Example:</h5>
+<h5 id="example%3A-36">Example:</h5>
 <pre class="prettyprint source"><code>-events-worker-queue-ticket ticket.processEvents, -events-worker-queue-ticket#inbox@staff ticket.processInboxEvents, -events-worker-queue-ticket@staff ticket.processStaffEvents
 </code></pre>
 <h3 id="events-worker-options-(.%2B)"><strong>events-worker-options-(.+)</strong></h3>
 <p>Custom parameters by queue name, passed to <code>queue.listen</code> on worker start, useful with channels</p>
 <h5 id="type%3A-map-14">Type: map</h5>
-<h5 id="example%3A-35">Example:</h5>
+<h5 id="example%3A-37">Example:</h5>
 <pre class="prettyprint source"><code>-events-worker-options-ticket count:3,raw:1
 </code></pre>
 <h3 id="events-worker-delay"><strong>events-worker-delay</strong></h3>
@@ -922,13 +926,13 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <p>Routing map by event subject or type</p>
 <h5 id="type%3A-map-15">Type: map</h5>
 <h5 id="default%3A-%7B%7D-5">Default: {}</h5>
-<h5 id="example%3A-36">Example:</h5>
+<h5 id="example%3A-38">Example:</h5>
 <pre class="prettyprint source"><code>-events-routing redis:local.+,nats:.+,sqs:billing.+
 </code></pre>
 <h3 id="events-routing-options-(.%2B)"><strong>events-routing-options-(.+)</strong></h3>
 <p>Routing options by queue name, used by <code>putEvent</code> to merge with passed queue options</p>
 <h5 id="type%3A-map-16">Type: map</h5>
-<h5 id="example%3A-37">Example:</h5>
+<h5 id="example%3A-39">Example:</h5>
 <pre class="prettyprint source"><code>-events-routing-options-sqs groupKey:id
 </code></pre>
 <h3 id="events-shutdown-timeout"><strong>events-shutdown-timeout</strong></h3>
@@ -974,7 +978,7 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="jobs-worker-options-(.%2B)"><strong>jobs-worker-options-(.+)</strong></h3>
 <p>Custom parameters by queue name, passed to <code>queue.subscribeQueue</code> on worker start, useful with channels</p>
 <h5 id="type%3A-json-5">Type: json</h5>
-<h5 id="example%3A-38">Example:</h5>
+<h5 id="example%3A-40">Example:</h5>
 <pre class="prettyprint source"><code>-jobs-worker-options-nats#events {&quot;count&quot;:10}
 </code></pre>
 <h3 id="jobs-max-runtime"><strong>jobs-max-runtime</strong></h3>
@@ -1012,7 +1016,7 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="jobs-unique-set-ttl-(%5B0-9%5D%2B)"><strong>jobs-unique-set-ttl-([0-9]+)</strong></h3>
 <p>Override unique TTL to a new value if matches the unique key</p>
 <h5 id="type%3A-regexp-13">Type: regexp</h5>
-<h5 id="example%3A-39">Example:</h5>
+<h5 id="example%3A-41">Example:</h5>
 <pre class="prettyprint source"><code>-jobs-unique-ttl-100 KEY
 </code></pre>
 <h3 id="jobs-unique-logger"><strong>jobs-unique-logger</strong></h3>
@@ -1033,7 +1037,7 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <p>Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses</p>
 <h3 id="logwatcher-subject"><strong>logwatcher-subject</strong></h3>
 <p>Email subject template, all placeholders have access to the core module only</p>
-<h5 id="default%3A-%22logwatcher%3A-%40counter%40-%40type%40s%3A-%40hostname%40%2F%40ipaddr%40%2F%40instance.id%40%2F%40instance.tag%40%2F%40runmode%40%2F%40instance.region%40%22">Default: &quot;logwatcher: @counter@ @type@s: @hostname@/@ipaddr@/@instance.id@/@instance.tag@/@runMode@/@instance.region@&quot;</h5>
+<h5 id="default%3A-%22logwatcher%3A-%40counter%40-%40type%40s%3A-%40hostname%40%2F%40ipaddr%40%2F%40instance.id%40%2F%40instance.tag%40%2F%40instance.roles%40%2F%40instance.region%40%22">Default: &quot;logwatcher: @counter@ @type@s: @hostname@/@ipaddr@/@instance.id@/@instance.tag@/@instance.roles@/@instance.region@&quot;</h5>
 <h3 id="logwatcher-interval"><strong>logwatcher-interval</strong></h3>
 <p>How often to check for errors in the log files in seconds, 0 to disable</p>
 <h5 id="type%3A-number-13">Type: number</h5>
@@ -1075,13 +1079,13 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="push-config"><strong>push-config</strong></h3>
 <p>An object with client configs by type</p>
 <h5 id="type%3A-json-7">Type: json</h5>
-<h5 id="example%3A-40">Example:</h5>
+<h5 id="example%3A-42">Example:</h5>
 <pre class="prettyprint source"><code>-push-config {&quot;webpush&quot;:{&quot;type&quot;:&quot;webpush&quot;,key&quot;:XXX&quot;,&quot;pubkey&quot;:&quot;XXXX&quot;}}
 </code></pre>
 <h3 id="push-(%5Ba-z0-9%5D%2B)"><strong>push-([a-z0-9]+)</strong></h3>
 <p>A single client type parameters</p>
 <h5 id="type%3A-map-22">Type: map</h5>
-<h5 id="example%3A-41">Example:</h5>
+<h5 id="example%3A-43">Example:</h5>
 <pre class="prettyprint source"><code>-push-webpush type:webpush,key:K,pubkey:PK,email:XXX
 </code></pre>
 <h2 id="queue">queue</h2>
@@ -1089,23 +1093,23 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="queue-config"><strong>queue-config</strong></h3>
 <p>An object with driver configs, an object with at least url or an url string</p>
 <h5 id="type%3A-json-8">Type: json</h5>
-<h5 id="example%3A-42">Example:</h5>
+<h5 id="example%3A-44">Example:</h5>
 <pre class="prettyprint source"><code>-queue-config {&quot;redis&quot;:{&quot;url&quot;:redis://localhost&quot;,&quot;count&quot;:1},&quot;nats&quot;:&quot;nats://localhost:4222&quot;}
 </code></pre>
 <h3 id="queue-(%5Ba-z0-9_%5D%2B)-options%24"><strong>queue-([a-z0-9_]+)-options$</strong></h3>
 <p>Additional parameters for drivers, specific to each implementation</p>
 <h5 id="type%3A-map-23">Type: map</h5>
-<h5 id="example%3A-43">Example:</h5>
+<h5 id="example%3A-45">Example:</h5>
 <pre class="prettyprint source"><code>-queue-redis-options count:10,interval:100
 </code></pre>
 <h3 id="queue-(%5Ba-z0-9_%5D%2B)-options-(.%2B)"><strong>queue-([a-z0-9_]+)-options-(.+)</strong></h3>
 <p>Additional parameters for drivers, specific to each implementation</p>
-<h5 id="example%3A-44">Example:</h5>
+<h5 id="example%3A-46">Example:</h5>
 <pre class="prettyprint source"><code>-queue-default-options-count 10
 </code></pre>
 <h3 id="queue-(%5Ba-z0-9_%5D%2B)"><strong>queue-([a-z0-9_]+)</strong></h3>
 <p>An URL that points to a server in the format <code>PROTO://HOST[:PORT]?PARAMS</code>, multiple clients can be defined with unique names, all params starting with <code>bk-</code> will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url</p>
-<h5 id="example%3A-45">Example:</h5>
+<h5 id="example%3A-47">Example:</h5>
 <pre class="prettyprint source"><code>-queue-redis redis://localhost?bk-count=3&bk-ttl=3000
 </code></pre>
 <h2 id="sendmail">sendmail</h2>
@@ -1120,7 +1124,7 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="sendmail-options-(.%2B)"><strong>sendmail-options-(.+)</strong></h3>
 <p>Transport specific parameters</p>
 <h5 id="type%3A-map-25">Type: map</h5>
-<h5 id="example%3A-46">Example:</h5>
+<h5 id="example%3A-48">Example:</h5>
 <pre class="prettyprint source"><code>sendmail-options-sendgrid = key:xxxx
 sendmail-options-ses = config:cfg1,region:us-west-2
 </code></pre>
@@ -1147,7 +1151,7 @@ sendmail-options-ses = config:cfg1,region:us-west-2
 <h3 id="stats-filter"><strong>stats-filter</strong></h3>
 <p>For each metric prefix provide regexp to keep only matched stats</p>
 <h5 id="type%3A-map-27">Type: map</h5>
-<h5 id="example%3A-47">Example:</h5>
+<h5 id="example%3A-49">Example:</h5>
 <pre class="prettyprint source"><code>-stats-filter db:dynamodb
 </code></pre>
 </article>

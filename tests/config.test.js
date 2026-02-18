@@ -1,5 +1,4 @@
 
-const util = require("util");
 const { describe, it, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { app, logger, db, lib, cache, logwatcher, api } = require("../");
@@ -12,7 +11,7 @@ it("test sections", async () => {
 line1=line1
 [tag=test1]
 line3=line3
-[runMode=test2]
+[roles=test2]
 line4=line4
 [tag=test]
 line5=line5
@@ -42,7 +41,7 @@ line2=line2
     args = lib.configParse(data, { tag: "test1" });
     assert.deepStrictEqual(args, ["-line1", "line1", "-line3", "line3", "-line2", "line2"])
 
-    args = lib.configParse(data, { tag: "test", runMode: "test2" });
+    args = lib.configParse(data, { tag: "test", roles: "test2" });
     assert.deepStrictEqual(args, ['-line1', 'line1','-line4', 'line4','-line5', 'line5','-line2', 'line2' ])
 
     app.instance.tag = "tag";

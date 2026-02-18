@@ -16,8 +16,9 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Modules can be configured via command-line arguments or configuration files.
 
 2. **Database Abstraction**
-   - Supports multiple databases: **SQLite, PostgreSQL, DynamoDB, Elasticsearch**.
-   - Provides a unified API for CRUD operations, caching, and transactions.
+   - Supports multiple databases: **SQLite, PostgreSQL, DynamoDB, Elasticsearch, Rqlite**.
+   - Provides a unified API for CRUD operations, caching, and transactions, access to native engine allows to
+     send raw SQL or JSON directy.
    - Supports **primary keys, indexes, and schema migrations**.
 
 3. **Caching**
@@ -89,7 +90,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Use Express.js middleware for routing and authentication.
 
 4. **Database Pools**
-   - Maintain connections to databases (SQLite, PostgreSQL, DynamoDB, Elasticsearch).
+   - Maintain connections to databases (SQLite, PostgreSQL, DynamoDB, Elasticsearch, Rqlite).
    - Support for **connection pooling** and **schema migrations**.
 
 5. **Caching Layer**
@@ -121,7 +122,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Integrate with AWS Lambda, ECS, and EC2 for scalable deployments.
 
 5. **Data Processing**
-   - Use DynamoDB/Elasticsearch for NoSQL data storage and search.
+   - Use SQL or NoSQL data storage and search wit the same simple database API.
 
 ---
 

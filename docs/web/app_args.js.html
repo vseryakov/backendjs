@@ -68,7 +68,7 @@ const logger = require(__dirname + '/../logger');
  * Parse and apply config lines for the file or other place, uses {@link module:lib.parseConfig}.
  *
  * The following properties are exposed only for conditions in sections:
- *  `role, roles, tag, instance", runMode, version, config, arch, host, platform, env`
+ *  `role, roles, tag, instance, version, config, arch, host, platform, env`
  *
  * @example
  *
@@ -89,8 +89,7 @@ const logger = require(__dirname + '/../logger');
  */
 app.parseConfig = function(data, pass, file)
 {
-    var context = ["role", "roles", "tag", "instance", "runMode",
-                   "version", "config", "arch", "host", "platform" ].reduce((a, b) => {
+    var context = ["role", "roles", "tag", "instance", "version", "config", "arch", "host", "platform" ].reduce((a, b) => {
         a[b] = app.instance[b] || app[b];
         return a;
     }, {});
@@ -292,7 +291,9 @@ app.processArg = function(options)
         if (val === o.novalue || Array.isArray(o.novalue) &amp;&amp; o.novalue.includes(val)) return false;
 
         // Autodetect type
-        if (o.autotype &amp;&amp; val) type = lib.autoType(val) || type;
+        if (o.autotype &amp;&amp; val) {
+            type = o.autotype[o.name] || lib.autoType(val) || type;
+        }
 
         o._type = type;
         o._val = val;

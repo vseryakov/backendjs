@@ -209,7 +209,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line166">line 166</a>
+        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line168">line 168</a>
     </li></ul></dd>
     
 
@@ -370,7 +370,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line151">line 151</a>
+        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line153">line 153</a>
     </li></ul></dd>
     
 
@@ -507,7 +507,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line137">line 137</a>
+        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line139">line 139</a>
     </li></ul></dd>
     
 
@@ -672,7 +672,7 @@
 
     
 
-    <h4 class="name" id=".getCookie"><span class="type-signature type-signature-static">(static) </span>getCookie<span class="signature">(req)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id=".getCookie"><span class="type-signature type-signature-static">(static) </span>getCookie<span class="signature">(req, name)</span><span class="type-signature"></span></h4>
 
     
 
@@ -682,7 +682,7 @@
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Return named encrypted signature cookie, uses <a href="module-api_signature.html#.header">module:api/signature.header</a></p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Return named encrypted signature cookie value</p></li></ul></dd>
     
 
     
@@ -776,6 +776,30 @@
             
 
             <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>cookie name</p></td>
         </tr>
 
     
@@ -1035,7 +1059,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line182">line 182</a>
+        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line184">line 184</a>
     </li></ul></dd>
     
 
@@ -1232,7 +1256,7 @@
 
     
 
-    <h4 class="name" id=".setCookie"><span class="type-signature type-signature-static">(static) </span>setCookie<span class="signature">(req, name, value)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id=".setCookie"><span class="type-signature type-signature-static">(static) </span>setCookie<span class="signature">(req, name, value, options<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
 
     
 
@@ -1248,7 +1272,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line81">line 81</a>
+        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line82">line 82</a>
     </li></ul></dd>
     
 
@@ -1306,6 +1330,8 @@
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
         
 
@@ -1332,6 +1358,14 @@
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
 
             
 
@@ -1355,6 +1389,14 @@
             
             </td>
 
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
             
 
             
@@ -1382,6 +1424,48 @@
             
             </td>
 
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">Object</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
             
 
             
@@ -1437,7 +1521,7 @@ properties after successful authorization.</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line107">line 107</a>
+        <a href="api_session.js.html">api/session.js</a>, <a href="api_session.js.html#line109">line 109</a>
     </li></ul></dd>
     
 

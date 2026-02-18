@@ -100,7 +100,6 @@ commands that simplify running the backend in different modes.
 On startup some env variable will be used for initial configuration:
 
   - BKJS_HOME - home directory where to cd and find files, __-app-home__ config parameter overrides it
-  - BKJS_RUNMODE - initial run mode, __-app-run-mode__ overrides it
   - BKJS_CONFIG - config file to use instead of 'etc/config', __-app-config__ overrides it
   - BKJS_IMPORT - packags to import on start, __-app-import__ overrieds it
   - BKJS_DB_POOL - default db pool, __-db-pool__ overrides it

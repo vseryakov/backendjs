@@ -562,31 +562,31 @@ describe("DB tests", async () => {
         assert.deepEqual(a, c);
     });
 
-    it("config tests", async () => {
+    it("db config tests", async () => {
         app.appName = "app";
         app.appVersion = "1.0.0";
-        app.runMode = "test";
+        app.roles = "test,dev";
         app.role = "shell";
         app.tag = "qa";
         app.region = "us-east-1";
 
         db.configMap = {
-            top: "runMode",
+            top: "roles",
             main: "role, tag",
             other: "role, region",
         }
 
         var types = db.configTypes();
 
-        assert.partialDeepStrictEqual(types, [app.runMode]);
-        assert.partialDeepStrictEqual(types, [app.runMode+"-"+app.role]);
-        assert.partialDeepStrictEqual(types, [app.runMode+"-"+app.role+"-"+app.role]);
-        assert.partialDeepStrictEqual(types, [app.runMode+"-"+app.role+"-"+app.region]);
-        assert.partialDeepStrictEqual(types, [app.runMode+"-"+app.tag]);
-        assert.partialDeepStrictEqual(types, [app.runMode+"-"+app.tag+"-"+app.role]);
-        assert.partialDeepStrictEqual(types, [app.runMode+"-"+app.tag+"-"+app.region]);
+        assert.partialDeepStrictEqual(types, [app.roles]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.role]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.role+"-"+app.role]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.role+"-"+app.region]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.tag]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.tag+"-"+app.role]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.tag+"-"+app.region]);
 
-        db.configMap.top = "runMode,appName";
+        db.configMap.top = "roles,appName";
         types = db.configTypes();
 
         assert.partialDeepStrictEqual(types, [app.appName]);
@@ -595,8 +595,8 @@ describe("DB tests", async () => {
 
         const getConfig = promisify(db.getConfig.bind(db));
 
-        var type1 = app.runMode + "-" + app.role;
-        var type2 = app.runMode + "-" + app.tag;
+        var type1 = app.roles + "-" + app.role;
+        var type2 = app.roles + "-" + app.tag;
         var type3 = type1 + "-" + app.role;
 
         await db.adelAll("bk_config", { type: [type1, type2, type3] });

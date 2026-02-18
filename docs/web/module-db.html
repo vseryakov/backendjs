@@ -6639,7 +6639,7 @@ requests with any database or can be used generically. The <code>cap</code> must
 <li>for each <code>main</code> item it creates a mix of all `other`` items</li>
 </ul>
 <p>top... -&gt; each of top-main... -&gt; each of top-main-other...</p>
-<p>Most common config parameters: runMode, role, roles, tag, region</p></li></ul></dd>
+<p>Most common config parameters: roles, role, tag, region</p></li></ul></dd>
     
 
     
@@ -6710,12 +6710,17 @@ requests with any database or can be used generically. The <code>cap</code> must
 
     <h5 class="h5-examples">Example</h5>
     
-    <pre class="prettyprint"><code>top is runMode(prod), main is role(shell),tag(local), other is region(none)
+    <pre class="prettyprint"><code>top is roles(prod,test), main is role(shell),tag(local), other is region(none)
  - prod
  - prod-shell
  - prod-shell-none
  - prod-local
- - prod-local-none</code></pre>
+ - prod-local-none
+ - test
+ - test-shell
+ - test-shell-none
+ - test-local
+ - test-local-none</code></pre>
 
 
 
@@ -15237,7 +15242,7 @@ db.select("users", query, { select, pool: "pg" }, lib.log)</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_config.js.html">db/config.js</a>, <a href="db_config.js.html#line146">line 146</a>
+        <a href="db_config.js.html">db/config.js</a>, <a href="db_config.js.html#line151">line 151</a>
     </li></ul></dd>
     
 

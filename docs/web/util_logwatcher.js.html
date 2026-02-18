@@ -107,7 +107,7 @@ const logwatcher = {
     ignore: {},
     once: {},
     local: { newline: 1, size: 1024*1024*100 },
-    subject: "logwatcher: @counter@ @type@s: @hostname@/@ipaddr@/@instance.id@/@instance.tag@/@runMode@/@instance.region@",
+    subject: "logwatcher: @counter@ @type@s: @hostname@/@ipaddr@/@instance.id@/@instance.tag@/@instance.roles@/@instance.region@",
 
     // Default patterns are for syslog and the logger format
     matches: {
@@ -397,7 +397,7 @@ logwatcher.notify = function(options, callback)
                      "bk-instance-id": app.instance.id,
                      "bk-instance-tag": app.instance.tag,
                      "bk-instance-region": app.instance.region,
-                     "bk-run-mode": app.runMode,
+                     "bk-instance-roles": app.instance.roles,
                   },
                   method: "POST",
                   retryCount: 3,

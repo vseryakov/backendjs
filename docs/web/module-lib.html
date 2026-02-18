@@ -6142,7 +6142,13 @@ console.log(data)
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Detect type from the value</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Detect type from the value</p>
+<ul>
+<li>boolean: native or strings: boolean, true, false</li>
+<li>regexp: string inf the format: ^...$</li>
+<li>json: string in the format: [..] or {..}</li>
+<li>list: ends with , or contains |</li>
+</ul></li></ul></dd>
     
 
     
@@ -7326,11 +7332,11 @@ so checking an item in an array will work as well.</p>
 
     <h5 class="h5-examples">Example</h5>
     
-    <pre class="prettyprint"><code>include bkjs-@production@.conf
+    <pre class="prettyprint"><code>include bkjs-@tag@.conf
 [tag=service]
-[runMode=dev]
 [role=worker]
-[roles=role1,role2]
+[roles=dev,role2]
+[roles=production]
 [instance.tag=ec2]
 [instance.roles=dev]
 [env.NAME=V]</code></pre>
@@ -17168,7 +17174,7 @@ Properties:</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line156">line 156</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line160">line 160</a>
     </li></ul></dd>
     
 
@@ -17526,7 +17532,7 @@ Properties:</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line216">line 216</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line220">line 220</a>
     </li></ul></dd>
     
 
@@ -17691,7 +17697,7 @@ Properties:</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line168">line 168</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line172">line 172</a>
     </li></ul></dd>
     
 
@@ -17856,7 +17862,7 @@ Properties:</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line227">line 227</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line231">line 231</a>
     </li></ul></dd>
     
 
@@ -18049,7 +18055,7 @@ any element in the array exists in the <code>list</code>.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line94">line 94</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line98">line 98</a>
     </li></ul></dd>
     
 
@@ -18449,7 +18455,7 @@ true</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line72">line 72</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line76">line 76</a>
     </li></ul></dd>
     
 
@@ -18617,7 +18623,7 @@ true</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line203">line 203</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line207">line 207</a>
     </li></ul></dd>
     
 
@@ -18751,7 +18757,7 @@ true</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line61">line 61</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line65">line 65</a>
     </li></ul></dd>
     
 
@@ -18919,7 +18925,7 @@ true</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line145">line 145</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line149">line 149</a>
     </li></ul></dd>
     
 
@@ -19084,7 +19090,7 @@ true</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line105">line 105</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line109">line 109</a>
     </li></ul></dd>
     
 
@@ -19281,7 +19287,7 @@ The default algorithm is JaroWrinkler, options.type can be used to specify a dif
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line399">line 399</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line403">line 403</a>
     </li></ul></dd>
     
 
@@ -19365,7 +19371,7 @@ The default algorithm is JaroWrinkler, options.type can be used to specify a dif
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line83">line 83</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line87">line 87</a>
     </li></ul></dd>
     
 
@@ -19878,7 +19884,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line240">line 240</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line244">line 244</a>
     </li></ul></dd>
     
 
@@ -20153,7 +20159,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line134">line 134</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line138">line 138</a>
     </li></ul></dd>
     
 
@@ -20321,7 +20327,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line118">line 118</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line122">line 122</a>
     </li></ul></dd>
     
 
@@ -20489,7 +20495,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line527">line 527</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line531">line 531</a>
     </li></ul></dd>
     
 
@@ -20666,7 +20672,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line499">line 499</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line503">line 503</a>
     </li></ul></dd>
     
 
@@ -20843,7 +20849,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line513">line 513</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line517">line 517</a>
     </li></ul></dd>
     
 
@@ -21020,7 +21026,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line541">line 541</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line545">line 545</a>
     </li></ul></dd>
     
 
@@ -21198,7 +21204,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line378">line 378</a>
+        <a href="lib_is.js.html">lib/is.js</a>, <a href="lib_is.js.html#line382">line 382</a>
     </li></ul></dd>
     
 

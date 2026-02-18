@@ -82,8 +82,9 @@ building scalable, distributed applications with features like database manageme
 <li>
 <p><strong>Database Abstraction</strong></p>
 <ul>
-<li>Supports multiple databases: <strong>SQLite, PostgreSQL, DynamoDB, Elasticsearch</strong>.</li>
-<li>Provides a unified API for CRUD operations, caching, and transactions.</li>
+<li>Supports multiple databases: <strong>SQLite, PostgreSQL, DynamoDB, Elasticsearch, Rqlite</strong>.</li>
+<li>Provides a unified API for CRUD operations, caching, and transactions, access to native engine allows to
+send raw SQL or JSON directy.</li>
 <li>Supports <strong>primary keys, indexes, and schema migrations</strong>.</li>
 </ul>
 </li>
@@ -229,7 +230,7 @@ building scalable, distributed applications with features like database manageme
 <li>
 <p><strong>Database Pools</strong></p>
 <ul>
-<li>Maintain connections to databases (SQLite, PostgreSQL, DynamoDB, Elasticsearch).</li>
+<li>Maintain connections to databases (SQLite, PostgreSQL, DynamoDB, Elasticsearch, Rqlite).</li>
 <li>Support for <strong>connection pooling</strong> and <strong>schema migrations</strong>.</li>
 </ul>
 </li>
@@ -285,7 +286,7 @@ building scalable, distributed applications with features like database manageme
 <li>
 <p><strong>Data Processing</strong></p>
 <ul>
-<li>Use DynamoDB/Elasticsearch for NoSQL data storage and search.</li>
+<li>Use SQL or NoSQL data storage and search wit the same simple database API.</li>
 </ul>
 </li>
 </ol>

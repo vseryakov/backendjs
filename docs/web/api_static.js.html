@@ -61,7 +61,9 @@
  *
  * ## Features:
  *   - Static file serving from multiple directories
- *   - View templating engine (e.g., EJS, Pug) using template placeholders from {@link mdoule:api.checkRequestPlaceholders}
+ *   - View templating engine mapping or redirection (e.g., using EJS, Pug) of any request path, allows dynamically use
+ *     API routes, templating views or static files with configuration only,
+ *     supports template placeholders from {@link module:api.checkRequestPlaceholders}
  *   - Virtual hosting with custom paths
  *   - Regex-based path matching for rules
  *   - Compression (GZIP/Brotli) for static assets
@@ -88,7 +90,6 @@ const app = require(__dirname + '/../app');
 const api = require(__dirname + '/../api');
 const lib = require(__dirname + '/../lib');
 const logger = require(__dirname + '/../logger');
-const modules = require(__dirname + '/../modules');
 
 const mod = {
     name: "api.static",
@@ -96,10 +97,10 @@ const mod = {
         { name: "disabled", type: "bool", descr: "Disable static files from /web folder, no .js or .html files will be served by the server" },
         { name: "options", type: "map", obj: "staticOptions", merge: 1, descr: "Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified" },
         { name: "views-(.+)", type: "regexpobj", reverse: 1, nocamel: 1, obj: 'views', descr: "Locations to be rendered as views, use ! in front of regexp to remove particular redirect from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@,", example: "-api-static-views-^/user/get show-user" },
+        { name: "mime-(.+)", obj: "mime", descr: "File extension to MIME content type mapping, this is used by static-serve", example: "-api-static-mime-mobileconfig application/x-apple-aspen-config" },
         { name: "vhost-([^/]+)", type: "regexp", obj: "vhost", nocamel: 1, regexp: "i", descr: "Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match", example: "api-static-vhost-test_dir=test.com$" },
         { name: "no-vhost", type: "regexpobj", descr: "Add to the list of URL paths that should be served for all virtual hosts" },
-        { name: "mime-(.+)", obj: "mime", descr: "File extension to MIME content type mapping, this is used by static-serve", example: "-api-static-mime-mobileconfig application/x-apple-aspen-config" },
-        { name: "no-cache-files", type: "regexpobj", descr: "Set cache-control=no-cache header for matching static files", },
+        { name: "no-cache", type: "regexpobj", descr: "Set cache-control=no-cache header for matching static files", example: "api-static-no-cache = .+" },
         { name: "compressed-([^/]+)", type: "regexp", obj: "compressed", nocamel: 1, strip: "compressed-", reverse: 1, regexp: "i", descr: "Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention", example: "-api-static-compress-bundle.js gz" },
     ],
 
@@ -149,7 +150,7 @@ function setHeaders(res, file)
 {
     var ext = path.extname(file), type = mod.mime[ext.substr(1)];
     if (type) res.setHeader("content-type", type);
-    if (app.runMode == "dev" || lib.testRegexpObj(file, mod.noCacheFiles)) {
+    if (lib.testRegexpObj(file, mod.noCache)) {
         res.setHeader("cache-control", "max-age=0, no-cache, no-store");
     }
 }
