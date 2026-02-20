@@ -147,13 +147,13 @@ async function seed() {
   console.log('Seeding database...');
 
   // Insert new data
-  await db.batch(usersData.map(x => ({ table: "users", obj: x })));
-  await db.batch(boardsData.map(x => ({ table: "boards", obj: x })));
-  await db.batch(listsData.map(x => ({ table: "lists", obj: x })));
-  await db.batch(tagsData.map(x => ({ table: "tags", obj: x })));
-  await db.batch(cardsData.map(x => ({ table: "cards", obj: x })));
-  await db.batch(cardTagsData.map(x => ({ table: "card_tags", obj: x })));
-  await db.batch(commentsData.map(x => ({ table: "comments", obj: x })));
+  await db.batch(usersData.map(query => ({ table: "users", query })));
+  await db.batch(boardsData.map(query => ({ table: "boards", query })));
+  await db.batch(listsData.map(query => ({ table: "lists", query })));
+  await db.batch(tagsData.map(query => ({ table: "tags", query })));
+  await db.batch(cardsData.map(query => ({ table: "cards", query })));
+  await db.batch(cardTagsData.map(query => ({ table: "card_tags", query })));
+  await db.batch(commentsData.map(query => ({ table: "comments", query })));
 
   shell.exit(0, 'Database seeded successfully!');
 }

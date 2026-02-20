@@ -36,30 +36,18 @@
             <div class="col-md-4">
                 <form>
                     <div class="mb-3">
-                        <label for="background" class="form-label">Background</label>
-                        <div class="input-group">
-                            <input type="file" class="form-control" id="background">
-                            <span class="input-group-text p-0" x-template="'element-options'"></span>
-                        </div>
+                        <label for="image" class="form-label">Background</label>
+                        <div class="input-group" x-template="'file-input?id=image'"></div>
                     </div>
 
                     <div class="mb-3">
                         <label for="avatar" class="form-label">Avatar</label>
-                        <div class="input-group">
-                            <input type="file" class="form-control" id="avatar">
-                            <span class="input-group-text p-0" x-template="'element-options'"></span>
-                        </div>
+                        <div class="input-group" x-template="'file-input?id=avatar'"></div>
                     </div>
 
                     <div class="mb-3">
                         <label for="logo" class="form-label">Logo</label>
-                        <div class="input-group">
-                            <div class="form-control border-dashed p-2 d-flex justify-content-center align-content-center " :class="{ 'border-primary': dragging }" x-droppable="$component">
-                                Click or drag an image here
-                                <input type="file" id="logo" accept="image/*" class="d-none" @change="onFileDropped">
-                            </div>
-                            <span class="input-group-text p-0" x-template="'element-options'"></span>
-                        </div>
+                        <div class="input-group" x-template="'file-input?id=logo'"></div>
                     </div>
 
                     <div class="mb-3">
@@ -130,4 +118,12 @@
             <input type="color" class="form-control form-control-color" id=color>
         </div>
     </form>
+</template>
+
+<template id="file-input">
+    <div class="form-control border-dashed p-2 d-flex justify-content-center align-content-center " :class="{ 'border-primary': dragging }" x-data="{ dragging: 0, file: '' }" x-droppable="$data" @file:dropped="file=$event.detail?.file?.name">
+        <span x-text="file || 'Click or drag image here'"></span>
+        <input type="file" :id="$params.id" accept="image/*" class="d-none" @change="file=$event.target.value" >
+    </div>
+    <span class="input-group-text p-0" x-template="'element-options?id='+$params.id"></span>
 </template>

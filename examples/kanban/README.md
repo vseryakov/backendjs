@@ -24,7 +24,6 @@ The app uses a dual-database setup:
 
 ```bash
 npm install
-npm run init
 npm run initdb
 npm run start
 ```

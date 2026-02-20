@@ -1,0 +1,71 @@
+
+<div class="container py-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                    <h4 class="mb-0">Contacts</h4>
+
+                    <div class="d-flex flex-nowrap gap-3 align-items-center">
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            placeholder="Search contacts..." 
+                            x-model.debounce="search">
+
+                        <button class="btn btn-primary text-nowrap" @click="add">
+                            <i class="bi bi-plus-lg"></i> Add Contact
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 60px;">Logo</th>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <template x-for="contact in contacts" :key="contact.id">
+                            <tr>
+                                <td>
+                                    <template x-if="contact.logo">
+                                        <img :src="contact.logo" class="logo-img" :alt="contact.firstName">
+                                    </template>
+                                    <template x-if="!contact.logo">
+                                        <div class="logo-placeholder" x-text="contact.label"></div>
+                                    </template>
+                                </td>
+                                <td x-text="contact.first_name"></td>
+                                <td x-text="contact.last_name"></td>
+                                <td x-text="contact.email"></td>
+                                <td x-text="contact.phone"></td>
+                            </tr>
+                        </template>
+
+                        <template x-if="!contacts.length">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    No contacts found
+                                </td>
+                            </tr>
+                        </template>
+
+                        <template x-if="next_token">
+                            <tr>
+                                <td colspan="5" role=button class="text-center text-muted py-4" @click="refresh">
+                                    Load more
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>

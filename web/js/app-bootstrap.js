@@ -1233,27 +1233,28 @@
     Alpine2.directive("droppable", (el, { expression }, { evaluate, cleanup }) => {
       const target = evaluate(expression);
       var current = null;
-      app.$on(el, "click", click);
-      app.$on(el, "drop", drop);
-      app.$on(el, "dragdrop", drop);
-      app.$on(el, "dragenter", dragenter);
-      app.$on(el, "dragleave", dragleave);
-      app.$on(el, "dragover", dragover);
+      $on(el, "click", click);
+      $on(el, "drop", drop);
+      $on(el, "dragdrop", drop);
+      $on(el, "dragenter", dragenter);
+      $on(el, "dragleave", dragleave);
+      $on(el, "dragover", dragover);
       cleanup(() => {
-        app.$off(el, "click", click);
-        app.$off(el, "drop", drop);
-        app.$off(el, "dragdrop", drop);
-        app.$off(el, "dragenter", dragenter);
-        app.$off(el, "dragleave", dragleave);
-        app.$off(el, "dragover", dragover);
+        $off(el, "click", click);
+        $off(el, "drop", drop);
+        $off(el, "dragdrop", drop);
+        $off(el, "dragenter", dragenter);
+        $off(el, "dragleave", dragleave);
+        $off(el, "dragover", dragover);
       });
       function click(event) {
-        app.$('[type="file"]', el).click();
+        $('[type="file"]', el).click();
       }
       function drop(event) {
         event.preventDefault();
         var file = event.dataTransfer.files[0];
-        app.emit(app.event, "file:dropped", { file, event });
+        $event(el, "file:dropped", { file, event });
+        emit(app.event, "file:dropped", { file, event, target });
         target.dragging = 0;
       }
       function dragenter(event) {
@@ -1692,7 +1693,7 @@
       method: options.method || "POST"
     };
     for (const p in options) {
-      if (p == "json" || p == "files") continue;
+      if (p == "json" || p == "files" || p == "body") continue;
       req[p] ??= options[p];
     }
     fetch(url, req, callback);

@@ -2,7 +2,7 @@
 
 1. Setup env
 
-    npm run init
+    npm install
 
 2. Create tables
 

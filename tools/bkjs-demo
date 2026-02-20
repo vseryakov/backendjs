@@ -1,0 +1,224 @@
+#!/bin/sh
+#
+#  Author: Vlad Seryakov vseryakov@gmail.com
+#  Sep 2013
+#
+
+case "$BKJS_CMD" in
+
+  help|demo-help)
+    echo
+    echo "  demo [NAME] - create a simple demo app"
+    ;;
+
+  demo)
+    name=${BKJS_ARGV0:-demo}
+    mkdir -p $name/web $name/modules
+    cd $name
+
+cat > web/index.html <<EOF
+<head>
+    <title>$name</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
+    <link rel="icon" href="/img/logo.png" type="image/png" />
+
+    <link href="/css/bootstrap.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container h-100 w-100">
+        <div class="alerts"></div>
+        <div id="app-main"></div>
+    </div>
+
+    <script src="/js/popper2.js"></script>
+    <script src="/js/bootstrap.js"></script>
+    <script src="/js/app-bootstrap.js"></script>
+    <script src="/js/bootpopup.js"></script>
+    <script src="/js/alpinejs.js"></script>
+
+    <script src="/index.js"></script>
+</body>
+
+<template id=index>
+    <div class="container">
+        <h1 class="mb-3">Demo</h1>
+    </div>
+</templayte>
+EOF
+
+cat > web/index.js <<EOF
+
+app.debug = 1
+
+app.components.index = class extends app.AlpineComponent {
+    onCreate() {
+
+    }
+};
+
+app.\$ready(() => {
+    app.start();
+});
+EOF
+
+cat > modules/demo.js <<EOF
+
+const { db, api } = require('backendjs');
+
+module.exports = {
+    name: "demo",
+
+    args: [
+        { name: "incr", type: "int", descr: "Inrement value" },
+    ],
+
+    tables: {
+        demo: {
+            id: { type: "int", primary: 1 },
+            value: { type: "counter" },
+            mtime: { type: "now" },
+        }
+    },
+
+    incr: 1,
+
+    configureWeb(options, callback)
+    {
+        api.app.use("/api",
+            api.express.Router().
+                get("/value", getValue).
+                post("/value", incrValue).
+                delete("/value", delValue));
+
+        callback();
+    },
+
+    getValue(req, res)
+    {
+        db.get("demo", { id: 1 }, (err, row) => {
+            api.sendJSON(req, err, row);
+        });
+    }
+
+    incrValue(req, res)
+    {
+        db.incr("demo", { id: 1, value: this.incr }, { returning: "*", first: 1 }, (err, row) => {
+            api.sendJSON(req, err, row);
+        });
+    }
+
+    delValue(req, res)
+    {
+        db.del("demo", { id: 1 }, (err) => {
+            api.sendJSON(req, err);
+        });
+    }
+
+}
+EOF
+
+cat > bkjs.conf <<EOF
+app-log=info
+
+# connect to node repl to access web process
+app-repl-port-web=2090
+
+# redirect /app endpoints to the main template
+api-routing-path-^/app=/index.html
+
+# no login required
+api-acl-add-public=^/api
+
+# default db pool
+db-sqlite-pool=demo
+db-pool=sqlite
+
+[roles=pg]
+db-pool=pg
+db-pg-pool=default
+
+[roles=dynamodb]
+db-pool=dynamodb
+db-dynamodb-pool=default
+
+[roles=es]
+db-pool=elasticsearch
+db-elasticsearch-pool=default
+
+[roles=rqlite]
+db-pool=rqlite
+db-rqlite-pool=default
+
+[global]
+EOF
+
+cat > README.md <<EOF
+
+# Getting started
+
+1. Setup env
+
+    npm install
+
+2. Create tables
+
+    npm run initdb
+
+3. Run the app
+
+    npm run start
+
+4. Point browser to http://localhost:8000
+
+5. Run with different increment value passed via config
+
+    npm run start -- -demo-incr 5
+
+6. Run with PostgreSQL
+
+    npm run initdb -- -roles pg
+    npm run start -- -roles pg
+
+# Authors
+$(whoami)
+EOF
+
+cat > package.json <<EOF
+{
+ "version": "0.1.0",
+ "author": "$(whoami)",
+ "name": "$name",
+ "description": "$name",
+ "dependencies": {
+    "backendjs": "github:vseryakov/backendjs"
+ },
+ "engines": { "node": ">= 24.0" },
+ "eslintConfig": {
+    "env": {
+        "browser": true
+    },
+    "globals": {
+        "app": false,
+        "Alpine": false,
+        "bootstrap": false,
+        "bootpopup": false,
+        "window": false,
+        "document": false
+    }
+ },
+ "scripts": {
+    "initdb": "bksh -db-create-tables",
+    "start": "bkjs run -api -watch",
+    "bksh": "bksh"
+ },
+ "license": "BSD-3-Clause"
+}
+EOF
+    exit
+    ;;
+
+esac
+

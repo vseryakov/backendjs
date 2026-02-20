@@ -64,7 +64,7 @@ module.exports = {
 
         api.app.use("/api",
             api.express.Router().
-                get("/boards", getBoards).
+                get("/boards", listBoards).
                 post("/boards", createBoard).
                 get("/board/:id", getBoard).
                 post("/board/:id", updateBoard).
@@ -74,7 +74,7 @@ module.exports = {
     }
 };
 
-function getBoards(req, res)
+function listBoards(req, res)
 {
     var data = [];
     db.scan("boards", {}, { sync: 1 }, (rows) => {

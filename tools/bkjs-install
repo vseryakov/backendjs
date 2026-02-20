@@ -41,4 +41,12 @@ case "$BKJS_CMD" in
     exit
     ;;
 
+  install-symlink)
+    cd $BKJS_DIR/node_modules
+    ln -sf $BKJS_DIR backendjs
+    ln -sf $BKJS_DIR/bin/bkjs .bin/bkjs
+    ln -sf $BKJS_DIR/bin/bksh .bin/bksh
+    exit
+    ;;
+
 esac

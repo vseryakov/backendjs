@@ -4,7 +4,6 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "init": "mkdir -p node_modules && cd node_modules && ln -sf ../../../ backendjs && ln -sf backendjs/bin .bin",
     "initdb": "node index.js -db-create-tables",
     "start": "node index.js",
     "bksh": "bksh"

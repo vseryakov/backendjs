@@ -4,7 +4,7 @@
 //
 
 const sharp = require("sharp");
-const { api } = require('../../../lib/index');
+const { api } = require('backendjs');
 
 const { properties, defaults } = require("./schema");
 
@@ -21,7 +21,7 @@ module.exports = {
     //
     configureWeb(options, callback)
     {
-        api.app.use("/poster",
+        api.app.use("/api",
             api.express.Router().
                 post("/render", api.handleMultipart, this.render));
 
@@ -81,6 +81,7 @@ mod.compose = async function(options)
     const imgopts = Object.assign({}, defaults.image, options.image);
     const input = imgopts.file || { create: { width: imgopts.width, height: imgopts.height, channels: 4, background: imgopts.background } };
     const image = sharp(input).resize(imgopts);
+
     applyOps(imgopts, image);
 
     const buffer = await image.toBuffer();

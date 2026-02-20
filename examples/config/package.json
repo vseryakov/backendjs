@@ -23,8 +23,7 @@
     }
  },
  "scripts": {
-    "init": "mkdir -p node_modules && cd node_modules && ln -sf ../../../ backendjs && ln -sf backendjs/bin .bin",
-    "initdb": "bksh -db-create-tables -user-add roles admin login admin secret 'Test12345!' name admin",
+    "initdb": "bksh -db-create-tables -user-add roles admin login admin name admin",
     "start": "bkjs run -api -watch",
     "bksh": "bksh"
  },

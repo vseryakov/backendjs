@@ -23,7 +23,6 @@
     }
  },
  "scripts": {
-    "init": "mkdir -p node_modules && cd node_modules && ln -sf ../../../ backendjs && ln -sf backendjs/bin .bin",
     "start": "bkjs run -api -watch",
     "bksh": "bksh"
  },

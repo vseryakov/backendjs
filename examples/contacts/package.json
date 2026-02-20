@@ -1,0 +1,29 @@
+{
+ "version": "0.1.0",
+ "author": "vlad",
+ "name": "contacts",
+ "description": "contacts",
+ "dependencies": {
+    "backendjs": "github:vseryakov/backendjs"
+ },
+ "engines": { "node": ">= 24.0" },
+ "eslintConfig": {
+    "env": {
+        "browser": true
+    },
+    "globals": {
+        "app": false,
+        "Alpine": false,
+        "bootstrap": false,
+        "bootpopup": false,
+        "window": false,
+        "document": false
+    }
+ },
+ "scripts": {
+    "initdb": "bksh -db-create-tables -run-file tools/seed",
+    "start": "bkjs run -api -watch",
+    "bksh": "bksh"
+ },
+ "license": "BSD-3-Clause"
+}

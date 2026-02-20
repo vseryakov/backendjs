@@ -110,6 +110,15 @@ Explanation about this example:
 
 This example is in the repository at [starter](https://github.com/vseryakov/backendjs/tree/master/examples/starter).
 
+Another simple way to create a demo example is using command:
+
+```
+npm install vseryakov/backendjs --save
+node_modules/.bin/bkjs demo myapp
+```
+
+it will create a folder `myapp` with files similar to the example above.
+
 ## Next steps
 
 **backendjs** has many, many other capabilities like {@link module:api}, {@link module:db}, {@link module:jobs},

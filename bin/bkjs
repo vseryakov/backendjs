@@ -305,29 +305,30 @@ case "$BKJS_CMD" in
     ;;
 
   run|run-server|server|watch|sh|shell|bksh|run-none|none)
-    [ -f app.js ] && SCRIPT=app.js
-    [ -z "$SCRIPT" ] && SCRIPT=$BKJS_DIR/lib/index.js
+    script=$(get_arg --js)
+    [ -z "$script" -a -f app.js ] && script=app.js
+    [ -z "$script" ] && script=$BKJS_DIR/lib/index.js
 
-    debug Starting $NODE_ARGS $SCRIPT $BKJS_RUN_ARGS $@
+    debug Starting $NODE_ARGS $script $BKJS_RUN_ARGS $@
 
     case "$BKJS_CMD" in
      run-none|none)
         ;;
 
      run-server|server)
-        exec node $NODE_ARGS $SCRIPT -syslog -daemon -server $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $script -syslog -daemon -server $BKJS_RUN_ARGS "$@"
         ;;
 
      watch)
-        exec node $NODE_ARGS $SCRIPT -server -watch $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $script -server -watch $BKJS_RUN_ARGS "$@"
         ;;
 
      sh|shell|bksh)
-        exec node $NODE_ARGS $SCRIPT -shell "$@"
+        exec node $NODE_ARGS $script -shell "$@"
         ;;
 
      *)
-        exec node $NODE_ARGS $SCRIPT $BKJS_RUN_ARGS "$@"
+        exec node $NODE_ARGS $script $BKJS_RUN_ARGS "$@"
         ;;
     esac
     exit

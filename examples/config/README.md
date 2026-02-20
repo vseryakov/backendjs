@@ -12,14 +12,13 @@
 
 ```bash
 npm install
-npm run init
-npm run initdb
+npm run initdb -- secret PASSWORD
 npm run start
 ```
 
 Visit [http://localhost:8000](http://localhost:8000)
 
-Login as user "admin" with password "Test12345!"
+Login as user "admin" with password you provided above
 
 
 ### Subsequent Runs

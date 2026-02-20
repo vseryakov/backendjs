@@ -4,7 +4,6 @@
  "name": "app",
  "description": "The backend",
  "repository": { "type": "git", "url": "http://github.com/vseryakov/backendjs.git" },
- "main": "app.js",
  "dependencies": {
     "backendjs": "github:vseryakov/backendjs",
     "formidable": "latest",
@@ -25,8 +24,6 @@
     }
  },
  "scripts": {
-    "init": "mkdir -p node_modules && cd node_modules && ln -sf ../../../ backendjs && ln -sf backendjs/bin .bin",
-    "initdb": "bksh -db-create-tables -user-add roles admin login admin secret 'Test12345!' name admin",
     "start": "bkjs run -api -watch",
     "bksh": "bksh"
  },

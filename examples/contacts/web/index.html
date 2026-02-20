@@ -1,0 +1,47 @@
+<head>
+    <title>contacts</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
+    <link rel="icon" href="/img/logo.png" type="image/png" />
+
+    <link href="/css/bootstrap.css" rel="stylesheet">
+    <style>
+        .logo-img {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .logo-placeholder {
+            width: 40px;
+            height: 40px;
+            background: #e9ecef;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+
+<body class="bg-light">
+    <div class="container h-100 w-100">
+        <div class="alerts"></div>
+        <div id="app-main"></div>
+    </div>
+
+    <script src="/js/popper2.js"></script>
+    <script src="/js/bootstrap.js"></script>
+    <script src="/js/app-bootstrap.js"></script>
+    <script src="/js/bootpopup.js"></script>
+    <script src="/js/alpinejs.js"></script>
+
+    <script src="/index.js"></script>
+</body>
+
+<template id=index>
+    <div class="container" x-template="'/list.html'"></div>
+</templayte>
