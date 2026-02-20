@@ -429,3 +429,109 @@ describe("lib.toNumber", function () {
     assert.strictEqual(lib.toNumber("nope", { dflt: 2, mult: 3 }), 6);
   });
 });
+
+describe("lib.extend", function () {
+  it("returns an object even if target is not an object", function () {
+    const out = lib.extend(null, { a: 1 });
+    assert.deepStrictEqual(out, { a: 1 });
+
+    const out2 = lib.extend(123, { a: 1 });
+    assert.deepStrictEqual(out2, { a: 1 });
+
+    const out3 = lib.extend("x", { a: 1 });
+    assert.deepStrictEqual(out3, { a: 1 });
+  });
+
+  it("behaves like assign for flat props (last wins)", function () {
+    const out = lib.extend({ a: 1 }, { a: 2, b: 1 }, { b: 3 });
+    assert.deepStrictEqual(out, { a: 2, b: 3 });
+  });
+
+  it("deep merges plain objects", function () {
+    const out = lib.extend({ a: 1, c: 5 }, { c: { b: 2 } }, { c: { a: 2 } });
+    assert.deepStrictEqual(out, { a: 1, c: { b: 2, a: 2 } });
+  });
+
+  it("deep merges arrays by index (recursive)", function () {
+    const out = lib.extend({}, { d: [{ d: 3 }] });
+    assert.deepStrictEqual(out, { d: [{ d: 3 }] });
+
+    const out2 = lib.extend({ a: [1, 2] }, { a: [3] });
+    // index 0 overwritten, index 1 preserved
+    assert.deepStrictEqual(out2, { a: [3, 2] });
+  });
+
+  it("merges array elements that are objects", function () {
+    const out = lib.extend({ a: [{ x: 1, y: 1 }] }, { a: [{ y: 2, z: 3 }] });
+    assert.deepStrictEqual(out, { a: [{ x: 1, y: 2, z: 3 }] });
+  });
+
+  it("overwrites object with primitive", function () {
+    const out = lib.extend({ a: { b: 1 } }, { a: 10 });
+    assert.deepStrictEqual(out, { a: 10 });
+  });
+
+  it("overwrites primitive with object (deep)", function () {
+    const out = lib.extend({ a: 1 }, { a: { b: 2 } });
+    assert.deepStrictEqual(out, { a: { b: 2 } });
+  });
+
+  it("keeps functions as-is (not treated as plain objects)", function () {
+    function f1() {}
+    function f2() {}
+    const out = lib.extend({ f: f1 }, { f: f2 });
+    assert.strictEqual(out.f, f2);
+  });
+
+  it("skips __proto__ to prevent prototype pollution", function () {
+    const before = ({}).polluted;
+    lib.extend({}, JSON.parse('{"__proto__":{"polluted":"yes"}}'));
+    const after = ({}).polluted;
+
+    assert.strictEqual(before, undefined);
+    assert.strictEqual(after, undefined);
+  });
+
+  it("does not recurse infinitely when value references the target object", function () {
+    const obj = {};
+    const src = { a: obj };
+    const out = lib.extend(obj, src);
+
+    // it should skip setting a to itself; so a should remain undefined
+    assert.strictEqual(out, obj);
+    assert.strictEqual(out.a, undefined);
+  });
+
+  it("handles multiple source objects", function () {
+    const out = lib.extend(
+      { a: 1, c: { x: 1 }, d: [0, { k: 1 }] },
+      { b: 2, c: { y: 2 }, d: [3, { k: 2, m: 3 }] },
+      { c: { x: 9 } }
+    );
+
+    assert.deepStrictEqual(out, {
+      a: 1,
+      b: 2,
+      c: { x: 9, y: 2 },
+      d: [3, { k: 2, m: 3 }],
+    });
+  });
+
+  it("treats Date/RegExp as non-plain objects (overwrites, does not deep merge)", function () {
+    const d1 = new Date(1);
+    const d2 = new Date(2);
+
+    const out = lib.extend({ a: d1 }, { a: d2 });
+    assert.strictEqual(out.a, d2);
+
+    const r1 = /a/;
+    const r2 = /b/;
+    const out2 = lib.extend({ r: r1 }, { r: r2 });
+    assert.strictEqual(out2.r, r2);
+  });
+
+  it("supports extending into an existing array target", function () {
+    const out = lib.extend([1, 2], [3]);
+    assert.deepStrictEqual(out, [3, 2]);
+  });
+});

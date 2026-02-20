@@ -15,34 +15,34 @@ describe('API session Tests', (t) => {
 
     var c = api.session.makeCookie({ options: { path: "/" } })
 
-    assert.strictEqual(c?.secure, true, "expect secure: true for / " + lib.objDescr(c));
+    assert.strictEqual(c?.secure, true, "expect secure: true for / " + lib.inspect(c));
 
     c = api.session.makeCookie({ options: { path: "/test" } })
 
-    assert.strictEqual(c?.secure, true, "expect secure: true for /test " + lib.objDescr(c));
+    assert.strictEqual(c?.secure, true, "expect secure: true for /test " + lib.inspect(c));
 
     c = api.session.makeCookie({ options: { path: "/pub/" } })
 
-    assert.strictEqual(c?.maxAge, 123, "expect maxAge: 123 for /pub/ "+ lib.objDescr(c));
+    assert.strictEqual(c?.maxAge, 123, "expect maxAge: 123 for /pub/ "+ lib.inspect(c));
 
     c = api.session.makeCookie({ options: { path: "/iframe/" } })
 
-    assert.strictEqual(c?.sameSite, "None", "expect sameSite: None for /iframe/ " + lib.objDescr(c));
+    assert.strictEqual(c?.sameSite, "None", "expect sameSite: None for /iframe/ " + lib.inspect(c));
 
     c = api.session.makeCookie({ options: { path: "/", domain: "host.com" } })
 
-    assert.strictEqual(c?.secure, true, "expect secure: true for host.com/ " + lib.objDescr(c));
-    assert.strictEqual(c?.domain, "host.com", "expect domain:host.com for host.com/ "+ lib.objDescr(c));
+    assert.strictEqual(c?.secure, true, "expect secure: true for host.com/ " + lib.inspect(c));
+    assert.strictEqual(c?.domain, "host.com", "expect domain:host.com for host.com/ "+ lib.inspect(c));
 
     c = api.session.makeCookie({ options: { path: "/", hostname: "www.host.com", domain: "host.com" } })
 
-    assert.strictEqual(c?.secure, false, "expect secure: false for www.host.com/ " + lib.objDescr(c));
-    assert.ok(!c?.domain, "expect no domain for www.host.com/ " + lib.objDescr(c));
+    assert.strictEqual(c?.secure, false, "expect secure: false for www.host.com/ " + lib.inspect(c));
+    assert.ok(!c?.domain, "expect no domain for www.host.com/ " + lib.inspect(c));
 
     c = api.session.makeCookie({ options: { path: "/", hostname: "api.host.com", domain: "host.com" } })
 
-    assert.strictEqual(c?.domain, "host.com", "expect domain:host.com for api.host.com/ " + lib.objDescr(c));
-    assert.strictEqual(c?.secure, true, "expect secure: true for api.host.com/ " + lib.objDescr(c));
+    assert.strictEqual(c?.domain, "host.com", "expect domain:host.com for api.host.com/ " + lib.inspect(c));
+    assert.strictEqual(c?.secure, true, "expect secure: true for api.host.com/ " + lib.inspect(c));
 
 });
 

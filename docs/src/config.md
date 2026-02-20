@@ -553,7 +553,7 @@ See {@link module:app}
 ##### Type: callback   
 ##### Default: {"depth":7,"count":200,"keys":100,"func":0,"keepempty":1,"length":1024,"replace":{" ":{}},"ignore":{}}   
 ### **app-log-inspect-map**
- Properties for the custom log inspect via objDescr   
+ Properties for the custom log inspect via inspect   
 ##### Type: map   
 ### **app-log-filter**
  Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug   

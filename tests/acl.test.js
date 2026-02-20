@@ -78,9 +78,9 @@ describe("Auth tests", () => {
             logger.debug("checking:", check);
             api.access.authorize(req, (err) => {
                 logger.debug("checked:", err);
-                assert.ok((err?.status || 200) === check.status, lib.objDescr({ check, err }));
+                assert.ok((err?.status || 200) === check.status, lib.inspect({ check, err }));
                 if (err && check.code !== undefined) {
-                    assert.ok((err.code || "") === check.code, lib.objDescr({ check, err }));
+                    assert.ok((err.code || "") === check.code, lib.inspect({ check, err }));
                 }
                 next();
             });
