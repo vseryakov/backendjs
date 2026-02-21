@@ -1,26 +1,18 @@
 
 <div class="container py-4">
-        <div class="card shadow-sm">
-            <div class="card-header bg-white">
-                <div class="d-flex justify-content-between align-items-center gap-2">
-                    <h4 class="mb-0">Contacts</h4>
+    <h4 class="my-2">Contacts</h4>
 
-                    <div class="d-flex flex-nowrap gap-3 align-items-center">
-                        <input 
-                            type="text" 
-                            class="form-control" 
-                            placeholder="Search contacts..." 
-                            x-model.debounce="search">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white py-4 d-flex justify-content-between">
+                <input type="search" class="form-control w-50" placeholder="Search contacts..." x-model.debounce="search">
 
-                        <button class="btn btn-primary text-nowrap" @click="add">
-                            <i class="bi bi-plus-lg"></i> Add Contact
-                        </button>
-                    </div>
-                </div>
-            </div>
+                <button class="btn btn-primary text-nowrap" @click="edit()">
+                    <i class="bi bi-plus-lg"></i> Add Contact
+                </button>
+        </div>
 
-            <div class="card-body p-0">
-                <table class="table table-hover">
+        <div class="card-body p-0 table-responsive">
+                <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
                             <th style="width: 60px;">Logo</th>
@@ -33,7 +25,7 @@
 
                     <tbody>
                         <template x-for="contact in contacts" :key="contact.id">
-                            <tr>
+                            <tr @click="edit(contact)">
                                 <td>
                                     <template x-if="contact.logo">
                                         <img :src="contact.logo" class="logo-img" :alt="contact.firstName">

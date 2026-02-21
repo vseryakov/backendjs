@@ -69,6 +69,12 @@ See {@link module:api}
 ### **api-errlog-codes**
  Error codes in exceptions to return in the response to the user, if not matched the errlog.message will be returned   
 ##### Type: regexpobj   
+##### Example:
+```
+# For development it may be useful to see all exceptions
+api-errlog-codes = 4|5
+```
+
 ### **api-qs-options-(.+)**
  Options to pass to qs when parsing the body: depth, arrayLimit, allowDots, comma, plainObjects, allowPrototypes, parseArrays   
 ### **api-query-token-secret**

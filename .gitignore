@@ -10,6 +10,7 @@
 *.*~
 *.log
 *.local
+*.lock
 *.gz
 *.br
 *.tgz

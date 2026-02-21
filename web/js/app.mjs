@@ -876,8 +876,9 @@ function fetch(url, options, callback) {
     trace("fetch:", uri, opts, options);
     window.fetch(uri, opts).then(async (res) => {
       var err, data2, info = parseResponse(res);
+      var ctype = info.headers["content-type"];
       if (!res.ok) {
-        if (/\/json/.test(info.headers["content-type"])) {
+        if (/\/json/.test(ctype)) {
           const d = await res.json();
           err = { status: res.status };
           for (const p in d) err[p] = d[p];
@@ -894,7 +895,7 @@ function fetch(url, options, callback) {
           data2 = await res.blob();
           break;
         default:
-          data2 = /\/json/.test(info.headers["content-type"]) ? await res.json() : await res.text();
+          data2 = /\/json/.test(ctype) ? await res.json() : /image|video|audio|pdf|zip|binary|octet/.test(ctype) ? await res.blob() : await res.text();
       }
       call(callback, null, data2, info);
     }).catch((err) => {
@@ -1194,7 +1195,7 @@ function AlpinePlugin(Alpine) {
       event.preventDefault();
       var file = event.dataTransfer.files[0];
       $event(el, "file:dropped", { file, event });
-      emit(app.event, "file:dropped", { file, event, target });
+      emit(app.event, "file:dropped", { file, event, target, element: el });
       target.dragging = 0;
     }
     function dragenter(event) {

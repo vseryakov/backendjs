@@ -5,10 +5,16 @@
     <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
     <link rel="icon" href="/img/logo.png" type="image/png" />
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
     <link href="/css/bootstrap.css" rel="stylesheet">
+
     <style type="text/css">
         .border-dashed {
             border-style: dashed;
+        }
+        .toast.danger > .toast-body {
+            color: var(--bs-danger-text-emphasis);
+            background-color: var(--bs-danger-bg-subtle);
         }
     </style>
 </head>
@@ -30,52 +36,24 @@
 
 <template id=index>
     <div class="container">
-        <h1 class="mb-3">Create a Poster</h1>
+        <div class="mb-3 d-flex justify-content-between">
+            <h1 class="mb-3">Create a Poster</h1>
+        </div>
 
         <div class="row">
             <div class="col-md-4">
                 <form>
-                    <div class="mb-3">
-                        <label for="image" class="form-label">Background</label>
-                        <div class="input-group" x-template="'file-input?id=image'"></div>
-                    </div>
+                    <template x-for="(el, index) in elements" :key="el.id">
+                        <div class="mb-3">
+                            <label for="image" class="form-label" x-text="el.id"></label>
 
-                    <div class="mb-3">
-                        <label for="avatar" class="form-label">Avatar</label>
-                        <div class="input-group" x-template="'file-input?id=avatar'"></div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="logo" class="form-label">Logo</label>
-                        <div class="input-group" x-template="'file-input?id=logo'"></div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="name" class="form-label">Name</label>
-                        <div class="input-group">
-                            <textarea class="form-control" id="name" rows="1" wrap="hard"></textarea>
-                            <span class="input-group-text p-0" x-template="'element-options'"></span>
+                            <div class="input-group" x-data="el" x-template="el.type + '-input'"></div>
                         </div>
-                    </div>
+                    </template>
 
                     <div class="mb-3">
-                        <label for="title" class="form-label">Title</label>
-                        <div class="input-group">
-                            <textarea class="form-control" id="title" rows="1" wrap="hard"></textarea>
-                            <span class="input-group-text p-0" x-template="'element-options'"></span>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="subtitle" class="form-label">Subtitle</label>
-                        <div class="input-group">
-                            <textarea class="form-control" id="subtitle" rows="1" wrap="hard"></textarea>
-                            <span class="input-group-text p-0" x-template="'element-options'"></span>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <button class="btn btn-primary" @click.stop.prevent="preview">Preview</button>
+                        <button class="btn btn-outline-dark" @click.stop.prevent="add"><i class="bi bi-plus"></i> Add</button>
+                        <button class="btn btn-primary" @click.stop.prevent="render"><i class="bi bi-image"></i> Render</button>
                     </div>
                 </form>
             </div>
@@ -84,7 +62,7 @@
                 <div class="card shadow-sm w-100 h-100">
                     <div class="card-body">
                         <div class="bg-light rounded p-2 w-100 h-100">
-                            <img src="/img/1.png" id="image" class="img-fluid" alt="Poster">
+                            <img src="/img/1.png" id="poster" class="img-fluid" alt="Poster">
                         </div>
                     </div>
                 </div>
@@ -94,36 +72,55 @@
 </template>
 
 
-<template id="element-options">
-    <button type="button" class="btn w-100 h-100 dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"></button>
+<template id="element-dropdown">
+    <button type="button" class="btn w-100 h-100 dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+        <i class="bi bi-gear"></i>
+    </button>
 
-    <form class="dropdown-menu p-4">
-        <div class="mb-3">
-            <label for="gravity" class="form-label">Gravity</label>
-            <select class="form-select" id="gravity">
-                <option selected>Choose...</option>
-                <option>north</option>
-                <option>south</option>
-                <option>west</option>
-                <option>east</option>
-                <option>northwest</option>
-                <option>northeast</option>
-                <option>southwest</option>
-                <option>southeast</option>
-            </select>
-        </div>
-
-        <div class="mb-3">
-            <label for=color>Color</label>
-            <input type="color" class="form-control form-control-color" id=color>
-        </div>
+    <form class="dropdown-menu p-4" x-template="'element-form'">
     </form>
 </template>
 
-<template id="file-input">
+<template id="element-form">
+    <div class="mb-3">
+        <label for="gravity" class="form-label">Gravity</label>
+        <select class="form-select" id="gravity" x-model="el.gravity">
+            <option selected>Choose...</option>
+            <option>north</option>
+            <option>south</option>
+            <option>west</option>
+            <option>east</option>
+            <option>northwest</option>
+            <option>northeast</option>
+            <option>southwest</option>
+            <option>southeast</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label for=color>Color</label>
+        <input type="color" class="form-control form-control-color" id=color x-model="el.color">
+    </div>
+</template>
+
+<template id="image-input">
     <div class="form-control border-dashed p-2 d-flex justify-content-center align-content-center " :class="{ 'border-primary': dragging }" x-data="{ dragging: 0, file: '' }" x-droppable="$data" @file:dropped="file=$event.detail?.file?.name">
         <span x-text="file || 'Click or drag image here'"></span>
-        <input type="file" :id="$params.id" accept="image/*" class="d-none" @change="file=$event.target.value" >
+        <input type="file" :id="el.id" accept="image/*" class="d-none" @change="file=$event.target.value" >
     </div>
-    <span class="input-group-text p-0" x-template="'element-options?id='+$params.id"></span>
+    <span class="input-group-text px-2 py-0" x-template="'element-dropdown'"></span>
+    <span class="input-group-text p-0">
+        <i class="bi bi-arrow-up-circle small p-1" x-show="index" @click="elements.splice(index,1);elements.splice(index-1,0,el)"></i>
+        <i class="bi bi-arrow-down-circle small p-1" x-show="index<elements.length-1" @click="elements.splice(index,1);elements.splice(index+1,0,el)"></i>
+    </span>
 </template>
+
+<template id="text-input">
+    <textarea class="form-control" :id="el.id" x-model="el.text" rows="1" wrap="hard"></textarea>
+    <span class="input-group-text px-2 py-0" x-template="'element-dropdown'"></span>
+    <span class="input-group-text p-0">
+        <i class="bi bi-arrow-up-circle small p-1" x-show="index" @click="elements.splice(index,1);elements.splice(index-1,0,el)"></i>
+        <i class="bi bi-arrow-down-circle small p-1" x-show="index<elements.length-1" @click="elements.splice(index,1);elements.splice(index+1,0,el)"></i>
+    </span>
+</template>
+
