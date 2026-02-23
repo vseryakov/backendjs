@@ -3,13 +3,12 @@ app.debug = 1;
 
 app.components.index = class extends app.AlpineComponent {
 
-    elements = [{id:"name",type:"text"},{id:"bg",type:"image"},{id:"logo",type:"image"}];
+    elements = [];
 
     onCreate() {
-
-    }
-
-    onFileDropped(event) {
+        try {
+            this.elements = JSON.parse(localStorage.poster)
+        } catch (e) {}
 
     }
 
@@ -35,11 +34,17 @@ app.components.index = class extends app.AlpineComponent {
     async render() {
         const body = this.elements.reduce((a, b) => { a[b.id] = JSON.stringify(b); return a }, {});
         const files = Array.from(app.$all("[type=file]")).reduce((a, b) => { a[b.id] = b; return a }, {});
+
         const { err, data } = await app.asendFile("/api/render", { files, body });
         if (err) return app.showToast("error", err);
+
         const reader = new FileReader();
         reader.addEventListener("load", () => { app.$("#poster").src = reader.result });
         reader.readAsDataURL(data);
+    }
+
+    save() {
+        localStorage.poster = JSON.stringify(this.elements);
     }
 };
 

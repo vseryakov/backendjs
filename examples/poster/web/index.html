@@ -5,7 +5,7 @@
     <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
     <link rel="icon" href="/img/logo.png" type="image/png" />
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link href="/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/bootstrap.css" rel="stylesheet">
 
     <style type="text/css">
@@ -20,7 +20,7 @@
 </head>
 
 <body>
-    <div class="container h-100 w-100">
+    <div class="p-2">
         <div class="alerts"></div>
         <div id="app-main"></div>
     </div>
@@ -35,10 +35,15 @@
 </body>
 
 <template id=index>
-    <div class="container">
-        <div class="mb-3 d-flex justify-content-between">
+    <div class="ms-3">
+        <div class="m-3 d-flex justify-content-between align-items-center">
             <h1 class="mb-3">Create a Poster</h1>
+            <div>
+                <button class="btn btn-outline-dark" @click.stop.prevent="save"><i class="bi bi-save"></i> Save</button>
+            </div>
         </div>
+
+        <div class="text-muted mb-3">First image is the backgroud, it must be large enough to fit other elements</div>
 
         <div class="row">
             <div class="col-md-4">
@@ -77,18 +82,30 @@
         <i class="bi bi-gear"></i>
     </button>
 
-    <form class="dropdown-menu p-4" x-template="'element-form'">
-    </form>
+    <div class="dropdown-menu bg-light p-3">
+       <form style="min-width:25vw;" x-template="'element-form'"></form>
+    </div>
 </template>
 
 <template id="element-form">
-    <div class="mb-3">
-        <label for="gravity" class="form-label">Gravity</label>
-        <select class="form-select" id="gravity" x-model="el.gravity">
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Width <span x-text="el.width||'not set'"></span></label>
+        <input type="range" class="form-control border-0 form-range" min="0" max="2000" x-model="el.width">
+    </div>
+
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Height <span x-text="el.height||'not set'"></span></label>
+        <input type="range" class="form-control border-0 form-range" min="0" max="2000" x-model="el.height">
+    </div>
+
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Gravity</label>
+        <select class="form-select" x-model="el.gravity">
             <option selected>Choose...</option>
             <option>north</option>
             <option>south</option>
             <option>west</option>
+            <option>center</option>
             <option>east</option>
             <option>northwest</option>
             <option>northeast</option>
@@ -97,9 +114,90 @@
         </select>
     </div>
 
-    <div class="mb-3">
-        <label for=color>Color</label>
-        <input type="color" class="form-control form-control-color" id=color x-model="el.color">
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Padding <span x-text="el.padding||'not set'"></span></label>
+        <input type="range" class="form-control border-0 form-range" min="0" max="1000" x-model="el.padding">
+    </div>
+
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Radius <span x-text="el.radius||'not set'"></span></label>
+        <input type="range" class="form-control border-0 form-range" min="0" max="10" x-model="el.radius">
+    </div>
+
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Border <span x-text="el.border||'not set'"></span></label>
+        <input type="range" class="form-control border-0 form-range" min="0" max="1000" x-model="el.border">
+    </div>
+
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Border radius <span x-text="el.border_radius||'not set'"></span></label>
+        <input type="range" class="form-control border-0 form-range" min="0" max="10" x-model="el.border_radius">
+    </div>
+
+    <div class="mb-2 pb-2 border-bottom" x-template="'color-input?id=border_color&name=Border+Color'"></div>
+
+    <div x-template="el.type=='text'?'font-form':''"></div>
+
+</template>
+
+<template id="font-form">
+    <div class="mb-2 pb-2 border-bottom" x-template="'color-input?id=color&name=Color'"></div>
+
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Font <span x-text="el.font||'not set'"></span></label>
+        <select class="form-select" x-model="el.font">
+            <option value="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif">System (SF)</option>
+            <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
+            <option value="'Avenir Next', Avenir, sans-serif">Avenir Next</option>
+            <option value="'Futura', sans-serif">Futura</option>
+            <option value="'Montserrat', sans-serif">Montserrat</option>
+            <option value="'Roboto Slab', serif">Roboto Slab</option>
+        </select>
+    </div>
+
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Font Size <span x-text="el.dpi||'not set'"></span> DPI</label>
+        <input type="range" class="form-control border-0 form-range" min="72" max="1000" x-model="el.dpi">
+    </div>
+
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Font Weight</label><br>
+        <small>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="" x-model="el.weight">
+                <label class="form-check-label">Normal</label>
+            </div>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="light" x-model="el.weight">
+                <label class="form-check-label">Light</label>
+            </div>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="bold" x-model="el.weight">
+                <label class="form-check-label">Bold</label>
+            </div>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="heavy" x-model="el.weight">
+                <label class="form-check-label">Heavy</label>
+            </div>
+        </small>
+    </div>
+
+    <div class="mb-2 pb-2 border-bottom">
+        <label class="form-label">Font Style</label><br>
+        <small>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="" x-model="el.style">
+                <label class="form-check-label">Normal</label>
+            </div>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="italic" x-model="el.style">
+                <label class="form-check-label">Italic</label>
+            </div>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="oblique" x-model="el.style">
+                <label class="form-check-label">Oblique</label>
+            </div>
+        </small>
     </div>
 </template>
 
@@ -109,18 +207,40 @@
         <input type="file" :id="el.id" accept="image/*" class="d-none" @change="file=$event.target.value" >
     </div>
     <span class="input-group-text px-2 py-0" x-template="'element-dropdown'"></span>
-    <span class="input-group-text p-0">
-        <i class="bi bi-arrow-up-circle small p-1" x-show="index" @click="elements.splice(index,1);elements.splice(index-1,0,el)"></i>
-        <i class="bi bi-arrow-down-circle small p-1" x-show="index<elements.length-1" @click="elements.splice(index,1);elements.splice(index+1,0,el)"></i>
+    <span class="input-group-text p-0 small">
+        <i class="bi bi-arrow-up p-1" @click="if(index){elements.splice(index,1);elements.splice(index-1,0,el)}"></i>
+        <i class="bi bi-arrow-down p-1" @click="if(index<elements.length-1){elements.splice(index,1);elements.splice(index+1,0,el)}"></i>
+        <i class="bi bi-trash p-1" @click="elements.splice(index,1)"></i>
     </span>
 </template>
 
 <template id="text-input">
     <textarea class="form-control" :id="el.id" x-model="el.text" rows="1" wrap="hard"></textarea>
     <span class="input-group-text px-2 py-0" x-template="'element-dropdown'"></span>
-    <span class="input-group-text p-0">
-        <i class="bi bi-arrow-up-circle small p-1" x-show="index" @click="elements.splice(index,1);elements.splice(index-1,0,el)"></i>
-        <i class="bi bi-arrow-down-circle small p-1" x-show="index<elements.length-1" @click="elements.splice(index,1);elements.splice(index+1,0,el)"></i>
+    <span class="input-group-text p-0 small">
+        <i class="bi bi-arrow-up p-1" @click="if(index){elements.splice(index,1);elements.splice(index-1,0,el)}"></i>
+        <i class="bi bi-arrow-down p-1" @click="if(index<elements.length-1){elements.splice(index,1);elements.splice(index+1,0,el)}"></i>
+        <i class="bi bi-trash p-1" @click="elements.splice(index,1)"></i>
     </span>
+</template>
+
+<template id=color-input>
+    <label class="form-label">
+        <span x-text="$params.name"></span>
+        <span x-text="el[$params.id]||'not set'" @click="el[$params.id]=undefined"></span>
+    </label>
+
+    <div class="row">
+        <div class="col-3">
+            <input type="color" class="form-control form-control-color" x-model="el[$params.id]">
+        </div>
+        <div class="col-2"></div>
+        <div class="col-3">
+            <label class="form-label">Opacity <span x-text="el[$params.id+'_alpha']"></span></label>
+        </div>
+        <div class="col-4">
+            <input type="range" class="form-range" min="0" max="100" x-model="el[$params.id+'_alpha']">
+        </div>
+    </div>
 </template>
 

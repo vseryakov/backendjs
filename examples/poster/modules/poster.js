@@ -3,7 +3,6 @@
 //  backendjs 2025
 //
 
-const sharp = require("sharp");
 const { api, logger } = require('backendjs');
 
 //
@@ -41,12 +40,11 @@ const params = {
     wrap: {},
     dpi: { type: "int" },
     weight: {},
-    style: { type: "bool" },
+    style: {},
     width: { type: "int" },
     height: { type: "int" },
     background: {},
     color: {},
-    gravity: {},
     radius: { type: "int" },
     border: { type: "int" },
     border_color: {},
@@ -62,29 +60,18 @@ const params = {
     fit: {},
     position: {},
     kernel: {},
+    strategy: {},
+    gravity: {},
     withoutEnlargement: { type: "bool" },
     withoutReduction: { type: "bool" },
     fastShrinkOnLoad: { type: "bool" },
 };
 
-const ops = [
-    "autoOrient", "rotate", "flip", "flop", "affine", "sharpen", "erode",
-    "dilate", "median", "blur", "flatten", "unflatten", "gamma", "negate", "normalise",
-    "normalize", "clahe", "convolve", "threshold", "boolean", "linear", "recomb", "modulate"
-];
-
 const add = async (rc, name, opts, image) => {
-    rc[name] = Object.assign(opts, {
-        buffer: await image.toBuffer(),
-        meta: await image.metadata(),
-        gravity: opts.gravity
-    });
-}
-
-const applyOps = (opts, image) => {
-    for (const op in opts) {
-        if (ops.includes(op)) image[op](opts[op]);
-    }
+    const meta = await image.metadata();
+    logger.debug("add:", name, opts, meta);
+    rc[name] = Object.assign(opts, { meta });
+    rc[name].buffer = await image.toBuffer();
 }
 
 function render(req, res)
@@ -97,7 +84,7 @@ function render(req, res)
     if (typeof query == "string") return api.sendReply(res, 400, query);
 
     for (const p in query) {
-        query[p].file = req.files[p]?.path;
+        if (req.files[p]?.path) query[p].file = req.files[p]?.path;
     }
 
     mod.compose(query).then(rc => {
@@ -112,51 +99,41 @@ mod.compose = async function(options)
 {
     logger.debug("compose:", mod.name, options);
 
-    const rc = {};
-
     // Render the first image as background
     const bg = Object.keys(options).find(x => (options[x].file));
-    const bgopts = Object.assign({}, options[bg]);
-    const bginput = bgopts.file || {
-        create: {
-            width: bgopts.width || 1280,
-            height: bgopts.height || 1024,
-            channels: 4,
-            background: bgopts.background || "#FFFFFF",
-        }
-    };
-    const bgimage = sharp(bginput).resize(bgopts).png();
+    const bgopts = Object.assign({ name: bg }, options[bg]);
+    const bgimage = await api.images.createImage(bgopts);
 
-    applyOps(bgopts, bgimage);
-    await add(rc, bg, bgopts, bgimage);
+    const rc = Object.keys(options).
+               filter(name => (name != bg && (options[name]?.text || options[name]?.file))).
+               reduce((a, b) => { a[b] = ""; return a }, {});
 
-    const buffer = await bgimage.toBuffer();
-
-    const regions = {};
-
-    // Render all elements individually
-    await Promise.all(Object.keys(options).
-        filter(name => (name != bg && (options[name]?.text || options[name]?.file))).
+    // Render all elements individually, preseve the order
+    await Promise.all(Object.keys(rc).
         map(async (name) => {
-            const opts = Object.assign({}, options[name]);
+            const opts = Object.assign({ name }, options[name]);
 
-            // Autodetect text color if not given from the background
-            if (opts.text && !opts.color && opts.gravity) {
-                if (!regions[opts.gravity]) {
-                    regions[opts.gravity] = await api.images.getDominantColor(buffer, opts.gravity);
-                }
-                opts.color = regions[opts.gravity];
+            // Autodetect text color from the background
+            if (opts.text && !opts.color) {
+                const stats = await api.images.getRegionStats(bgimage, opts);
+                opts.color = stats.color;
+                logger.debug("compose:", "dominant:", name, opts, stats);
             }
 
             return api.images.createImage(opts).then(async (image) => {
-                applyOps(opts, image);
                 await add(rc, name, opts, image);
             });
         }));
 
     // Composite all elements onto the background
-    const buffers = Object.keys(rc).map(x => ({ input: rc[x].buffer, gravity: rc[x].gravity }));
-    bgimage.composite(buffers).png();
+    const buffers = Object.keys(rc).map(x => ({
+        input: rc[x].buffer,
+        gravity: rc[x].gravity,
+        top: rc[x].top,
+        left: rc[x].left
+    }));
+
+    bgimage.composite(buffers).jpeg();
 
     await add(rc, "$", bgopts, bgimage);
 
