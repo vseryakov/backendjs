@@ -46,7 +46,7 @@ cat > web/index.html <<EOF
     <div class="container">
         <h1 class="mb-3">Demo</h1>
     </div>
-</templayte>
+</template>
 EOF
 
 cat > web/index.js <<EOF

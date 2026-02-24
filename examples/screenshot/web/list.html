@@ -1,0 +1,60 @@
+
+<div class="container py-4">
+
+    <div class="d-flex justify-content-between align-items-center my-2">
+        <h4 class="my-2">Screenshots</h4>
+
+        <button class="btn btn-primary text-nowrap" @click="submit()">
+            <i class="bi bi-plus-lg"></i> Submit URL
+        </button>
+    </div>
+
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Screenshot</th>
+                    <th>URL (Title)</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <template x-for="row in list" :key="row.id">
+                    <tr>
+                        <td width="40%">
+                            <img :src="row.status=='done'?'/api/png/'+row.id:'/img/loading.gif'" style="width: 100%;">
+                        </td>
+                        <td valign=top width="40%">
+                            <div class="py-2" x-text="row.url"></div>
+                            <h5 x-text="row.title"></h5>
+                        </td>
+                        <td  valign=top x-text="row.status"></td>
+                        <td valign=top>
+                            <div class="mb-2" role="button" @click="del(row)" title="Delete">❌</div>
+                            <div class="mb-2" role="button" @click="resubmit(row)" title="Resubmit">📥</div>
+                            <a class="mb-2" :href="'/api/html/'+row.id" target="blank" title="Download HTML">🔗</a>
+                        </td>
+                    </tr>
+                </template>
+
+                <template x-if="!list.length">
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            No screenshots found
+                        </td>
+                    </tr>
+                </template>
+
+                <template x-if="next_token">
+                    <tr>
+                        <td colspan="4" role=button class="text-center text-muted py-4" @click="refresh">
+                            Load more
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>

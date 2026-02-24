@@ -63,7 +63,7 @@
                 </form>
             </div>
 
-            <div class="col-md-8">
+            <div class="col-md-8" id="right">
                 <div class="card shadow-sm w-100 h-100">
                     <div class="card-body">
                         <div class="bg-light rounded p-2 w-100 h-100">
@@ -78,12 +78,19 @@
 
 
 <template id="element-dropdown">
-    <button type="button" class="btn w-100 h-100 dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+    <button type="button" class="btn w-100 h-100 dropdown-toggle dropdown-toggle-split"
+            data-bs-toggle="dropdown" :data-bs-offset="offset" data-bs-auto-close="outside" aria-expanded="false"
+            x-data="{
+                offset: [50, -100],
+                init() {
+                    var top = $el.getBoundingClientRect().top + window.scrollY;
+                    this.offset[1] = -top*0.9;
+                } }">
         <i class="bi bi-gear"></i>
     </button>
 
-    <div class="dropdown-menu bg-light p-3">
-       <form style="min-width:25vw;" x-template="'element-form'"></form>
+    <div class="dropdown-menu bg-light p-3 overflow-y-auto" style="max-height:80vh;">
+       <form x-template="'element-form'"></form>
     </div>
 </template>
 
@@ -243,4 +250,3 @@
         </div>
     </div>
 </template>
-

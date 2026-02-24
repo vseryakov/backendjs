@@ -1,5 +1,5 @@
 
-# Backend.js sample config CRUD app with Alpine.js
+# Backend.js sample CRUD app with Alpine.js to manage config database
 
 ## Tech Stack
 

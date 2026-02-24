@@ -1,7 +1,6 @@
 
 const puppeteer = require('puppeteer');
-const fs = require('fs');
-const { db, api, jobs } = require('backendjs');
+const { db, api, jobs, logger } = require('backendjs');
 
 const mod =
 
@@ -9,14 +8,19 @@ module.exports = {
     name: "scraper",
 
     args: [
-        { name: "dir", descr: "Path to store images" },
+        { name: "width", type: "int", descr: "Screenshot image width" },
+        { name: "height", type: "int", descr: "Screenshot image height" },
     ],
+
+    width: 1280,
+    height: 1024,
 
     tables: {
         scraper: {
             id: { type: "uuid", primary: 1 },
             status: { dflt: "pending" },
             url: {},
+            title: {},
             error: {},
             ctime: { type: "now", readonly: 1 },
             mtime: { type: "now" },
@@ -27,8 +31,11 @@ module.exports = {
     {
         api.app.use("/api",
             api.express.Router().
-                get("/jobs", list).
-                post("/submit", submit));
+                get("/list", list).
+                get("/png/:id", assets).
+                get("/html/:id", assets).
+                post("/submit", submit).
+                delete("/del/:id", del));
 
 
         callback();
@@ -37,9 +44,10 @@ module.exports = {
     job(options, callback)
     {
         scrape(options).then(() => {
-            db.update("scraper", { id: options.id, status: "done" }, callback);
+            db.update("scraper", { id: options.id, status: "done", title: options.title }, callback);
         }).catch((err) => {
-            db.update("scraper", { id: options.id, status: "error", error: err.message }, callback);
+            logger.trace("job:", mod.name, options, err);
+            db.update("scraper", { id: options.id, status: "error", title: options.title, error: err.message }, callback);
         });
     }
 
@@ -65,54 +73,77 @@ function list(req, res)
     });
 }
 
+function assets(req, res)
+{
+    db.get("scraper", { id: req.params.id }, (err, row) => {
+        if (!row) return api.sendReply(res, 404, "no record found");
+        var file = `${row.id}.${req.options.apath.at(-2)}`;
+        api.files.send(req, file);
+    });
+}
+
 function submit(req, res)
 {
     var query = api.toParams(req, {
-        url: { type: "url", required: 1 }
+        url: { type: "url", required: 1 },
+        status: { value: "pending" },
     })
     if (typeof query == "string") return api.sendReply(res, 400, query)
 
 
-    db.add("scraper", query, { result_query: 1, first: 1 }, (err, row) => {
+    db.put("scraper", query, { result_query: 1, first: 1 }, (err, row) => {
         if (err) return api.sendJSON(req, err, row);
 
-        jobs.submitJob(row, (err) => {
+        jobs.submitJob({ job: { "scraper.job": row } }, (err) => {
             api.sendJSON(req, err, row);
         });
     });
 }
 
+function del(req, res)
+{
+    const id = req.params.id
+    db.del("scraper", { id }, (err, row, info) => {
+        if (!err && info.affected_rows) {
+            api.files.del(`${id}.png`);
+            api.files.del(`${id}.html`);
+        }
+        api.sendJSON(req, err);
+    });
+}
+
 async function scrape(options)
 {
+    logger.info("scrape:", mod.name, options);
+
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
 
-    await page.setViewport({ width: options.width || 2100, height: options.height || 1800 });
+    await page.setViewport({ width: mod.width, height: mod.height });
 
     await page.goto(options.url, { waitUntil: 'networkidle0' });
 
-    await page.evaluate(async () => {
+    await page.evaluate(async (mod) => {
         await new Promise((resolve, reject) => {
             let height = 0;
-            const scroll = options.scroll || 250;
-
             const timer = setInterval(() => {
-                window.scrollBy(0, scroll);
-                height += scroll;
+                window.scrollBy(0, mod.height);
+                height += mod.height;
                 if (height >= document.body.scrollHeight) {
                     clearInterval(timer);
                     resolve();
                 }
             }, 500);
         });
-    });
+    }, mod);
 
-    const basename = `${mod.dir || "."}/${options.id}`
+    options.title = await page.title();
 
-    await page.screenshot({ path: `${basename}.png`, fullPage: true });
+    const image = await page.screenshot({ fullPage: true });
+    api.files.store(Buffer.from(image), `${options.id}.png`);
 
     const html = await page.content();
-    fs.writeFileSync(`${basename}.html`, html, 'utf-8');
+    api.files.store(Buffer.from(html), `${options.id}.html`);
 
     await browser.close();
 }
