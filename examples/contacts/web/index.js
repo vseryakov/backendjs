@@ -13,7 +13,7 @@ app.components.index = class extends app.AlpineComponent {
 
     async refresh(force) {
         const opts = { body: { q: this.search || "", start: this.next_token || "" } };
-        const { err, data } = await app.afetch("/api/contacts", opts);
+        const { err, data } = await app.fetch("/api/contacts", opts);
         if (err) return app.showToast("error", err);
 
         this.next_token = data?.next_token;
@@ -43,7 +43,7 @@ app.components.index = class extends app.AlpineComponent {
                     return popup.showAlert('First and Last names are required');
                 }
                 const opts = { method: "POST", body: d };
-                const { err } = await app.afetch("/api/contacts", opts);
+                const { err } = await app.fetch("/api/contacts", opts);
                 if (err) return popup.showAlert(err);
                 this.unshift.push(this.prepare(d))
             },
@@ -53,7 +53,7 @@ app.components.index = class extends app.AlpineComponent {
                     return popup.showAlert('First and Last names are required');
                 }
                 const opts = { method: "PUT", body: d };
-                const { err } = await app.afetch("/api/contact/" + data.id, opts);
+                const { err } = await app.fetch("/api/contact/" + data.id, opts);
                 if (err) return popup.showAlert(err);
                 Object.assign(data, this.prepare(d));
             }

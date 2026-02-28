@@ -21,7 +21,7 @@ app.components.config = class extends app.AlpineComponent {
     }
 
     async close() {
-        await app.afetch("/logout", { post: 1 });
+        await app.fetch("/logout", { post: 1 });
         app.user.id = "";
         app.render("index")
     }
@@ -49,7 +49,7 @@ app.components.config = class extends app.AlpineComponent {
     }
 
     async show() {
-        const { err, data } = await app.afetch('/config/list')
+        const { err, data } = await app.fetch('/config/list')
         if (err) return app.emit("alert", "error", err);
         this.rows = data.data;
         this.list = this.filter();

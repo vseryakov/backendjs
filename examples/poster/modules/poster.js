@@ -3,7 +3,7 @@
 //  backendjs 2025
 //
 
-const { api, logger } = require('backendjs');
+const { api, files, logger } = require('backendjs');
 
 //
 // A demo module that implements a CRUD app to create social poster images
@@ -102,7 +102,7 @@ mod.compose = async function(options)
     // Render the first image as background
     const bg = Object.keys(options).find(x => (options[x].file));
     const bgopts = Object.assign({ name: bg }, options[bg]);
-    const bgimage = await api.images.createImage(bgopts);
+    const bgimage = await files.image.create(bgopts);
 
     const rc = Object.keys(options).
                filter(name => (name != bg && (options[name]?.text || options[name]?.file))).
@@ -115,12 +115,12 @@ mod.compose = async function(options)
 
             // Autodetect text color from the background
             if (opts.text && !opts.color) {
-                const stats = await api.images.getRegionStats(bgimage, opts);
+                const stats = await files.image.stats(bgimage, opts);
                 opts.color = stats.color;
                 logger.debug("compose:", "dominant:", name, opts, stats);
             }
 
-            return api.images.createImage(opts).then(async (image) => {
+            return files.image.create(opts).then(async (image) => {
                 await add(rc, name, opts, image);
             });
         }));

@@ -268,7 +268,7 @@ See {@link module:api.csrf}
 ##### Type: regexpobj   
 ##### Example:
 ```
-api-csrf-origin-http://app.host.com = ^/account
+api-csrf-origin-^/account=http://app.host.com
 ```
 
 ### **api-csrf-sec-fetch-(.+)**
@@ -276,73 +276,14 @@ api-csrf-origin-http://app.host.com = ^/account
 ##### Type: regexpobj   
 ##### Example:
 ```
-api-csrf-sec-fetch-cross-site = ^/webhook
-api-csrf-sec-fetch-same-origin = ^/
+api-csrf-sec-fetch-^/webhook=cross-site
+api-csrf-sec-fetch-^/=same-origin
 ```
 
-### **api-csrf-check-path**
- Regexp for URLs to check and set CSRF token for allowed methods   
-##### Type: regexpobj   
-### **api-csrf-set-path**
- Regexp for URLs to set CSRF token for all methods, token type(user|pub) is based on the current session, can be used to set initial token   
-##### Type: regexpobj   
-### **api-csrf-pub-path**
- Regexp for URLs to set public CSRF token for all methods only if no valid CSRF token detected, to be used for initial token for public endpoints   
-##### Type: regexpobj   
 ### **api-csrf-skip-method**
- Do not check for CSRF token for specified methods   
-##### Type: regexp   
-##### Default: {}   
-### **api-csrf-skip-status**
- Do not return CSRF token for specified status codes   
-##### Type: regexp   
-##### Default: {}   
-### **api-csrf-header**
- Name for the CSRF double cookie mode header   
-##### Default: "x-csrf-token"   
-### **api-csrf-secret**
- Secret for CSRF double cookie mode encryption   
-### **api-csrf-age**
- CSRF token age in milliseconds   
-##### Type: int   
-##### Default: 3600000   
-### **api-csrf-same-site**
- Session SameSite option, for CSRF double cookie based authentication   
-##### Default: "strict"   
-### **api-csrf-secure**
- Set CSRF double cookie Secure flag   
-##### Type: bool   
-##### Default: true   
-## api.files
-See {@link module:api.files}
-### **api-files-raw**
- Return raw urls for the files, requires files-url to be configured. The path will reflect the actual 2 level structure and user id in the file name   
-##### Type: bool   
-### **api-files-url**
- URL where files are stored, for cases of central file server(s), must be full URL with optional path   
-### **api-files-s3**
- S3 bucket name where to store files uploaded with the File API   
-### **api-files-path**
- Path to store files   
-## api.images
-See {@link module:api.images}
-### **api-images-url**
- URL where images are stored, for cases of central image server(s), must be full URL with optional path   
-### **api-images-s3**
- S3 bucket name where to store and retrieve images   
-### **api-images-raw**
- Return raw urls for the images, requires images-url to be configured. The path will reflect the actual 2 level structure and user id in the image name   
-##### Type: bool   
-### **api-images-s3-options**
- S3 options to sign images urls, may have expires:, key:, secret: properties   
-##### Type: json   
-### **api-images-ext**
- Default image extension to use when saving images   
-##### Default: "jpg"   
-### **api-images-mod**
- Images scaling module, sharp   
-### **api-images-path**
- Path to store images   
+ Do not check for specified methods   
+##### Type: list   
+##### Default: ["GET","HEAD","OPTIONS","TRACE"]   
 ## api.passkey
 See {@link module:api.passkey}
 ### **api-passkey-err-(.+)**
@@ -976,6 +917,15 @@ See {@link module:events}
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
 ##### Type: int   
 ##### Default: 50   
+## files
+See {@link module:files}
+### **files-url**
+ URL where files are stored, for cases of central file server(s), must be full URL with optional path   
+### **files-s3**
+ S3 bucket name where to store files uploaded with the File API   
+### **files-root**
+ Root directory where to keep files   
+##### Type: path   
 ## ipc
 See {@link module:ipc}
 ### **ipc-ping**

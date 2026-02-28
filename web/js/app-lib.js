@@ -25,7 +25,6 @@
     AlpinePlugin: () => AlpinePlugin,
     Component: () => component_default,
     __: () => __,
-    afetch: () => afetch,
     app: () => app,
     call: () => call,
     default: () => src_default,
@@ -850,10 +849,10 @@
 
   // src/fetch.js
   /**
-   * Global object to customize {@link fetch} and {@link afetch}
+   * Global object to customize {@link fetch}
    * @example <caption>make POST default method</caption>
    * fetchOptions.method = "POST"
-   * await afetch("url.com")
+   * await fetch("url.com")
    */
   var fetchOptions = {
     method: "GET",
@@ -923,66 +922,53 @@
    * @param {object} [options.headers] - an object with additional headers to send, all global headers from app.fetchOptions.headers also are merged
    * @param {object} [options.request] - properties to pass to fetch options according to Web API `RequestInit`
    * @param {function} [callback] - callback as (err, data, info) where info is an object { status, headers, type }
-   *
+   * @async
    * @example
    * fetch("http://api.host.com/user/123", (err, data, info) => {
    *    if (info.status == 200) console.log(data, info);
    * });
+   *
+   * const { err, data } = await fetch("https://localhost:8000")
+   *
+   * const { ok, err, status, data } = await fetch("https://localhost:8000")
+   * if (!ok) console.log(status, err);
    */
-  function fetch(url, options, callback) {
+  async function fetch(url, options, callback) {
     if (isFunction(options)) callback = options, options = null;
     try {
       const [uri, opts] = parseOptions(url, options);
       trace("fetch:", uri, opts, options);
-      window.fetch(uri, opts).then(async (res) => {
-        var err, data2, info = parseResponse(res);
-        var ctype = info.headers["content-type"];
-        if (!res.ok) {
-          if (/\/json/.test(ctype)) {
-            const d = await res.json();
-            err = { status: res.status };
-            for (const p in d) err[p] = d[p];
-          } else {
-            err = { message: await res.text(), status: res.status };
-          }
-          return call(callback, err, data2, info);
+      var data2, info;
+      const res = await window.fetch(uri, opts);
+      info = parseResponse(res);
+      var ctype = info.headers["content-type"];
+      if (!res.ok) {
+        let err;
+        if (/\/json/.test(ctype)) {
+          const d = await res.json();
+          err = { status: res.status };
+          for (const p in d) err[p] = d[p];
+        } else {
+          err = { message: await res.text(), status: res.status };
         }
-        switch (options?.dataType) {
-          case "text":
-            data2 = await res.text();
-            break;
-          case "blob":
-            data2 = await res.blob();
-            break;
-          default:
-            data2 = /\/json/.test(ctype) ? await res.json() : /image|video|audio|pdf|zip|binary|octet/.test(ctype) ? await res.blob() : await res.text();
-        }
-        call(callback, null, data2, info);
-      }).catch((err) => {
-        call(callback, err);
-      });
+        throw err;
+      }
+      switch (options?.dataType) {
+        case "text":
+          data2 = await res.text();
+          break;
+        case "blob":
+          data2 = await res.blob();
+          break;
+        default:
+          data2 = /\/json/.test(ctype) ? await res.json() : /image|video|audio|pdf|zip|binary|octet/.test(ctype) ? await res.blob() : await res.text();
+      }
+      call(callback, null, data2, info);
+      return { ok: true, status: info.status, data: data2, info };
     } catch (err) {
       call(callback, err);
+      return { ok: false, status: info.status, err, data: data2, info };
     }
-  }
-  /**
-   * Promisified {@link fetch} which returns a Promise, all exceptions are passed to the reject handler, no need to use try..catch
-   * Return everything in an object `{ ok, status, err, data, info }`.
-   * @example
-   * const { err, data } = await afetch("https://localhost:8000")
-   *
-   * const { ok, err, status, data } = await afetch("https://localhost:8000")
-   * if (!ok) console.log(status, err);
-   * @param {string} url
-   * @param {object} [options]
-   * @async
-   */
-  function afetch(url, options) {
-    return new Promise((resolve2, reject) => {
-      fetch(url, options, (err, data2, info) => {
-        resolve2({ ok: !err, status: info.status, err, data: data2, info });
-      });
-    });
   }
 
   // src/component.js
@@ -1253,7 +1239,7 @@
       }
       function drop(event) {
         event.preventDefault();
-        var file = event.dataTransfer.files[0];
+        var file = event.dataTransfer.files?.[0];
         $event(el, "file:dropped", { file, event });
         emit(app.event, "file:dropped", { file, event, target, element: el });
         target.dragging = 0;

@@ -10,7 +10,7 @@ app.components.index = class extends app.AlpineComponent {
     }
 
     async refresh(force) {
-        const { err, data } = await app.afetch("/api/list", { body: { start: this.next_token } });
+        const { err, data } = await app.fetch("/api/list", { body: { start: this.next_token } });
         if (err) return app.showToast("error", err);
 
         if (force) this.list = [];
@@ -31,7 +31,7 @@ app.components.index = class extends app.AlpineComponent {
             Submit: async (d) => {
                 if (!d.url) return popup.showAlert("url is required")
 
-                const { err } = await app.afetch("/api/submit", { post: 1, body: d });
+                const { err } = await app.fetch("/api/submit", { post: 1, body: d });
                 if (err) return popup.showAlert(err);
                 setTimeout(this.refresh.bind(this, 1), 500);
             }
@@ -39,12 +39,12 @@ app.components.index = class extends app.AlpineComponent {
     }
 
     async resubmit(body) {
-        const { err } = await app.afetch('/api/submit', { post: 1, body });
+        const { err } = await app.fetch('/api/submit', { post: 1, body });
         if (err) app.showToast("error", err);
     }
 
     async del(row) {
-        const { err } = await app.afetch("/api/del/" + row.id, { method: "DELETE" });
+        const { err } = await app.fetch("/api/del/" + row.id, { method: "DELETE" });
         if (err) return app.showToast("error", err);
         setTimeout(this.refresh.bind(this, 1), 500);
     }

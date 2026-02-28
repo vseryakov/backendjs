@@ -1,6 +1,6 @@
 
 const puppeteer = require('puppeteer');
-const { db, api, jobs, logger } = require('backendjs');
+const { db, api, files, jobs, logger } = require('backendjs');
 
 const mod =
 
@@ -16,6 +16,8 @@ module.exports = {
     height: 1024,
 
     tables: {
+
+        // Database table definition
         scraper: {
             id: { type: "uuid", primary: 1 },
             status: { dflt: "pending" },
@@ -27,6 +29,7 @@ module.exports = {
         }
     },
 
+    // Setup all routes
     configureWeb(options, callback)
     {
         api.app.use("/api",
@@ -41,18 +44,24 @@ module.exports = {
         callback();
     },
 
+    // This is a job method that is run by a worker to do the actual scraping
     job(options, callback)
     {
         scrape(options).then(() => {
-            db.update("scraper", { id: options.id, status: "done", title: options.title }, callback);
+            const row = { id: options.id, status: "done", title: options.title };
+            db.update("scraper", row, callback);
+            api.ws.notify({}, row);
         }).catch((err) => {
             logger.trace("job:", mod.name, options, err);
-            db.update("scraper", { id: options.id, status: "error", title: options.title, error: err.message }, callback);
+            const row = { id: options.id, status: "error", title: options.title, error: err.message };
+            db.update("scraper", row, callback);
+            api.ws.notify({}, row);
         });
     }
 
 }
 
+// Return a list of all jobs submitted
 function list(req, res)
 {
     var query = api.toParams(req, {
@@ -73,15 +82,17 @@ function list(req, res)
     });
 }
 
+// Return image or html content
 function assets(req, res)
 {
     db.get("scraper", { id: req.params.id }, (err, row) => {
         if (!row) return api.sendReply(res, 404, "no record found");
         var file = `${row.id}.${req.options.apath.at(-2)}`;
-        api.files.send(req, file);
+        files.send(req, file);
     });
 }
 
+// Submit a new scrape job
 function submit(req, res)
 {
     var query = api.toParams(req, {
@@ -100,18 +111,20 @@ function submit(req, res)
     });
 }
 
+// Delete a job by id
 function del(req, res)
 {
     const id = req.params.id
     db.del("scraper", { id }, (err, row, info) => {
         if (!err && info.affected_rows) {
-            api.files.del(`${id}.png`);
-            api.files.del(`${id}.html`);
+            files.del(`${id}.png`);
+            files.del(`${id}.html`);
         }
         api.sendJSON(req, err);
     });
 }
 
+// Scrape the url and save the image and html
 async function scrape(options)
 {
     logger.info("scrape:", mod.name, options);
@@ -140,12 +153,11 @@ async function scrape(options)
     options.title = await page.title();
 
     const image = await page.screenshot({ fullPage: true });
-    api.files.store(Buffer.from(image), `${options.id}.png`);
+    files.store(Buffer.from(image), `${options.id}.png`);
 
     const html = await page.content();
-    api.files.store(Buffer.from(html), `${options.id}.html`);
+    files.store(Buffer.from(html), `${options.id}.html`);
 
     await browser.close();
 }
-
 

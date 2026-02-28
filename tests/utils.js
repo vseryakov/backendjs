@@ -96,7 +96,6 @@ exports.astop = async function(options)
 // - status - status to expect, 200 is default
 // - match - an object to checked against the response, uses lib.isMatched OR it is a function to be called
 //    as match(rc, conf), must return true to pass
-// - nocsrf/nosig - do not use CSRF or signature in request
 // - preprocess - function(conf, cb) to be called before making request
 // - postprocess - function(conf, rc, cb) to be called after the request, rc is the response object from the request
 // - noredirects - disable auto redirecting on 302
@@ -120,14 +119,7 @@ exports.checkAccess = function(options, callback)
             _rc: conf.status || 200,
         };
         if (q.url[0] == "/") q.url = "http://127.0.0.1:" + api.port + q.url;
-        if (conf.noscrf) tmp.h_csrf = tmp.c_csrf = null;
         if (conf.nosig) tmp.sig = null;
-        if (tmp.h_csrf) {
-            q.headers[api.csrf.header] = tmp.h_csrf;
-        }
-        if (tmp.c_csrf) {
-            q.cookies[api.csrf.header] = tmp.c_csrf;
-        }
         if (!conf.user && tmp.sig) {
             q.cookies[api.signature.header] = tmp.sig;
         }
@@ -137,15 +129,10 @@ exports.checkAccess = function(options, callback)
                 conf.preprocess(conf, next2);
             },
             function(next2) {
+                logger.debug("checkAccess:", q);
                 lib.fetch(q, (err, rc) => {
                     assert.ok(rc.status == q._rc, util.inspect({ err: `${conf.user?.login || "pub"}: ${q.url}: expect ${q._rc} but got ${rc.status}`, data: rc.data, conf, tmp }, { depth: null }));
 
-                    if (rc.resheaders[api.csrf.header]) {
-                        tmp.h_csrf = rc.resheaders[api.csrf.header];
-                    }
-                    if (rc.rescookies[api.csrf.header]) {
-                        tmp.c_csrf = rc.rescookies[api.csrf.header].value;
-                    }
                     if (rc.rescookies[api.signature.header]) {
                         tmp.sig = rc.rescookies[api.signature.header].value;
                     }
