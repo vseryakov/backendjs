@@ -47,6 +47,7 @@ describe('Access Tests with CSRF', async () => {
             { url: "/auth", headers: { origin: "http://127.0.0.1:8000", "sec-fetch-site": "cross-origin" }, status: 403 },
             { url: "/auth", headers: { origin, "sec-fetch-site": "same-site" }, status: 403 },
             { url: "/auth", headers: { origin, "sec-fetch-site": "cross-site" } },
+            { url: "/auth", headers: { origin, "sec-fetch-site": "same-origin" } },
             { url: "/render", headers: { origin, "sec-fetch-site": "same-origin" }, regexp: /Mock/ },
         ];
 
