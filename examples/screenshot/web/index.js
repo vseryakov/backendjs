@@ -19,6 +19,12 @@ app.components.index = class extends app.AlpineComponent {
         this.list.push(...data.data);
     }
 
+    // This is websocket event sent by the backend jobs
+    onScraperStatus(event) {
+        const row = this.list.find(x => x.id == event.data.id);
+        if (row) Object.assign(row, event.data);
+    }
+
     submit() {
         var popup = bootpopup({
             title: "Website URFL",
@@ -39,7 +45,7 @@ app.components.index = class extends app.AlpineComponent {
     }
 
     async resubmit(body) {
-        const { err } = await app.fetch('/api/submit', { post: 1, body });
+        const { err } = await app.fetch('/api/resubmit/' + body.id, { method: "PUT" });
         if (err) app.showToast("error", err);
     }
 
@@ -50,6 +56,10 @@ app.components.index = class extends app.AlpineComponent {
     }
 };
 
-app.$ready(() => {
+app.$ready(async () => {
+    const ws = await import('/js/ws.mjs');
+    app.ws = new ws.WS(app, { path: "/ping" });
+    app.ws.connect();
+
     app.start();
 });

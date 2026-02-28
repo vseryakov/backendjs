@@ -4,9 +4,15 @@
     <div class="d-flex justify-content-between align-items-center my-2">
         <h4 class="my-2">Screenshots</h4>
 
-        <button class="btn btn-primary text-nowrap" @click="submit()">
-            <i class="bi bi-plus-lg"></i> Submit URL
-        </button>
+        <div class="d-flex align-items-center">
+            <button class="btn btn-primary text-nowrap me-3" @click="submit()">
+                <i class="bi bi-plus-lg"></i> Submit URL
+            </button>
+
+            <button class="btn btn-primary text-nowrap me-3" @click="refresh(1)">
+                <i class="bi bi-refersh-lg"></i> Refresh
+            </button>
+        </div>
     </div>
 
     <div class="card-body p-0 table-responsive">
@@ -34,7 +40,7 @@
                         <td valign=top>
                             <div class="mb-2" role="button" @click="del(row)" title="Delete">❌</div>
                             <div class="mb-2" role="button" @click="resubmit(row)" title="Resubmit">📥</div>
-                            <a class="mb-2" :href="'/api/html/'+row.id" target="blank" title="Download HTML">🔗</a>
+                            <a class="mb-2" :href="'/api/html/'+row.id" :download="row.id" title="Download HTML">🔗</a>
                         </td>
                     </tr>
                 </template>
