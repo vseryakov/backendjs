@@ -1,49 +1,70 @@
-# **Project Overview**
+# Screenshot Example
 
-A **web scraping service** that allows users to submit URLs, a job capturew full-page screenshots (including scrolling content), and stores both the rendered images and raw HTML.
+Small `backendjs` example app that queues website capture jobs, takes full-page screenshots with Puppeteer, and stores both image and HTML output.
 
-The system is built with a **backendjs API** (Node.js) and a **frontend dashboard** (Alpine.js + Bootstrap).
+## What It Does
 
-## Getting started
+- Accepts URL submissions from a web UI.
+- Creates async jobs in the `scraper` table.
+- Worker opens the page in Puppeteer, auto-scrolls, and captures:
+  - `*.png` full-page screenshot
+  - `*.html` rendered page source
+- Pushes status updates over WebSocket (`pending` -> `done`/`error`).
 
-1. Setup env
+## Stack
 
-    npm install
+- Backend: Node.js + `backendjs`
+- Browser automation: Puppeteer
+- UI: Alpine.js + Bootstrap
+- Default DB: SQLite (`var/scraper`)
+- Queue: Redis (`queue-default=redis://`)
+- File storage: local `var/`
 
-2. Create tables
+## Project Layout
 
-    npm run initdb
+```text
+modules/scraper.js   # API routes + job handler + Puppeteer logic
+web/index.html       # Main page shell
+web/list.html        # Screenshot list UI
+web/index.js         # Frontend component logic
+bkjs.conf            # Runtime, queue, db, files config
+```
 
-3. Run the app
+## Run Locally
 
-    npm run start
+1. Install dependencies:
 
-4. Point browser to http://localhost:8000
+   ```bash
+   npm install
+   ```
 
+2. Create DB tables:
 
-## **Technical Stack**
+   ```bash
+   npm run initdb
+   ```
 
-| Component       | Technology                          |
-|-----------------|-------------------------------------|
-| **Backend**     | Node.js, Express, Puppeteer         |
-| **Database**    | Custom ORM (`backendjs db` module)  |
-| **Frontend**    | Alpine.js, Bootstrap 5, HTML/JS     |
-| **File Storage**| Custom file system (`api.files`)    |
-| **Job Queue**   | BackendJS `jobs` module             |
-| **Logging**     | `logger` module                     |
+3. Start server + worker:
 
----
+   ```bash
+   npm run start
+   ```
 
-## **Workflow**
+4. Open:
 
-1. **User submits a URL** → Job created in DB (status: `pending`).
-2. **Worker processes the job**:
-   - Launches Puppeteer, scrolls the page, captures screenshot/HTML.
-   - Updates DB status (`done`/`error`).
-3. **User views results**:
-   - Screenshot thumbnail in the table.
-   - Click actions to delete, resubmit, or download HTML.
+   - App: `http://localhost:8000/app`
+   - API list endpoint: `http://localhost:8000/api/list`
 
+## API Endpoints
 
-# Authors
-vlad
+- `GET /api/list` - list submitted jobs
+- `POST /api/submit` - submit `{ "url": "https://example.com" }`
+- `PUT /api/resubmit/:id` - requeue a job
+- `DELETE /api/del/:id` - delete job and stored files
+- `GET /api/png/:id` - download screenshot
+- `GET /api/html/:id` - download saved HTML
+
+## Notes
+
+- This example currently exposes `/api/*` as public in `bkjs.conf`.
+- `node_modules` is symlinked from a parent directory in this workspace.

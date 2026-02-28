@@ -38,24 +38,29 @@ module.exports = {
                 get("/png/:id", assets).
                 get("/html/:id", assets).
                 post("/submit", submit).
+                put("/resubmit/:id", resubmit).
                 delete("/del/:id", del));
 
 
         callback();
     },
 
-    // This is a job method that is run by a worker to do the actual scraping
+    // This is a job method that is run by a worker to do the actual scraping, once done it notifies
+    // web page about the status via websocket
     job(options, callback)
     {
         scrape(options).then(() => {
             const row = { id: options.id, status: "done", title: options.title };
             db.update("scraper", row, callback);
-            api.ws.notify({}, row);
+
+            api.ws.notify({}, { event: "scraper:status", data: row });
+
         }).catch((err) => {
             logger.trace("job:", mod.name, options, err);
             const row = { id: options.id, status: "error", title: options.title, error: err.message };
             db.update("scraper", row, callback);
-            api.ws.notify({}, row);
+
+            api.ws.notify({}, { event: "scraper:status", data: row });
         });
     }
 
@@ -104,6 +109,21 @@ function submit(req, res)
 
     db.put("scraper", query, { result_query: 1, first: 1 }, (err, row) => {
         if (err) return api.sendJSON(req, err, row);
+        api.ws.notify({}, { event: "scraper:status", data: row });
+
+        jobs.submitJob({ job: { "scraper.job": row } }, (err) => {
+            api.sendJSON(req, err, row);
+        });
+    });
+}
+
+// Resubmit a scrape job
+function resubmit(req, res)
+{
+    db.update("scraper", { id: req.params.id, status: "pending" }, { returning: "*", first: 1 }, (err, row) => {
+        if (!row) return api.sendReply(res, 404, "no record found");
+
+        api.ws.notify({}, { event: "scraper:status", data: row });
 
         jobs.submitJob({ job: { "scraper.job": row } }, (err) => {
             api.sendJSON(req, err, row);
