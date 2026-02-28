@@ -5,8 +5,6 @@
 
  /* global window navigator WebSocket */
 
-import { $on, emit, isObject, toNumber, trace } from "./app.mjs"
-
 export class WS {
     path = "/"
     query = null
@@ -19,13 +17,17 @@ export class WS {
     _retries = 0
     _pending = []
 
-    constructor(options)
+    constructor(app, options)
     {
-        $on(window, "online", this.online.bind(this));
+        for (const p in options) {
+            if (p[0] != "_" && this[p] !== undefined) this[p] = options[p];
+        }
+
+        app.$on(window, "online", this.online.bind(this));
     }
 
     // Open a new websocket connection
-    connect(options)
+    connect()
     {
         if (this._timer) {
             clearTimeout(this._timer);
@@ -33,7 +35,6 @@ export class WS {
         }
         if (this.disabled) return;
 
-        for (const p in options) this[p] = options[p];
         var host = this.host || window.location.hostname;
 
         if (navigator.onLine === false && !/^(localhost|127.0.0.1)$/.test(host)) {
@@ -51,10 +52,10 @@ export class WS {
 
         var ws = this.ws = new WebSocket(url);
         ws.onopen = () => {
-            trace("ws.open:", url);
-            emit("ws:open", url);
+            app.trace("ws.open:", url);
+            app.emit("ws:open", url);
             this._ctime = Date.now();
-            this._timeout = toNumber(this.retry_timeout);
+            this._timeout = app.toNumber(this.retry_timeout);
             this._retries = 0;
             while (this._pending.length) {
                 this.send(this.pending.shift());
@@ -62,20 +63,23 @@ export class WS {
             this.ping();
         }
         ws.onclose = () => {
-            trace("ws.closed:", url, this._timeout, this._retries);
+            app.trace("ws.closed:", url, this._timeout, this._retries);
             this.ws = null;
-            emit("ws:close", url);
+            app.emit("ws:close", url);
             if (++this._retries < this.max_retries) this.timer();
         }
         ws.onmessage = (msg) => {
             var data = msg.data;
             if (data === "bye") return this.close(1);
             if (typeof data == "string" && (data[0] == "{" || data[0] == "[")) data = JSON.parse(data);
-            trace('ws.message:', data);
-            emit("ws:message", data);
+            app.trace('ws.message:', data);
+            app.emit("ws:message", data);
+            if (data.event) {
+                app.emit(app.event, data.event, data);
+            }
         }
         ws.onerror = (err) => {
-            trace('ws.error:', url, err);
+            app.trace('ws.error:', url, err);
         }
     }
 
@@ -86,8 +90,8 @@ export class WS {
         if (this.disabled) return;
         if (typeof timeout == "number") this._timeout = timeout;
         this._timer = setTimeout(this.connect.bind(this), this._timeout);
-        this._timeout *= this._timeout == this.max_timeout ? 0 : parseInt(this.retry_factor);
-        this._timeout = toNumber(this._timeout, { min: this.retry_timeout, max: this.max_timeout });
+        this._timeout *= this._timeout == this.max_timeout ? 0 : app.toNumber(this.retry_factor);
+        this._timeout = app.toNumber(this._timeout, { min: this.retry_timeout, max: this.max_timeout });
     }
 
     // Send a ping and shcedule next one
@@ -119,10 +123,10 @@ export class WS {
             }
             return;
         }
-        if (isObject(data)) {
+        if (app.isObject(data)) {
             if (data.url && data.url[0] == "/") {
                 data = data.url;
-                if (isObject(data.data)) {
+                if (app.isObject(data.data)) {
                     data += "?" + new URLSearchParams(data.data).toString();
                 }
             } else {
