@@ -1,3 +1,3 @@
 
-# Backendjs and Alpinejs-all examples
+# Backendjs and Alpinejs-app examples
 

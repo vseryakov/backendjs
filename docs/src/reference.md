@@ -104,7 +104,7 @@ On startup some env variable will be used for initial configuration:
   - BKJS_IMPORT - packags to import on start, __-app-import__ overrieds it
   - BKJS_DB_POOL - default db pool, __-db-pool__ overrides it
   - BKJS_DB_CONFIG - config db pool, __-db-config__ overrides it
-  - BKJS_ROLES - additonal roles to use for config, __-app-instance-roles__ overrides it
+  - BKJS_ROLES - additonal roles to use for config, __-app-roles__ overrides it
   - BKJS_VERSION - default app name and version, __-app-version__ overrides it
   - BKJS_TAG - initial instance tag, __-app-instance-tag__ overrides it, it may be also overridden by AWS instance tag
   - BKJS_LOG_OPTIONS - logger options, __-app-log-options__ overrides it

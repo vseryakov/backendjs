@@ -23,7 +23,7 @@
     }
  },
  "scripts": {
-    "initdb": "rm -f kanban.db && bksh -db-create-tables -run-file tools/seed",
+    "initdb": "rm -f kanban.db && bksh -db-create-tables && bksh -run-file tools/seed",
     "start": "bkjs run -api -watch",
     "bksh": "bksh"
  },

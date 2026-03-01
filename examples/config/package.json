@@ -23,7 +23,7 @@
     }
  },
  "scripts": {
-    "initdb": "bksh -db-create-tables -user-add roles admin login admin name admin",
+    "initdb": "bksh -db-create-tables && bksh -user-add roles admin login admin name admin",
     "start": "bkjs run -api -watch",
     "bksh": "bksh"
  },

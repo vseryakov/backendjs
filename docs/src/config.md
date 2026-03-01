@@ -268,7 +268,8 @@ See {@link module:api.csrf}
 ##### Type: regexpobj   
 ##### Example:
 ```
-api-csrf-origin-^/account=http://app.host.com
+api-csrf-origin-^/account = http://host.com
+api-csrf-origin-^/account = https://host.com,http://localhost
 ```
 
 ### **api-csrf-sec-fetch-(.+)**
@@ -276,8 +277,8 @@ api-csrf-origin-^/account=http://app.host.com
 ##### Type: regexpobj   
 ##### Example:
 ```
-api-csrf-sec-fetch-^/webhook=cross-site
-api-csrf-sec-fetch-^/=same-origin
+api-csrf-sec-fetch-^/webhook = cross-site
+api-csrf-sec-fetch-^/ = same-origin,same-site
 ```
 
 ### **api-csrf-skip-method**
@@ -751,9 +752,6 @@ See {@link module:db}
 ### **db-name**
  Default database name to be used for default connections in cases when no db is specified in the connection url   
 ##### Default: "db"   
-### **db-create-tables**
- Create tables in the database or perform table upgrades for new columns in all pools, only shell or server process can perform this operation   
-##### Type: bool   
 ### **db-cache-tables**
  List of tables that can be cached: users, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.   
 ##### Type: list   
@@ -820,7 +818,7 @@ See {@link module:db}
 ### **db-concurrency**
  How many simultaneous tasks to run at the same time inside one process   
 ##### Type: number   
-##### Default: 2   
+##### Default: 3   
 ### **db-([a-z0-9]+)-pool**
  A database pool name, depending on the driver it can be an URL, name or pathname   
 ##### Example:
@@ -857,9 +855,6 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 ### **db-([a-z0-9]+)-pool-table-map**
  Table mapping, aliases   
 ##### Type: map   
-### **db-([a-z0-9]+)-pool-(create-tables)**
- Create tables for this pool on startup   
-##### Type: bool   
 ### **db-([a-z0-9]+)-pool-(skip-tables)**
  Tables not to be created in this pool   
 ##### Type: list   

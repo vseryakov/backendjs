@@ -210,7 +210,7 @@ cat > package.json <<EOF
     }
  },
  "scripts": {
-    "initdb": "bksh -db-create-tables",
+    "initdb": "bksh -shell -db-create-tables",
     "start": "bkjs run -api -watch",
     "bksh": "bksh"
  },

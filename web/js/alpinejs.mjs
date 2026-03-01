@@ -3,8 +3,16 @@ var flushPending = false;
 var flushing = false;
 var queue = [];
 var lastFlushedIndex = -1;
+var transactionActive = false;
 function scheduler(callback) {
   queueJob(callback);
+}
+function startTransaction() {
+  transactionActive = true;
+}
+function commitTransaction() {
+  transactionActive = false;
+  queueFlush();
 }
 function queueJob(job) {
   if (!queue.includes(job))
@@ -18,6 +26,8 @@ function dequeueJob(job) {
 }
 function queueFlush() {
   if (!flushing && !flushPending) {
+    if (transactionActive)
+      return;
     flushPending = true;
     queueMicrotask(flushJobs);
   }
@@ -91,16 +101,26 @@ function watch(getter, callback) {
     let value = getter();
     JSON.stringify(value);
     if (!firstTime) {
-      queueMicrotask(() => {
-        callback(value, oldValue);
-        oldValue = value;
-      });
-    } else {
-      oldValue = value;
+      if (typeof value === "object" || value !== oldValue) {
+        let previousValue = oldValue;
+        queueMicrotask(() => {
+          callback(value, previousValue);
+        });
+      }
     }
+    oldValue = value;
     firstTime = false;
   });
   return () => release(effectReference);
+}
+async function transaction(callback) {
+  startTransaction();
+  try {
+    await callback();
+    await Promise.resolve();
+  } finally {
+    commitTransaction();
+  }
 }
 
 // packages/alpinejs/src/mutation.js
@@ -712,6 +732,8 @@ function outNonAlpineAttributes({ name }) {
 var alpineAttributeRegex = () => new RegExp(`^${prefixAsString}([^:^.]+)\\b`);
 function toParsedDirectives(transformedAttributeMap, originalAttributeOverride) {
   return ({ name, value }) => {
+    if (name === value)
+      value = "";
     let typeMatch = name.match(alpineAttributeRegex());
     let valueMatch = name.match(/:([a-zA-Z0-9\-_:]+)/);
     let modifiers = name.match(/\.[^.\]]+(?=[^\]]*$)/g) || [];
@@ -1705,7 +1727,10 @@ var Alpine = {
   get raw() {
     return raw;
   },
-  version: "3.15.3",
+  get transaction() {
+    return transaction;
+  },
+  version: "3.15.8",
   flushAndStopDeferringMutations,
   dontAutoEvaluateFunctions,
   disableEffectScheduling,
@@ -2756,6 +2781,14 @@ function on(el, event, modifiers, callback) {
     handler4 = wrapHandler(handler4, (next, e) => {
       e.target === el && next(e);
     });
+  if (event === "submit") {
+    handler4 = wrapHandler(handler4, (next, e) => {
+      if (e.target._x_pendingModelUpdates) {
+        e.target._x_pendingModelUpdates.forEach((fn) => fn());
+      }
+      next(e);
+    });
+  }
   if (isKeyEvent(event) || isClickEvent(event)) {
     handler4 = wrapHandler(handler4, (next, e) => {
       if (isListeningForASpecificKeyThatHasntBeenPressed(e, modifiers)) {
@@ -2793,7 +2826,7 @@ function isClickEvent(event) {
 }
 function isListeningForASpecificKeyThatHasntBeenPressed(e, modifiers) {
   let keyModifiers = modifiers.filter((i) => {
-    return !["window", "document", "prevent", "stop", "once", "capture", "self", "away", "outside", "passive", "preserve-scroll"].includes(i);
+    return !["window", "document", "prevent", "stop", "once", "capture", "self", "away", "outside", "passive", "preserve-scroll", "blur", "change", "lazy"].includes(i);
   });
   if (keyModifiers.includes("debounce")) {
     let debounceIndex = keyModifiers.indexOf("debounce");
@@ -2892,11 +2925,43 @@ directive("model", (el, { modifiers, expression }, { effect: effect3, cleanup: c
         el.setAttribute("name", expression);
     });
   }
-  let event = el.tagName.toLowerCase() === "select" || ["checkbox", "radio"].includes(el.type) || modifiers.includes("lazy") ? "change" : "input";
-  let removeListener = isCloning ? () => {
-  } : on(el, event, modifiers, (e) => {
-    setValue(getInputValue(el, modifiers, e, getValue()));
-  });
+  let hasChangeModifier = modifiers.includes("change") || modifiers.includes("lazy");
+  let hasBlurModifier = modifiers.includes("blur");
+  let hasEnterModifier = modifiers.includes("enter");
+  let hasExplicitEventModifiers = hasChangeModifier || hasBlurModifier || hasEnterModifier;
+  let removeListener;
+  if (isCloning) {
+    removeListener = () => {
+    };
+  } else if (hasExplicitEventModifiers) {
+    let listeners = [];
+    let syncValue = (e) => setValue(getInputValue(el, modifiers, e, getValue()));
+    if (hasChangeModifier) {
+      listeners.push(on(el, "change", modifiers, syncValue));
+    }
+    if (hasBlurModifier) {
+      listeners.push(on(el, "blur", modifiers, syncValue));
+      if (el.form) {
+        let syncCallback = () => syncValue({ target: el });
+        if (!el.form._x_pendingModelUpdates)
+          el.form._x_pendingModelUpdates = [];
+        el.form._x_pendingModelUpdates.push(syncCallback);
+        cleanup2(() => el.form._x_pendingModelUpdates.splice(el.form._x_pendingModelUpdates.indexOf(syncCallback), 1));
+      }
+    }
+    if (hasEnterModifier) {
+      listeners.push(on(el, "keydown", modifiers, (e) => {
+        if (e.key === "Enter")
+          syncValue(e);
+      }));
+    }
+    removeListener = () => listeners.forEach((remove) => remove());
+  } else {
+    let event = el.tagName.toLowerCase() === "select" || ["checkbox", "radio"].includes(el.type) ? "change" : "input";
+    removeListener = on(el, event, modifiers, (e) => {
+      setValue(getInputValue(el, modifiers, e, getValue()));
+    });
+  }
   if (modifiers.includes("fill")) {
     if ([void 0, null, ""].includes(getValue()) || isCheckbox(el) && Array.isArray(getValue()) || el.tagName.toLowerCase() === "select" && el.multiple) {
       setValue(

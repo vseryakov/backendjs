@@ -4,7 +4,7 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "initdb": "node index.js -db-create-tables",
+    "initdb": "node index.js -shell -db-create-tables",
     "start": "node index.js",
     "bksh": "bksh"
   },

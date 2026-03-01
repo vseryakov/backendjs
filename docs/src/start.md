@@ -86,7 +86,7 @@ db-pool=sqlite
 Now run the command
 
 ```shell
-node index.js -db-create-tables
+node index.js -shell -db-create-tables
 ```
 
 Go to _http://localhost:8000/counter_ in your browser, you'll see the current counter value,
