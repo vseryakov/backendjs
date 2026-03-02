@@ -1,5 +1,5 @@
 
-const { api, app, ipc, jobs, lib, cache, queue, logger, modules } = require("../");
+const { api, app, db, ipc, jobs, lib, cache, queue, logger, modules } = require("../");
 const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
@@ -16,51 +16,52 @@ const mock = {
     }
 };
 
+function initServices(options)
+{
+    if (options.cache) {
+        cache.initClients();
+    }
+
+    if (options.queue) {
+        queue.initClients();
+    }
+
+    if (options.ipc) {
+        if (app.isPrimary) {
+            ipc.initServer();
+        } else {
+            ipc.initWorker();
+        }
+    }
+
+    if (options.api) {
+        api.init()
+    }
+
+    if (options.jobs) {
+        if (app.isPrimary) {
+            jobs.initServer(options);
+        } else {
+            jobs.initWorker(options);
+        }
+    }
+
+    if (options.worker) {
+        jobs.initWorker(options);
+    }
+}
+
 exports.init = function(options, callback)
 {
-    options = Object.assign({}, options, { config: __dirname + "/bkjs.conf" });
+    options = Object.assign({}, options, { nodbconf: 1, config: __dirname + "/bkjs.conf" });
 
     api.accessTokenSecret = lib.random();
 
     app.addModule(mock);
 
     app.init(options, () => {
-
-        if (options.cache) {
-            cache.initClients();
-        }
-
-        if (options.queue) {
-            queue.initClients();
-        }
-
-        if (options.ipc) {
-            if (app.isPrimary) {
-                ipc.initServer();
-            } else {
-                ipc.initWorker();
-            }
-        }
-
-        if (options.api) {
-            api.init()
-        }
-
-        if (options.jobs) {
-            if (app.isPrimary) {
-                jobs.initServer(options);
-            } else {
-                jobs.initWorker(options);
-            }
-        }
-
-        if (options.worker) {
-            jobs.initWorker(options);
-        }
-
-        if (typeof callback != "function") return;
-
-        setTimeout(callback, options.delay || 250);
+        initServices(options);
+        setTimeout(callback || lib.noop, options.delay || 250);
     });
 }
 

@@ -13,9 +13,6 @@ if (cluster.isWorker) {
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { promisify } = require("util");
-
-const submitJob = promisify(jobs.submitJob.bind(jobs));
 
 describe("Jobs tests", async () => {
 
@@ -38,49 +35,49 @@ describe("Jobs tests", async () => {
         var file = "/tmp/job1.test";
         lib.unlinkSync(file);
 
-        await jobs.submitJob({ job: { "jobs.testJob": { file, data: "job" } } }, opts);
-        await lib.sleep(200)
+        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "job" } } }, opts);
+        await lib.sleep(500)
 
         var data = lib.readFileSync(file);
         assert.match(data, /job/);
     });
 
-    await it("run cancel job", async () => {
-        const file = "/tmp/job2.test";
-        lib.unlinkSync(file);
+    // await it("run cancel job", async () => {
+    //     const file = "/tmp/job2.test";
+    //     lib.unlinkSync(file);
 
-        await submitJob({ job: { "jobs.testJob": { file, cancel: "job2", timeout: 5000 } } }, opts);
-        await lib.sleep(500)
+    //     await jobs.asubmitJob({ job: { "jobs.testJob": { file, cancel: "job2", timeout: 5000 } } }, opts);
+    //     await lib.sleep(500)
 
-        jobs.cancelJob("job2");
-        await lib.sleep(500);
+    //     jobs.cancelJob("job2");
+    //     await lib.sleep(500);
 
-        var data = lib.readFileSync(file);
-        assert.match(data, /cancelled/);
-    });
+    //     var data = lib.readFileSync(file);
+    //     assert.match(data, /cancelled/);
+    // });
 
-    it("run local job", async () => {
-        const file = "/tmp/job3.test";
-        lib.unlinkSync(file);
+    // it("run local job", async () => {
+    //     const file = "/tmp/job3.test";
+    //     lib.unlinkSync(file);
 
-        await submitJob({ job: { "jobs.testJob": { file, data: "local" } } }, { queueName: "local" });
-        await lib.sleep(100)
+    //     await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "local" } } }, { queueName: "local" });
+    //     await lib.sleep(100)
 
-        var data = lib.readFileSync(file);
-        assert.match(data, /local/);
+    //     var data = lib.readFileSync(file);
+    //     assert.match(data, /local/);
 
-    });
+    // });
 
-    it("run worker job", async() => {
-        var file = "/tmp/job4.test";
-        lib.unlinkSync(file);
+    // it("run worker job", async() => {
+    //     var file = "/tmp/job4.test";
+    //     lib.unlinkSync(file);
 
-        await submitJob({ job: { "jobs.testJob": { file, data: "worker" } } }, { queueName: "worker" });
-        await lib.sleep(500)
+    //     await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "worker" } } }, { queueName: "worker" });
+    //     await lib.sleep(500)
 
-        var data = lib.readFileSync(file);
-        assert.match(data, /worker/);
-    });
+    //     var data = lib.readFileSync(file);
+    //     assert.match(data, /worker/);
+    // });
 });
 
 

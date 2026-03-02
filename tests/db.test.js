@@ -8,7 +8,7 @@ const { promisify } = require("util");
 describe("DB tests", async () => {
 
     before(async () => {
-        await ainit({ createTables: 1, roles: process.env.TEST_DB || "sqlite" })
+        await ainit({ roles: process.env.TEST_DB || "sqlite" })
     });
 
     after(async () => {
@@ -602,9 +602,13 @@ describe("DB tests", async () => {
         await db.adelAll("bk_config", { type: [type1, type2, type3] });
 
         await db.aput("bk_config", { type: type1, name: "param1", value: "ok" })
+        await lib.sleep(50);
         await db.aput("bk_config", { type: type1, name: "param2", value: "hidden", status: "hidden" })
+        await lib.sleep(50);
         await db.aput("bk_config", { type: type2, name: "param2", value: "version", version: ">1.0.0" })
+        await lib.sleep(50);
         await db.aput("bk_config", { type: type1, name: "param3", value: "stime", stime: Date.now()+200 })
+        await lib.sleep(50);
         await db.aput("bk_config", { type: type2, name: "param3", value: "etime", etime: Date.now()+500 })
         await lib.sleep(100);
 
@@ -621,7 +625,7 @@ describe("DB tests", async () => {
         rows = await getConfig();
         assert.partialDeepStrictEqual(rows, [ { name: "param1" }, { name: "param3", value: "stime" } ]);
 
-        await db.put("bk_config", { type: type3, name: "param1", value: "zero", stime: 0, etime: 0 })
+        await db.aput("bk_config", { type: type3, name: "param1", value: "zero", stime: 0, etime: 0 })
         await lib.sleep(250);
 
         rows = await getConfig();

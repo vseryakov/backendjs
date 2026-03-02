@@ -536,16 +536,20 @@ See {@link module:app}
 ### **app-path-modules**
  Add a path from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules. The modules can load any other files or directories, this is just an entry point   
 ##### Type: path   
-### **app-role**
- Override primary server role   
-##### Type: callback   
-##### Default: "shell"   
 ### **app-salt**
  Set random or specific salt value to be used for consistent suuid generation   
 ##### Type: callback   
 ### **app-version**
  Set app name/version explicitely and skip reading it from the package.json   
 ##### Default: "bkjs/0.0"   
+### **app-roles**
+ Additional config roles, a shortcut for app-instance-roles   
+##### Type: list   
+##### Example:
+```
+app-roles = redis, dynamodb
+```
+
 ### **app-instance-([a-z0-9_-]+)**
  Set instance/container properties explicitly: tag, region, zone, roles, ...   
 ##### Example:
