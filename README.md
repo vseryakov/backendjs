@@ -26,7 +26,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Features like **LRU (Least Recently Used) caching**, **token bucket rate limiting**, and **locking mechanisms**.
 
 4. **Job Queue & Event Processing**
-   - Supports **SQS, NATS, and Redis queues** for job processing.
+   - Supports **SQS, NATS, DB and Redis queues** for job processing.
    - Workers can be spawned to handle jobs asynchronously.
    - Event-based architecture for real-time processing.
 
@@ -64,7 +64,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
 | `app`       | Core application module for initialization, configuration, and process management. |
 | `db`        | Database abstraction layer for SQLite, PostgreSQL, DynamoDB, and Elasticsearch.    |
 | `cache`     | Caching layer with Redis, NATS, and local memory support.                          |
-| `queue`     | Job queue and event processing with SQS, NATS, and Redis.                          |
+| `queue`     | Job queue and event processing with SQS, NATS, DB, and Redis.                          |
 | `api`       | HTTP API layer built on Express.js with middleware for auth, logging, etc.         |
 | `aws`       | AWS SDK integration for S3, SQS, SNS, DynamoDB, and EC2.                           |
 | `jobs`      | Job processing with worker pools and cron-like scheduling.                         |
