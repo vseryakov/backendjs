@@ -42,5 +42,19 @@ Contacts are stored in the `contacts` table with:
 
 SQLite is the default pool (`contacts.db`). Switch DB backends by setting the role in `bkjs.conf` (Postgres, DynamoDB, Elasticsearch, rqlite).
 
+### To use DynamoDB
+
+```bash
+npm run initdb -- -app-roles dynamodb
+npm run start -- -app-roles dynamodb
+```
+
+### To use PostgreSQL
+
+```bash
+npm run initdb -- -app-roles pg
+npm run start -- -app-roles pg
+```
+
 ## License
 BSD-3-Clause

@@ -964,10 +964,10 @@
           data2 = /\/json/.test(ctype) ? await res.json() : /image|video|audio|pdf|zip|binary|octet/.test(ctype) ? await res.blob() : await res.text();
       }
       call(callback, null, data2, info);
-      return { ok: true, status: info.status, data: data2, info };
+      return { ok: true, status: info?.status, data: data2, info };
     } catch (err) {
       call(callback, err);
-      return { ok: false, status: info.status, err, data: data2, info };
+      return { ok: false, status: info?.status, err, data: data2, info };
     }
   }
 
@@ -1274,7 +1274,6 @@
   // src/lib.js
   var lib_exports = {};
   __export(lib_exports, {
-    asendFile: () => asendFile,
     forEach: () => forEach,
     forEachSeries: () => forEachSeries,
     isFlag: () => isFlag,
@@ -1641,15 +1640,16 @@
     } : callback);
   }
   /**
-   * Send file(s) and forms
+   * Send file(s) and forms, a wrapper around fetch
    * @param {string} url
    * @param {object} options
    * @param {object} [options.files] - name/File pairs to be sent as multi-part
    * @param {object} [options.body] - simple form properties
    * @param {object} [options.json] - send as JSON blobs
    * @param {function} [callback]
+   * @async
    */
-  function sendFile(url, options, callback) {
+  async function sendFile(url, options, callback) {
     const add = (k, v) => {
       body.append(k, isFunction(v) ? v() : v === null || v === true ? "" : v);
     };
@@ -1684,14 +1684,7 @@
       if (p == "json" || p == "files" || p == "body") continue;
       req[p] ??= options[p];
     }
-    fetch(url, req, callback);
-  }
-  function asendFile(url, options) {
-    return new Promise((resolve2, reject) => {
-      sendFile(url, options, (err, data2, info) => {
-        resolve2({ ok: !err, status: info.status, err, data: data2, info });
-      });
-    });
+    return fetch(url, req, callback);
   }
   function isattr(attr, list) {
     const name = attr.nodeName.toLowerCase();
@@ -1781,6 +1774,135 @@
     ul: []
   };
 
+  // src/ws.js
+  var ws_exports = {};
+  __export(ws_exports, {
+    WS: () => WS,
+    default: () => ws_default
+  });
+  var WS = class {
+    path = "/";
+    query = null;
+    retry_timeout = 500;
+    retry_factor = 2;
+    max_timeout = 3e4;
+    max_retries = Infinity;
+    max_pending = 10;
+    ping_interval = 3e5;
+    _retries = 0;
+    _pending = [];
+    constructor(options) {
+      for (const p in options) {
+        if (p[0] != "_" && this[p] !== void 0) this[p] = options[p];
+      }
+      $on(window, "online", this.online.bind(this));
+    }
+    // Open a new websocket connection
+    connect() {
+      if (this._timer) {
+        clearTimeout(this._timer);
+        delete this._timer;
+      }
+      if (this.disabled) return;
+      var host = this.host || window.location.hostname;
+      if (navigator.onLine === false && !/^(localhost|127.0.0.1)$/.test(host)) {
+        return this.timer(0);
+      }
+      if (!this.query) this.query = {};
+      for (const p in this.headers) {
+        if (this.query[p] === void 0) this.query[p] = this.headers[p];
+      }
+      var port = this.port || window.location.port;
+      var proto = this.protocol || window.location.protocol.replace("http", "ws");
+      var url = `${proto}//${host}:${port}${this.path}?${this.query ? new URLSearchParams(this.query).toString() : ""}`;
+      var ws = this.ws = new WebSocket(url);
+      ws.onopen = () => {
+        trace("ws.open:", url);
+        emit("ws:open", url);
+        this._ctime = Date.now();
+        this._timeout = toNumber(this.retry_timeout);
+        this._retries = 0;
+        while (this._pending.length) {
+          this.send(this.pending.shift());
+        }
+        this.ping();
+      };
+      ws.onclose = () => {
+        trace("ws.closed:", url, this._timeout, this._retries);
+        this.ws = null;
+        emit("ws:close", url);
+        if (++this._retries < this.max_retries) this.timer();
+      };
+      ws.onmessage = (msg) => {
+        var data2 = msg.data;
+        if (data2 === "bye") return this.close(1);
+        if (typeof data2 == "string" && (data2[0] == "{" || data2[0] == "[")) data2 = JSON.parse(data2);
+        trace("ws.message:", data2);
+        emit("ws:message", data2);
+        if (data2.event) {
+          emit(app.event, data2.event, data2);
+        }
+      };
+      ws.onerror = (err) => {
+        trace("ws.error:", url, err);
+      };
+    }
+    // Restart websocket reconnect timer, increase timeout according to reconnect policy (retry_factor, max_timeout)
+    timer(timeout) {
+      clearTimeout(this._timer);
+      if (this.disabled) return;
+      if (typeof timeout == "number") this._timeout = timeout;
+      this._timer = setTimeout(this.connect.bind(this), this._timeout);
+      this._timeout *= this._timeout == this.max_timeout ? 0 : toNumber(this.retry_factor);
+      this._timeout = toNumber(this._timeout, { min: this.retry_timeout, max: this.max_timeout });
+    }
+    // Send a ping and shcedule next one
+    ping() {
+      clearTimeout(this._ping);
+      if (this.disabled || !this.ping_interval) return;
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(this.ping_path || "/ping");
+      }
+      this._ping = setTimeout(this.ping.bind(this), this.ping_interval);
+    }
+    // Closes and possibly disables WS connection, to reconnect again must delete .disabled property
+    close(disable) {
+      this.disabled = disable;
+      if (!this.ws) return;
+      this.ws.close();
+      delete this.ws;
+    }
+    // Send a string data or an object
+    send(data2) {
+      if (this.ws?.readyState != WebSocket.OPEN) {
+        if (!this.max_pending || this._pending.length < this.max_pending) {
+          this._pending.push(data2);
+        }
+        return;
+      }
+      if (isObject(data2)) {
+        if (data2.url && data2.url[0] == "/") {
+          data2 = data2.url;
+          if (isObject(data2.data)) {
+            data2 += "?" + new URLSearchParams(data2.data).toString();
+          }
+        } else {
+          data2 = JSON.stringified(data2);
+        }
+      }
+      this.ws.send(data2);
+    }
+    // Check the status of websocket connection, reconnect if needed
+    online() {
+      trace("ws.online:", navigator.onLine, this.ws?.readyState, this.path, this._ctime);
+      if (this.ws?.readyState !== WebSocket.OPEN && this._ctime) {
+        this.connect();
+      }
+    }
+  };
+  var ws_default = WS;
+
   // builds/cdn-lib.js
   Object.assign(window.app, lib_exports);
+  Object.assign(window.app, ws_exports);
 })();

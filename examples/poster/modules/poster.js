@@ -26,15 +26,16 @@ module.exports = {
 
 function render(req, res)
 {
-    for (const p in req.body) {
-        if (req.files[p]?.path) req.body[p].file = req.files[p]?.path;
+    for (const i in req.body?.items) {
+        const item = req.body.items[i];
+        if (req.files[item.id]?.path) item.file = req.files[item.id]?.path;
     }
 
-    files.image.composite(req.body).then(rc => {
+    files.image.composite(req.body.items).then(rc => {
         req.res.header("pragma", "no-cache");
         res.setHeader("cache-control", "max-age=0, no-cache, no-store");
         res.type("image/png");
-        res.send(rc.$.buffer);
+        res.send(rc.at(-1).buffer);
     }).catch(err => api.sendReply(res, 400, err));
 }
 

@@ -64,6 +64,20 @@ bkjs.conf            # Runtime, queue, db, files config
 - `GET /api/png/:id` - download screenshot
 - `GET /api/html/:id` - download saved HTML
 
+## To use DynamoDB
+
+```bash
+npm run initdb -- -app-roles dynamodb
+npm run start -- -app-roles dynamodb
+```
+
+## To use PostgreSQL
+
+```bash
+npm run initdb -- -app-roles pg
+npm run start -- -app-roles pg
+```
+
 ## Notes
 
 - This example currently exposes `/api/*` as public in `bkjs.conf`.

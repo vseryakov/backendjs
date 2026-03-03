@@ -85,6 +85,25 @@ periodically, for example all local config files can be watched for modification
 config database is loaded periodically which is defined by another config parameter <a href="module-db.html#.configMap">module:db.configMap</a>.</p>
 <p>Including files and filters is supported in the config allowing to apply different config parameters based on the environment,
 see <a href="module-lib.html#.configParse">module:lib.configParse</a> and <a href="module-app.html#.parseConfig">module:app.parseConfig</a> for more details.</p>
+<p>For a quick overview, assume the following bkjs.conf:</p>
+<pre class="prettyprint source"><code># default db pool
+db-pool=sqlite
+db-sqlite-pool=/tmp/myapp
+
+[roles=pg]
+db-pool=pg
+db-pg-pool=default
+
+[roles=dynamodb]
+db-pool=dynamodb
+db-dynamodb-pool=default
+</code></pre>
+<p>Now, by default it uses Sqlite but to use a different database it is about passing a role:</p>
+<pre class="prettyprint source"><code>npm run start -- -app-roles dynamodb
+
+npm run start -- -app-roles pg
+
+</code></pre>
 <h2 id="config-sources">Config sources</h2>
 <p>All sources provide plain text where each line contains one config parameter.</p>
 <ul>

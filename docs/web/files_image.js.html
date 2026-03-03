@@ -292,12 +292,12 @@ mod.create = async function(options)
             text: {
                 rgba: true,
                 text,
-                height: height || undefined,
+                height: !options.dpi &amp;&amp; height || undefined,
                 width: width || undefined,
                 font: options.font || undefined,
                 fontfile: options.fontfile || undefined,
-                dpi: options.dpi || undefined,
-                spacing: options.spacing || undefined,
+                dpi: lib.toNumber(options.dpi) || undefined,
+                spacing: lib.toNumber(options.spacing) || undefined,
                 align: options.align || undefined,
                 justify: lib.toBool(options.justify),
                 wrap: options.wrap || "word",
@@ -398,10 +398,10 @@ mod.composite = async function(items, options)
     if (!lib.isArray(items)) return rc;
 
     // Render the first image as background
-    const bgitem = items.find(item => item.file);
+    const bgitem = items.find(item => item.file) || {};
     const bgimage = await mod.create(bgitem);
 
-    // Remaning valid items to render
+    // Remaining valid items to render
     items = items.filter(item => (item !== bgitem &amp;&amp; (item.text || item.file)));
 
     // Render all elements individually, preseve the order
@@ -425,6 +425,7 @@ mod.composite = async function(items, options)
     const buffers = Object.keys(rc).map(x => ({
         input: rc[x].buffer,
         gravity: rc[x].gravity,
+        blend: rc[x].blend,
         top: rc[x].top,
         left: rc[x].left
     }));

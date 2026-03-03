@@ -53,6 +53,31 @@ config database is loaded periodically which is defined by another config parame
 Including files and filters is supported in the config allowing to apply different config parameters based on the environment,
 see {@link module:lib.configParse} and {@link module:app.parseConfig} for more details.
 
+For a quick overview, assume the following bkjs.conf:
+
+```
+# default db pool
+db-pool=sqlite
+db-sqlite-pool=/tmp/myapp
+
+[roles=pg]
+db-pool=pg
+db-pg-pool=default
+
+[roles=dynamodb]
+db-pool=dynamodb
+db-dynamodb-pool=default
+```
+
+Now, by default it uses Sqlite but to use a different database it is about passing a role:
+
+```
+npm run start -- -app-roles dynamodb
+
+npm run start -- -app-roles pg
+
+```
+
 ## Config sources
 
 All sources provide plain text where each line contains one config parameter.

@@ -34,6 +34,21 @@ rm config.db
 npm run initdb
 ```
 
+
+### To use DynamoDB
+
+```bash
+npm run initdb -- -app-roles dynamodb
+npm run start -- -app-roles dynamodb
+```
+
+### To use PostgreSQL
+
+```bash
+npm run initdb -- -app-roles pg
+npm run start -- -app-roles pg
+```
+
 ## API Endpoints
 
 The following API endpoints are exposed by the app:

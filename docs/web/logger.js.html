@@ -480,7 +480,7 @@ logger.dump = function()
 logger.inspect = function(obj, options)
 {
     var str = util.inspect(obj, options || this.inspectArgs);
-    return this.oneline ? str.replace(/\\n/g,' ').replace(/[ \\\r\n\t]+/g, " ") : str.replace(/\\n/g, "\n");
+    return this.oneline ? str.replace(/\\r\\n/g,' ').replace(/[ \\\r\n\t]+/g, " ") : str.replace(/\\n/g, "\n");
 }
 
 // Merge with existing inspect options temporarily, calling without options will reset to previous values

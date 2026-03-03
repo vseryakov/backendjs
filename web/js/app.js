@@ -964,10 +964,10 @@
           data2 = /\/json/.test(ctype) ? await res.json() : /image|video|audio|pdf|zip|binary|octet/.test(ctype) ? await res.blob() : await res.text();
       }
       call(callback, null, data2, info);
-      return { ok: true, status: info.status, data: data2, info };
+      return { ok: true, status: info?.status, data: data2, info };
     } catch (err) {
       call(callback, err);
-      return { ok: false, status: info.status, err, data: data2, info };
+      return { ok: false, status: info?.status, err, data: data2, info };
     }
   }
 

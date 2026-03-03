@@ -50,7 +50,7 @@ module.exports = {
     job(options, callback)
     {
         scrape(options).then(() => {
-            const row = { id: options.id, status: "done", title: options.title };
+            const row = { id: options.id, status: "done", title: options.title, error: null };
             db.update("scraper", row, callback);
 
             api.ws.notify({}, { event: "scraper:status", data: row });

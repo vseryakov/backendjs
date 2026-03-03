@@ -57,8 +57,7 @@ app.components.index = class extends app.AlpineComponent {
 };
 
 app.$ready(async () => {
-    const ws = await import('/js/ws.mjs');
-    app.ws = new ws.WS(app, { path: "/ping" });
+    app.ws = new app.WS({ path: "/ping" });
     app.ws.connect();
 
     app.start();
