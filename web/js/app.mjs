@@ -1158,22 +1158,22 @@ function AlpinePlugin(Alpine) {
     const scope = Alpine.closestDataStack(el);
     el._x_dataStack = scope.slice(0, parseInt(evaluate(expression || "")) || 0);
   });
-  Alpine.directive("droppable", (el, { expression }, { evaluate, cleanup }) => {
+  Alpine.directive("file-drop", (el, { expression }, { evaluate, cleanup }) => {
     const target = evaluate(expression);
     var current = null;
     $on(el, "click", click);
     $on(el, "drop", drop);
     $on(el, "dragdrop", drop);
     $on(el, "dragenter", dragenter);
+    $on(el, "dragover", dragenter);
     $on(el, "dragleave", dragleave);
-    $on(el, "dragover", dragover);
     cleanup(() => {
       $off(el, "click", click);
       $off(el, "drop", drop);
       $off(el, "dragdrop", drop);
       $off(el, "dragenter", dragenter);
+      $off(el, "dragover", dragenter);
       $off(el, "dragleave", dragleave);
-      $off(el, "dragover", dragover);
     });
     function click(event) {
       $('[type="file"]', el).click();
@@ -1183,20 +1183,65 @@ function AlpinePlugin(Alpine) {
       var file = event.dataTransfer.files?.[0];
       $event(el, "file:dropped", { file, event });
       emit(app.event, "file:dropped", { file, event, target, element: el });
-      target.dragging = 0;
+      target._dragging = false;
+      current = null;
     }
     function dragenter(event) {
+      event.preventDefault();
       current = event.target;
-      target.dragging = 1;
+      target._dragging = true;
     }
     function dragleave(event) {
+      event.preventDefault();
       if (event.target === current) {
-        target.dragging = 0;
+        target._dragging = false;
       }
     }
-    function dragover(event) {
+  });
+  Alpine.directive("draggable", (el, { expression }, { evaluate, cleanup }) => {
+    const target = evaluate(expression);
+    var current = null;
+    $on(el, "drop", drop);
+    $on(el, "dragdrop", drop);
+    $on(el, "dragstart", dragstart);
+    $on(el, "dragend", dragend);
+    $on(el, "dragenter", dragenter);
+    $on(el, "dragover", dragenter);
+    $on(el, "dragleave", dragleave);
+    cleanup(() => {
+      $off(el, "drop", drop);
+      $off(el, "dragdrop", drop);
+      $off(el, "dragstart", dragstart);
+      $off(el, "dragend", dragend);
+      $off(el, "dragenter", dragenter);
+      $off(el, "dragover", dragenter);
+      $off(el, "dragleave", dragleave);
+    });
+    function dragenter(event) {
       event.preventDefault();
-      target.dragging = 1;
+      if (el === current) return;
+      target._dragging = true;
+    }
+    function dragleave(event) {
+      event.preventDefault();
+      if (el === current) return;
+      target._dragging = false;
+    }
+    function dragstart(event) {
+      current = el;
+      event.dataTransfer.effectAllowed = "move";
+    }
+    function dragend() {
+      target._dragging = false;
+      current = null;
+    }
+    function drop(event) {
+      event.preventDefault();
+      target._dragging = false;
+      if (el === current || !current) return;
+      current = null;
+      $event(el, "item:dropped", { item: current });
+      emit(app.event, "item:dropped", { event, item: current, element: el });
     }
   });
 }

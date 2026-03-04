@@ -43,7 +43,7 @@
                     <button class="btn btn-secondary dropdown-toggle" x-text="profile?.name || 'None'" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
                     <ul class="dropdown-menu">
                         <template x-form="p in profiles">
-                            <li><a class="dropdown-item" href="#" x-text="p.name" @click="profile=p"></a></li>
+                            <li><a class="dropdown-item" href="#" x-text="p.name" @click="profile=prepare(p)"></a></li>
                         </template>
                     </ul>
                 </div>
@@ -83,7 +83,27 @@
             </div>
         </div>
     </div>
-</template>
+
+    <datalist id="font-sizes">
+        <option value="xx-small"></option>
+        <option value="x-small"></option>
+        <option value="small"></option>
+        <option value="medium"></option>
+        <option value="large"></option>
+        <option value="x-large"></option>
+        <option value="xx-large"></option>
+    </datalist>
+
+    <datalist id="font-list">
+        <option value="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif">System (SF)</option>
+        <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
+        <option value="'Avenir Next', Avenir, sans-serif">Avenir Next</option>
+        <option value="'Futura', sans-serif">Futura</option>
+        <option value="'Montserrat', sans-serif">Montserrat</option>
+        <option value="'Roboto Slab', serif">Roboto Slab</option>
+    </datalist>
+
+    </template>
 
 
 <template id="element-dropdown">
@@ -98,91 +118,217 @@
         <i class="bi bi-gear"></i>
     </button>
 
-    <div class="dropdown-menu bg-light p-3 overflow-y-auto" style="max-height:80vh;">
+    <div class="dropdown-menu bg-light p-3 overflow-y-auto" style="min-width:50vw;max-height:80vh;">
        <form x-template="'element-form'"></form>
     </div>
 </template>
 
 <template id="element-form">
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Width <span x-text="el.width||'not set'"></span></label>
-        <input type="range" class="form-control border-0 form-range" min="0" max="2000" x-model="el.width">
+    <div class="row mb-3 pb-2 border-bottom">
+        <div class="col-4">
+            <label class="form-label">Width</label>
+            <input type="number" class="form-control" min="0" max="2000" x-model="el.width">
+        </div>
+
+        <div class="col-4">
+            <label class="form-label">Height</label>
+            <input type="number" class="form-control" min="0" max="2000" x-model="el.height">
+        </div>
+
+        <div class="col-4">
+            <label class="form-label">Radius</span></label>
+            <input type="number" class="form-control" min="0" max="10" x-model="el.radius">
+        </div>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Height <span x-text="el.height||'not set'"></span></label>
-        <input type="range" class="form-control border-0 form-range" min="0" max="2000" x-model="el.height">
+    <div class="row mb-3 pb-2 border-bottom" x-show="type=='image'">
+        <div class="col-4">
+            <label class="form-label">Fit</label>
+            <select class="form-select" x-model="el.fit">
+                <option selected value="">Choose...</option>
+                <option value="cover">cover: (default) Preserving aspect ratio, attempt to ensure the image covers both provided dimensions by cropping/clipping to fit.</option>
+                <option value="contain">contain: Preserving aspect ratio, contain within both provided dimensions using "letterboxing" where necessary.</option>
+                <option value="fill">fill: Ignore the aspect ratio of the input and stretch to both provided dimensions.</option>
+                <option value="inside">inside: Preserving aspect ratio, resize the image to be as large as possible while ensuring its dimensions are less than or equal to both those specified.</option>
+                <option value="outside">outside: Preserving aspect ratio, resize the image to be as small as possible while ensuring its dimensions are greater than or equal to both those specified.</option>
+            </select>
+        </div>
+
+        <div class="col-4">
+            <label class="form-label">Kernel</label>
+            <select class="form-select" x-model="el.kernel">
+                <option selected value="">Choose...</option>
+                <option value="nearest">nearest: Use nearest neighbour interpolation.</option>
+                <option value="linear">linear: Use a triangle filter.</option>
+                <option value="cubic">cubic: Use a Catmull-Rom spline.</option>
+                <option value="mitchell">mitchell: Use a Mitchell-Netravali spline.</option>
+                <option value="lanczos2">lanczos2: Use a Lanczos kernel with a=2.</option>
+                <option value="lanczos3">lanczos3: Use a Lanczos kernel with a=3 (the default).</option>
+                <option value="mks2013">mks2013: Use a Magic Kernel Sharp 2013 kernel.</option>
+                <option value="mks2021">mks2021: Use a Magic Kernel Sharp 2021 kernel.</option>
+            </select>
+        </div>
+
+        <div class="col-4">
+            <label class="form-label">Position</label>
+            <select class="form-select" x-model="el.position">
+                <option selected value="">Choose...</option>
+                <option>north</option>
+                <option>south</option>
+                <option>west</option>
+                <option>center</option>
+                <option>east</option>
+                <option>northwest</option>
+                <option>northeast</option>
+                <option>southwest</option>
+                <option>southeast</option>
+                <option value="entropy">entropy: focus on the region with the highest Shannon entropy.</option>
+                <option value="attention">attention: focus on the region with the highest luminance frequency, colour saturation and presence of skin tones.</option>
+            </select>
+        </div>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Gravity</label>
-        <select class="form-select" x-model="el.gravity">
-            <option selected>Choose...</option>
-            <option>north</option>
-            <option>south</option>
-            <option>west</option>
-            <option>center</option>
-            <option>east</option>
-            <option>northwest</option>
-            <option>northeast</option>
-            <option>southwest</option>
-            <option>southeast</option>
-        </select>
+    <div class="row mb-3 pb-2 border-bottom">
+        <div class="col-6">
+            <label class="form-label">Gravity</label>
+            <select class="form-select" x-model="el.gravity">
+                <option selected value="">Choose...</option>
+                <option>north</option>
+                <option>south</option>
+                <option>west</option>
+                <option>center</option>
+                <option>east</option>
+                <option>northwest</option>
+                <option>northeast</option>
+                <option>southwest</option>
+                <option>southeast</option>
+            </select>
+        </div>
+
+        <div class="col-6">
+            <label class="form-label">Blend</label>
+            <select class="form-select" x-model="el.blend">
+                <option selected value="">Choose...</option>
+                <option>clear</option>
+                <option>source</option>
+                <option>over</option>
+                <option>in</option>
+                <option>out</option>
+                <option>atop</option>
+                <option>dest</option>
+                <option>dest-over</option>
+                <option>dest-in</option>
+                <option>dest-out</option>
+                <option>dest-atop</option>
+                <option>xor</option>
+                <option>add</option>
+                <option>saturate</option>
+                <option>multiply</option>
+                <option>screen</option>
+                <option>overlay</option>
+                <option>darken</option>
+                <option>lighten</option>
+                <option>colour-dodge</option>
+                <option>color-dodge</option>
+                <option>colour-burn</option>
+                <option>color-burn</option>
+                <option>hard-light</option>
+                <option>soft-light</option>
+                <option>difference</option>
+                <option>exclusion</option>
+            </select>
+        </div>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Padding <span x-text="el.padding||'not set'"></span></label>
-        <input type="range" class="form-control border-0 form-range" min="0" max="1000" x-model="el.padding">
+    <div class="row mb-3 pb-2 border-bottom">
+        <div class="col-4">
+            <label class="form-label">Padding</span></label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="el.padding">
+        </div>
+        <div class="col-4">
+            <label class="form-label">Padding X</span></label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="el.padding_x">
+        </div>
+        <div class="col-4">
+            <label class="form-label">Padding Y</span></label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="el.padding_y">
+        </div>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Radius <span x-text="el.radius||'not set'"></span></label>
-        <input type="range" class="form-control border-0 form-range" min="0" max="10" x-model="el.radius">
+    <div class="row mb-3 pb-2 border-bottom">
+        <div class="col-6">
+            <div class="col-8" x-template="'color-input?id=padding_color&name=Padding+Color&prefix=padding_'"></div>
+        </div>
+
+        <div class="col-4">
+            <label class="form-label">Padding Radius</span></label>
+            <input type="number" class="form-control" min="0" max="10" x-model="el.padding_radius">
+        </div>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Border <span x-text="el.border||'not set'"></span></label>
-        <input type="range" class="form-control border-0 form-range" min="0" max="1000" x-model="el.border">
-    </div>
+    <div class="row mb-3 pb-2 border-bottom">
+        <div class="col-3">
+            <label class="form-label">Border Size</label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="el.border">
+        </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Border radius <span x-text="el.border_radius||'not set'"></span></label>
-        <input type="range" class="form-control border-0 form-range" min="0" max="10" x-model="el.border_radius">
-    </div>
+        <div class="col-3">
+            <label class="form-label">Border radius</span></label>
+            <input type="number" class="form-control" min="0" max="10" x-model="el.border_radius">
+        </div>
 
-    <div class="mb-2 pb-2 border-bottom" x-template="'color-input?id=border_color&name=Border+Color'"></div>
+        <div class="col-6">
+            <div class="col-8" x-template="'color-input?id=border_color&name=Border+Color&prefix=border_'"></div>
+        </div>
+    </div>
 
     <div x-template="el.type=='text'?'font-form':''"></div>
 
 </template>
 
 <template id="font-form">
-    <div class="mb-2 pb-2 border-bottom" x-template="'color-input?id=color&name=Color'"></div>
+    <div class="row mb-3 pb-2 border-bottom">
+        <div class="col-6" x-template="'color-input?id=color&name=Text+Color'"></div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Font <span x-text="el.font||'not set'"></span></label>
-        <select class="form-select" x-model="el.font">
-            <option value="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif">System (SF)</option>
-            <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
-            <option value="'Avenir Next', Avenir, sans-serif">Avenir Next</option>
-            <option value="'Futura', sans-serif">Futura</option>
-            <option value="'Montserrat', sans-serif">Montserrat</option>
-            <option value="'Roboto Slab', serif">Roboto Slab</option>
-        </select>
+        <div class="col-6" x-template="'color-input?id=bgcolor&name=Bg+Color&prefix=bg'"></div>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Font DPI <span x-text="el.dpi||'not set'"></span></label>
-        <input type="range" class="form-control border-0 form-range" min="72" max="1000" x-model="el.dpi">
+    <div class="mb-3 pb-2 border-bottom">
+        <label class="form-label">Font</label>
+        <input class="form-control" list="font-list" x-model="el.font">
     </div>
 
-    <div class="mb-2 pb-2 border-bottom" title="font size in 1024ths of a point, or in points (e.g. 12.5pt), or one of the absolute sizes xx-small, x-small, small, medium, large, x-large, xx-large, or a percentage (e.g. 200%), or one of the relative sizes smaller or larger">
-        <label class="form-label">Font Size <span x-text="el.size||'not set'"></span></label>
-        <input type="text" class="form-control" x-model="el.size">
+    <div class="row mb-3 pb-2 border-bottom">
+        <div class="col-6">
+            <label class="form-label">Font DPI</label>
+            <input type="number" class="form-control" min="72" max="1000" x-model="el.dpi">
+        </div>
+
+        <div class="col-6" title="font size in 1024ths of a point, or in points (e.g. 12.5pt), or one of the absolute sizes, or a percentage (e.g. 200%), or one of the relative sizes smaller or larger">
+            <label class="form-label">Font Size</label>
+            <input class="form-control" list="font-sizes" x-model="el.size">
+        </div>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Weight</label><br>
+    <div class="row mb-3 pb-2 border-bottom">
+        <div class="col-4" title="text line height in points">
+            <label class="form-label">Text height</label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="el.spacing">
+        </div>
+
+        <div class="col-4" title="Overrides the line height. The value can be either a factor (< 1024) that is used to scale up the logical extents of runs or an absolute value (in 1024th of a point)">
+            <label class="form-label">Line height</label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="el.line_height">
+        </div>
+
+        <div class="col-4" title="Inter-letter spacing in 1024ths of a point.">
+            <label class="form-label">Letter Spacing</label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="el.letter_spacing">
+        </div>
+    </div>
+
+    <div class="mb-3 pb-2 border-bottom">
+        <label class="form-label">Font Weight</label><br>
         <small>
             <div class="form-check form-switch form-check-inline">
                 <input class="form-check-input" type="radio" value="" x-model="el.weight">
@@ -203,8 +349,8 @@
         </small>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Style</label><br>
+    <div class="mb-3 pb-2 border-bottom">
+        <label class="form-label">Font Style</label><br>
         <small>
             <div class="form-check form-switch form-check-inline">
                 <input class="form-check-input" type="radio" value="" x-model="el.style">
@@ -221,8 +367,24 @@
         </small>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Align</label><br>
+    <div class="mb-3 pb-2 border-bottom">
+        <label class="form-label">Font Stretch</label>
+        <select class="form-select" x-model="el.stretch">
+            <option selected value="">Choose...</option>
+            <option>ultracondensed</option>
+            <option>extracondensed</option>
+            <option>condensed</option>
+            <option>semicondensed</option>
+            <option>normal</option>
+            <option>semiexpanded</option>
+            <option>expanded</option>
+            <option>extraexpanded</option>
+            <option>ultraexpanded</option>
+        </select>
+    </div>
+
+    <div class="mb-3 pb-2 border-bottom">
+        <label class="form-label">Text Align</label><br>
         <small>
             <div class="form-check form-switch form-check-inline">
                 <input class="form-check-input" type="radio" value="" x-model="el.align">
@@ -239,32 +401,34 @@
         </small>
     </div>
 
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Font Spacing <span x-text="el.spacing||'not set'"></span></label>
-        <input type="range" class="form-control border-0 form-range" min="0" max="1000" x-model="el.spacing">
-    </div>
-
-    <div class="mb-2 pb-2 border-bottom">
-        <label class="form-label">Font Stretch <span x-text="el.stretch||'not set'"></span></label>
-        <select class="form-select" x-model="el.stretch">
-            <option>normal</option>
-            <option>ultracondensed</option>
-            <option>extracondensed</option>
-            <option>condensed</option>
-            <option>semicondensed</option>
-            <option>semiexpanded</option>
-            <option>expanded</option>
-            <option>extraexpanded</option>
-            <option>ultraexpanded</option>
-        </select>
+    <div class="mb-3 pb-2 border-bottom">
+        <label class="form-label">Text Wrap</label><br>
+        <small>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="word" x-model="el.wrap">
+                <label class="form-check-label">Word</label>
+            </div>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="char" x-model="el.wrap">
+                <label class="form-check-label">Char</label>
+            </div>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="word-char" x-model="el.wrap">
+                <label class="form-check-label">Word-Char</label>
+            </div>
+            <div class="form-check form-switch form-check-inline">
+                <input class="form-check-input" type="radio" value="none" x-model="el.wrap">
+                <label class="form-check-label">None</label>
+            </div>
+        </small>
     </div>
 
 </template>
 
 <template id="image-input">
-    <div class="form-control border-dashed p-2 d-flex justify-content-center align-content-center " :class="{ 'border-primary': dragging }" x-data="{ dragging: 0, file: '' }" x-droppable="$data" @file:dropped="file=$event.detail?.file?.name">
+    <div class="form-control border-dashed p-2 d-flex justify-content-center align-content-center " x-file-drop="$data" :class="{ 'border-primary': _dragging }" >
         <span x-text="file || 'Click or drag image here'"></span>
-        <input type="file" :id="el.id" accept="image/*" class="d-none" @change="file=$event.target.value" >
+        <input type="file" :id="el.id" accept="image/*" class="d-none" @change="onFileDropped($event,$data)" >
     </div>
     <span class="input-group-text px-2 py-0" x-template="'element-dropdown'"></span>
     <span class="input-group-text p-0 small">
@@ -285,21 +449,18 @@
 </template>
 
 <template id=color-input>
-    <label class="form-label">
-        <span x-text="$params.name"></span>
-        <span x-text="el[$params.id]||'not set'" @click="el[$params.id]=undefined"></span>
-    </label>
-
-    <div class="row">
-        <div class="col-3">
+    <div class="d-flex d-column">
+        <div class="me-3">
+            <label class="form-label">
+                <span x-text="$params.name"></span>
+                <span x-text="el[$params.id]||'not set'" @click="el[$params.id]=undefined"></span>
+            </label>
             <input type="color" class="form-control form-control-color" x-model="el[$params.id]">
         </div>
-        <div class="col-2"></div>
-        <div class="col-3">
-            <label class="form-label">Opacity <span x-text="el[$params.id+'_alpha']"></span></label>
-        </div>
-        <div class="col-4">
-            <input type="range" class="form-range" min="0" max="100" x-model="el[$params.id+'_alpha']">
+
+        <div class="me-1">
+            <label class="form-label">Opacity % <span x-text="el[`${$params.prefix||''}alpha`]"></span></label>
+            <input type="number" class="form-control" min="0" max="100" x-model="el[`${$params.prefix||''}alpha`]">
         </div>
     </div>
 </template>

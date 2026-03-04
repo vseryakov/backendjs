@@ -28,7 +28,7 @@ function render(req, res)
 {
     for (const i in req.body?.items) {
         const item = req.body.items[i];
-        if (req.files[item.id]?.path) item.file = req.files[item.id]?.path;
+        if (req.files?.[item.id]?.path) item.file = req.files[item.id]?.path;
     }
 
     files.image.composite(req.body.items).then(rc => {

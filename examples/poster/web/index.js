@@ -12,8 +12,38 @@ app.components.index = class extends app.AlpineComponent {
         } catch (e) {}
 
         if (this.profiles?.[0]?.name) {
-            this.profile = this.profiles[0];
+            this.profile = this.prepare(this.profiles[0]);
         }
+    }
+
+    onFileDropped(event, item) {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => { item.data = reader.result });
+
+        switch (event.type) {
+        case "change":
+            item.file = event.target.value;
+            reader.readAsDataURL(event.target.files[0]);
+            break;
+
+        default:
+            item = event.target;
+            item.file = event.file.name;
+            reader.readAsDataURL(event.file);
+        }
+    }
+
+    prepare(profile) {
+        profile.name = profile.name || "";
+        profile.items = (profile.items || []).map(this.prepareItem);
+        return profile;
+    }
+
+    prepareItem(item) {
+        item.file = item.file || "";
+        item.data = item.data || "";
+        item._dragging = false;
+        return item;
     }
 
     addItem() {
@@ -30,16 +60,15 @@ app.components.index = class extends app.AlpineComponent {
             Add: (d) => {
                 if (!d.id || !d.type) return popup.showAlert("name and type required")
                 d.id = d.id.replace(/[^a-z0-9]/ig, "_");
-                this.profile.items.push(d);
+                this.profile.items.push(this.prepareItem(d));
             }
         })
     }
 
     async render() {
         const body = { items: this.profile.items };
-        const files = Array.from(app.$all("[type=file]")).reduce((a, b) => { a[b.id] = b; return a }, {});
 
-        const { err, data } = await app.sendFile("/api/render", { files, body });
+        const { err, data } = await app.fetch("/api/render", { post: 1, body });
         if (err) return app.showToast("error", err);
 
         const reader = new FileReader();
@@ -54,7 +83,7 @@ app.components.index = class extends app.AlpineComponent {
     addProfile() {
         bootpopup.prompt("Add Profile", (name) => {
             if (!name) return;
-            this.profiles.unshift({ name, items: [] });
+            this.profiles.unshift(this.prepare({ name }));
             this.profile = this.profiles[0];
         })
     }
