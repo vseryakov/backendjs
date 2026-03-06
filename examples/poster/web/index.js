@@ -11,9 +11,7 @@ app.components.index = class extends app.AlpineComponent {
             this.profiles = JSON.parse(localStorage.poster || "") || []
         } catch (e) {}
 
-        if (this.profiles?.[0]?.name) {
-            this.profile = this.prepare(this.profiles[0]);
-        }
+        this.profile = this.profiles[0] || {};
     }
 
     onFileDropped(event, item) {
@@ -22,26 +20,23 @@ app.components.index = class extends app.AlpineComponent {
 
         switch (event.type) {
         case "change":
-            item.file = event.target.value;
+            if (!event.target.files?.[0]) break;
+            item.file = event.target.value.split("/").pop();
             reader.readAsDataURL(event.target.files[0]);
             break;
 
         default:
+            if (!event.file?.name) break;
             item = event.target;
-            item.file = event.file.name;
+            item.file = event.file.name.split("/").pop();
             reader.readAsDataURL(event.file);
         }
-    }
-
-    prepare(profile) {
-        profile.name = profile.name || "";
-        profile.items = (profile.items || []).map(this.prepareItem);
-        return profile;
     }
 
     prepareItem(item) {
         item.file = item.file || "";
         item.data = item.data || "";
+        item.filters = item.filters || [];
         item._dragging = false;
         return item;
     }
@@ -80,11 +75,17 @@ app.components.index = class extends app.AlpineComponent {
         localStorage.poster = JSON.stringify(this.profiles);
     }
 
+    download() {
+        const link = document.createElement('a');
+        link.download = 'poster.json';
+        link.href = `data:application/json,${JSON.stringify(this.profiles)}`
+        setTimeout(() => { link.click(); }, 100);
+    }
+
     addProfile() {
         bootpopup.prompt("Add Profile", (name) => {
             if (!name) return;
-            this.profiles.unshift(this.prepare({ name }));
-            this.profile = this.profiles[0];
+            this.profiles.push(this.profile = { name, items: [] });
         })
     }
 };
