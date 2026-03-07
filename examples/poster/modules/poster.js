@@ -31,7 +31,7 @@ function render(req, res)
         if (req.files?.[item.id]?.path) item.file = req.files[item.id]?.path;
     }
 
-    files.image.composite(req.body.items).then(rc => {
+    files.image.composite(req.body.items, req.body.defaults).then(rc => {
         req.res.header("pragma", "no-cache");
         res.setHeader("cache-control", "max-age=0, no-cache, no-store");
         res.type("image/png");

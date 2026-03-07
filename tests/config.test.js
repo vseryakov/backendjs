@@ -44,8 +44,8 @@ line2=line2
     args = lib.configParse(data, { tag: "test", roles: "test2" });
     assert.deepStrictEqual(args, ['-line1', 'line1','-line4', 'line4','-line5', 'line5','-line2', 'line2' ])
 
-    app.instance.tag = "tag";
-    app.instance.roles = ["dev", "staging", "prod"];
+    app.env.tag = "tag";
+    app.env.roles = ["dev", "staging", "prod"];
     args = lib.configParse(data, app);
     assert.deepStrictEqual(args, ['-line1', 'line1', '-line6', 'line6', '-line9', 'line9', '-line11', 'line11', '-line2', 'line2' ])
 })

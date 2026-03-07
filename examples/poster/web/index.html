@@ -34,29 +34,72 @@
     <script src="/index.js"></script>
 </body>
 
+<datalist id="font-sizes">
+    <option value="xx-small"></option>
+    <option value="x-small"></option>
+    <option value="small"></option>
+    <option value="medium"></option>
+    <option value="large"></option>
+    <option value="x-large"></option>
+    <option value="xx-large"></option>
+</datalist>
+
+<datalist id="font-list">
+    <option value="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif">System (SF)</option>
+    <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
+    <option value="'Avenir Next', Avenir, sans-serif">Avenir</option>
+    <option value="'Futura', sans-serif">Futura</option>
+    <option value="'Gill Sans', 'Gill Sans MT', sans-serif">Gill Sans</option>
+    <option value="'Optima', sans-serif">Optima</option>
+    <option value="'Palatino', 'Palatino Linotype', serif">Palatino</option>
+    <option value="'Didot', serif">Didot</option>
+    <option value="'American Typewriter', serif">American Typewriter</option>
+    <option value="'Copperplate', 'Copperplate Gothic Light', serif">Copperplate</option>
+    <option value="'Marker Felt', 'Comic Sans MS', cursive">Marker Felt</option>
+    <option value="'Menlo', 'SF Mono', monospace">Menlo / SF Mono</option>
+    <option value="'Montserrat', sans-serif" selected>Montserrat</option>
+    <option value="'Playfair Display', serif">Playfair Display</option>
+    <option value="'Roboto Slab', serif">Roboto Slab</option>
+    <option value="'Bebas Neue', sans-serif">Bebas Neue</option>
+    <option value="'Pacifico', cursive">Pacifico</option>
+</datalist>
+
 <template id=index>
     <div class="ms-3">
         <div class="m-3 d-flex justify-content-between align-items-center">
             <h1 class="mb-3">Create a Poster</h1>
             <div class="d-flex flex-nowrap">
-                <div class="dropdown me-2">
-                    <button class="btn btn-secondary dropdown-toggle" x-text="profile?.name || 'None'" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
+                <div class="dropdown me-2" x-show="profiles.length">
+                    <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Select poster...
+                    </button>
                     <ul class="dropdown-menu">
                         <template x-for="p in profiles">
                             <li><a class="dropdown-item" x-text="p.name" @click.stop.prevent="profile=p"></a></li>
                         </template>
                     </ul>
                 </div>
-                <button class="btn btn-outline-dark me-2" @click.stop.prevent="addProfile"><i class="bi bi-plus"></i> Add</button>
-                <button class="btn btn-outline-dark me-2" @click.stop.prevent="save"><i class="bi bi-sd-card"></i> Save</button>
+                <button class="btn btn-outline-dark me-2" @click.stop.prevent="create"><i class="bi bi-plus"></i> Create</button>
+                <button class="btn btn-outline-dark me-2" @click.stop.prevent="load"><i class="bi bi-filetype-json"></i> Import</button>
                 <button class="btn btn-outline-dark me-2" @click.stop.prevent="download"><i class="bi bi-download"></i> Download</button>
+                <button class="btn btn-outline-dark me-2" @click.stop.prevent="save"><i class="bi bi-sd-card"></i> Save Draft</button>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-3">
+                <label class="form-label fw-bolder">Poster</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" x-model="profile.name">
+                    <span class="input-group-text px-0 py-0" x-data="{ item: profile.item = profile.item || {} }" x-template="'element-dropdown'"></span>
+                </div>
             </div>
         </div>
 
         <div class="text-muted mb-3">First image is the backgroud, it must be large enough to fit other elements</div>
 
         <div class="row">
-            <div class="col-md-3">
+            <div class="col-3">
                 <form>
                     <template x-for="(item, index) in profile?.items" :key="item.id" x-scope-level=1>
                         <div class="mb-3">
@@ -73,10 +116,10 @@
                 </form>
             </div>
 
-            <div class="col-md-9" id="right">
+            <div class="col-9" id="right">
                 <div class="card shadow-sm w-100 h-100">
                     <div class="card-body">
-                        <div class="bg-light rounded p-2 w-100 h-100">
+                        <div class="rounded p-2 w-100 h-100">
                             <img src="/img/1.png" id="poster" class="img-fluid" alt="Poster">
                         </div>
                     </div>
@@ -84,27 +127,7 @@
             </div>
         </div>
     </div>
-
-    <datalist id="font-sizes">
-        <option value="xx-small"></option>
-        <option value="x-small"></option>
-        <option value="small"></option>
-        <option value="medium"></option>
-        <option value="large"></option>
-        <option value="x-large"></option>
-        <option value="xx-large"></option>
-    </datalist>
-
-    <datalist id="font-list">
-        <option value="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif">System (SF)</option>
-        <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
-        <option value="'Avenir Next', Avenir, sans-serif">Avenir Next</option>
-        <option value="'Futura', sans-serif">Futura</option>
-        <option value="'Montserrat', sans-serif">Montserrat</option>
-        <option value="'Roboto Slab', serif">Roboto Slab</option>
-    </datalist>
-
-    </template>
+</template>
 
 
 <template id="element-dropdown">
@@ -119,7 +142,7 @@
         <i class="bi bi-gear"></i>
     </button>
 
-    <div class="dropdown-menu p-3 overflow-y-auto bg-light" style="min-width:60vw;max-height:80vh;">
+    <div class="dropdown-menu p-3 overflow-y-auto bg-light border-primary border-5 border-opacity-50" style="min-width:65vw;max-height:80vh;">
        <form x-template="'element-form'"></form>
     </div>
 </template>
@@ -219,7 +242,7 @@
 
     </div>
 
-    <div class="row mb-3 pb-3 border-bottom" x-show="item.type=='image'">
+    <div class="row mb-3 pb-3 border-bottom" x-show="!item.type||item.type=='image'">
         <div class="col-4">
             <label class="form-label">Fit</label>
             <select class="form-select" x-model="item.fit">
@@ -267,34 +290,57 @@
     </div>
 
     <div class="row mb-3 pb-3 border-bottom">
-        <div class="col-4">
+        <div class="col-3">
             <label class="form-label">Padding</span></label>
             <input type="number" class="form-control" min="0" max="1000" x-model="item.padding">
         </div>
-        <div class="col-4">
-            <label class="form-label">Padding X</span></label>
-            <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_x">
+
+        <div class="col-3">
+            <label class="form-label">Padding Radius</span></label>
+            <input type="number" class="form-control" min="0" max="10" x-model="item.padding_radius">
         </div>
-        <div class="col-4">
-            <label class="form-label">Padding Y</span></label>
-            <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_y">
+
+        <div class="col-6">
+            <div class="col-8" x-template="'color-input?id=padding_color&name=Padding+Color&prefix=padding_'"></div>
         </div>
     </div>
 
     <div class="row mb-3 pb-3 border-bottom">
-        <div class="col-6">
-            <div class="col-8" x-template="'color-input?id=padding_color&name=Padding+Color&prefix=padding_'"></div>
+        <div class="col-2">
+            <label class="form-label">Padding X</span></label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_x">
         </div>
 
-        <div class="col-4">
-            <label class="form-label">Padding Radius</span></label>
-            <input type="number" class="form-control" min="0" max="10" x-model="item.padding_radius">
+        <div class="col-2">
+            <label class="form-label">Padding Y</span></label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_y">
         </div>
+
+        <div class="col-2">
+            <label class="form-label">Padding Top</span></label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_top">
+        </div>
+
+        <div class="col-2">
+            <label class="form-label">Padding Bottom</span></label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_bottom">
+        </div>
+
+        <div class="col-2">
+            <label class="form-label">Padding Left</span></label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_left">
+        </div>
+
+        <div class="col-2">
+            <label class="form-label">Padding Right</span></label>
+            <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_right">
+        </div>
+
     </div>
 
     <div class="row mb-3 pb-3 border-bottom">
         <div class="col-3">
-            <label class="form-label">Border Size</label>
+            <label class="form-label">Border</label>
             <input type="number" class="form-control" min="0" max="1000" x-model="item.border">
         </div>
 
@@ -308,7 +354,7 @@
         </div>
     </div>
 
-    <div x-template="item.type=='text'?'font-form':''"></div>
+    <div x-template="!item.type||item.type=='text'?'font-form':''"></div>
 
     <div class="row mb-3 pb-3 border-bottom">
         <div class="col-3">
@@ -322,30 +368,9 @@
                     <div class="col-4">
                         <select class="form-select" x-model="filter.name">
                             <option selected value="">Choose...</option>
-                            <option>autoOrient</option>
-                            <option>rotate</option>
-                            <option>flip</option>
-                            <option>flop</option>
-                            <option>affine</option>
-                            <option>sharpen</option>
-                            <option>erode</option>
-                            <option>dilate</option>
-                            <option>median</option>
-                            <option>blur</option>
-                            <option>flatten</option>
-                            <option>unflatten</option>
-                            <option>gamma</option>
-                            <option>negate</option>
-                            <option>normalise</option>
-                            <option>normalize</option>
-                            <option>clahe</option>
-                            <option>convolve</option>
-                            <option>threshold</option>
-                            <option>boolean</option>
-                            <option>linear</option>
-                            <option>recomb</option>
-                            <option>modulate</option>
-                            <option>trim</option>
+                            <template x-for="f in filters">
+                                <option x-text="f.name" :selected="f.name==filter.name"></option>
+                            </template>
                         </select>
                     </div>
                     <div class="col-6">
@@ -367,18 +392,18 @@
         <div class="col-6" x-template="'color-input?id=bgcolor&name=Bg+Color&prefix=bg'"></div>
     </div>
 
-    <div class="mb-3 pb-3 border-bottom">
-        <label class="form-label">Font</label>
-        <input class="form-control" list="font-list" x-model="item.font">
-    </div>
-
     <div class="row mb-3 pb-3 border-bottom">
         <div class="col-6">
+            <label class="form-label">Font</label>
+            <input class="form-control" list="font-list" x-model="item.font">
+        </div>
+
+        <div class="col-3">
             <label class="form-label">Font DPI</label>
             <input type="number" class="form-control" min="72" max="1000" x-model="item.dpi">
         </div>
 
-        <div class="col-6" title="font size in 1024ths of a point, or in points (e.g. 12.5pt), or one of the absolute sizes, or a percentage (e.g. 200%), or one of the relative sizes smaller or larger">
+        <div class="col-3" title="font size in 1024ths of a point, or in points (e.g. 12.5pt), or one of the absolute sizes, or a percentage (e.g. 200%), or one of the relative sizes smaller or larger">
             <label class="form-label">Font Size</label>
             <input class="form-control" list="font-sizes" x-model="item.size">
         </div>
@@ -401,100 +426,66 @@
         </div>
     </div>
 
-    <div class="mb-3 pb-3 border-bottom">
-        <label class="form-label">Font Weight</label><br>
-        <small>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="" x-model="item.weight">
-                <label class="form-check-label">Normal</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="light" x-model="item.weight">
-                <label class="form-check-label">Light</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="bold" x-model="item.weight">
-                <label class="form-check-label">Bold</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="heavy" x-model="item.weight">
-                <label class="form-check-label">Heavy</label>
-            </div>
-        </small>
+    <div class="row mb-3 pb-3 border-bottom">
+        <div class="col-4">
+            <label class="form-label">Font Weight</label>
+            <select class="form-select" x-model="item.weight">
+                <option selected value="">Choose...</option>
+                <option>normal</option>
+                <option>light</option>
+                <option>bold</option>
+                <option>heavy</option>
+            </select>
+        </div>
+
+        <div class="col-4">
+            <label class="form-label">Font Style</label>
+            <select class="form-select" x-model="item.style">
+                <option selected value="">Choose...</option>
+                <option>normal</option>
+                <option>italic</option>
+                <option>oblique</option>
+            </select>
+        </div>
+
+        <div class="col-4">
+            <label class="form-label">Font Stretch</label>
+            <select class="form-select" x-model="item.stretch">
+                <option selected value="">Choose...</option>
+                <option>ultracondensed</option>
+                <option>extracondensed</option>
+                <option>condensed</option>
+                <option>semicondensed</option>
+                <option>normal</option>
+                <option>semiexpanded</option>
+                <option>expanded</option>
+                <option>extraexpanded</option>
+                <option>ultraexpanded</option>
+            </select>
+        </div>
     </div>
 
-    <div class="mb-3 pb-3 border-bottom">
-        <label class="form-label">Font Style</label><br>
-        <small>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="" x-model="item.style">
-                <label class="form-check-label">Normal</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="italic" x-model="item.style">
-                <label class="form-check-label">Italic</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="oblique" x-model="item.style">
-                <label class="form-check-label">Oblique</label>
-            </div>
-        </small>
-    </div>
+    <div class="row mb-3 pb-3 border-bottom">
+        <div class="col-4">
+            <label class="form-label">Text Align</label><br>
+            <select class="form-select" x-model="item.align">
+                <option selected value="">Choose...</option>
+                <option>left</option>
+                <option>center</option>
+                <option>right</option>
+            </select>
+        </div>
 
-    <div class="mb-3 pb-3 border-bottom">
-        <label class="form-label">Font Stretch</label>
-        <select class="form-select" x-model="item.stretch">
-            <option selected value="">Choose...</option>
-            <option>ultracondensed</option>
-            <option>extracondensed</option>
-            <option>condensed</option>
-            <option>semicondensed</option>
-            <option>normal</option>
-            <option>semiexpanded</option>
-            <option>expanded</option>
-            <option>extraexpanded</option>
-            <option>ultraexpanded</option>
-        </select>
-    </div>
-
-    <div class="mb-3 pb-3 border-bottom">
-        <label class="form-label">Text Align</label><br>
-        <small>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="" x-model="item.align">
-                <label class="form-check-label">Left</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="center" x-model="item.align">
-                <label class="form-check-label">Center</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="right" x-model="item.align">
-                <label class="form-check-label">Right</label>
-            </div>
-        </small>
-    </div>
-
-    <div class="mb-3 pb-3 border-bottom">
-        <label class="form-label">Text Wrap</label><br>
-        <small>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="word" x-model="item.wrap">
-                <label class="form-check-label">Word</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="char" x-model="item.wrap">
-                <label class="form-check-label">Char</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="word-char" x-model="item.wrap">
-                <label class="form-check-label">Word-Char</label>
-            </div>
-            <div class="form-check form-switch form-check-inline">
-                <input class="form-check-input" type="radio" value="none" x-model="item.wrap">
-                <label class="form-check-label">None</label>
-            </div>
-        </small>
+        <div class="col-4">
+            <label class="form-label">Text Wrap</label><br>
+            <select class="form-select" x-model="item.wrap">
+                <option selected value="">Choose...</option>
+                <option>word</option>
+                <option>char</option>
+                <option>word-char</option>
+                <option>none</option>
+            </select>
+        </div>
     </div>
 
 </template>

@@ -543,19 +543,19 @@ See {@link module:app}
  Set app name/version explicitely and skip reading it from the package.json   
 ##### Default: "bkjs/0.0"   
 ### **app-roles**
- Additional config roles, a shortcut for app-instance-roles   
+ Additional config roles, a shortcut for app-env-roles   
 ##### Type: list   
 ##### Example:
 ```
 app-roles = redis, dynamodb
 ```
 
-### **app-instance-([a-z0-9_-]+)**
- Set instance/container properties explicitly: tag, region, zone, roles, ...   
+### **app-env-([a-z0-9_-]+)**
+ Set runtime env properties explicitly: tag, region, zone, roles, ...   
 ##### Example:
 ```
-app-instance-roles = dev,web
-app-instance-tag = api
+app-env-roles = dev,web
+app-env-tag = api
 ```
 
 ### **app-daemon**
@@ -664,7 +664,7 @@ See {@link module:aws}
 ### **aws-elastic-ip**
  AWS Elastic IP to be associated on start   
 ### **aws-host-name**
- List of hosts to update in Route54 zone with the current private IP address, hosts must be in FQDN format, supports @..@ app.instance placeholders   
+ List of hosts to update in Route54 zone with the current private IP address, hosts must be in FQDN format, supports @..@ app.env placeholders   
 ##### Type: list   
 ### **aws-iam-profile**
  IAM instance profile name for instances or commands   
@@ -699,7 +699,7 @@ See {@link module:aws}
 ```
 
 ### **aws-config-secrets**
- AWS Secrets Manager filters to load and parse as config before initializing the database pools, supports @..@ app.instance placeholders in filters   
+ AWS Secrets Manager filters to load and parse as config before initializing the database pools, supports @..@ app.env placeholders in filters   
 ##### Type: list   
 ##### Example:
 ```
@@ -707,7 +707,7 @@ production,production-@tag@,production-@role@
 ```
 
 ### **aws-config-s3-file**
- S3 url for config file to download on start, may include @placeholders@ to refer properties from app.instance   
+ S3 url for config file to download on start, may include @placeholders@ to refer properties from app.env   
 ### **aws-config-s3-interval**
  Load S3 config file every specified interval in minites   
 ##### Type: int   
