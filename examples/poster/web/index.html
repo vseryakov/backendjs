@@ -387,9 +387,21 @@
 
 <template id="font-form">
     <div class="row mb-3 pb-3 border-bottom">
-        <div class="col-6" x-template="'color-input?id=color&name=Text+Color'"></div>
+        <div class="col-4" x-template="'color-input?id=color&name=Text+Color'"></div>
 
-        <div class="col-6" x-template="'color-input?id=bgcolor&name=Bg+Color&prefix=bg'"></div>
+        <div class="col-4">
+            <label class="form-label">Color Detect Mode</label><br>
+            <select class="form-select" x-model="item.text_auto">
+                <option selected value="">Choose...</option>
+                <option>dominant</option>
+                <option>mean</option>
+                <option>complement</option>
+                <option>yiq</option>
+                <option>wcag</option>
+            </select>
+        </div>
+
+        <div class="col-4" x-template="'color-input?id=bgcolor&name=Bg+Color&prefix=bg'"></div>
     </div>
 
     <div class="row mb-3 pb-3 border-bottom">
