@@ -15,17 +15,17 @@ line3=line3
 line4=line4
 [tag=test]
 line5=line5
-[instance.tag=tag]
+[env.tag=tag]
 line6=line6
 [roles=dev,staging]
 line7=line7
 [aws.key=]
 line8=line8
-[instance.tag!=]
+[env.tag!=]
 line9=line9
 [none.test=1]
 line10=line10
-[instance.tag!=aaa]
+[env.tag!=aaa]
 line11=line11
 [roles=dev]
 line12=line12
@@ -38,15 +38,15 @@ line2=line2
     var args = lib.configParse(data);
     assert.deepStrictEqual(args, ["-line1", "line1", "-line2", "line2"])
 
-    args = lib.configParse(data, { tag: "test1" });
+    args = lib.configParse(data, { context: { tag: "test1" } });
     assert.deepStrictEqual(args, ["-line1", "line1", "-line3", "line3", "-line2", "line2"])
 
-    args = lib.configParse(data, { tag: "test", roles: "test2" });
+    args = lib.configParse(data, { context: { tag: "test", roles: "test2" } });
     assert.deepStrictEqual(args, ['-line1', 'line1','-line4', 'line4','-line5', 'line5','-line2', 'line2' ])
 
     app.env.tag = "tag";
     app.env.roles = ["dev", "staging", "prod"];
-    args = lib.configParse(data, app);
+    args = lib.configParse(data, { context: app });
     assert.deepStrictEqual(args, ['-line1', 'line1', '-line6', 'line6', '-line9', 'line9', '-line11', 'line11', '-line2', 'line2' ])
 })
 
@@ -58,7 +58,6 @@ it("test parameters", async () => {
         "-logwatcher-files-error", "a",
         "-logwatcher-files", "b",
         "-logwatcher-matches-error", "a",
-        "-db-create-tables",
         "-db-sqlite-pool-max", "10",
         "-db-sqlite1-pool", "a",
         "-db-sqlite1-pool-max", "10",
@@ -81,8 +80,6 @@ it("test parameters", async () => {
 
     app.parseArgs(argv);
     logger.debug("config:", db._config);
-
-    assert.ok(!(!app.workerId && !db._createTables));
 
     assert.strictEqual(db.aliases.t, "test6");
 

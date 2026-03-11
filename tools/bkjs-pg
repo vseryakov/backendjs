@@ -29,7 +29,7 @@ case "$BKJS_CMD" in
     ;;
 
   pg-init-monit)
-    $0 monit-init -name nats -start "$BKJS_BIN pg-run" -stop "$BKJS_BIN pg-stop"
+    $0 monit-init -name pg -start "$BKJS_BIN pg-run" -stop "$BKJS_BIN pg-stop"
     exit
     ;;
 
