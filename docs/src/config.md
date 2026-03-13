@@ -1001,7 +1001,7 @@ See {@link module:jobs}
 ### **jobs-unique-ignore**
  Ignore all unique parameters if a job's uniqueKey matches   
 ##### Type: regexp   
-### **jobs-unique-set-ttl-([0-9]+)**
+### **jobs-unique-ttl-([0-9]+)**
  Override unique TTL to a new value if matches the unique key   
 ##### Type: regexp   
 ##### Example:

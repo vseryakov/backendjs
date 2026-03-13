@@ -1,9 +1,11 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     
     <meta charset="utf-8">
-    <title>APNPushClient - Backendjs Documentation</title>
+    <title>files/color.js - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -39,1201 +41,248 @@
 
 <div id="main">
     
-    <h1 class="page-title">APNPushClient</h1>
-    
-
-    
-
-
-
-
-<section>
-
-
-
-<header>
-    
-        <h2>
-            <span class="ancestors"><a href="module-push.html">push</a>.</span>
-        
-        
-            APNPushClient
-        
-        </h2>
-        
-            <div class="class-description usertext"><p>Send push notification using @parse/node-apn module,
-initialize Apple Push Notification service in the current process, Apple supports multiple connections to the APN gateway but
-not too many so this should be called on the dedicated backend hosts, on multi-core servers every spawn web process will initialize a
-connection to APN gateway.</p></div>
-        
-    
-</header>
-
-<article>
-    
-        <div class="container-overview">
-        
-            
-
-    
-    <h2>Constructor</h2>
-    
-
-    <h4 class="name" id="APNPushClient"><span class="type-signature"></span>new APNPushClient<span class="signature">(options, key, sandbox<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="push_apn.js.html">push/apn.js</a>, <a href="push_apn.js.html#line26">line 26</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>key</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>Authentication Token key, file.p8 or base64 key data</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>options.teamId</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>ID of the team associated with the provider token key</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>options.keyId</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>The ID of the key issued by Apple</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>sandbox</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">boolean</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>true if in sandbox mode</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-        </div>
-    
-
-    
-
-    
-
-    
-
-    
-    
-    
-
-     
-
-    
-
-    
-
-
-    
-        <a name="methods">
-            <h2 class="subsection-title">Methods</h2>
-        </a>
-
-        
-            
-
-    
-
-    <h4 class="name" id="send"><span class="type-signature"></span>send<span class="signature">(device, options, callback<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Send push notification to an Apple device, returns true if the message has been queued.</p></li></ul></dd>
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="push_apn.js.html">push/apn.js</a>, <a href="push_apn.js.html#line98">line 98</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>device</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last">
-                <h6>Properties</h6>
-                
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>msg</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>message text</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>title</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>alert title</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>badge</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>badge number</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>sound</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>1, true or a sound file to play</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>category</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>a user notification category</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>alertAction</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>action to exec per Apple doc, action</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>launchImage</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>image to show per Apple doc, launch-image</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>contentAvailable</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>content indication per Apple doc, content-available</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>mutableContent</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>mark the notification to go via extention for possible modifications</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>locKey</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>localization key per Apple doc, loc-key</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>locArgs</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>localization key per Apple doc, loc-args</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>titleLocKey</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>localization key per Apple doc, title-loc-key</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>titleLocArgs</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>localization key per Apple doc, title-loc-args</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>threadId</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>grouping id, all msgs with the same id will be grouped together</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>id</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>send id in the user properties</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>type</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>set type of the event</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>url</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>launch url</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>payload</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>an object with additional fileds to send in the message payload</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-            </td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>callback</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">function</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-    
-
-    
-</article>
-
-</section>
+    <h1 class="page-title">files/color.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*
+ *  Author: Vlad Seryakov vseryakov@gmail.com
+ *  backendjs 2018
+ */
+
+/**
+ * @module files/image
+ */
+
+const lib = require(__dirname + '/../lib');
+
+const mod = {
+    name: "files.color",
+};
+
+/**
+ * RGB color convertions
+ */
+
+module.exports = mod;
+
+mod.hex2rgb = function(hex)
+{
+    var rgb = { r: 0, g: 0, b: 0 };
+    hex = lib.isString(hex);
+    var d = hex.match(hex.length == 4 ? /^#([0-9A-Z])([0-9A-Z])([0-9A-Z])$/ : /^#([0-9A-F]{2})([0-9A-F]{2})([0-9A-F]{2})([0-9A-F]{2})?$/i)
+    if (d) {
+        rgb.r = parseInt(d[1], 16);
+        rgb.g = parseInt(d[2], 16);
+        rgb.b = parseInt(d[3], 16);
+        const alpha = parseInt(d[4], 16);
+        if (alpha) rgb.alpha = alpha / 255;
+    }
+    return rgb;
+}
+
+mod.hsl2rgb = function(hsl)
+{
+    var [h, s, l] = Array.isArray(hsl) ? hsl : [hsl.h, hsl.s, hsl.l]
+
+    s /= 100;
+    l /= 100;
+
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+
+    if (h >= 0 &amp;&amp; h &lt; 60) {
+        r = c; g = x; b = 0;
+    } else
+    if (h >= 60 &amp;&amp; h &lt; 120) {
+        r = x; g = c; b = 0;
+    } else
+    if (h >= 120 &amp;&amp; h &lt; 180) {
+        r = 0; g = c; b = x;
+    } else
+    if (h >= 180 &amp;&amp; h &lt; 240) {
+        r = 0; g = x; b = c;
+    } else
+    if (h >= 240 &amp;&amp; h &lt; 300) {
+        r = x; g = 0; b = c;
+    } else
+    if (h >= 300 &amp;&amp; h &lt; 360) {
+        r = c; g = 0; b = x;
+    }
+    return {
+        r: Math.round((r + m) * 255),
+        g: Math.round((g + m) * 255),
+        b: Math.round((b + m) * 255)
+    };
+}
+
+mod.hsv2rgb = function(hsv)
+{
+    let [h, s, v] = Array.isArray(hsv) ? hsv : [hsv.h, hsv.s, hsv.v];
+
+    h /= 360;
+    s /= 100;
+    v /= 100;
+
+    const i = Math.floor(h * 6);
+    const f = h * 6 - i;
+    const p = v * (1 - s);
+    const q = v * (1 - f * s);
+    const t = v * (1 - (1 - f) * s);
+    let r, g, b;
+    switch (i % 6) {
+    case 0: r = v; g = t; b = p; break;
+    case 1: r = q; g = v; b = p; break;
+    case 2: r = p; g = v; b = t; break;
+    case 3: r = p; g = q; b = v; break;
+    case 4: r = t; g = p; b = v; break;
+    case 5: r = v; g = p; b = q; break;
+    }
+    return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+    }
+}
+
+mod.hex = function(rgb)
+{
+    const [r, g, b] = Array.isArray(rgb) ? rgb : [rgb.r, rgb.g, rgb.b];
+    return "#" + ((r &lt;&lt; 16) | (g &lt;&lt; 8) | b).toString(16).padStart(6, '0').toUpperCase();
+}
+
+mod.luminance = function(rgb)
+{
+    const [r, g, b] = Array.isArray(rgb) ? rgb : [rgb.r, rgb.g, rgb.b];
+    return 0.2126 * (r / 255) + 0.7152 * (g / 255) + 0.0722 * (b / 255);
+}
+
+// Relative luminance is given by W3C https://www.w3.org/TR/WCAG21/#dfn-relative-luminance.
+mod.rluminance = function(rgb)
+{
+    const [r, g, b] = Array.isArray(rgb) ? rgb : [rgb.r, rgb.g, rgb.b];
+    const x = [r / 255, g / 255, b / 255].map((i) => (i &lt;= 0.04045 ? i / 12.92 : Math.pow((i + 0.055) / 1.055, 2.4)));
+    return 0.2126 * x[0] + 0.7152 * x[1] + 0.0722 * x[2];
+}
+
+mod.hsl = function(rgb)
+{
+    let [r, g, b] = Array.isArray(rgb) ? rgb : [rgb.r, rgb.g, rgb.b];
+
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, l = (max + min) / 2;
+
+    if (max === min) {
+        h = s = 0; // achromatic
+    } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+        case r:
+            h = (g - b) / d + (g &lt; b ? 6 : 0);
+            break;
+        case g:
+            h = (b - r) / d + 2;
+            break;
+        case b:
+            h = (r - g) / d + 4;
+            break;
+        }
+        h /= 6;
+    }
+    return {
+        h: h * 360,
+        s: s * 100,
+        l: l * 100
+    }
+}
+
+mod.hsv = function(rgb)
+{
+    let [r, g, b] = Array.isArray(rgb) ? rgb : [rgb.r, rgb.g, rgb.b];
+
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    var h = 0, s = 0, v = max;
+
+    if (delta !== 0) {
+        s = delta / max;
+        if (max === r) {
+            h = ((g - b) / delta + (g &lt; b ? 6 : 0)) / 6;
+        } else
+        if (max === g) {
+            h = ((b - r) / delta + 2) / 6;
+        } else {
+            h = ((r - g) / delta + 4) / 6;
+        }
+    }
+    return {
+        h: Math.round(h * 360),
+        s: Math.round(s * 100),
+        v: Math.round(v * 100)
+    }
+}
+
+mod.complement = function(rgb)
+{
+    const { h, s, l } = mod.hsl(rgb);
+    return mod.hsl2rgb([(h + 180) % 360, s, l]);
+}
+
+mod.yiq = function(rgb)
+{
+    const [r, g, b] = Array.isArray(rgb) ? rgb : [rgb.r, rgb.g, rgb.b];
+    return {
+        y: 0.299 * r + 0.587 * g + 0.114 * b,
+        i: 0.596 * r - 0.275 * g - 0.321 * b,
+        q: 0.212 * r - 0.523 * g + 0.311 * b,
+    }
+}
+
+mod.contrast = function(rgb1, rgb2)
+{
+    const lum1 = mod.luminance(rgb1);
+    const lum2 = mod.luminance(rgb2);
+    return lum1 > lum2 ? (lum1 + 0.05) / (lum2 + 0.05) : (lum2 + 0.05) / (lum1 + 0.05);
+}
+
+mod.negate = function(rgb)
+{
+    const [r, g, b] = Array.isArray(rgb) ? rgb : [rgb.r, rgb.g, rgb.b];
+    return { r: 255 - r, g: 255 - g, b: 255 - b }
+}
+
+mod.lighter = function(rgb, ratio)
+{
+    const { h, s, l } = mod.hsl(rgb);
+    return mod.hsl2rgb([h, s, l * ratio]);
+}
+
+mod.darker = function(rgb, ratio)
+{
+    const { h, s, l } = mod.hsl(rgb);
+    return mod.hsl2rgb([h, s, l - (l * ratio)]);
+}
+</code></pre>
+        </article>
+    </section>
 
 
 

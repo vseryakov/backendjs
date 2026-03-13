@@ -179,21 +179,17 @@ exports.testJob = function(options, callback)
     if (options.dead) return;
 
     var timer, interval, done;
-    if (options.timeout_rand) {
-        timer = setTimeout(() => {
-            done = 1;
-            logger.info("testJob:", "end;", options);
-            callback()
-        }, lib.randomInt(0, options.timeout_rand), options.err);
-    } else
-    if (options.timeout) {
+
+    if (options.cancel) {
         timer = setTimeout(() => {
             done = 1;
             logger.info("testJob:", "end", options);
+            if (options.file) {
+                fs.appendFileSync(options.file, `${Date.now()} ${options.data} timeout\n`);
+            }
             callback()
         }, options.timeout, options.err);
-    }
-    if (options.cancel) {
+
         interval = setInterval(() => {
             if (done) {
                 clearInterval(interval);
@@ -202,15 +198,39 @@ exports.testJob = function(options, callback)
                 clearTimeout(timer);
                 clearInterval(interval);
                 if (options.file) {
-                    fs.writeFileSync(options.file, `${options.data} cancelled`);
+                    fs.writeFileSync(options.file, `${Date.now()} ${options.data} cancelled\n`);
                 }
                 return callback("cancelled");
             }
         }, 50);
     } else
+
+    if (options.timeout_rand) {
+        timer = setTimeout(() => {
+            done = 1;
+            logger.info("testJob:", "end;", options);
+            if (options.file) {
+                fs.appendFileSync(options.file, `${Date.now()} ${options.data} timeout_rand\n`);
+            }
+            callback()
+        }, lib.randomInt(0, options.timeout_rand), options.err);
+    } else
+
+    if (options.timeout) {
+        timer = setTimeout(() => {
+            done = 1;
+            logger.info("testJob:", "end", options);
+            if (options.file) {
+                fs.appendFileSync(options.file, `${Date.now()} ${options.data} timeout\n`);
+            }
+            callback()
+        }, options.timeout, options.err);
+    } else
+
     if (options.file) {
-        fs.writeFileSync(options.file, `${options.data}`);
+        fs.appendFileSync(options.file, `${Date.now()} ${options.data}\n`);
     }
+
     if (!timer && !interval) {
         done = 1;
         logger.info("testJob:", "end", options);
