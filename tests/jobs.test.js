@@ -70,8 +70,19 @@ describe("Jobs tests", async () => {
 
     });
 
-    it("serialize with uniqueTty", async () => {
-        const file = "/tmp/job4.test";
+    it("run worker job", async() => {
+        var file = "/tmp/job4.test";
+        lib.unlinkSync(file);
+
+        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "worker" } } }, { queueName: "worker" });
+        await lib.sleep(500)
+
+        var data = lib.readFileSync(file);
+        assert.match(data, /worker/);
+    });
+
+    it("serialize with uniqueKey", async () => {
+        const file = "/tmp/job5.test";
         lib.unlinkSync(file);
 
         const uopts = { ...opts, visibilityTimeout: 200, uniqueKey: "testTtl" }
@@ -88,17 +99,6 @@ describe("Jobs tests", async () => {
 
     });
 
-
-    it("run worker job", async() => {
-        var file = "/tmp/job5.test";
-        lib.unlinkSync(file);
-
-        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "worker" } } }, { queueName: "worker" });
-        await lib.sleep(500)
-
-        var data = lib.readFileSync(file);
-        assert.match(data, /worker/);
-    });
 });
 
 
