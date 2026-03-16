@@ -916,15 +916,26 @@ See {@link module:events}
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
 ##### Type: int   
 ##### Default: 50   
-## files
-See {@link module:files}
-### **files-url**
+## file
+See {@link module:file}
+### **file-url**
  URL where files are stored, for cases of central file server(s), must be full URL with optional path   
-### **files-s3**
+### **file-s3**
  S3 bucket name where to store files uploaded with the File API   
-### **files-root**
+### **file-root**
  Root directory where to keep files   
 ##### Type: path   
+## image
+See {@link module:image}
+### **image-black**
+ Default color to use for black text   
+##### Default: "#333"   
+### **image-white**
+ Default color to use for white text   
+##### Default: "#FAFAFA"   
+### **image-background**
+ Default background color for new images   
+##### Default: "#FFFFFF"   
 ## ipc
 See {@link module:ipc}
 ### **ipc-ping**
@@ -970,13 +981,13 @@ See {@link module:jobs}
 ```
 
 ### **jobs-max-runtime**
- Max number of seconds a job can run before being killed   
+ Max number of milliseconds a job can run before being killed   
 ##### Type: int   
-##### Default: 900   
+##### Default: 900000   
 ### **jobs-max-lifetime**
- Max number of seconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely   
+ Max number of milliseconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely   
 ##### Type: int   
-##### Default: 43200   
+##### Default: 43200000   
 ### **jobs-shutdown-timeout**
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
 ##### Type: int   

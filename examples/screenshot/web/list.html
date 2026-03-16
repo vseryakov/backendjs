@@ -29,8 +29,8 @@
             <tbody>
                 <template x-for="row in list" :key="row.id">
                     <tr>
-                        <td width="40%">
-                            <img :src="row.status=='done'?'/api/png/'+row.id:'/img/loading.gif'" style="width: 100%;">
+                        <td width="25%">
+                            <img :src="row.status=='done'?'/api/png/'+row.id:'/img/loading.gif'" style="width:100%; height:200px">
                         </td>
                         <td valign=top width="40%">
                             <div class="py-2" x-text="row.url"></div>

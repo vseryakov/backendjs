@@ -3,7 +3,7 @@
 //  backendjs 2025
 //
 
-const { api, files } = require('backendjs');
+const { api, image } = require('backendjs');
 
 //
 // A demo module that implements a CRUD app to create social poster images
@@ -31,11 +31,11 @@ function render(req, res)
         if (req.files?.[item.id]?.path) item.file = req.files[item.id]?.path;
     }
 
-    files.image.composite(req.body.items, req.body.defaults).then(rc => {
+    image.composite(req.body.items, req.body.defaults).then(rc => {
         req.res.header("pragma", "no-cache");
         res.setHeader("cache-control", "max-age=0, no-cache, no-store");
         res.type("image/png");
-        res.send(rc.at(-1).buffer);
+        res.send(rc[0].buffer);
     }).catch(err => api.sendReply(res, 400, err));
 }
 

@@ -70,7 +70,7 @@ module.exports = {
         "id-blacklist": "error",
         "id-length": "off",
         "id-match": "error",
-        "implicit-arrow-linebreak": "error",
+        "implicit-arrow-linebreak": "off",
         "indent": "off",
         "indent-legacy": "off",
         "init-declarations": "off",
