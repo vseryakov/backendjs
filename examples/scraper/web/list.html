@@ -2,7 +2,7 @@
 <div class="container py-4">
 
     <div class="d-flex justify-content-between align-items-center my-2">
-        <h4 class="my-2">Screenshots</h4>
+        <h4 class="my-2">Sites</h4>
 
         <div class="d-flex align-items-center">
             <button class="btn btn-primary text-nowrap me-3" @click="submit()">
@@ -20,7 +20,7 @@
             <thead class="table-light">
                 <tr>
                     <th>Screenshot</th>
-                    <th>URL (Title)</th>
+                    <th>Details</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -30,17 +30,20 @@
                 <template x-for="row in list" :key="row.id">
                     <tr>
                         <td width="25%">
-                            <img :src="row.status=='done'?'/api/png/'+row.id:'/img/loading.gif'" style="width:100%; height:200px">
+                            <img :src="row.status=='done'?'/api/asset/'+row.id+'.png':'/img/loading.gif'" style="width:100%; height:200px">
                         </td>
-                        <td valign=top width="40%">
+                        <td valign=top width="60%">
                             <div class="py-2" x-text="row.url"></div>
                             <h5 x-text="row.title"></h5>
+                            <h6 x-text="row.name"></h6>
+                            <small class="text-muted" x-text="row.descr"></small>
+                            <img :src="row.logo?'/api/asset/'+row.id+'_logo.png':'/img/1.png'" width=60>
                         </td>
                         <td  valign=top x-text="row.status"></td>
                         <td valign=top>
                             <div class="mb-2" role="button" @click="del(row)" title="Delete">❌</div>
                             <div class="mb-2" role="button" @click="resubmit(row)" title="Resubmit">📥</div>
-                            <a class="mb-2" :href="'/api/html/'+row.id" :download="row.id" title="Download HTML">🔗</a>
+                            <a class="mb-2" :href="'/api/asset/'+row.id+'.html'" :download="row.id" title="Download HTML">🔗</a>
                         </td>
                     </tr>
                 </template>
