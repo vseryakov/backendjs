@@ -4,7 +4,14 @@ const puppeteer = require('puppeteer');
 const { lib, file, logger, image } = require('backendjs');
 
 // Scrape the url and save the image and html
-module.exports =
+module.exports = {
+    scrape,
+    parseSchema,
+    getDetails,
+    autoScroll,
+    acceptCookies,
+    tileImages,
+};
 
 async function scrape(options)
 {
@@ -143,6 +150,52 @@ async function tileImages(path, image1, image2)
     return items;
 }
 
+// Parse known schemas: Event
+function parseSchema(options, obj)
+{
+    switch (obj?.["@type"]) {
+    case "Event":
+        if (options.name) break;
+        if (obj.name) {
+            options.name = obj.name;
+        }
+        if (obj.description) {
+            options.descr = obj.description;
+        }
+        if (obj.startDate) {
+            options.date = lib.strftime(lib.toDate(obj.startDate), "%b %d, %Y")
+        }
+        if (obj.location?.["@type"] == "Place") {
+            options.venue = obj.location.name;
+            if (obj.location.address) {
+                const address = obj.location.address;
+                if (lib.isString(address)) {
+                    options.location = address;
+                } else {
+                    let location = "";
+                    for (const p of ["addressLocality", "addressRegion", "addressCountry"]) {
+                        if (address[p]) location += p + " ";
+                    }
+                    options.location = location.trim();
+                }
+            }
+        }
+        break;
+
+    case "Organization":
+        if (options.company) break;
+        options.company = obj.name;
+        break;
+    }
+
+    for (const p in obj) {
+        if (typeof obj[p] == "object" && obj[p]) {
+            parseSchema(options, obj[p]);
+        }
+    }
+    return options;
+}
+
 async function getDetails(options, page)
 {
     options.title = await page.title();
@@ -154,6 +207,8 @@ async function getDetails(options, page)
     if (ldjson) {
         ldjson = lib.jsonParse(ldjson[1]);
         if (ldjson) {
+            parseSchema(options, ldjson);
+
             ldjson = lib.stringify(ldjson, null, 2);
             file.store(Buffer.from(ldjson), `${options.id}_ld.json`);
         }
@@ -163,7 +218,7 @@ async function getDetails(options, page)
     for (const [name, value] of meta) {
         switch (name) {
         case "og:site_name":
-            options.name = value;
+            if (!options.name) options.name = value;
             break;
 
         case "description":

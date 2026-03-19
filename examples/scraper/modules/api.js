@@ -1,6 +1,6 @@
 
 const { db, api, file, jobs, lib, logger } = require('backendjs');
-const scrape = require("./scrape");
+const { scrape } = require("./scrape");
 
 const mod =
 
@@ -11,7 +11,6 @@ module.exports = {
         { name: "width", type: "int", descr: "Screenshot image width" },
         { name: "height", type: "int", descr: "Screenshot image height" },
         { name: "cookie-rx", type: "regexp", descr: "Accept cookies popups patterns" },
-        { name: "goog-api-key", descr: "Gemeni api key" },
     ],
 
     width: 1280,
@@ -31,7 +30,11 @@ module.exports = {
             name: {},
             title: {},
             logo: {},
+            date: {},
+            venue: {},
+            location: {},
             descr: {},
+            company: {},
             error: {},
             ctime: { type: "now", readonly: 1 },
             mtime: { type: "now" },
@@ -50,7 +53,6 @@ module.exports = {
                 post("/submit", submit).
                 put("/resubmit/:id", resubmit).
                 delete("/del/:id", del));
-
 
         callback();
     },

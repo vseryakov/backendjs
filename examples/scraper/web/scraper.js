@@ -1,7 +1,5 @@
 
-app.debug = 1
-
-app.components.index = class extends app.AlpineComponent {
+app.components.scraper = class extends app.AlpineComponent {
     list = [];
     next_token = "";
 
@@ -56,6 +54,7 @@ app.components.index = class extends app.AlpineComponent {
     }
 };
 
+app.debug = 1
 app.$ready(async () => {
     app.ws = new app.WS({ path: "/ping" });
     app.ws.connect();

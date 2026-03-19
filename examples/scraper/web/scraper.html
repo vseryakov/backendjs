@@ -35,9 +35,12 @@
                         <td valign=top width="60%">
                             <div class="py-2" x-text="row.url"></div>
                             <h5 x-text="row.title"></h5>
-                            <h6 x-text="row.name"></h6>
-                            <small class="text-muted" x-text="row.descr"></small>
-                            <img :src="row.logo?'/api/asset/'+row.id+'_logo.png':'/img/1.png'" width=60>
+                            <h6 x-show="row.name" x-text="row.name"></h6>
+                            <div x-show="row.descr" class="text-muted" x-text="row.descr"></div>
+                            <small class="text-muted" x-text="row.date"></small>
+                            <small class="text-muted" x-text="row.venue"></small>
+                            <small class="text-muted" x-text="row.location"></small>
+                            <img class="d-block" :src="row.logo?'/api/asset/'+row.id+'_logo.png':'/img/1.png'" width=60>
                         </td>
                         <td  valign=top x-text="row.status"></td>
                         <td valign=top>

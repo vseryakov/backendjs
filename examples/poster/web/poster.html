@@ -1,0 +1,36 @@
+
+<div class="ms-3">
+    <div class="m-3 d-flex justify-content-between align-items-center">
+        <h1 class="mb-3">Create a Poster</h1>
+
+        <div class="d-flex flex-nowrap">
+            <div class="dropdown me-2" x-show="profiles.length">
+                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Select poster...
+                </button>
+
+                <ul class="dropdown-menu">
+                    <template x-for="p in profiles">
+                        <li><a class="dropdown-item" x-text="p.name" @click.stop.prevent="setProfile(p)"></a></li>
+                    </template>
+                </ul>
+            </div>
+            <button class="btn btn-outline-dark me-2" @click.stop.prevent="create"><i class="bi bi-plus"></i> Create</button>
+            <button class="btn btn-outline-dark me-2" @click.stop.prevent="load"><i class="bi bi-filetype-json"></i> Import</button>
+            <button class="btn btn-outline-dark me-2" @click.stop.prevent="download"><i class="bi bi-download"></i> Download</button>
+            <button class="btn btn-outline-dark me-2" @click.stop.prevent="save"><i class="bi bi-sd-card"></i> Save Draft</button>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-3">
+            <label class="form-label fw-bolder">Poster</label>
+            <div class="input-group">
+                <input type="text" class="form-control" x-model="profile.name">
+            </div>
+        </div>
+    </div>
+
+    <div x-data="profile" x-template="'/render.html'"></div>
+
+</div>

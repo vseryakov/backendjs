@@ -1,10 +1,5 @@
 
-app.debug = 1;
-
-app.components.index = class extends app.AlpineComponent {
-
-    profiles = [];
-    profile = {};
+app.components.render = class extends app.AlpineComponent {
 
     filters = [
         { name: "affine", descr: "" },
@@ -35,9 +30,8 @@ app.components.index = class extends app.AlpineComponent {
 
 
     onCreate() {
-        try {
-            this.profile = JSON.parse(localStorage.poster || "")
-        } catch (e) {}
+        if (!this.items) this.items = [];
+        if (!this.defaults) this.defaults = {};
     }
 
     onFileDropped(event, item) {
@@ -81,13 +75,13 @@ app.components.index = class extends app.AlpineComponent {
             Add: (d) => {
                 if (!d.id || !d.type) return popup.showAlert("name and type required")
                 d.id = d.id.replace(/[^a-z0-9]/ig, "_");
-                this.profile.items.push(this.prepareItem(d));
+                this.items.push(this.prepareItem(d));
             }
         })
     }
 
     async render() {
-        const body = { items: this.profile.items, defaults: this.profile.item };
+        const body = { items: this.items, defaults: this.defaults };
 
         const { err, data } = await app.fetch("/api/render", { post: 1, body });
         if (err) return app.showToast("error", err);
@@ -100,57 +94,5 @@ app.components.index = class extends app.AlpineComponent {
         app.$("body").click()
     }
 
-    save() {
-        localStorage.poster = JSON.stringify(this.profile);
-    }
-
-    download() {
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(new Blob([ JSON.stringify(this.profile) ], { type: "application/json" }))
-        link.download = this.profile.name.replace(/[^a-z0-9_.-]/ig, "-") + '-poster.json';
-        setTimeout(() => { link.click(); }, 100);
-    }
-
-    load() {
-        const file = app.$elem('input', {
-            type: "file",
-            accept: ".json,application/json",
-            change: (event) => {
-                const reader = new FileReader();
-                reader.addEventListener("load", () => {
-                    var profile = JSON.parse(reader.result);
-                    if (profile?.name && profile.items) {
-                        this.profiles.push(this.profile = profile);
-                        this.render()
-                    }
-                });
-                reader.readAsText(event.target.files[0]);
-            },
-        });
-        setTimeout(() => { file.click(); }, 100);
-    }
-
-    create() {
-        var popup = bootpopup({
-            title: "Create a Poster",
-            alert: 1,
-            debug: 1,
-            content: [
-                { text: { name: "name", label: "Name" } },
-                { checkbox: { name: "clone", label: "Clone current", value: "1", switch: 1 } },
-            ],
-            buttons: ["cancel", "Create"],
-            Add: (d) => {
-                if (!d.name) return popup.showAlert("name is required")
-                this.profiles.push(this.profile = {
-                    name: d.name,
-                    items: d.clone ? this.profile.items.map(x => Object.assign({}, x)) : []
-                });
-            }
-        })
-    }
 };
 
-app.$ready(() => {
-    app.start();
-});
