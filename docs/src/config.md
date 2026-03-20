@@ -932,7 +932,7 @@ See {@link module:image}
 ##### Default: "#333"   
 ### **image-white**
  Default color to use for white text   
-##### Default: "#FAFAFA"   
+##### Default: "#DDD"   
 ### **image-background**
  Default background color for new images   
 ##### Default: "#FFFFFF"   

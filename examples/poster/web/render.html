@@ -264,22 +264,22 @@
         </div>
 
         <div class="col-2">
-            <label class="form-label">Padding Top</span></label>
+            <label class="form-label">Padding T</span></label>
             <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_top">
         </div>
 
         <div class="col-2">
-            <label class="form-label">Padding Bottom</span></label>
+            <label class="form-label">Padding B</span></label>
             <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_bottom">
         </div>
 
         <div class="col-2">
-            <label class="form-label">Padding Left</span></label>
+            <label class="form-label">Padding L</span></label>
             <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_left">
         </div>
 
         <div class="col-2">
-            <label class="form-label">Padding Right</span></label>
+            <label class="form-label">Padding R</span></label>
             <input type="number" class="form-control" min="0" max="1000" x-model="item.padding_right">
         </div>
 
@@ -292,12 +292,29 @@
         </div>
 
         <div class="col-3">
-            <label class="form-label">Border radius</span></label>
+            <label class="form-label">Border Radius</span></label>
             <input type="number" class="form-control" min="0" max="10" x-model="item.border_radius">
         </div>
 
         <div class="col-6">
             <div class="col-8" x-template="'color-input?id=border_color&name=Border+Color&prefix=border_'"></div>
+        </div>
+    </div>
+
+    <div class="row mb-3 pb-3 border-bottom">
+        <div class="col-4">
+            <label class="form-label">Gradient</label>
+            <input class="form-control" x-model="item.gradient", placeholder="1, true, type, name,....">
+        </div>
+
+        <div class="col-4">
+            <label class="form-label">Gradient Sigma</span></label>
+            <input type="number" class="form-control" min="0" max="10" x-model="item.gradient_sigma">
+        </div>
+
+        <div class="col-4">
+            <label class="form-label">Gradient Color</label>
+            <input type="color" class="form-control form-control-color" x-model="item.gradient_color">
         </div>
     </div>
 
@@ -337,15 +354,17 @@
         <div class="col-4" x-template="'color-input?id=color&name=Text+Color'"></div>
 
         <div class="col-4">
-            <label class="form-label">Color Detect Mode</label><br>
-            <select class="form-select" x-model="item.text_auto">
-                <option selected value="">Choose...</option>
+            <label class="form-label">Color Detect Modes</label><br>
+            <input class="form-control" list="detect-list" x-model="item.text_auto" placeholder="mode, mode,....">
+
+            <datalist id="detect-list">
                 <option>dominant</option>
-                <option>mean</option>
                 <option>complement</option>
-                <option>yiq</option>
-                <option>wcag</option>
-            </select>
+                <option>mean</option>
+                <option>luminance</option>
+                <option>lighter</option>
+                <option>darker</option>
+            </datalist>
         </div>
 
         <div class="col-4" x-template="'color-input?id=bgcolor&name=Bg+Color&prefix=bg'"></div>
