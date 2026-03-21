@@ -1,6 +1,6 @@
 
 const { db, api, file, jobs, lib, logger } = require('backendjs');
-const { scrape } = require("./scrape");
+const { scraper } = require("./scraper");
 
 const mod =
 
@@ -49,7 +49,7 @@ module.exports = {
         api.app.use("/api",
             api.express.Router().
                 get("/list", list).
-                get("/asset/:id", assets).
+                get("/asset/:id/:file", assets).
                 post("/submit", submit).
                 put("/resubmit/:id", resubmit).
                 delete("/del/:id", del));
@@ -62,6 +62,17 @@ module.exports = {
     submit,
     resubmit,
 
+}
+
+/**
+ * Return image or html content
+ */
+function assets(req, res)
+{
+    db.get("scraper", { id: req.params.id }, (err, row) => {
+        if (!row) return api.sendReply(res, 404, "no record found");
+        file.send(req, req.params.id + "/" + req.params.file);
+    });
 }
 
 /**
@@ -88,18 +99,6 @@ function list(req, res)
 }
 
 /**
- * Return image or html content, png can support suffixes like id-2
- */
-function assets(req, res)
-{
-    const [id] = req.params.id.split(/[._]/);
-    db.get("scraper", { id }, (err, row) => {
-        if (!row) return api.sendReply(res, 404, "no record found");
-        file.send(req, req.params.id);
-    });
-}
-
-/**
  * This is a job method that is run by a worker to do the actual scraping, once done it notifies
  * web page about the status via websocket
  */
@@ -107,11 +106,12 @@ function job(options, callback)
 {
     const opts = {
         ...options,
+        root: options.id,
         width: mod.width,
         height: mod.height,
         cookieRx: mod.cookieRx
     }
-    scrape(opts).then(() => {
+    scraper(opts).then(() => {
         mod.update(opts, callback);
     }).catch((err) => {
         logger.trace("job:", mod.name, opts, err);

@@ -30,7 +30,7 @@
                 <template x-for="row in list" :key="row.id">
                     <tr>
                         <td width="25%">
-                            <img :src="row.status=='done'?'/api/asset/'+row.id+'.png':'/img/loading.gif'" style="width:100%; height:200px">
+                            <img :src="row.status=='done'?'/api/asset/'+row.id+'/page.png':'/img/loading.gif'" style="width:100%; height:200px">
                         </td>
                         <td valign=top width="60%">
                             <div class="py-2" x-text="row.url"></div>
@@ -40,13 +40,13 @@
                             <small class="text-muted" x-text="row.date"></small>
                             <small class="text-muted" x-text="row.venue"></small>
                             <small class="text-muted" x-text="row.location"></small>
-                            <img class="d-block" :src="row.logo?'/api/asset/'+row.id+'_logo.png':'/img/1.png'" width=60>
+                            <img class="d-block" :src="row.logo?'/api/asset/'+row.id+'/logo.png':'/img/1.png'" width=60>
                         </td>
                         <td  valign=top x-text="row.status"></td>
                         <td valign=top>
                             <div class="mb-2" role="button" @click="del(row)" title="Delete">❌</div>
                             <div class="mb-2" role="button" @click="resubmit(row)" title="Resubmit">📥</div>
-                            <a class="mb-2" :href="'/api/asset/'+row.id+'.html'" :download="row.id" title="Download HTML">🔗</a>
+                            <a class="mb-2" :href="'/api/asset/'+row.id+'/page.html'" :download="row.id" title="Download HTML">🔗</a>
                         </td>
                     </tr>
                 </template>

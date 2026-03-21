@@ -41,7 +41,7 @@ describe("Logwatcher tests", () => {
                 " backtrace test line:456",
             ];
 
-    logwatcher.files = logwatcher.files.filter((x) => (x.name));
+    logwatcher.files = logwatcher.files?.filter((x) => (x.name));
 
     app.parseArgs(argv);
     fs.writeFileSync(app.errFile, lines.join("\n"));

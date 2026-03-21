@@ -5,7 +5,7 @@ const { lib, file, logger, image } = require('backendjs');
 
 // Scrape the url and save the image and html
 module.exports = {
-    scrape,
+    scraper,
     parseSchema,
     getDetails,
     autoScroll,
@@ -13,20 +13,27 @@ module.exports = {
     tileImages,
 };
 
-async function scrape(options)
+async function scraper(options)
 {
-    logger.info("scrape:", options);
+    logger.info("scraper:", options);
 
     const browser = await puppeteer.launch({ dumpio: true });
     const context = await browser.createBrowserContext();
 
     const page = await context.newPage();
-    page.on('console', msg => logger.debug('scrape:', msg.text()));
+    page.on('console', msg => logger.debug('scraper:', msg.text()));
 
     await page.setViewport({ width: options.width, height: options.height });
 
-    await page.goto(options.url, { waitUntil: 'networkidle0' });
-    await lib.sleep(5000);
+    await page.goto(options.url);
+
+    try {
+        await page.waitForNetworkIdle({ idleTime: options.idleTime || 1000, concurrency: options.idleConcurrency });
+    } catch (e) {
+        logger.debug('scraper:', e);
+    }
+
+    await lib.sleep(options.idleDelay || 3000);
 
     if (options.cookieRx) {
         await acceptCookies(page, options.cookieRx);
@@ -35,7 +42,7 @@ async function scrape(options)
     await getDetails(options, page);
 
     const image1 = await page.screenshot({});
-    file.store(Buffer.from(image1), `${options.id}.png`);
+    file.store(Buffer.from(image1), `${options.root}/page.png`);
 
     if (!options.noScroll) {
         await autoScroll(page);
@@ -46,7 +53,7 @@ async function scrape(options)
         }
 
         const image2 = await page.screenshot({ fullPage: true });
-        await tileImages(`${options.id}_full.png`, image1, image2);
+        await tileImages(`${options.root}/full.png`, image1, image2);
     }
 
     await context.close();
@@ -117,7 +124,7 @@ async function acceptCookies(page, rx)
         } catch (e) {}
     }
 
-    tree.forEach(x => logger.debug("scrape:", "acceptCookies:", x));
+    tree.forEach(x => logger.debug("scraper:", "acceptCookies:", x));
 
     await lib.sleep(1000);
     return tree;
@@ -201,7 +208,7 @@ async function getDetails(options, page)
     options.title = await page.title();
 
     const html = await page.content();
-    file.store(Buffer.from(html), `${options.id}.html`);
+    file.store(Buffer.from(html), `${options.root}/page.html`);
 
     var ldjson = html.match(/type=["']application\/ld\+json["'][^>]*>([^<]+)<\/script>/i);
     if (ldjson) {
@@ -210,7 +217,7 @@ async function getDetails(options, page)
             parseSchema(options, ldjson);
 
             ldjson = lib.stringify(ldjson, null, 2);
-            file.store(Buffer.from(ldjson), `${options.id}_ld.json`);
+            file.store(Buffer.from(ldjson), `${options.root}/ld.json`);
         }
     }
 
@@ -241,7 +248,7 @@ async function getDetails(options, page)
 
     if (options.logo) {
         const { err, data } = await lib.afetch({ url: options.logo, binary: 1, retryCount: 3, retryOnError: 1 });
-        if (!err) file.store(data, `${options.id}_logo.png`);
+        if (!err) file.store(data, `${options.root}/logo.png`);
     }
 }
 
