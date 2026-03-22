@@ -394,9 +394,9 @@ jobs.processJobMessage = function(name, msg, next)
             opts.etime = Date.now();
             opts.elapsed = opts.etime - opts.stime;
             if (err) {
-                logger.logger(err.status >= 600 ? err.logger || "warn" : !err.status || err.status &lt; 200 || err.status > 299 ? "error" : "info", "endJob:", name, lib.traceError(err), opts.message, opts.elapsed, "ms");
+                logger.logger(err.status >= 600 ? err.logger || "warn" : !err.status || err.status &lt; 200 || err.status > 299 ? "error" : "info", "endJob:", jobs.name, name, lib.traceError(err), opts.message, opts.elapsed, "ms");
             } else {
-                logger.logger(opts.message.logger || "debug", "endJob:", name, opts.message, opts.elapsed, "ms");
+                logger.logger(opts.message.logger || "debug", "endJob:", jobs.name, name, opts.message, opts.elapsed, "ms");
             }
             app.runMethods("finishJob", opts, () => { next(err) });
             // Mark end of last message processed
@@ -476,7 +476,7 @@ jobs.checkTimes = function()
                     return this.exitWorker({ jobs: badJobs, shutdownReason: "maxRuntime", maxRuntime: maxRuntime });
                 } else
                 if (now - this.checkRuntime > maxRuntime) {
-                    logger.warn('checkLifetime:', 'jobs: exceeded max run time but other jobs still running', maxRuntime, badJobs);
+                    logger.warn('checkLifetime:', jobs.name, 'exceeded max run time but other jobs still running', maxRuntime, badJobs);
                 }
                 this.checkRuntime = Date.now();
             }
@@ -484,7 +484,7 @@ jobs.checkTimes = function()
     } else {
         // Idle mode, check max life time
         if (this.maxLifetime > 0 &amp;&amp; now - app.ctime + lib.randomShort() > this.maxLifetime) {
-            logger.log('checkLifetime:', 'jobs: exceeded max life time', this.maxLifetime);
+            logger.log('checkLifetime:', jobs.name, 'exceeded max life time', this.maxLifetime);
             return this.exitWorker({ shutdownReason: "maxLifetime", maxLifetime: this.maxLifetime });
         }
     }
@@ -608,7 +608,7 @@ jobs.submitJob = function(jobspec, options, callback)
 
     // Keep track where the job is originated
     jobspec.origin = app.origin();
-    logger.debug("submitJob:", jobspec, "OPTS:", options, "Q:", q.name);
+    logger.debug("submitJob:", jobs.name, jobspec, "OPTS:", options, "Q:", q.name);
     this.checkOptions(jobspec, options);
 
     // Use global timeouts if not specified
@@ -651,7 +651,7 @@ jobs.runJob = function(jobspec, options, callback)
 {
     var q = options?.queueName;
 
-    logger.debug("runJob:", q, jobspec);
+    logger.debug("runJob:", jobs.name, q, jobspec);
 
     jobspec = this.isJob(jobspec);
     if (util.types.isNativeError(jobspec)) {
@@ -712,7 +712,7 @@ jobs.runJob = function(jobspec, options, callback)
                         cache.lock("JOB:" + key, { ttl, cacheName: jobs.uniqueCache, set: 1 });
                     }, Math.max(ttl * 0.7, 1000));
                 }
-                logger.debug("runJob:", q, cache.getCache(jobs.uniqueCache).name, "locked:", locked, "ttl:", ttl, "key:", key, "JOB:", jobspec)
+                logger.debug("runJob:", jobs.name, q, cache.getCache(jobs.uniqueCache).name, "locked:", locked, "ttl:", ttl, "key:", key, "JOB:", jobspec)
                 next(err);
             });
         },
@@ -766,7 +766,7 @@ function _runTask(name, jobspec, options, callback)
     var job = jobspec.job[name];
 
     if (jobs.taskIgnore &amp;&amp; jobs.taskIgnore.test(name)) {
-        logger.error("runTask:", options?.queueName, name, "task ignored", job, "RX:", jobs.taskIgnore);
+        logger.error("runTask:", jobs.name, options?.queueName, name, "task ignored", job, "RX:", jobs.taskIgnore);
         return callback(lib.newError("Task ignored: " + name, 499, "TaskIgnored"));
     }
 
@@ -776,7 +776,7 @@ function _runTask(name, jobspec, options, callback)
     var context = modules[path];
 
     if (!context || typeof context[method] != "function") {
-        logger.error("runTask:", options?.queueName, name, "unknown method", job);
+        logger.error("runTask:", jobs.name, options?.queueName, name, "unknown method", job);
         return callback(lib.newError("Unknown method: " + name, 499, "UnknownMethod"));
     }
     if (!lib.isObject(job)) job = {};
@@ -788,7 +788,7 @@ function _runTask(name, jobspec, options, callback)
         _finishTask(err, name, jobspec, options, callback);
     });
     d.run(() => {
-        logger.debug('runTask:', 'started', name, job);
+        logger.debug('runTask:', jobs.name, 'started', name, job);
         jobs.runTime = Date.now();
         ipc.emitMsg("jobs:task:started", { name, job, queueName: options?.queueName });
 
@@ -807,7 +807,7 @@ function _finishTask(err, name, jobspec, options, callback)
         jobs.metrics.err_count++;
         logger.logger(err.status >= 400 || util.types.isNativeError(err) ? "error" : "info", 'endTask:', options.queueName, name, lib.traceError(err), job);
     } else {
-        logger.debug('endTask:', options.queueName, name, err, job);
+        logger.debug('endTask:', jobs.name, options.queueName, name, err, job);
     }
     jobs.metrics.que.update(Date.now() - jobspec.jobTime);
     jobs.metrics.running--;

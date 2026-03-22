@@ -24,7 +24,7 @@ app.components.scraper = class extends app.AlpineComponent {
     }
 
     submit() {
-        var popup = bootpopup({
+        var popup = app.bootpopup({
             title: "Website URFL",
             alert: 1,
             debug: 1,
@@ -37,7 +37,6 @@ app.components.scraper = class extends app.AlpineComponent {
 
                 const { err } = await app.fetch("/api/submit", { post: 1, body: d });
                 if (err) return popup.showAlert(err);
-                setTimeout(this.refresh.bind(this, 1), 500);
             }
         })
     }

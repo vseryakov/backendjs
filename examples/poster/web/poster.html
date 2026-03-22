@@ -15,6 +15,7 @@
                     </template>
                 </ul>
             </div>
+
             <button class="btn btn-outline-dark me-2" @click.stop.prevent="create"><i class="bi bi-plus"></i> Create</button>
             <button class="btn btn-outline-dark me-2" @click.stop.prevent="load"><i class="bi bi-filetype-json"></i> Import</button>
             <button class="btn btn-outline-dark me-2" @click.stop.prevent="download"><i class="bi bi-download"></i> Download</button>
@@ -31,6 +32,6 @@
         </div>
     </div>
 
-    <div x-data="profile" x-template="'/render.html'"></div>
+    <div x-data="profile" x-template="'/render.html'" x-scope-level=1></div>
 
 </div>

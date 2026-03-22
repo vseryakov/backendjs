@@ -1,4 +1,6 @@
 
+/* global window document */
+
 const puppeteer = require('puppeteer');
 
 const { lib, file, logger, image } = require('backendjs');
@@ -170,7 +172,18 @@ function parseSchema(options, obj)
             options.descr = obj.description;
         }
         if (obj.startDate) {
-            options.date = lib.strftime(lib.toDate(obj.startDate), "%b %d, %Y")
+            const date = lib.split(lib.strftime(lib.toDate(obj.startDate), "%b,%d,%Y"))
+            if (obj.endDate) {
+                const edate = lib.split(lib.strftime(lib.toDate(obj.startDate), "%b,%d,%Y"))
+                if (date[0] == edate[0]) {
+                    date[1] += "-" + edate[1];
+                } else
+                if (date[2] == edate[2]) {
+                    date[0] = date[0] + " " + date[1] + " -";
+                    date[1] = edate[0] + " " + edate[1];
+                }
+            }
+            options.date = date.join(" ");
         }
         if (obj.location?.["@type"] == "Place") {
             options.venue = obj.location.name;

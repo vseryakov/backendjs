@@ -29,11 +29,6 @@ app.components.render = class extends app.AlpineComponent {
     ]
 
 
-    onCreate() {
-        if (!this.items) this.items = [];
-        if (!this.defaults) this.defaults = {};
-    }
-
     onFileDropped(event, item) {
         const reader = new FileReader();
         reader.addEventListener("load", () => { item.data = reader.result });
@@ -62,7 +57,7 @@ app.components.render = class extends app.AlpineComponent {
     }
 
     addItem() {
-        var popup = bootpopup({
+        var popup = app.bootpopup({
             title: "Add Element",
             alert: 1,
             debug: 1,

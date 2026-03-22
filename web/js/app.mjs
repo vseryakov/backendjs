@@ -152,6 +152,7 @@ function toCamel(str) {
  * @param {int} [options.zero] - replace with this number if result is 0
  * @param {int} [options.digits] - how many digits to keep after the floating point
  * @param {int} [options.bigint] - return BigInt if not a safe integer
+ * @param {int} [options.base=10] - base of the input, 2, 10, 16, ...
  * @return {number}
  * @example
  * toNumber("123")
@@ -170,7 +171,7 @@ function toNumber(val, options) {
       n = options?.dflt || 0;
     } else {
       var f = typeof options?.float == "undefined" || options?.float == null ? /^(-|\+)?([0-9]+)?\.[0-9]+$/.test(val) : options?.float;
-      n = val[0] == "t" ? 1 : val[0] == "f" ? 0 : val == "infinity" ? Infinity : f ? parseFloat(val, 10) : parseInt(val, 10);
+      n = val[0] == "t" ? 1 : val[0] == "f" ? 0 : val == "infinity" ? Infinity : f ? parseFloat(val, options?.base || 10) : parseInt(val, options?.base || 10);
     }
   }
   n = isNaN(n) ? options?.dflt || 0 : n;

@@ -27,7 +27,7 @@ app.components.index = class extends app.AlpineComponent {
     }
 
     edit(data) {
-        var popup = bootpopup({
+        var popup = app.bootpopup({
             title: `${data ? "Edit" : "Add"} Contact`,
             alert: 1,
             content: [

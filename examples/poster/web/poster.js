@@ -2,7 +2,10 @@
 app.components.poster = class extends app.AlpineComponent {
 
     profiles = [];
-    profile = {};
+    profile = {
+        items: [],
+        defaults: {}
+    };
 
     onCreate() {
         try {
@@ -16,7 +19,10 @@ app.components.poster = class extends app.AlpineComponent {
     setProfile(profile) {
         profile.defaults ??= {};
         profile.items ??= [];
-        Object.assign(this.profile, profile);
+        this.profile.name = profile.name;
+        this.profile.items = profile.items;
+        for (const p in this.profile.defaults) delete this.profile.defaults[p];
+        Object.assign(this.profile.defaults, profile.defaults);
         return profile;
     }
 
@@ -28,7 +34,7 @@ app.components.poster = class extends app.AlpineComponent {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(new Blob([ JSON.stringify(this.profile) ], { type: "application/json" }))
         link.download = this.profile.name.replace(/[^a-z0-9_.-]/ig, "-") + '-poster.json';
-        setTimeout(() => { link.click(); }, 100);
+        setTimeout(() => { link.click() }, 100);
     }
 
     load() {
@@ -46,11 +52,11 @@ app.components.poster = class extends app.AlpineComponent {
                 reader.readAsText(event.target.files[0]);
             },
         });
-        setTimeout(() => { file.click(); }, 100);
+        setTimeout(() => { file.click() }, 100);
     }
 
     create() {
-        var popup = bootpopup({
+        var popup = app.bootpopup({
             title: "Create a Poster",
             alert: 1,
             debug: 1,

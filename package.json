@@ -13,20 +13,20 @@
   "dependencies": {
     "express": "5.2.1",
     "mime-types": "3.0.2",
-    "qs": "6.14.1",
-    "fast-xml-parser": "5.3.4"
+    "qs": "6.15.0",
+    "fast-xml-parser": "5.5.8"
   },
   "peerDependencies": {
     "croner": "9.1.0",
     "formidable": "3.5.4",
     "nodemailer": "7.0.13",
     "nats": "2.29.3",
-    "pg": "8.17.2",
+    "pg": "8.20.0",
     "redis": "3.1.2",
     "sharp": "0.34.5",
     "unix-dgram": "2.0.7",
     "web-push": "3.6.7",
-    "ws": "8.19.0",
+    "ws": "8.20.0",
     "@parse/node-apn": "7.1.0"
   },
   "peerDependenciesMeta": {

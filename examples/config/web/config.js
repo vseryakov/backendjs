@@ -57,7 +57,7 @@ app.components.config = class extends app.AlpineComponent {
 
     edit(data) {
         var popup;
-        popup = bootpopup({
+        popup = app.bootpopup({
             title: "Config Details",
             horizontal: 1,
             backdrop: false,
@@ -83,7 +83,7 @@ app.components.config = class extends app.AlpineComponent {
                 return null;
             },
 
-            Copy: async (d) => {
+            Copy: (d) => {
                 app.fetch('/config/put', { body: d, post: 1 }, (err) => {
                     if (err) return popup.showAlert(err);
                     this.show();
@@ -93,7 +93,7 @@ app.components.config = class extends app.AlpineComponent {
             },
 
             Delete: (d) => {
-                bootpopup.confirm("Delete this parameter?", () => {
+                app.bootpopup.confirm("Delete this parameter?", () => {
                     app.fetch('/config/del', { body: { ctime: data?.ctime, name: data?.name }, post: 1 }, (err) => {
                         if (err) return popup.showAlert(err);
                         this.show();
