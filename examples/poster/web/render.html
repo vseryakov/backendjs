@@ -312,10 +312,7 @@
             <input type="number" class="form-control" min="0" max="10" x-model="item.gradient_sigma">
         </div>
 
-        <div class="col-4">
-            <label class="form-label">Gradient Color</label>
-            <input type="color" class="form-control form-control-color" x-model="item.gradient_color">
-        </div>
+        <div class="col-4" x-template="'color-input?id=gradient_color&name=Gradient+Color'"></div>
     </div>
 
     <div x-template="!item.type||item.type=='text'?'font-form':''"></div>

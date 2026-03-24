@@ -1304,6 +1304,22 @@
         emit(app.event, "item:dropped", { event, item: current, element: el });
       }
     });
+    Alpine2.directive("shtml", (el, { expression }, { effect, evaluateLater }) => {
+      const evaluate = evaluateLater(expression);
+      effect(() => {
+        evaluate((value) => {
+          $empty(el);
+          const children = app.sanitizer(value, true);
+          if (!children?.length) return;
+          Alpine2.mutateDom(() => {
+            el.append(...children);
+            el._x_ignoreSelf = true;
+            Alpine2.initTree(el);
+            delete el._x_ignoreSelf;
+          });
+        });
+      });
+    });
   }
 
   // src/index.js
@@ -2104,7 +2120,7 @@
   /**
    * Bootpopup instance returned by `bootpopup(options)` when a new popup is created.
    *
-   * See https://github.com/vseryakov/bootpopup for documentation.
+   * See https://github.com/vseryakov/bootpopup for more documentation.
    *
    * @typedef {Object} Bootpopup
    *
@@ -2906,8 +2922,16 @@
       }, this.eventOptions);
     }
     show() {
+      this.options.before.call(this, this);
+      if (isObject(this.options.data)) {
+        var xdata = this.xdata = Alpine.reactive(this.options.data);
+        Alpine.addScopeToNode(this.modal, xdata);
+        Alpine.initTree(this.modal);
+        Alpine.onElRemoved(this.modal, () => {
+          delete this.modal._x_dataStack;
+        });
+      }
       document.body.append(this.modal);
-      this.options.before(this);
       bootstrap.Modal.getOrCreateInstance(this.modal).show();
     }
     showAlert(text, opts) {

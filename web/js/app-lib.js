@@ -1304,6 +1304,22 @@
         emit(app.event, "item:dropped", { event, item: current, element: el });
       }
     });
+    Alpine2.directive("shtml", (el, { expression }, { effect, evaluateLater }) => {
+      const evaluate = evaluateLater(expression);
+      effect(() => {
+        evaluate((value) => {
+          $empty(el);
+          const children = app.sanitizer(value, true);
+          if (!children?.length) return;
+          Alpine2.mutateDom(() => {
+            el.append(...children);
+            el._x_ignoreSelf = true;
+            Alpine2.initTree(el);
+            delete el._x_ignoreSelf;
+          });
+        });
+      });
+    });
   }
 
   // src/index.js
