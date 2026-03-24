@@ -76,6 +76,7 @@ app.components.render = class extends app.AlpineComponent {
     }
 
     async render() {
+
         const body = { items: this.items, defaults: this.defaults };
 
         const { err, data } = await app.fetch("/api/render", { post: 1, body });

@@ -1311,7 +1311,7 @@
   var src_default = app;
 
   // builds/cdn.js
-  Object.assign(app, src_exports);
+  for (const p in src_exports) if (p != "app") app[p] = src_exports[p];
   window.app = app;
   $on(document, "alpine:init", () => {
     AlpinePlugin(Alpine);
@@ -2101,6 +2101,211 @@
   __export(bootpopup_exports, {
     bootpopup: () => bootpopup
   });
+  /**
+   * Bootpopup instance returned by `bootpopup(options)` when a new popup is created.
+   *
+   * See https://github.com/vseryakov/bootpopup for documentation.
+   *
+   * @typedef {Object} Bootpopup
+   *
+   * @property {string} formid Randomly generated HTML id of the form.
+   * @property {Object} options Options used to create the window.
+   *
+   * @method addOptions
+   * @param {Object} options Add/merge options into current options.
+   * @returns {Bootpopup} This instance.
+   *
+   * @method create
+   * @description Create the window and add it to the DOM, but do not show it.
+   * @returns {Bootpopup} This instance.
+   *
+   * @method show
+   * @description Show the window and call the `before` callback.
+   * @returns {Bootpopup} This instance.
+   *
+   * @method showAlert
+   * @param {string} msg Message to display.
+   * @param {Object} [options] Alert options.
+   * @param {("info")} [options.type] Use `"info"` to show information message (requires `info: true`).
+   * @param {boolean} [options.dismiss] If true, the message must be closed manually.
+   * @param {number} [options.delay] Auto-hide after this delay (ms).
+   * @returns {Bootpopup} This instance.
+   *
+   * @method escape
+   * @param {string} str String to escape.
+   * @returns {string} Escaped string where `&<>'"` are converted into HTML entities.
+   *
+   * @method close
+   * @description Close popup window (performs the `close` action).
+   * @returns {void}
+   *
+   * @method data
+   * @description Return form input values from all inputs.
+   * @returns {{obj: Object<string, any>, list: any[]}} Data as `{ obj: {}, list: [] }`.
+   *
+   * @method validate
+   * @description Run `checkValidity()` and return the result.
+   * @returns {boolean} Validity result.
+   *
+   * @method callback
+   * @param {"dismiss"|"submit"|"close"|"ok"|"cancel"|"yes"|"no"} name Action name.
+   * @description Call a callback for the given action and return its result.
+   * @returns {any} Callback return value.
+   */
+  /**
+   * Configuration object for a single element in a Bootpopup form/layout.
+   *
+   * “Special element properties” are parsed by Bootpopup to create DOM, apply Bootstrap
+   * classes, add labels/groups, input-group addons, validation feedback, etc.
+   *
+   * @typedef {Object} BootpopupElement
+   *
+   * @property {string} [class]   Classes for the main element. If empty/omitted, `form-control` is used.
+   *
+   * @property {string} [text]  Sets element's `textContent`.
+   *
+   * @property {string} [html]   HTML to be parsed into DOM and appended (after sanitizing, if available).
+   *
+   * @property {boolean} [autofocus]  Focus this element when the popup is shown.
+   *
+   * @property {boolean} [nosanitize]  Skip sanitizer for `label` or `html` (if sanitizer is installed).
+   *
+   * @property {boolean} [floating]   Adds `form-floating` to the group to enable floating labels.
+   *
+   * @property {boolean} [checked]   When `true`, makes checkbox/radio selected.
+   *
+   * @property {boolean} [switch]   When `true`, converts a checkbox into a toggle switch style.
+   *
+   * @property {boolean} [inline]   When `true`, adds `form-check-inline` (checkbox/radio inline style).
+   *
+   * @property {boolean} [reverse]   When `true`, adds `form-check-reverse` (checkbox style).
+   *
+   * @property {string} [input_label]   Checkbox/radio specific label instead of the element's main label.
+   *
+   * @property {string} [class_input_btn]   Converts checkbox into a button style. Must be one of Bootstrap `btn-*` classes.
+   *
+   * @property {string} [class_check]   Adds a custom class to the checkbox/radio input element.
+   *
+   * @property {string} [class_label]   Extra classes for the label element (added to default `form-label`).
+   *
+   * @property {Object<string, any>} [attrs_label]   Attributes for the label element.
+   *
+   * @property {number|string} [size_label]  Column width for the label (Bootstrap grid sizing).
+   *
+   * @property {number|string} [size_input]  Column width for the input (Bootstrap grid sizing).
+   *
+   * @property {string} [class_group]  Classes for the group wrapper div.
+   *   Example: `"row my-3 py-1 border-bottom"`.
+   *
+   * @property {Object<string, any>} [attrs_group] Attributes for the group wrapper div.
+   *   Example: `{ id: "group1" }`.
+   *
+   * @property {string} [class_prefix]  Class for a prefix span inserted as the first element in the group.
+   *
+   * @property {string} [text_prefix]  Text for a prefix span inserted as the first element in the group.
+   *
+   * @property {string} [class_suffix]  Class for a suffix element inserted as the last element in the group.
+   *
+   * @property {string} [text_suffix]  Text for a suffix element inserted as the last element in the group.
+   *
+   * @property {string} [text_valid]  Adds a “valid feedback” div (used with `validate()`).
+   *
+   * @property {string} [text_invalid]  Adds an “invalid feedback” div (used with `validate()`).
+   *
+   * @property {string} [class_append]   Appends a span to the element (mostly for non-input entries) with this class.
+   *
+   * @property {string} [text_append]   Appends a span to the element (mostly for non-input entries) with this text.
+   *
+   * @property {string} [text_input_button]   Adds a button tied to the input to perform an action.
+   *   The button gets `data-formid` and `data-inputid` attributes.
+   *
+   * @property {string} [class_input_button]   Button style class for the input button.
+   *
+   * @property {string} [class_input_group]   Class for the input-group wrapper when using input buttons / dropdowns.
+   *
+   * @property {Object<string, any>} [attrs_input_button]  Attributes for the input button (often includes `{ click: (ev) => {} }`).
+   *
+   * @property {Array<string|{name:string, value:any}>} [list_input_button]  Adds a dropdown button with options; selected value is placed into an input.
+   *
+   * @property {Array<string|{name:string, value:any}>} [list_input_tags]  Same as `list_input_button`, but also adds selected values as tags in the list.
+   *
+   * @property {string} [class_list_button]  Class for the dropdown list button.
+   *
+   * @property {string} [class_input_menu]  Class for the dropdown menu.
+   */
+  /**
+   * Bootpopup creation options.
+   *
+   * @typedef {Object} BootpopupOptions
+   *
+   * @property {Array<BootpopupElement>} [content=[]] Content of the dialog box.
+   * @property {Array<BootpopupElement>} [footer=[]] Content inside the modal footer (simple elements only).
+  
+   * @property {string} [title=document.title] Title of the dialog box.
+   * @property {boolean} [show_close=true] Show or hide the close button in the title.
+   * @property {boolean} [show_header=true] Show or hide the dialog header with title.
+   * @property {boolean} [show_footer=true] Show or hide the dialog footer with buttons.
+   * @property {boolean} [keyboard=true] If false, disable closing the modal with keyboard.
+   * @property {boolean|string} [backdrop=true] If false, disable modal backdrop; can be `static` as well.
+   * @property {boolean} [scroll=true] Apply `modal-dialog-scrollable` if true.
+   * @property {boolean} [center=false] Apply `modal-dialog-centered` if true.
+   * @property {boolean} [horizontal=false] Enable/disable horizontal layout in the form element.
+   * @property {("sm"|"lg"|"xl"|"")} [size=""] Size of the modal window.
+   * @property {string} [size_label="col-sm-4"] Classes applied to labels in the form.
+   * @property {string} [size_input="col-sm-8"] Classes applied to inputs wrapper in the form.
+   * @property {("close"|"ok"|"cancel"|"yes"|"no")} [onsubmit="close"] Default action when form is submitted (overridden by `submit` callback).
+   * @property {Array<"close"|"ok"|"cancel"|"yes"|"no">} [buttons=["close"]] Buttons shown in the dialog footer.
+   *
+   * @property {Function} [before=function(){}] Called before the window is shown, after being created. `(popup)`.
+   * @property {Function} [dismiss=function(){}] Called when the window is dismissed. `(data)`.
+   * @property {Function} [submit=function(){}] Called when the form is submitted. Return `false` to cancel. `(data)`.
+   * @property {Function} [close=function(){}] Called when Close button is selected. `(data)`.
+   * @property {Function} [ok=function(){}] Called when OK button is selected. `(data)`.
+   * @property {Function} [cancel=function(){}] Called when Cancel button is selected. `(data)`.
+   * @property {Function} [yes=function(){}] Called when Yes button is selected. `(data)`.
+   * @property {Function} [no=function(){}] Called when No button is selected. `(data)`.
+   * @property {Function} [complete=function(){}] Always called when the dialog box has completed. `(data)`.
+   *
+   * @property {boolean} [alert=false] If true, adds an alert element to be shown by `showAlert`.
+   * @property {boolean} [info=false] If true, adds an info element to be shown by `showAlert(..., {type:"info"})`.
+   * @property {boolean} [autofocus=true] If true, focus the first input element when shown.
+   * @property {boolean} [empty=false] If true, return all input values even if empty; default returns only non-empty values.
+   * @property {function(string):HTMLElement[]|null} [sanitizer=null] Called when rendering HTML content/labels; must return a list of HTMLElements to append.
+   * @property {Object<string,string>|null} [tabs=null] Map of `{tabId: label, ...}` to show `nav-tabs`; content items can set `tab_id`.
+   * @property {Object} [self] Context for callback functions; default is the popup object.
+   * @property {boolean} [debug=false] Log input values in the console.
+   *
+   * @property {string} [class_modal="modal fade"] Modal root class.
+   * @property {string} [class_dialog="modal-dialog"] Modal dialog class.
+   * @property {string} [class_title="modal-title"] Modal title class.
+   * @property {string} [class_content="modal-content"] Modal content class.
+   * @property {string} [class_body="modal-body"] Modal body class.
+   * @property {string} [class_header="modal-header"] Modal header class.
+   * @property {string} [class_footer="modal-footer"] Modal footer class.
+   * @property {string} [class_options="options flex-grow-1 text-start"] Wrapper class for footer content.
+   * @property {string} [class_alert="alert alert-danger fade show"] Class for danger alerts shown by `showAlert`.
+   * @property {string} [class_info="alert alert-info fade show"] Class for info alerts shown by `showAlert`.
+   * @property {string} [class_form=""] Class for the form wrapper div.
+   * @property {string} [class_buttons="btn"] Base class for all buttons.
+   * @property {string} [class_button="btn-outline-secondary"] Default style class for buttons (appended to `class_buttons`).
+   * @property {string} [class_ok="btn-primary"] Style class for OK button.
+   * @property {string} [class_yes="btn-primary"] Style class for Yes button.
+   * @property {string} [class_no="btn-secondary"] Style class for No button.
+   * @property {string} [class_cancel="btn-outline-secondary"] Style class for Cancel button.
+   * @property {string} [class_close="btn-outline-secondary"] Style class for Close button.
+   * @property {string} [class_tabs="nav nav-tabs mb-4"] Class for tab nav.
+   * @property {string} [class_tablink="nav-link"] Class for tab links.
+   * @property {string} [class_tabcontent="tab-content"] Class for tab content container.
+   * @property {string} [class_group="row mb-3"] Wrapper class for each content element group.
+   * @property {string} [class_label=""] Extra class appended to form labels.
+   * @property {string} [class_row="row"] Class used for content type `row`.
+   * @property {string} [class_col="col-auto"] Class used for columns in `row` content items.
+   * @property {string} [class_suffix="form-text text-muted text-end"] Class used for content added to a group (suffix/help text).
+   * @property {string} [class_input_button="btn btn-outline-secondary"] Default class for `text_input_button`.
+   * @property {string} [class_list_button="btn btn-outline-secondary dropdown-toggle"] Default class for `list_input_button` button.
+   * @property {string} [class_input_menu="dropdown-menu bg-light"] Default class for `list_input_button` dropdown.
+   * @property {string} [list_input_mh="25vh"] Default max height of the dropdown in `list_input_button`.
+   */
   var inputs = [
     "text",
     "color",
@@ -2421,6 +2626,11 @@
         }
     }
   }
+  /**
+   * Create and show bootpopup
+   * @param {BootpopupOptions} ...args
+   * @returns {Bootpopup}
+   */
   function bootpopup(...args) {
     return new Bootpopup(...args);
   }

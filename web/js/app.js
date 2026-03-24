@@ -1311,7 +1311,7 @@
   var src_default = app;
 
   // builds/cdn.js
-  Object.assign(app, src_exports);
+  for (const p in src_exports) if (p != "app") app[p] = src_exports[p];
   window.app = app;
   $on(document, "alpine:init", () => {
     AlpinePlugin(Alpine);

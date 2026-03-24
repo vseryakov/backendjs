@@ -35,7 +35,7 @@ function render(req, res)
         req.res.header("pragma", "no-cache");
         res.setHeader("cache-control", "max-age=0, no-cache, no-store");
         res.type("image/png");
-        res.send(rc[0].buffer);
+        res.send(rc[0]._buffer);
     }).catch(err => api.sendReply(res, 400, err));
 }
 
