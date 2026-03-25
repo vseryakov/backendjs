@@ -1167,7 +1167,7 @@
   register(_alpine, { render: _render, Component: AlpineComponent, data, init, default: 1 });
   function AlpinePlugin(Alpine2) {
     _Alpine = Alpine2;
-    emit("alpine:init");
+    emit("alpine:init", Alpine2);
     Alpine2.magic("app", (el) => app);
     Alpine2.magic("params", (el) => {
       while (el) {

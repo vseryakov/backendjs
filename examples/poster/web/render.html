@@ -11,6 +11,15 @@
 
 <div class="p-1">
 
+    <div class="row mb-3">
+        <div class="col-3">
+            <label class="form-label fw-bolder">Profile</label>
+            <div class="input-group">
+                <input type="text" class="form-control" x-model="name">
+            </div>
+        </div>
+    </div>
+
     <div class="text-muted small mb-3">
         - First image is the backgroud, it must be large enough to fit other elements.<br>
         - Common defaults for all elements: <span class="dropdown" x-data="{ item: defaults }" x-template="'element-dropdown'"></span>
@@ -353,15 +362,16 @@
         <div class="col-4">
             <label class="form-label">Color Detect Modes</label><br>
             <input class="form-control" list="detect-list" x-model="item.text_auto" placeholder="mode, mode,....">
-
-            <datalist id="detect-list">
-                <option>dominant</option>
-                <option>complement</option>
-                <option>mean</option>
-                <option>luminance</option>
-                <option>lighter</option>
-                <option>darker</option>
-            </datalist>
+            <div class="input-group">
+                <input class="form-control" list="detect-list" x-model="item.text_auto" placeholder="mode, mode,...." :title="item.text_auto">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><button class="dropdown-item" @click.stop.prevent="item.text_auto=''">Clear...</button></li>
+                    <template x-for="type in ['luminance','dominant','complement','mean','lighter','darker','softlight']">
+                        <li><button class="dropdown-item" @click.stop.prevent="item.text_auto=app.split(item.text_auto+','+$el.textContent)" x-text="type"></button></li>
+                    </template>
+                </ul>
+            </div>
         </div>
 
         <div class="col-4" x-template="'color-input?id=bgcolor&name=Bg+Color&prefix=bg'"></div>

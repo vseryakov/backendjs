@@ -1108,7 +1108,7 @@ function $template(el, value, modifiers) {
 register(_alpine, { render: _render, Component: AlpineComponent, data, init, default: 1 });
 function AlpinePlugin(Alpine) {
   _Alpine = Alpine;
-  emit("alpine:init");
+  emit("alpine:init", Alpine);
   Alpine.magic("app", (el) => app);
   Alpine.magic("params", (el) => {
     while (el) {

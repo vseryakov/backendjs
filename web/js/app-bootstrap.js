@@ -1167,7 +1167,7 @@
   register(_alpine, { render: _render, Component: AlpineComponent, data, init, default: 1 });
   function AlpinePlugin(Alpine2) {
     _Alpine = Alpine2;
-    emit("alpine:init");
+    emit("alpine:init", Alpine2);
     Alpine2.magic("app", (el) => app);
     Alpine2.magic("params", (el) => {
       while (el) {
@@ -1303,22 +1303,6 @@
         $event(el, "item:dropped", { item: current });
         emit(app.event, "item:dropped", { event, item: current, element: el });
       }
-    });
-    Alpine2.directive("shtml", (el, { expression }, { effect, evaluateLater }) => {
-      const evaluate = evaluateLater(expression);
-      effect(() => {
-        evaluate((value) => {
-          $empty(el);
-          const children = app.sanitizer(value, true);
-          if (!children?.length) return;
-          Alpine2.mutateDom(() => {
-            el.append(...children);
-            el._x_ignoreSelf = true;
-            Alpine2.initTree(el);
-            delete el._x_ignoreSelf;
-          });
-        });
-      });
     });
   }
 
@@ -1835,6 +1819,24 @@
     u: [],
     ul: []
   };
+  on("alpine:init", (Alpine2) => {
+    Alpine2.directive("shtml", (el, { expression }, { effect, evaluateLater }) => {
+      const evaluate = evaluateLater(expression);
+      effect(() => {
+        evaluate((value) => {
+          $empty(el);
+          const children = sanitizer(value, true);
+          if (!children?.length) return;
+          Alpine2.mutateDom(() => {
+            el.append(...children);
+            el._x_ignoreSelf = true;
+            Alpine2.initTree(el);
+            delete el._x_ignoreSelf;
+          });
+        });
+      });
+    });
+  });
 
   // src/ws.js
   var ws_exports = {};
@@ -2122,51 +2124,6 @@
    *
    * See https://github.com/vseryakov/bootpopup for more documentation.
    *
-   * @typedef {Object} Bootpopup
-   *
-   * @property {string} formid Randomly generated HTML id of the form.
-   * @property {Object} options Options used to create the window.
-   *
-   * @method addOptions
-   * @param {Object} options Add/merge options into current options.
-   * @returns {Bootpopup} This instance.
-   *
-   * @method create
-   * @description Create the window and add it to the DOM, but do not show it.
-   * @returns {Bootpopup} This instance.
-   *
-   * @method show
-   * @description Show the window and call the `before` callback.
-   * @returns {Bootpopup} This instance.
-   *
-   * @method showAlert
-   * @param {string} msg Message to display.
-   * @param {Object} [options] Alert options.
-   * @param {("info")} [options.type] Use `"info"` to show information message (requires `info: true`).
-   * @param {boolean} [options.dismiss] If true, the message must be closed manually.
-   * @param {number} [options.delay] Auto-hide after this delay (ms).
-   * @returns {Bootpopup} This instance.
-   *
-   * @method escape
-   * @param {string} str String to escape.
-   * @returns {string} Escaped string where `&<>'"` are converted into HTML entities.
-   *
-   * @method close
-   * @description Close popup window (performs the `close` action).
-   * @returns {void}
-   *
-   * @method data
-   * @description Return form input values from all inputs.
-   * @returns {{obj: Object<string, any>, list: any[]}} Data as `{ obj: {}, list: [] }`.
-   *
-   * @method validate
-   * @description Run `checkValidity()` and return the result.
-   * @returns {boolean} Validity result.
-   *
-   * @method callback
-   * @param {"dismiss"|"submit"|"close"|"ok"|"cancel"|"yes"|"no"} name Action name.
-   * @description Call a callback for the given action and return its result.
-   * @returns {any} Callback return value.
    */
   /**
    * Configuration object for a single element in a Bootpopup form/layout.
@@ -2177,76 +2134,42 @@
    * @typedef {Object} BootpopupElement
    *
    * @property {string} [class]   Classes for the main element. If empty/omitted, `form-control` is used.
-   *
    * @property {string} [text]  Sets element's `textContent`.
-   *
    * @property {string} [html]   HTML to be parsed into DOM and appended (after sanitizing, if available).
-   *
    * @property {boolean} [autofocus]  Focus this element when the popup is shown.
-   *
    * @property {boolean} [nosanitize]  Skip sanitizer for `label` or `html` (if sanitizer is installed).
-   *
    * @property {boolean} [floating]   Adds `form-floating` to the group to enable floating labels.
-   *
    * @property {boolean} [checked]   When `true`, makes checkbox/radio selected.
-   *
    * @property {boolean} [switch]   When `true`, converts a checkbox into a toggle switch style.
-   *
    * @property {boolean} [inline]   When `true`, adds `form-check-inline` (checkbox/radio inline style).
-   *
    * @property {boolean} [reverse]   When `true`, adds `form-check-reverse` (checkbox style).
-   *
    * @property {string} [input_label]   Checkbox/radio specific label instead of the element's main label.
-   *
    * @property {string} [class_input_btn]   Converts checkbox into a button style. Must be one of Bootstrap `btn-*` classes.
-   *
    * @property {string} [class_check]   Adds a custom class to the checkbox/radio input element.
-   *
    * @property {string} [class_label]   Extra classes for the label element (added to default `form-label`).
-   *
    * @property {Object<string, any>} [attrs_label]   Attributes for the label element.
-   *
    * @property {number|string} [size_label]  Column width for the label (Bootstrap grid sizing).
-   *
    * @property {number|string} [size_input]  Column width for the input (Bootstrap grid sizing).
-   *
    * @property {string} [class_group]  Classes for the group wrapper div.
    *   Example: `"row my-3 py-1 border-bottom"`.
-   *
    * @property {Object<string, any>} [attrs_group] Attributes for the group wrapper div.
    *   Example: `{ id: "group1" }`.
-   *
    * @property {string} [class_prefix]  Class for a prefix span inserted as the first element in the group.
-   *
    * @property {string} [text_prefix]  Text for a prefix span inserted as the first element in the group.
-   *
    * @property {string} [class_suffix]  Class for a suffix element inserted as the last element in the group.
-   *
    * @property {string} [text_suffix]  Text for a suffix element inserted as the last element in the group.
-   *
    * @property {string} [text_valid]  Adds a “valid feedback” div (used with `validate()`).
-   *
    * @property {string} [text_invalid]  Adds an “invalid feedback” div (used with `validate()`).
-   *
    * @property {string} [class_append]   Appends a span to the element (mostly for non-input entries) with this class.
-   *
    * @property {string} [text_append]   Appends a span to the element (mostly for non-input entries) with this text.
-   *
    * @property {string} [text_input_button]   Adds a button tied to the input to perform an action.
    *   The button gets `data-formid` and `data-inputid` attributes.
-   *
    * @property {string} [class_input_button]   Button style class for the input button.
-   *
    * @property {string} [class_input_group]   Class for the input-group wrapper when using input buttons / dropdowns.
-   *
    * @property {Object<string, any>} [attrs_input_button]  Attributes for the input button (often includes `{ click: (ev) => {} }`).
-   *
    * @property {Array<string|{name:string, value:any}>} [list_input_button]  Adds a dropdown button with options; selected value is placed into an input.
-   *
    * @property {Array<string|{name:string, value:any}>} [list_input_tags]  Same as `list_input_button`, but also adds selected values as tags in the list.
-   *
    * @property {string} [class_list_button]  Class for the dropdown list button.
-   *
    * @property {string} [class_input_menu]  Class for the dropdown menu.
    */
   /**
@@ -2256,7 +2179,6 @@
    *
    * @property {Array<BootpopupElement>} [content=[]] Content of the dialog box.
    * @property {Array<BootpopupElement>} [footer=[]] Content inside the modal footer (simple elements only).
-  
    * @property {string} [title=document.title] Title of the dialog box.
    * @property {boolean} [show_close=true] Show or hide the close button in the title.
    * @property {boolean} [show_header=true] Show or hide the dialog header with title.
@@ -2271,7 +2193,6 @@
    * @property {string} [size_input="col-sm-8"] Classes applied to inputs wrapper in the form.
    * @property {("close"|"ok"|"cancel"|"yes"|"no")} [onsubmit="close"] Default action when form is submitted (overridden by `submit` callback).
    * @property {Array<"close"|"ok"|"cancel"|"yes"|"no">} [buttons=["close"]] Buttons shown in the dialog footer.
-   *
    * @property {Function} [before=function(){}] Called before the window is shown, after being created. `(popup)`.
    * @property {Function} [dismiss=function(){}] Called when the window is dismissed. `(data)`.
    * @property {Function} [submit=function(){}] Called when the form is submitted. Return `false` to cancel. `(data)`.
@@ -2281,7 +2202,6 @@
    * @property {Function} [yes=function(){}] Called when Yes button is selected. `(data)`.
    * @property {Function} [no=function(){}] Called when No button is selected. `(data)`.
    * @property {Function} [complete=function(){}] Always called when the dialog box has completed. `(data)`.
-   *
    * @property {boolean} [alert=false] If true, adds an alert element to be shown by `showAlert`.
    * @property {boolean} [info=false] If true, adds an info element to be shown by `showAlert(..., {type:"info"})`.
    * @property {boolean} [autofocus=true] If true, focus the first input element when shown.
@@ -2290,7 +2210,6 @@
    * @property {Object<string,string>|null} [tabs=null] Map of `{tabId: label, ...}` to show `nav-tabs`; content items can set `tab_id`.
    * @property {Object} [self] Context for callback functions; default is the popup object.
    * @property {boolean} [debug=false] Log input values in the console.
-   *
    * @property {string} [class_modal="modal fade"] Modal root class.
    * @property {string} [class_dialog="modal-dialog"] Modal dialog class.
    * @property {string} [class_title="modal-title"] Modal title class.
@@ -2346,6 +2265,722 @@
     "button"
   ];
   var escapeMap = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#x27;", "`": "&#x60;" };
+  /**
+   * Create an instance of Bootpoup class and show it
+   * @param {BootpopupOptions} ...args
+   * @returns {Bootpopup}
+   *
+   * ### DOM elements
+   *
+   * All the following Bootpopup properties are native HTML elements:
+   *
+   * - `modal` - entire window, including the fade background. You can use this property in the same way as
+   *  described in [Bootstrap Modals Usage](https://getbootstrap.com/docs/javascript/#modals-usage)
+   * - `dialog` - entire window, without the background
+   * - `content` - content of the dialog
+   * - `header` - header of the dialog
+   * - `body` - body of the dialog
+   * - `form` - main form in the dialog, inside the `body`
+   * - `footer` - footer of the dialog
+   *
+   * ### Buttons
+   *
+   * - `btn_close` - close button (if present)
+   * - `btn_ok` - OK button (if present)
+   * - `btn_cancel` - cancel button (if present)
+   * - `btn_yes` - yes button (if present)
+   * - `btn_no` - no button (if present)
+   *
+   * Any ad-hoc button will be added in the form `btn_Label`.
+   *
+   * NOTE: All actions by default close the popup window, a callback must return `null` in order to keep the popup window
+   * visible, this is useful when validating the input. Manually closing the popup is done via the `close` method.
+   *
+   * ### About the **buttons** option:
+   *
+   * In addition to default buttons `ok, close, cancel, yes, no` a button can be defined in ad-hoc manner with any label as long as the
+   * button callback is named the same, for example
+   *
+   * ```javascript
+   *      bootpopup({
+   *        ...
+   *        buttons: ["cancel", "Order"],
+   *        Order: (data) => {
+   *            ...
+   *        }
+   *      }
+   * ```
+   *
+   * Clicking on the `Order` button will call the Order callback.
+   *
+   * Customizing default button labels can be done via `text_NAME` properties, for example
+   *
+   * ```javascript
+   * bootpopup({
+   *   buttons:["ok","cancel"],
+   *   text_ok: "Submit",
+   * })
+   * ```
+   *
+   * Now ok will be shown as Submit. With ad-hoc labeling this is not very useful but still can be used for default buttons.
+   *
+   * ### About the **content** option:
+   *
+   * #### The biggest flexibility of Bootpopup is the `content` option. The content is wrapped by a form allowing to create complex forms very quickly.
+   * When you are submitting data via a dialog box, Bootpopup will grab all that data and deliver to you through the callbacks.
+   * `content` is an array of objects and each object is represented as an entry of the form. For example, if you
+   *    have the following object:
+  
+   *    ```javascript
+   *    { p: {class: "bold", text: "Insert data:"}}
+   *    ```
+  
+   *    This will add a `<p></p>` tag to the form. The options of `p` (`{class: "bold", text: "Insert data:"}`) are HTML
+   *    attributes passed to the HTML tag. There is a special attribute for `text` which is defined as the inner text of
+   *    the HTML tag. So, this example is equivalent to the following HTML:
+  
+   *    ```html
+   *    <p class="bold">Insert data:</p>
+   *    ```
+  
+   * #### But it is when it comes to adding inputs that things become easy. Look at this example:
+  
+   *    ```javascript
+   *    { input: {type: "text", label: "Title", name: "title", placeholder: "Description" }}
+   *    ```
+  
+   *    This will create an `input` element with the attributes `type: "text", label: "Title", name: "title", placeholder: "Description"`.
+   *    Note there is also a special attribute `label`. This attribute is used by Bootpopup to create a label for the input form entry.
+   *    The above example is equivalent to the following HTML:
+  
+   *    ```html
+   *    <div class="form-group mb-3">
+   *      <label for="title" class="col-form-label col-sm-4">Title</label>
+   *      <div class="col-sm-10">
+   *        <input label="Title" name="title" id="title" placeholder="Description" class="form-control" type="text">
+   *      </div>
+   *    </div>
+   *    ```
+   * #### In order to make it even simpler, there are shortcuts for most common input types:
+   *    `"text", "color", "url", "password", "hidden", "file", "number",
+   *     "email", "reset", "date", "time", "checkbox", "radio", "datetime-local",
+   *     "week", "tel", "search", "range", "month", "image", "button"`.
+  
+   *    The previous example can be simply written as:
+  
+   *    ```javascript
+   *    { text: {label: "Title", name: "title", placeholder: "Description" }}
+   *    ```
+  
+   * #### `select`, `checkboxes` and `radios` have a special attribute named `options`. You can specify a list of options to be shown in 2 formats:
+   *      - an object where the key is used as value by the input and the value is the text displayed
+   *      - a list of objects with { label:, value:, name: } properties
+  
+   *    ```javascript
+   *    { select: { label: "Select", name: "select", options: { a:"A", b:"B", c:"C" }}}
+   *    { radios: { label: "Radios", name: "radios", options: { a:"A", b:"B", c:"C" }}}
+   *    { checkboxes: { label: "Checkboxes", options: [ { name: "c1", label: "A" }, { name: "c2", label: "C", value: 2 } ]}}
+   *    ```
+  
+   *  `select` with attribute `multiple` is also supported. For multi-select to make an item selected the value must match or property
+   *   selected must be true in case of objects: `{ name: .., value:.., selected: true }`
+  
+   * #### Another useful feature is the ability to support functions directly as an attribute. Take the following `button` example:
+  
+   *    ```javascript
+   *    { button: {name: "button", value: "Open image", class: "btn btn-info", click: (event) => {
+   *        console.log(event);
+   *        bootpopup.alert("Hi there");
+   *    }}}
+   *    ```
+   *    This will create a `onclick` event for the button. The reference for the object is passed as argument to the function.
+  
+   * #### You can also insert HTML strings directly. Instead of writing an JS object, write the HTML:
+  
+   *    ```javascript
+   *    '<p class="lead">Popup dialog boxes for Bootstrap.</p>'
+   *    ```
+  
+   * #### List of special element properties:
+   *  - `class` - to customize the style of the element just provide all classes in the `class` property, if empty `form-control` is set
+   *  - `text` - set element's `textContent`
+   *  - `html` - parse and add DOM elements after running thru sanitizer
+   *  - `autofocus` - make this element focused on show
+   *  - `nosanitize` - skip sanitizer for labels or html property if installed
+   *  - `floating` - add `form-floating` to the group to make labels floating
+   *  - `checked` - true to make checkbox/radios selected
+   *  - `switch` - true to convert a checkbox into a toggle style
+   *  - `inline` - true to add `form-check-inline` to a checkbox style
+   *  - `reverse` - true to add `form-check-reverse` to checkbox style
+   *  - `input_label` - checkbox/radio specific label instead of the element's label
+   *  - `class_input_btn` - convert checkbox into a button style, must be one of btn- classes
+   *  - `class_check` - add custom class to checkbox/radio element
+   *  - `class_label` - to customize the label style, added to the default `form-label`
+   *  - `attrs_label` - attributes for the label element, an object
+   *  - `size_label` - set column width for the label
+   *  - `size_input` - set column width for the input
+   *  - `class_group` - to customize the group, example: `{ class_group: "row my-3 py-1 border-bottom" }` to set border and gaps for an element
+   *  - `attrs_group` - attributes for the group div, an object, example: `{ attrs_group: { id: "group1" } }`
+   *  - `class_prefix` and/or `text_prefix` - add as a first span to the group with a span with class/text
+   *  - `class_suffix` and/or `text_suffix` - make it the last div in the group with class/text
+   *  - `text_valid`, `text_invalid` - add divs for valid or invalid feedback, to be used with `validate` method
+   *  - `class_append` and/or `text_append` - append a span to an element, mostly for non-input entries
+   *  - `text_input_button` - add a button the element to perform an action on it, `data-formid` and `data-inputid` are set on the button with form and the input elem
+   * ent ids for easy access in the callbacks, use `class_input_button` to change the button style, use `class_input_group` to change the input group style
+   *  - `attrs_input_button` - attributes to the input button, an object, usually `{ click: (ev) => {} }`
+   *  - `list_input_button` or `list_input_tags` - add a dropdown button with options to select and place into an input, use `class_list_button` to change the button
+   * style, use `class_input_group` to change the input group style, use `class_input_menu` to change the dropdown menu style, the list can be an Array of strings or ob
+   * jects `{ name:, value: }`. The `list_input_tags` adds a selected value in the list.
+   *
+   * ### Alert:
+   *
+   *   ```javascript
+   *   bootpopup.alert("Hi there");
+   *   ```
+   *
+   * ### Confirm:
+   *
+   *   ```javascript
+   *   bootpopup.confirm("Do you confirm this message?", (yes) => {
+   *     alert(yes);
+   *   });
+   *   ```
+   *
+   * ### Prompt:
+   *
+   *   ```javascript
+   *   bootpopup.prompt("Name", (value) => {
+   *     alert(value);
+   *   });
+   *   ```
+   *
+   * ### Customized prompt:
+   *
+   *   ```javascript
+   *   bootpopup({
+   *      title: "Add image",
+   *       content: [
+   *           '<p class="lead">Add an image</p>',
+   *           { p: {text: "Insert image info here:"}},
+   *           { input: {type: "text", label: "Title", name: "title", placeholder: "Description for image"}},
+   *           { input: {type: "text", label: "Link", name: "link", placeholder: "Hyperlink for image"}}],
+   *       buttons: ["ok", "cancel"],
+   *       cancel: () => { alert("Cancel") },
+   *       ok: (data, list) => { console.log(data, list) },
+   *       complete: () => { alert("complete") },
+   *   });
+   *
+   * ### Validation:
+   *
+   * ```javascript
+   * var popup = bootpopup({
+   *     title: "Add details",
+   *     alert: 1,
+   *     content: [
+   *         { text: { label: "Name", name: "title", placeholder: "your name"}},
+   *         { number: { label: "Age", name: "age", placeholder: "your age"}}],
+   *     buttons: ["ok", "cancel"],
+   *     text_ok: "Verify",
+   *     ok: (data) => {
+   *         if (!data.name) return popup.showAlert("name is required")
+   *     },
+   * });
+   * ```
+   *
+   * See more [Examples](https://vseryakov.github.io/bootpopup/index.html).
+   */
+  function bootpopup(...args) {
+    return new Bootpopup(...args);
+  }
+  /**
+   * Bootpopup class
+   * @param {BootpopupOptions} ..args
+   * @class
+   */
+  var Bootpopup = class {
+    /** @property {string} formid Randomly generated HTML id of the form. */
+    formid = "bpf" + String(Math.random()).substr(2);
+    controller = new AbortController();
+    /** @property {Object} options Options used to create the window. */
+    options = {
+      self: null,
+      id: "",
+      title: document.title,
+      debug: false,
+      show_close: true,
+      show_header: true,
+      show_footer: true,
+      size: "",
+      size_label: "col-sm-4",
+      size_input: "col-sm-8",
+      content: [],
+      footer: [],
+      onsubmit: "close",
+      buttons: ["close"],
+      attrs_modal: null,
+      class_h: "",
+      class_modal: "modal fade",
+      class_dialog: "modal-dialog",
+      class_title: "modal-title",
+      class_content: "modal-content",
+      class_body: "modal-body",
+      class_header: "modal-header",
+      class_footer: "modal-footer",
+      class_group: "mb-3",
+      class_options: "options flex-grow-1 text-start",
+      class_alert: "alert alert-danger fade show",
+      class_info: "alert alert-info fade show",
+      class_form: "",
+      class_label: "",
+      class_row: "",
+      class_col: "",
+      class_suffix: "form-text text-muted text-end",
+      class_buttons: "btn",
+      class_button: "btn-outline-secondary",
+      class_ok: "btn-primary",
+      class_yes: "btn-primary",
+      class_no: "btn-secondary",
+      class_cancel: "btn-outline-secondary",
+      class_close: "btn-outline-secondary",
+      class_tabs: "nav nav-tabs mb-4",
+      class_tablink: "nav-link",
+      class_tabcontent: "tab-content",
+      class_input_button: "btn btn-outline-secondary",
+      class_list_button: "btn btn-outline-secondary dropdown-toggle",
+      class_input_menu: "dropdown-menu bg-light",
+      list_input_mh: "25vh",
+      text_ok: "OK",
+      text_yes: "Yes",
+      text_no: "No",
+      text_cancel: "Cancel",
+      text_close: "Close",
+      center: false,
+      scroll: false,
+      horizontal: true,
+      alert: false,
+      info: false,
+      backdrop: true,
+      keyboard: true,
+      autofocus: true,
+      empty: false,
+      data: "",
+      tabs: "",
+      tab: "",
+      inputs: ["input", "textarea", "select"],
+      sanitizer: (html) => sanitizer(html, true),
+      before: function() {
+      },
+      dismiss: function() {
+      },
+      close: function() {
+      },
+      ok: function() {
+      },
+      cancel: function() {
+      },
+      yes: function() {
+      },
+      no: function() {
+      },
+      show: function() {
+      },
+      shown: function() {
+      },
+      showtab: function() {
+      },
+      complete: function() {
+      },
+      submit: function(e) {
+        this.callback(this.options.onsubmit, e);
+        e.preventDefault();
+      }
+    };
+    constructor(...args) {
+      this.addOptions(...bootpopup.plugins, ...args);
+      this.create();
+      this.show();
+    }
+    /**
+     * @description Create the window and add it to the DOM, but do not show it.
+     * @returns {Bootpopup} This instance.
+     */
+    create() {
+      this.eventOptions = { signal: this.controller.signal };
+      var class_dialog = this.options.class_dialog;
+      if (this.options.size) class_dialog += " modal-" + this.options.size;
+      if (this.options.center) class_dialog += " modal-dialog-centered";
+      if (this.options.scroll) class_dialog += " modal-dialog-scrollable";
+      var modalOpts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", "aria-labelledby": "a" + this.formid, "aria-hidden": true };
+      if (this.options.backdrop !== true) modalOpts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
+      if (!this.options.keyboard) modalOpts["data-bs-keyboard"] = false;
+      for (const p in this.options.attrs_modal) modalOpts[p] = this.options.attrs_modal[p];
+      this.modal = $elem("div", modalOpts, this.eventOptions);
+      this.dialog = $elem("div", { class: class_dialog, role: "document" });
+      this.content = $elem("div", { class: this.options.class_content + " " + this.options.class_h });
+      this.dialog.append(this.content);
+      this.modal.append(this.dialog);
+      if (this.options.show_header && this.options.title) {
+        this.header = $elem("div", { class: this.options.class_header });
+        const title = $elem("h5", { class: this.options.class_title, id: "a" + this.formid });
+        title.append(...this.sanitize(this.options.title));
+        this.header.append(title);
+        if (this.options.show_close) {
+          const close = $elem("button", { type: "button", class: "btn-close", "data-bs-dismiss": "modal", "aria-label": "Close" });
+          this.header.append(close);
+        }
+        this.content.append(this.header);
+      }
+      var class_form = this.options.class_form;
+      if (!class_form && this.options.horizontal) class_form = "form-horizontal";
+      this.body = $elem("div", { class: this.options.class_body });
+      this.form = $elem("form", { id: this.formid, class: class_form, role: "form", submit: (e) => this.options.submit(e) });
+      this.body.append(this.form);
+      this.content.append(this.body);
+      if (this.options.alert) {
+        this.alert = $elem("div");
+        this.form.append(this.alert);
+      }
+      if (this.options.info) {
+        this.info = $elem("div");
+        this.form.append(this.info);
+      }
+      if (this.options.tabs) {
+        const toggle = /nav-pills/.test(this.options.class_tabs) ? "pill" : "tab";
+        this.tabs = $elem("div", { class: this.options.class_tabs, role: "tablist" });
+        this.form.append(this.tabs);
+        this.tabContent = $elem("div", { class: this.options.class_tabcontent });
+        this.form.append(this.tabContent);
+        this.tabPanels = {};
+        for (const p in this.options.tabs) {
+          if (!this.options.content.some((o) => {
+            for (const k in o) {
+              for (const l in o[k]) {
+                if (l == "tab_id" && p == o[k][l]) return 1;
+              }
+            }
+            return 0;
+          })) continue;
+          const active = this.options.tab ? this.options.tab == p : !Object.keys(this.tabPanels).length;
+          const tid = this.formid + "-tab" + p;
+          const a = $elem("a", {
+            class: this.options.class_tablink + (active ? " active" : ""),
+            "data-bs-toggle": toggle,
+            id: tid + "0",
+            href: "#" + tid,
+            role: "tab",
+            "aria-controls": tid,
+            "aria-selected": false,
+            "data-callback": p,
+            click: (event) => {
+              this.options.showtab(event.target.dataset.callback, event);
+            },
+            text: this.options.tabs[p]
+          }, this.eventOptions);
+          this.tabs.append(a);
+          this.tabPanels[p] = $elem("div", {
+            class: "tab-pane fade" + (active ? " show active" : ""),
+            id: tid,
+            role: "tabpanel",
+            "aria-labelledby": tid + "0"
+          });
+          this.tabContent.append(this.tabPanels[p]);
+        }
+      }
+      for (const c in this.options.content) {
+        const entry = this.options.content[c];
+        switch (typeof entry) {
+          case "string":
+            this.form.append(...this.sanitize(entry));
+            break;
+          case "object":
+            for (const type in entry) {
+              processEntry(this, type, entry[type]);
+            }
+            break;
+        }
+      }
+      this.footer = $elem("div", { class: this.options.class_footer });
+      if (this.options.show_footer) {
+        this.content.append(this.footer);
+      }
+      for (const i in this.options.footer) {
+        const entry = this.options.footer[i];
+        let div, html, elem;
+        switch (typeof entry) {
+          case "string":
+            this.footer.append(...this.sanitize(entry));
+            break;
+          case "object":
+            div = $elem("div", { class: this.options.class_options });
+            this.footer.append(div);
+            for (const type in entry) {
+              const opts = typeof entry[type] == "string" ? { text: entry[type] } : entry[type], attrs = {};
+              for (const p in opts) {
+                if (p == "html") {
+                  html = opts.nosanitize ? $parse(opts[p]) : this.sanitize(opts[p]);
+                } else if (!/^(type|[0-9]+)$|^(class|text|icon|size)_/.test(p)) {
+                  attrs[p] = opts[p];
+                }
+              }
+              elem = $elem(opts.type || type, attrs, this.eventOptions);
+              if (html) elem.append(...html);
+              div.append(elem);
+            }
+            break;
+        }
+      }
+      for (const i in this.options.buttons) {
+        var name = this.options.buttons[i];
+        if (!name) continue;
+        const btn = $elem("button", {
+          type: "button",
+          class: `${this.options.class_buttons} ${this.options["class_" + name] || this.options.class_button}`,
+          "data-callback": name,
+          "data-formid": "#" + this.formid,
+          click: (event) => {
+            this.callback(event.target.dataset.callback, event);
+          }
+        }, this.eventOptions);
+        btn.append(...this.sanitize(this.options["text_" + name] || name));
+        if (this.options["icon_" + name]) {
+          btn.append($elem("i", { class: this.options["icon_" + name] }));
+        }
+        this["btn_" + name] = btn;
+        this.footer.append(btn);
+      }
+      $on(this.modal, "show.bs.modal", (e) => {
+        this.options.show.call(this.options.self, e, this);
+      }, this.eventOptions);
+      $on(this.modal, "shown.bs.modal", (e) => {
+        if (this.options.autofocus) {
+          var focus = this.autofocus || Array.from($all("input,select,textarea", this.form)).find((el) => !(el.readOnly || el.disabled || el.type == "hidden"));
+          if (focus) focus.focus();
+        }
+        this.options.shown.call(this.options.self || this, e, this);
+      }, this.eventOptions);
+      $on(this.modal, "hide.bs.modal", (e) => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        e.bootpopupButton = this._callback;
+        this.options.dismiss.call(this.options.self, e, this);
+      }, this.eventOptions);
+      $on(this.modal, "hidden.bs.modal", (e) => {
+        e.bootpopupButton = this._callback;
+        this.options.complete.call(this.options.self, e, this);
+        this.modal.remove();
+        bootstrap.Modal.getInstance(this.modal)?.dispose();
+        delete this.options.data;
+        this.controller.abort();
+      }, this.eventOptions);
+    }
+    /**
+    * @description Show the window and call the `before` callback.
+    * @returns {Bootpopup} This instance.
+    */
+    show() {
+      this.options.before.call(this, this);
+      if (isObject(this.options.data)) {
+        var xdata = this.xdata = Alpine.reactive(this.options.data);
+        Alpine.addScopeToNode(this.modal, xdata);
+        Alpine.initTree(this.modal);
+        Alpine.onElRemoved(this.modal, () => {
+          delete this.modal._x_dataStack;
+        });
+      }
+      document.body.append(this.modal);
+      bootstrap.Modal.getOrCreateInstance(this.modal).show();
+    }
+    /**
+    * @param {string} msg Message to display.
+    * @param {Object} [options] Alert options.
+    * @param {("info")} [options.type] Use `"info"` to show information message (requires `info: true`).
+    * @param {boolean} [options.dismiss] If true, the message must be closed manually.
+    * @param {number} [options.delay] Auto-hide after this delay (ms).
+    * @returns {Bootpopup} This instance.
+    */
+    showAlert(text, opts) {
+      const type = opts?.type || "alert", element = this[type];
+      if (!element) return;
+      if (text?.message) text = text.message;
+      if (typeof text != "string") return;
+      const alert = $elem(`div`, { class: this.options["class_" + type], role: "alert", text });
+      if (opts?.dismiss) {
+        alert.classList.add("alert-dismissible");
+        alert.append($elem(`button`, { type: "button", class: "btn-close", "data-bs-dismiss": "alert", "aria-label": "Close" }));
+      } else {
+        setTimeout(() => {
+          $empty(element);
+        }, opts?.delay || this.delay || 1e4);
+      }
+      $empty(element).append(alert);
+      if (this.options.scroll) {
+        element.scrollIntoView();
+      }
+      return null;
+    }
+    /**
+     * @description Run `checkValidity()` and return the result.
+     * @returns {boolean} Validity result.
+     */
+    validate() {
+      this.form.classList.add("was-validated");
+      return this.form.checkValidity();
+    }
+    sanitize(str) {
+      return !str ? [] : this.options.sanitizer(str);
+    }
+    /**
+    * @param {string} str String to escape.
+    * @returns {string} Escaped string where `&<>'"` are converted into HTML entities.
+    */
+    escape(str) {
+      if (typeof str != "string") return str;
+      return str.replace(/([&<>'"`])/g, (_, n) => escapeMap[n] || n);
+    }
+    /**
+    * @description Return form input values from all inputs.
+    * @returns {{obj: Object<string, any>, list: any[]}} Data as `{ obj: {}, list: [] }`.
+    */
+    data() {
+      var inputs2 = [...this.options.inputs, ...bootpopup.inputs];
+      var d = { list: [], obj: {} }, e, n, v, l = $all(inputs2.join(","), this.form);
+      for (let i = 0; i < l.length; i++) {
+        e = l[i];
+        n = e.name || $attr(e, "name") || e.id || $attr("id");
+        v = e.value;
+        if (this.options.debug) console.log("bootpopup:", n, e.type, e.checked, v, e);
+        if (!n || e.disabled) continue;
+        if (/radio|checkbox/i.test(e.type) && !e.checked) v = void 0;
+        if (v === void 0 || v === "") {
+          if (!this.options.empty) continue;
+          v = "";
+        }
+        d.list.push({ name: n, value: v });
+      }
+      for (const v2 of d.list) d.obj[v2.name] = v2.value;
+      if (this.options.debug) console.log("bootpopup:", this.options.inputs, d);
+      return d;
+    }
+    /**
+    * @description Call a callback for the given action and return its result.
+    * @param {"dismiss"|"submit"|"close"|"ok"|"cancel"|"yes"|"no"} name Action name.
+    * @returns {any} Callback return value.
+    */
+    callback(name, event) {
+      if (this.options.debug) console.log("bootpopup:", name, event);
+      var func = isFunction(this.options[name]);
+      if (!func) return;
+      this._callback = name;
+      var a = this.data();
+      var result = func.call(this.options.self || this, a.obj, a.list, event);
+      if (result instanceof Promise) {
+        result.then((resolved) => {
+          if (resolved !== null) {
+            bootstrap.Modal.getOrCreateInstance(this.modal).hide();
+          }
+        });
+      } else {
+        if (result !== null) {
+          bootstrap.Modal.getOrCreateInstance(this.modal).hide();
+        }
+        return result;
+      }
+    }
+    /**
+    * @param {Object} options Add/merge options into current options.
+    * @returns {Bootpopup} This instance.
+    */
+    addOptions(...args) {
+      for (const opts of args) {
+        for (const key in opts) {
+          if (opts[key] !== void 0) {
+            if (isFunction(this.options[key])) {
+              const _old = this.options[key], _n = opts[key];
+              this.options[key] = function(...args2) {
+                if (isFunction(_old)) _old.apply(this, args2);
+                return _n.apply(this, args2);
+              };
+            } else {
+              this.options[key] = opts[key];
+            }
+          }
+        }
+      }
+      if (this.options.onsubmit == "close") {
+        if (this.options.buttons.includes("ok")) this.options.onsubmit = "ok";
+        else if (this.options.buttons.includes("yes")) this.options.onsubmit = "yes";
+      }
+      return this.options;
+    }
+    /**
+    * @description Close popup window (performs the `close` action).
+    * @returns {void}
+    */
+    close() {
+      return this.callback("close");
+    }
+  };
+  bootpopup.plugins = [];
+  bootpopup.inputs = [];
+  /**
+   * Shows an alert dialog box.
+   * @Returns: instance of Bootpopup window
+   * @param {string} message - message of the alert
+   * @param {function} callback - `(function)()` callback when the alert is dismissed
+   */
+  bootpopup.alert = function(text, callback) {
+    return new Bootpopup({
+      show_header: false,
+      content: [{ div: { text } }],
+      class_footer: "modal-footer justify-content-center",
+      dismiss: callback
+    });
+  };
+  /**
+   * Shows a confirm dialog box.
+   * @Returns: instance of Bootpopup window
+   *
+   * @param {string} message - message to confirm
+   * @param {function} callback - `(function)(answer)` callback when the confirm is answered. `answer` will be `true`
+   * if the answer was yes and `false` if it was no. If dismissed, the default answer is no
+   */
+  bootpopup.confirm = function(text, callback) {
+    var ok;
+    return new Bootpopup({
+      show_header: false,
+      content: [{ div: { text } }],
+      buttons: ["yes", "no"],
+      class_footer: "modal-footer justify-content-center",
+      yes: isFunction(callback) ? () => {
+        callback(ok = true);
+      } : null,
+      dismiss: isFunction(callback) ? () => {
+        if (!ok) callback(false);
+      } : null
+    });
+  };
+  /**
+  * Shows a prompt dialog box, asking to input a single value.
+  * @Returns: instance of Bootpopup window
+  *
+  * @param {string} label - label of the value being asked
+  * @param {function} callback - `(function)(answer)` callback with the introduced data. This is only called when OK is pressed
+  */
+  bootpopup.prompt = function(label, callback) {
+    var ok;
+    return new Bootpopup({
+      show_header: false,
+      content: [{ input: { name: "value", label } }],
+      buttons: ["ok", "cancel"],
+      ok: isFunction(callback) ? (d) => {
+        callback(ok = d.value || "");
+      } : null,
+      dismiss: isFunction(callback) ? () => {
+        if (ok === void 0) callback();
+      } : null
+    });
+  };
   function addElement(self, entry) {
     var { type, attrs, opts, parent, children, elem, group } = entry;
     if (!self.options.inputs.includes(type)) {
@@ -2642,434 +3277,6 @@
         }
     }
   }
-  /**
-   * Create and show bootpopup
-   * @param {BootpopupOptions} ...args
-   * @returns {Bootpopup}
-   */
-  function bootpopup(...args) {
-    return new Bootpopup(...args);
-  }
-  var Bootpopup = class {
-    formid = "bpf" + String(Math.random()).substr(2);
-    controller = new AbortController();
-    options = {
-      self: null,
-      id: "",
-      title: document.title,
-      debug: false,
-      show_close: true,
-      show_header: true,
-      show_footer: true,
-      size: "",
-      size_label: "col-sm-4",
-      size_input: "col-sm-8",
-      content: [],
-      footer: [],
-      onsubmit: "close",
-      buttons: ["close"],
-      attrs_modal: null,
-      class_h: "",
-      class_modal: "modal fade",
-      class_dialog: "modal-dialog",
-      class_title: "modal-title",
-      class_content: "modal-content",
-      class_body: "modal-body",
-      class_header: "modal-header",
-      class_footer: "modal-footer",
-      class_group: "mb-3",
-      class_options: "options flex-grow-1 text-start",
-      class_alert: "alert alert-danger fade show",
-      class_info: "alert alert-info fade show",
-      class_form: "",
-      class_label: "",
-      class_row: "",
-      class_col: "",
-      class_suffix: "form-text text-muted text-end",
-      class_buttons: "btn",
-      class_button: "btn-outline-secondary",
-      class_ok: "btn-primary",
-      class_yes: "btn-primary",
-      class_no: "btn-secondary",
-      class_cancel: "btn-outline-secondary",
-      class_close: "btn-outline-secondary",
-      class_tabs: "nav nav-tabs mb-4",
-      class_tablink: "nav-link",
-      class_tabcontent: "tab-content",
-      class_input_button: "btn btn-outline-secondary",
-      class_list_button: "btn btn-outline-secondary dropdown-toggle",
-      class_input_menu: "dropdown-menu bg-light",
-      list_input_mh: "25vh",
-      text_ok: "OK",
-      text_yes: "Yes",
-      text_no: "No",
-      text_cancel: "Cancel",
-      text_close: "Close",
-      center: false,
-      scroll: false,
-      horizontal: true,
-      alert: false,
-      info: false,
-      backdrop: true,
-      keyboard: true,
-      autofocus: true,
-      empty: false,
-      data: "",
-      tabs: "",
-      tab: "",
-      inputs: ["input", "textarea", "select"],
-      sanitizer: (html) => sanitizer(html, true),
-      before: function() {
-      },
-      dismiss: function() {
-      },
-      close: function() {
-      },
-      ok: function() {
-      },
-      cancel: function() {
-      },
-      yes: function() {
-      },
-      no: function() {
-      },
-      show: function() {
-      },
-      shown: function() {
-      },
-      showtab: function() {
-      },
-      complete: function() {
-      },
-      submit: function(e) {
-        this.callback(this.options.onsubmit, e);
-        e.preventDefault();
-      }
-    };
-    constructor(...args) {
-      this.addOptions(...bootpopup.plugins, ...args);
-      this.create();
-      this.show();
-    }
-    create() {
-      this.eventOptions = { signal: this.controller.signal };
-      var class_dialog = this.options.class_dialog;
-      if (["sm", "lg", "xl", "fullscreen"].includes(this.options.size)) class_dialog += " modal-" + this.options.size;
-      if (this.options.center) class_dialog += " modal-dialog-centered";
-      if (this.options.scroll) class_dialog += " modal-dialog-scrollable";
-      var modalOpts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", "aria-labelledby": "a" + this.formid, "aria-hidden": true };
-      if (this.options.backdrop !== true) modalOpts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
-      if (!this.options.keyboard) modalOpts["data-bs-keyboard"] = false;
-      for (const p in this.options.attrs_modal) modalOpts[p] = this.options.attrs_modal[p];
-      this.modal = $elem("div", modalOpts, this.eventOptions);
-      this.dialog = $elem("div", { class: class_dialog, role: "document" });
-      this.content = $elem("div", { class: this.options.class_content + " " + this.options.class_h });
-      this.dialog.append(this.content);
-      this.modal.append(this.dialog);
-      if (this.options.show_header && this.options.title) {
-        this.header = $elem("div", { class: this.options.class_header });
-        const title = $elem("h5", { class: this.options.class_title, id: "a" + this.formid });
-        title.append(...this.sanitize(this.options.title));
-        this.header.append(title);
-        if (this.options.show_close) {
-          const close = $elem("button", { type: "button", class: "btn-close", "data-bs-dismiss": "modal", "aria-label": "Close" });
-          this.header.append(close);
-        }
-        this.content.append(this.header);
-      }
-      var class_form = this.options.class_form;
-      if (!class_form && this.options.horizontal) class_form = "form-horizontal";
-      this.body = $elem("div", { class: this.options.class_body });
-      this.form = $elem("form", { id: this.formid, class: class_form, role: "form", submit: (e) => this.options.submit(e) });
-      this.body.append(this.form);
-      this.content.append(this.body);
-      if (this.options.alert) {
-        this.alert = $elem("div");
-        this.form.append(this.alert);
-      }
-      if (this.options.info) {
-        this.info = $elem("div");
-        this.form.append(this.info);
-      }
-      if (this.options.tabs) {
-        const toggle = /nav-pills/.test(this.options.class_tabs) ? "pill" : "tab";
-        this.tabs = $elem("div", { class: this.options.class_tabs, role: "tablist" });
-        this.form.append(this.tabs);
-        this.tabContent = $elem("div", { class: this.options.class_tabcontent });
-        this.form.append(this.tabContent);
-        this.tabPanels = {};
-        for (const p in this.options.tabs) {
-          if (!this.options.content.some((o) => {
-            for (const k in o) {
-              for (const l in o[k]) {
-                if (l == "tab_id" && p == o[k][l]) return 1;
-              }
-            }
-            return 0;
-          })) continue;
-          const active = this.options.tab ? this.options.tab == p : !Object.keys(this.tabPanels).length;
-          const tid = this.formid + "-tab" + p;
-          const a = $elem("a", {
-            class: this.options.class_tablink + (active ? " active" : ""),
-            "data-bs-toggle": toggle,
-            id: tid + "0",
-            href: "#" + tid,
-            role: "tab",
-            "aria-controls": tid,
-            "aria-selected": false,
-            "data-callback": p,
-            click: (event) => {
-              this.options.showtab(event.target.dataset.callback, event);
-            },
-            text: this.options.tabs[p]
-          }, this.eventOptions);
-          this.tabs.append(a);
-          this.tabPanels[p] = $elem("div", {
-            class: "tab-pane fade" + (active ? " show active" : ""),
-            id: tid,
-            role: "tabpanel",
-            "aria-labelledby": tid + "0"
-          });
-          this.tabContent.append(this.tabPanels[p]);
-        }
-      }
-      for (const c in this.options.content) {
-        const entry = this.options.content[c];
-        switch (typeof entry) {
-          case "string":
-            this.form.append(...this.sanitize(entry));
-            break;
-          case "object":
-            for (const type in entry) {
-              processEntry(this, type, entry[type]);
-            }
-            break;
-        }
-      }
-      this.footer = $elem("div", { class: this.options.class_footer });
-      if (this.options.show_footer) {
-        this.content.append(this.footer);
-      }
-      for (const i in this.options.footer) {
-        const entry = this.options.footer[i];
-        let div, html, elem;
-        switch (typeof entry) {
-          case "string":
-            this.footer.append(...this.sanitize(entry));
-            break;
-          case "object":
-            div = $elem("div", { class: this.options.class_options });
-            this.footer.append(div);
-            for (const type in entry) {
-              const opts = typeof entry[type] == "string" ? { text: entry[type] } : entry[type], attrs = {};
-              for (const p in opts) {
-                if (p == "html") {
-                  html = opts.nosanitize ? $parse(opts[p]) : this.sanitize(opts[p]);
-                } else if (!/^(type|[0-9]+)$|^(class|text|icon|size)_/.test(p)) {
-                  attrs[p] = opts[p];
-                }
-              }
-              elem = $elem(opts.type || type, attrs, this.eventOptions);
-              if (html) elem.append(...html);
-              div.append(elem);
-            }
-            break;
-        }
-      }
-      for (const i in this.options.buttons) {
-        var name = this.options.buttons[i];
-        if (!name) continue;
-        const btn = $elem("button", {
-          type: "button",
-          class: `${this.options.class_buttons} ${this.options["class_" + name] || this.options.class_button}`,
-          "data-callback": name,
-          "data-formid": "#" + this.formid,
-          click: (event) => {
-            this.callback(event.target.dataset.callback, event);
-          }
-        }, this.eventOptions);
-        btn.append(...this.sanitize(this.options["text_" + name] || name));
-        if (this.options["icon_" + name]) {
-          btn.append($elem("i", { class: this.options["icon_" + name] }));
-        }
-        this["btn_" + name] = btn;
-        this.footer.append(btn);
-      }
-      $on(this.modal, "show.bs.modal", (e) => {
-        this.options.show.call(this.options.self, e, this);
-      }, this.eventOptions);
-      $on(this.modal, "shown.bs.modal", (e) => {
-        if (this.options.autofocus) {
-          var focus = this.autofocus || Array.from($all("input,select,textarea", this.form)).find((el) => !(el.readOnly || el.disabled || el.type == "hidden"));
-          if (focus) focus.focus();
-        }
-        this.options.shown.call(this.options.self || this, e, this);
-      }, this.eventOptions);
-      $on(this.modal, "hide.bs.modal", (e) => {
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
-        }
-        e.bootpopupButton = this._callback;
-        this.options.dismiss.call(this.options.self, e, this);
-      }, this.eventOptions);
-      $on(this.modal, "hidden.bs.modal", (e) => {
-        e.bootpopupButton = this._callback;
-        this.options.complete.call(this.options.self, e, this);
-        this.modal.remove();
-        bootstrap.Modal.getInstance(this.modal)?.dispose();
-        delete this.options.data;
-        this.controller.abort();
-      }, this.eventOptions);
-    }
-    show() {
-      this.options.before.call(this, this);
-      if (isObject(this.options.data)) {
-        var xdata = this.xdata = Alpine.reactive(this.options.data);
-        Alpine.addScopeToNode(this.modal, xdata);
-        Alpine.initTree(this.modal);
-        Alpine.onElRemoved(this.modal, () => {
-          delete this.modal._x_dataStack;
-        });
-      }
-      document.body.append(this.modal);
-      bootstrap.Modal.getOrCreateInstance(this.modal).show();
-    }
-    showAlert(text, opts) {
-      const type = opts?.type || "alert", element = this[type];
-      if (!element) return;
-      if (text?.message) text = text.message;
-      if (typeof text != "string") return;
-      const alert = $elem(`div`, { class: this.options["class_" + type], role: "alert", text });
-      if (opts?.dismiss) {
-        alert.classList.add("alert-dismissible");
-        alert.append($elem(`button`, { type: "button", class: "btn-close", "data-bs-dismiss": "alert", "aria-label": "Close" }));
-      } else {
-        setTimeout(() => {
-          $empty(element);
-        }, opts?.delay || this.delay || 1e4);
-      }
-      $empty(element).append(alert);
-      if (this.options.scroll) {
-        element.scrollIntoView();
-      }
-      return null;
-    }
-    validate() {
-      this.form.classList.add("was-validated");
-      return this.form.checkValidity();
-    }
-    sanitize(str) {
-      return !str ? [] : this.options.sanitizer(str);
-    }
-    escape(str) {
-      if (typeof str != "string") return str;
-      return str.replace(/([&<>'"`])/g, (_, n) => escapeMap[n] || n);
-    }
-    data() {
-      var inputs2 = [...this.options.inputs, ...bootpopup.inputs];
-      var d = { list: [], obj: {} }, e, n, v, l = $all(inputs2.join(","), this.form);
-      for (let i = 0; i < l.length; i++) {
-        e = l[i];
-        n = e.name || $attr(e, "name") || e.id || $attr("id");
-        v = e.value;
-        if (this.options.debug) console.log("bootpopup:", n, e.type, e.checked, v, e);
-        if (!n || e.disabled) continue;
-        if (/radio|checkbox/i.test(e.type) && !e.checked) v = void 0;
-        if (v === void 0 || v === "") {
-          if (!this.options.empty) continue;
-          v = "";
-        }
-        d.list.push({ name: n, value: v });
-      }
-      for (const v2 of d.list) d.obj[v2.name] = v2.value;
-      if (this.options.debug) console.log("bootpopup:", this.options.inputs, d);
-      return d;
-    }
-    callback(name, event) {
-      if (this.options.debug) console.log("bootpopup:", name, event);
-      var func = isFunction(this.options[name]);
-      if (!func) return;
-      this._callback = name;
-      var a = this.data();
-      var result = func.call(this.options.self || this, a.obj, a.list, event);
-      if (result instanceof Promise) {
-        result.then((resolved) => {
-          if (resolved !== null) {
-            bootstrap.Modal.getOrCreateInstance(this.modal).hide();
-          }
-        });
-      } else {
-        if (result !== null) {
-          bootstrap.Modal.getOrCreateInstance(this.modal).hide();
-        }
-        return result;
-      }
-    }
-    addOptions(...args) {
-      for (const opts of args) {
-        for (const key in opts) {
-          if (opts[key] !== void 0) {
-            if (isFunction(this.options[key])) {
-              const _old = this.options[key], _n = opts[key];
-              this.options[key] = function(...args2) {
-                if (isFunction(_old)) _old.apply(this, args2);
-                return _n.apply(this, args2);
-              };
-            } else {
-              this.options[key] = opts[key];
-            }
-          }
-        }
-      }
-      if (this.options.onsubmit == "close") {
-        if (this.options.buttons.includes("ok")) this.options.onsubmit = "ok";
-        else if (this.options.buttons.includes("yes")) this.options.onsubmit = "yes";
-      }
-      return this.options;
-    }
-    close() {
-      return this.callback("close");
-    }
-  };
-  bootpopup.plugins = [];
-  bootpopup.inputs = [];
-  bootpopup.alert = function(text, callback) {
-    return new Bootpopup({
-      show_header: false,
-      content: [{ div: { text } }],
-      class_footer: "modal-footer justify-content-center",
-      dismiss: callback
-    });
-  };
-  bootpopup.confirm = function(text, callback) {
-    var ok;
-    return new Bootpopup({
-      show_header: false,
-      content: [{ div: { text } }],
-      buttons: ["yes", "no"],
-      class_footer: "modal-footer justify-content-center",
-      yes: isFunction(callback) ? () => {
-        callback(ok = true);
-      } : null,
-      dismiss: isFunction(callback) ? () => {
-        if (!ok) callback(false);
-      } : null
-    });
-  };
-  bootpopup.prompt = function(label, callback) {
-    var ok;
-    return new Bootpopup({
-      show_header: false,
-      content: [{ input: { name: "value", label } }],
-      buttons: ["ok", "cancel"],
-      ok: isFunction(callback) ? (d) => {
-        callback(ok = d.value || "");
-      } : null,
-      dismiss: isFunction(callback) ? () => {
-        if (ok === void 0) callback();
-      } : null
-    });
-  };
 
   // builds/cdn-bootstrap.js
   Object.assign(window.app, bootstrap_exports, bootpopup_exports);

@@ -1167,7 +1167,7 @@
   register(_alpine, { render: _render, Component: AlpineComponent, data, init, default: 1 });
   function AlpinePlugin(Alpine2) {
     _Alpine = Alpine2;
-    emit("alpine:init");
+    emit("alpine:init", Alpine2);
     Alpine2.magic("app", (el) => app);
     Alpine2.magic("params", (el) => {
       while (el) {
@@ -1303,22 +1303,6 @@
         $event(el, "item:dropped", { item: current });
         emit(app.event, "item:dropped", { event, item: current, element: el });
       }
-    });
-    Alpine2.directive("shtml", (el, { expression }, { effect, evaluateLater }) => {
-      const evaluate = evaluateLater(expression);
-      effect(() => {
-        evaluate((value) => {
-          $empty(el);
-          const children = app.sanitizer(value, true);
-          if (!children?.length) return;
-          Alpine2.mutateDom(() => {
-            el.append(...children);
-            el._x_ignoreSelf = true;
-            Alpine2.initTree(el);
-            delete el._x_ignoreSelf;
-          });
-        });
-      });
     });
   }
 
@@ -1835,6 +1819,24 @@
     u: [],
     ul: []
   };
+  on("alpine:init", (Alpine2) => {
+    Alpine2.directive("shtml", (el, { expression }, { effect, evaluateLater }) => {
+      const evaluate = evaluateLater(expression);
+      effect(() => {
+        evaluate((value) => {
+          $empty(el);
+          const children = sanitizer(value, true);
+          if (!children?.length) return;
+          Alpine2.mutateDom(() => {
+            el.append(...children);
+            el._x_ignoreSelf = true;
+            Alpine2.initTree(el);
+            delete el._x_ignoreSelf;
+          });
+        });
+      });
+    });
+  });
 
   // src/ws.js
   var ws_exports = {};
