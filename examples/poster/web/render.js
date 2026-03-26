@@ -28,6 +28,7 @@ app.components.render = class extends app.AlpineComponent {
         { name: "unflatten", descr: "" },
     ]
 
+    _item;
 
     onFileDropped(event, item) {
         const reader = new FileReader();
@@ -75,11 +76,22 @@ app.components.render = class extends app.AlpineComponent {
         })
     }
 
-    async render() {
+    edit(item) {
+        if (this._item === item) {
+            this._item = undefined;
+        } else
+        if (this._item) {
+            this._item = null;
+            setTimeout(() => { this._item = item }, 100);
+        } else {
+            this._item = item;
+        }
+    }
 
+    async render() {
         const body = { items: this.items, defaults: this.defaults };
 
-        const { err, data } = await app.fetch("/api/render", { post: 1, body });
+        const { err, data } = await app.fetch("/api/render/", { post: 1, body });
         if (err) return app.showToast("error", err);
 
         const reader = new FileReader();
@@ -88,6 +100,8 @@ app.components.render = class extends app.AlpineComponent {
         });
         reader.readAsDataURL(data);
         app.$("body").click()
+
+        this._item = undefined;
     }
 
 };

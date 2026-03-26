@@ -21,7 +21,7 @@
     </div>
 
     <div class="text-muted small mb-3">
-        - First image is the backgroud, it must be large enough to fit other elements.<br>
+        - First image is the background, it must be large enough to fit other elements.<br>
         - Common defaults for all elements: <span class="dropdown" x-data="{ item: defaults }" x-template="'element-dropdown'"></span>
     </div>
 
@@ -44,12 +44,19 @@
         </div>
 
         <div class="col-9" id="right">
-            <div class="card shadow-sm w-100 h-100">
-                <div class="card-body">
+            <div class="card bg-light shadow-sm w-100 h-100">
+
+                <div class="card-body" x-show="!_item&&_item!==null">
                     <div class="rounded p-2 w-100 h-100">
                         <img src="/img/1.png" id="poster" class="img-fluid" alt="Poster">
                     </div>
                 </div>
+
+                <template x-if="_item">
+                    <div class="card-body w-100 h-100 overflow-y-auto" style="height: 75vh; max-height: 75vh">
+                       <form x-data="{item:_item}" x-template="'element-form'"></form>
+                    </div>
+                </template>
             </div>
         </div>
     </div>
@@ -86,23 +93,14 @@
 </datalist>
 
 <template id="element-dropdown">
-    <button type="button" class="btn dropdown-toggle dropdown-toggle-split"
-            data-bs-toggle="dropdown" :data-bs-offset="offset" data-bs-auto-close="outside" aria-expanded="false"
-            x-data="{
-                offset: [50, -100],
-                init() {
-                    var top = $el.getBoundingClientRect().top + window.scrollY;
-                    this.offset[1] = -top*0.9;
-                } }">
+    <button type="button" class="btn" @click="edit(item)">
         <i class="bi bi-gear"></i>
     </button>
-
-    <div class="dropdown-menu p-3 overflow-y-auto bg-light border-primary border-5 border-opacity-50" style="min-width:65vw;max-height:80vh;">
-       <form x-template="'element-form'"></form>
-    </div>
 </template>
 
 <template id="element-form">
+    <h4 x-text="item.id"></h4>
+
     <div class="row mb-3 pb-3 border-bottom" x-show="item.type=='image'">
         <label class="col-2 col-form-label">File</label>
         <div class="col-10">
@@ -121,19 +119,24 @@
     </div>
 
     <div class="row mb-3 pb-3 border-bottom">
-        <div class="col-4">
+        <div class="col-3">
             <label class="form-label">Width</label>
             <input type="number" class="form-control" min="0" max="2000" x-model="item.width">
         </div>
 
-        <div class="col-4">
+        <div class="col-3">
             <label class="form-label">Height</label>
             <input type="number" class="form-control" min="0" max="2000" x-model="item.height">
         </div>
 
-        <div class="col-4">
+        <div class="col-3">
             <label class="form-label">Radius</span></label>
             <input type="number" class="form-control" min="0" max="10" x-model="item.radius">
+        </div>
+
+        <div class="col-3">
+            <label class="form-label">Blur</label>
+            <input type="number" class="form-control" min="0" max="2000" x-model="item.blur_sigma">
         </div>
     </div>
 
@@ -328,7 +331,7 @@
 
     <div class="row mb-3 pb-3 border-bottom">
         <div class="col-3">
-            <button class="btn btn-outline-dark me-2" @click.stop.prevent="item.filters.push({name:'',value:''})">
+            <button class="btn btn-outline-dark me-2" @click.stop.prevent="if(!item.filters)item.filters=[];item.filters.push({name:'',value:''})">
                 <i class="bi bi-transparency"></i> Add Filter
             </button>
         </div>

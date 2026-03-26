@@ -6,60 +6,106 @@ const puppeteer = require('puppeteer');
 const { lib, file, logger, image } = require('backendjs');
 
 // Scrape the url and save the image and html
-module.exports = {
-    scraper,
-    parseSchema,
-    getDetails,
-    autoScroll,
-    acceptCookies,
-    tileImages,
-};
+
+class Scraper {
+    browser;
+    context;
+
+    async create(options) {
+        try {
+            this.browser = await puppeteer.launch({ dumpio: true });
+            this.context = await this.browser.createBrowserContext();
+
+            const page = await this.context.newPage();
+            page.on('console', msg => logger.debug('scraper:', msg.text()));
+            await page.setViewport({ width: options.width || 1280, height: options.height || 1280 });
+
+            return page;
+        } catch (e) {
+            logger.trace(" create:", "scraper:", e)
+            this.close()
+        }
+    }
+
+    async close() {
+        try {
+            if (this.context) {
+                await this.context.close();
+                this.context = null;
+            }
+            if (this.browser) {
+                await this.browser.close();
+                this.browser = null;
+            }
+        } catch (e) {
+            logger.trace("close:", "scraper:", e)
+        }
+    }
+
+
+    async open(options) {
+        logger.info("scraper:", "open:", options);
+
+        const page = await this.create(options);
+        if (!page) return;
+
+        try {
+            await page.goto(options.url);
+        } catch (e) {
+            logger.trace('scraper:', e);
+            return;
+        }
+
+        try {
+            await page.waitForNetworkIdle({ idleTime: options.idleTime || 1000, concurrency: options.idleConcurrency || 1 });
+        } catch (e) {
+            logger.debug('scraper:', e);
+            return;
+        }
+
+        if (options.cookieRx) {
+            await lib.sleep(options.idleDelay || 3000);
+            try {
+                await acceptCookies(page, options.cookieRx);
+            } catch (e) {
+                logger.trace('scraper:', e);
+            }
+        }
+
+        return page;
+    }
+}
 
 async function scraper(options)
 {
-    logger.info("scraper:", options);
+    const _scraper = new Scraper();
 
-    const browser = await puppeteer.launch({ dumpio: true });
-    const context = await browser.createBrowserContext();
-
-    const page = await context.newPage();
-    page.on('console', msg => logger.debug('scraper:', msg.text()));
-
-    await page.setViewport({ width: options.width, height: options.height });
-
-    await page.goto(options.url);
+    const page = await _scraper.open(options);
+    if (!page) return _scraper.close();
 
     try {
-        await page.waitForNetworkIdle({ idleTime: options.idleTime || 1000, concurrency: options.idleConcurrency });
-    } catch (e) {
-        logger.debug('scraper:', e);
-    }
+        await getDetails(options, page);
 
-    await lib.sleep(options.idleDelay || 3000);
+        const image1 = await page.screenshot({});
+        file.store(Buffer.from(image1), `${options.root}/page.png`);
 
-    if (options.cookieRx) {
-        await acceptCookies(page, options.cookieRx);
-    }
+        if (!options.noScroll) {
+            await autoScroll(page, options);
 
-    await getDetails(options, page);
+            if (options.scrollTop !== undefined) {
+                await page.evaluate(() => { window.scrollTo({ top: options.scrollTop }) });
+                await lib.sleep(1000);
+            }
 
-    const image1 = await page.screenshot({});
-    file.store(Buffer.from(image1), `${options.root}/page.png`);
+            const image2 = await page.screenshot({ fullPage: true });
+            file.store(Buffer.from(image2), `${options.root}/scroll.png`);
 
-    if (!options.noScroll) {
-        await autoScroll(page);
-
-        if (options.scrollTop !== undefined) {
-            await page.evaluate(() => { window.scrollTo({ top: options.scrollTop }) });
-            await lib.sleep(1000);
+            await tileImages(`${options.root}/full.png`, image1, image2);
         }
-
-        const image2 = await page.screenshot({ fullPage: true });
-        await tileImages(`${options.root}/full.png`, image1, image2);
+    } catch (e) {
+        logger.trace("scraper:", e);
+        _scraper.close();
     }
-
-    await context.close();
-    await browser.close();
 }
 
 async function autoScroll(page)
@@ -68,7 +114,6 @@ async function autoScroll(page)
         await new Promise((resolve, reject) => {
             let height = 0;
             const distance = document.documentElement.clientHeight;
-
             const timer = setInterval(() => {
                 window.scrollBy(0, distance);
                 height += distance;
@@ -94,6 +139,7 @@ async function acceptCookies(page, rx)
     ];
     links.forEach(async node => {
         const a = await node.evaluate(el => [el.localName, el.id, el.className, el.textContent?.trim()]);
+        if (!a.at(-1)) return;
         tree.push(a);
         if (rx.test(a.at(-1))) {
             await node.evaluate(el => el.click());
@@ -105,7 +151,7 @@ async function acceptCookies(page, rx)
     if (!clicked) {
         const snapshot = await page.accessibility.snapshot({ interestingOnly: false });
         async function findCookies(el) {
-            if (el.role == "link" || el.role == "button") {
+            if (el.role == "link" || el.role == "button" && (el.name || el.description)) {
                 var a = [el.role, el.name, el.description]
                 if (rx.test(a[1]) || rx.test(a[2])) {
                     const h = await el.elementHandle();
@@ -140,21 +186,22 @@ async function tileImages(path, image1, image2)
     const items = [
         {
             width: Math.max(stats1.meta.width, stats2.meta.width),
-            height: stats1.meta.height + stats2.meta.height + 20
+            height: stats1.meta.height + stats2.meta.height + 20,
+            background: "#FFFFFF",
         },
         {
-            data: stats1.image,
+            data: stats1._image,
             gravity: "north"
         },
         {
-            data: stats2.image,
+            data: stats2._image,
             gravity: "south"
         },
     ]
 
     await image.composite(items);
 
-    file.store(items[0].buffer, path);
+    file.store(items[0]._buffer, path);
 
     return items;
 }
@@ -265,3 +312,12 @@ async function getDetails(options, page)
     }
 }
 
+module.exports = {
+    scraper,
+    parseSchema,
+    getDetails,
+    autoScroll,
+    acceptCookies,
+    tileImages,
+    Scraper,
+};
