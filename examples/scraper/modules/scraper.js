@@ -7,6 +7,8 @@ const { lib, file, logger, image } = require('backendjs');
 
 // Scrape the url and save the image and html
 
+const cookieRx = /^(Close[a-z ,-]*|Okay|Ok|Agree|Agree to all|Accept|Accept [a-z ,-]* cookies|Accept all|Allow|Allow all|Allow [a-z ,-]* cookies)$/i;
+
 class Scraper {
     browser;
     context;
@@ -22,7 +24,7 @@ class Scraper {
 
             return page;
         } catch (e) {
-            logger.trace(" create:", "scraper:", e)
+            logger.trace(" create:", "scraper:", "create:", e)
             this.close()
         }
     }
@@ -38,7 +40,7 @@ class Scraper {
                 this.browser = null;
             }
         } catch (e) {
-            logger.trace("close:", "scraper:", e)
+            logger.trace("close:", "scraper:", "close:", e)
         }
     }
 
@@ -52,59 +54,81 @@ class Scraper {
         try {
             await page.goto(options.url);
         } catch (e) {
-            logger.trace('scraper:', e);
+            logger.trace('scraper:', "goto:", e);
             return;
         }
 
         try {
             await page.waitForNetworkIdle({ idleTime: options.idleTime || 1000, concurrency: options.idleConcurrency || 1 });
         } catch (e) {
-            logger.debug('scraper:', e);
-            return;
-        }
-
-        if (options.cookieRx) {
-            await lib.sleep(options.idleDelay || 3000);
-            try {
-                await acceptCookies(page, options.cookieRx);
-            } catch (e) {
-                logger.trace('scraper:', e);
-            }
+            logger.debug('scraper:', "wait:", e);
         }
 
         return page;
     }
 }
 
+module.exports = {
+    scraper,
+    ldjsonParse,
+    icalParse,
+    getDetails,
+    autoScroll,
+    acceptCookies,
+    tileImages,
+    getScreenshot,
+    Scraper,
+    cookieRx,
+};
+
 async function scraper(options)
 {
     const _scraper = new Scraper();
 
     const page = await _scraper.open(options);
-    if (!page) return _scraper.close();
+
+    if (page) {
+
+        if (!options.nocookies) {
+            await acceptCookies(options, page);
+        }
+
+        if (!options.noscreenshots) {
+            await getScreenshot(options, page);
+        }
+
+        if (!options.nodetails) {
+            await getDetails(options, page);
+        }
+    }
+
+    return _scraper.close();
+}
+
+async function getScreenshot(options, page)
+{
+    let image1;
+    const root = options.root || ".";
 
     try {
-        await getDetails(options, page);
-
-        const image1 = await page.screenshot({});
-        file.store(Buffer.from(image1), `${options.root}/page.png`);
-
-        if (!options.noScroll) {
-            await autoScroll(page, options);
-
-            if (options.scrollTop !== undefined) {
-                await page.evaluate(() => { window.scrollTo({ top: options.scrollTop }) });
-                await lib.sleep(1000);
-            }
-
-            const image2 = await page.screenshot({ fullPage: true });
-            file.store(Buffer.from(image2), `${options.root}/scroll.png`);
-
-            await tileImages(`${options.root}/full.png`, image1, image2);
-        }
+        image1 = await page.screenshot({});
+        file.store(Buffer.from(image1), `${root}/page.png`);
     } catch (e) {
-        logger.trace("scraper:", e);
-        _scraper.close();
+        logger.trace("screnshot:", "scraper:", e);
+    }
+
+    if (options.noscroll) return;
+
+    try {
+        await autoScroll(page, options);
+
+        const image2 = await page.screenshot({ fullPage: true });
+        file.store(Buffer.from(image2), `${root}/scroll.png`);
+
+        await tileImages(`${root}/full.png`, image1, image2);
+
+    } catch (e) {
+        logger.trace("screenshot:", "scraper:", e);
     }
 }
 
@@ -128,54 +152,86 @@ async function autoScroll(page)
     await lib.sleep(500);
 };
 
-async function acceptCookies(page, rx)
+async function acceptCookies(options, page)
 {
-    var clicked = 0, tree = [];
+    var rx = options.cookieRx || cookieRx;
 
-    const links = [
-        ...await page.$$('a, button'),
-        ...await page.$$('>>> a'),
-        ...await page.$$('>>> button')
-    ];
-    links.forEach(async node => {
-        const a = await node.evaluate(el => [el.localName, el.id, el.className, el.textContent?.trim()]);
-        if (!a.at(-1)) return;
-        tree.push(a);
-        if (rx.test(a.at(-1))) {
-            await node.evaluate(el => el.click());
-            clicked++;
-            a.push("click");
-        }
-    });
+    await lib.sleep(options.idleDelay || 3000);
 
-    if (!clicked) {
-        const snapshot = await page.accessibility.snapshot({ interestingOnly: false });
-        async function findCookies(el) {
-            if (el.role == "link" || el.role == "button" && (el.name || el.description)) {
-                var a = [el.role, el.name, el.description]
-                if (rx.test(a[1]) || rx.test(a[2])) {
-                    const h = await el.elementHandle();
-                    h.click();
-                    a.push("click");
-                    clicked++;
-                }
-                tree.push(a);
+    const clicked = [];
+
+    const matches = [];
+
+    function findMatches(el) {
+        if (el.role == "link" || el.role == "button" && (el.name || el.description)) {
+            if (rx.test(el.name) || rx.test(el.description)) {
+                matches.push(el);
             }
-            for (const child of el.children || []) findCookies(child);
+            logger.debug("acceptCookies:", "scraper:", el.role, el.name, el.description);
         }
-        findCookies(snapshot);
+        for (const child of el.children || []) findMatches(child);
     }
 
-    if (clicked) {
+    try {
+        const snapshot = await page.accessibility.snapshot({ interestingOnly: false });
+        findMatches(snapshot);
+    } catch (e) {
+        logger.trace("acceptCookies:", "scraper:", e)
+    }
+
+    for (const el of matches) {
+        logger.debug("acceptCookies:", "scraper:", "click:", el.role, el.name, el.description);
+        try {
+            const h = await el.elementHandle();
+            await h.click();
+        } catch (e) {
+            logger.trace("acceptCookies:", "scraper:", el.role, el.name, el.description, e);
+        }
+        clicked.push(`${el.role},${el.name},${el.description}`);
+    }
+
+    if (clicked.length) {
+        await lib.sleep(1000);
+    }
+
+    var results = await Promise.allSettled([ page.$$('a, button'), page.$$('>>> a'), page.$$('>>> button') ]);
+    for (const res of results) {
+        if (!res.value?.length) continue;
+
+        for (const link of res.value) {
+            let item;
+            try {
+                item = await link.evaluate(el => [el.textContent?.trim(), el.localName, el.className, el.getAttribute('id')]);
+            } catch (e) {
+                logger.trace("acceptCookies:", "scraper:", e, link)
+                continue;
+            }
+
+            if (!rx.test(item[0])) {
+                logger.debug("acceptCookies:", "scraper:", item);
+                continue;
+            }
+            item = item.join(",");
+            if (clicked.includes(item)) continue;
+
+            logger.debug("acceptCookies:", "scraper:", "click:", item);
+            try {
+                await link.click();
+                await link.evaluate(el => {
+                    try { el.click() } catch (e) { console.log("click:", e.message, el) }
+                });
+            } catch (e) {
+                logger.trace("acceptCookies:", "scraper:", e, link);
+            }
+            clicked.push(item);
+        }
+    }
+
+    if (clicked.length) {
         try {
             await page.waitForNavigation({ timeout: 5000 });
         } catch (e) {}
     }
-
-    tree.forEach(x => logger.debug("scraper:", "acceptCookies:", x));
-
-    await lib.sleep(1000);
-    return tree;
 }
 
 async function tileImages(path, image1, image2)
@@ -206,32 +262,131 @@ async function tileImages(path, image1, image2)
     return items;
 }
 
+async function getDetails(options, page)
+{
+    try {
+        const html = await page.content();
+        file.store(Buffer.from(html), `${options.root}/page.html`);
+
+        options.title = await page.title();
+
+    } catch (e) {
+        logger.trace("getDetails:", "scraper:", e);
+    }
+
+    try {
+        const links = await page.$$eval("link, script",
+                                 elements => (elements.filter(el => ["application/ld+json", "text/calendar"].includes(el.type)).
+                                                       map(el => [el.type, el.href, el.textContent])));
+        for (const link of links) {
+            logger.debug("getDetails:", "scraper:", link)
+
+            if (link[0] == "text/calendar") {
+                const { data } = await lib.afetch({ url: link[1], retryCount: 3, retryOnError: 1 });
+                options.ical = icalParse(data)[0];
+                if (options.ical) {
+                    file.store(Buffer.from(data), `${options.root}/ld.ical`);
+                }
+            } else
+
+            if (link[0] == "application/ld+json") {
+                const data = lib.jsonParse(link[2]);
+                options.ldjson = ldjsonParse({}, data);
+                if (options.ldjson) {
+                    file.store(Buffer.from(lib.stringify(data, null, 2)), `${options.root}/ld.json`);
+                }
+            }
+
+        }
+    } catch (e) {
+        logger.trace("getDetails:", "scraper:", e);
+    }
+
+    try {
+        const meta = await page.$$eval("meta",
+                                elements => (elements.map(el => [el.name || el.getAttribute('property'), el.getAttribute('content')])));
+        for (const [name, value] of meta) {
+            switch (name) {
+            case "og:site_name":
+                if (!options.name) options.name = value;
+                break;
+
+            case "description":
+            case "og:description":
+            case "schema:description":
+                if (!options.description) options.description = value;
+                break;
+
+            case "og:image":
+            case "schema:image":
+                if (!options.logo) options.logo = value;
+                break;
+            }
+        }
+    } catch (e) {
+        logger.trace("getDetails:", "scraper:", e);
+    }
+
+    if (!options.logo) {
+        try {
+            const images = await page.$$eval("img",
+                                      elements => (elements.filter(el => (/logo/i.test(el.alt) ||
+                                                                          /logo/i.test(el.src) ||
+                                                                          /logo/i.test(el.parentElement?.className) ||
+                                                                          /logo/i.test(el.parentElement?.parentElement?.className))).
+                                                            map(el => [el.src, el.alt])));
+            logger.debug("getDetails:", "scraper:", images);
+            if (images.length) options.logo = images?.[0][0];
+        } catch (e) {
+            logger.trace("getDetails:", "scraper:", e);
+        }
+    }
+
+    if (options.logo) {
+        const { err, data } = await lib.afetch({ url: options.logo, binary: 1, retryCount: 3, retryOnError: 1 });
+        if (!err) file.store(data, `${options.root}/logo.png`);
+    }
+}
+
+function dateRange(s, e)
+{
+    s = lib.split(s)
+    e = lib.split(e)
+
+    if (s[0] == e[0]) {
+        s[1] += "-" + e[1];
+    } else
+
+    if (s[2] == e[2]) {
+        s[0] = s[0] + " " + s[1] + " -";
+        s[1] = e[0] + " " + e[1];
+    }
+    return s.join(" ");
+}
+
 // Parse known schemas: Event
-function parseSchema(options, obj)
+function ldjsonParse(options, obj)
 {
     switch (obj?.["@type"]) {
     case "Event":
         if (options.name) break;
+        if (obj.startDate) {
+            const sdate = lib.toDate(obj.startDate);
+            if (sdate < Date.now()) break;
+            obj.sdate = lib.strftime(sdate, "%b,%d,%Y")
+        }
+        if (obj.endDate) {
+            obj.edate = lib.strftime(lib.toDate(obj.startDate), "%b,%d,%Y")
+        }
+        options.date = dateRange(obj.sdate, obj.edate);
+
         if (obj.name) {
             options.name = obj.name;
         }
         if (obj.description) {
-            options.descr = obj.description;
+            options.description = obj.description;
         }
-        if (obj.startDate) {
-            const date = lib.split(lib.strftime(lib.toDate(obj.startDate), "%b,%d,%Y"))
-            if (obj.endDate) {
-                const edate = lib.split(lib.strftime(lib.toDate(obj.startDate), "%b,%d,%Y"))
-                if (date[0] == edate[0]) {
-                    date[1] += "-" + edate[1];
-                } else
-                if (date[2] == edate[2]) {
-                    date[0] = date[0] + " " + date[1] + " -";
-                    date[1] = edate[0] + " " + edate[1];
-                }
-            }
-            options.date = date.join(" ");
-        }
+
         if (obj.location?.["@type"] == "Place") {
             options.venue = obj.location.name;
             if (obj.location.address) {
@@ -257,67 +412,68 @@ function parseSchema(options, obj)
 
     for (const p in obj) {
         if (typeof obj[p] == "object" && obj[p]) {
-            parseSchema(options, obj[p]);
+            ldjsonParse(options, obj[p]);
         }
     }
     return options;
 }
 
-async function getDetails(options, page)
+function icalParse(data)
 {
-    options.title = await page.title();
+    var events = [], event = {}, lines = lib.split(data, "\n");
+    for (var i = 0; i < lines.length; i++) {
+        const d = lines[i].trim().match(/^([^:]+):(.+)/);
+        if (!d) continue;
+        var attr = d[1].split(";");
+        var value = lib.unescape(lib.entityToText(d[2]));
+        while (i + 1 < lines.length && lines[i + 1][0] == " ") {
+            value += lib.unescape(lib.entityToText(lines[i + 1])).trim();
+            i++;
+        }
+        switch (attr[0]) {
+        case "BEGIN":
+            if (value != "VEVENT") break;
+            event = {};
+            break;
 
-    const html = await page.content();
-    file.store(Buffer.from(html), `${options.root}/page.html`);
+        case "DTSTART":
+            value = value.split("T")[0];
+            value = value.substr(0, 4) + "-" + value.substr(4, 2) + "-" + value.substr(7, 2);
+            event.sdate = lib.strftime(lib.toDate(value), "%b,%d,%Y")
+            event.date = dateRange(event.sdate, event.edate);
+            break;
 
-    var ldjson = html.match(/type=["']application\/ld\+json["'][^>]*>([^<]+)<\/script>/i);
-    if (ldjson) {
-        ldjson = lib.jsonParse(ldjson[1]);
-        if (ldjson) {
-            parseSchema(options, ldjson);
+        case "DTEND":
+            value = value.split("T")[0];
+            value = value.substr(0, 4) + "-" + value.substr(4, 2) + "-" + value.substr(7, 2);
+            event.edate = lib.strftime(lib.toDate(value), "%b,%d,%Y")
+            event.date = dateRange(event.sdate, event.edate);
+            break;
 
-            ldjson = lib.stringify(ldjson, null, 2);
-            file.store(Buffer.from(ldjson), `${options.root}/ld.json`);
+        case "SUMMARY":
+            event.name = value;
+            break;
+
+        case "URL":
+        case "DESCRIPTION":
+            event[attr[0].toLowerCase()] = value;
+            break;
+
+        case "LOCATION":
+            if (value.includes("|")) {
+                value = lib.split(value, "|");
+                event.venue = value[0];
+                value = value[1];
+            }
+            event.location = value;
+            break;
+
+        case "END":
+            if (value != "VEVENT") break;
+            if (event) events.push(event);
+            break;
+
         }
     }
-
-    const meta = await page.$$eval("meta", elements => (elements.map(el => [el.name || el.getAttribute('property'), el.getAttribute('content')])));
-    for (const [name, value] of meta) {
-        switch (name) {
-        case "og:site_name":
-            if (!options.name) options.name = value;
-            break;
-
-        case "description":
-        case "og:description":
-        case "schema:description":
-            if (!options.descr) options.descr = value;
-            break;
-
-        case "og:image":
-        case "schema:image":
-            if (!options.logo) options.logo = value;
-            break;
-        }
-    }
-
-    if (!options.logo) {
-        const images = await page.$$eval("img", elements => (elements.map(el => [el.src, el.alt])));
-        options.logo = images.find(x => /logo/i.test(x[1]) || /logo/i.test(x[0])).map(x => x[0]);
-    }
-
-    if (options.logo) {
-        const { err, data } = await lib.afetch({ url: options.logo, binary: 1, retryCount: 3, retryOnError: 1 });
-        if (!err) file.store(data, `${options.root}/logo.png`);
-    }
+    return events;
 }
-
-module.exports = {
-    scraper,
-    parseSchema,
-    getDetails,
-    autoScroll,
-    acceptCookies,
-    tileImages,
-    Scraper,
-};

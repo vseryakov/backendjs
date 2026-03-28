@@ -136,7 +136,7 @@
 
         <div class="col-3">
             <label class="form-label">Blur</label>
-            <input type="number" class="form-control" min="0" max="2000" x-model="item.blur_sigma">
+            <input class="form-control" x-model="item.blur_sigma" placeholder="sigma or auto">
         </div>
     </div>
 
@@ -364,7 +364,6 @@
 
         <div class="col-4">
             <label class="form-label">Color Detect Modes</label><br>
-            <input class="form-control" list="detect-list" x-model="item.text_auto" placeholder="mode, mode,....">
             <div class="input-group">
                 <input class="form-control" list="detect-list" x-model="item.text_auto" placeholder="mode, mode,...." :title="item.text_auto">
                 <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>

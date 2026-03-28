@@ -91,7 +91,7 @@ app.components.render = class extends app.AlpineComponent {
     async render() {
         const body = { items: this.items, defaults: this.defaults };
 
-        const { err, data } = await app.fetch("/api/render/", { post: 1, body });
+        const { err, data } = await app.fetch("/api/render", { post: 1, body });
         if (err) return app.showToast("error", err);
 
         const reader = new FileReader();

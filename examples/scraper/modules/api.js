@@ -16,7 +16,7 @@ module.exports = {
     width: 1280,
     height: 1280,
 
-    cookieRx: /^(Okay|Ok|Agree|Agree to all|Accept|Accept [a-z ,-]* cookies|Accept all|Allow|Allow all|Allow [a-z ,-]* cookies)$/gi,
+    cookieRx: /^(Close[a-z ,-]*|Okay|Ok|Agree|Agree to all|Accept|Accept [a-z ,-]* cookies|Accept all|Allow|Allow all|Allow [a-z ,-]* cookies)$/gi,
 
     tables: {
 
