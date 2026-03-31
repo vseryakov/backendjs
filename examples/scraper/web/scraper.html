@@ -1,7 +1,18 @@
+<style>
+.modal-dialog.modal-xxl {
+    width: 90% !important;
+    min-width: 90% !important;
+}
 
-<div class="container py-4">
+.modal-xxl .modal-content {
+    height: 90vh !important;
+    min-height: 90vh !important;
+}
+</style>
 
-    <div class="d-flex justify-content-between align-items-center my-2">
+<div class="p-2">
+
+    <div class="d-flex justify-content-between align-items-center m-2">
         <h4 class="my-2">Sites</h4>
 
         <div class="d-flex align-items-center">
@@ -15,58 +26,151 @@
         </div>
     </div>
 
-    <div class="card-body p-0 table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Screenshot</th>
-                    <th>Details</th>
-                    <th>Status</th>
-                    <th></th>
-                </tr>
-            </thead>
+    <div class="p-2">
+        <template x-for="row in list" :key="row.id">
+            <div class="border rounded my-3 p-2" x-template="'site'"></div>
+        </template>
 
-            <tbody>
-                <template x-for="row in list" :key="row.id">
-                    <tr>
-                        <td width="25%">
-                            <img :src="row.status=='done'?'/api/asset/'+row.id+'/page.png':'/img/loading.gif'" style="width:100%; height:200px">
-                        </td>
-                        <td valign=top width="60%">
-                            <div class="py-2" x-text="row.url"></div>
-                            <h5 x-text="row.title"></h5>
-                            <h6 x-show="row.name" x-text="row.name"></h6>
-                            <div x-show="row.descr" class="text-muted" x-text="row.descr"></div>
-                            <small class="text-muted" x-text="row.date"></small>
-                            <small class="text-muted" x-text="row.venue"></small>
-                            <small class="text-muted" x-text="row.location"></small>
-                            <img class="d-block" :src="row.logo?'/api/asset/'+row.id+'/logo.png':'/img/1.png'" width=60>
-                        </td>
-                        <td  valign=top x-text="row.status"></td>
-                        <td valign=top>
-                            <div class="mb-2" role="button" @click="del(row)" title="Delete">❌</div>
-                            <div class="mb-2" role="button" @click="resubmit(row)" title="Resubmit">📥</div>
-                            <a class="mb-2" :href="'/api/asset/'+row.id+'/page.html'" :download="row.id" title="Download HTML">🔗</a>
-                        </td>
-                    </tr>
-                </template>
+        <template x-if="!list.length">
+            <tr>
+                <td colspan="4" class="text-center text-muted py-4">
+                    No screenshots found
+                </td>
+            </tr>
+        </template>
 
-                <template x-if="!list.length">
-                    <tr>
-                        <td colspan="4" class="text-center text-muted py-4">
-                            No screenshots found
-                        </td>
-                    </tr>
-                </template>
-
-                <template x-if="next_token">
-                    <tr>
-                        <td colspan="4" role=button class="text-center text-muted py-4" @click="refresh">
-                            Load more
-                        </td>
-                    </tr>
-                </template>
-            </tbody>
-        </table>
+        <template x-if="next_token">
+            <tr>
+                <td colspan="4" role=button class="text-center text-muted py-4" @click="refresh">
+                    Load more
+                </td>
+            </tr>
+        </template>
     </div>
 </div>
+
+<template id=site>
+    <div class="row">
+        <div class="col-2">
+            <img :src="['pending','scraping'].includes(row.status)?'/img/loading.gif':'/api/asset/'+row.id+'/page.png'" style="width:100%">
+        </div>
+
+        <div class="col-9">
+            <div>
+                <div class="py-2" x-text="row.url"></div>
+                <h5 class="py-2" x-text="row.title"></h5>
+
+                <ul class="nav nav-tabs" x-template="'tabbar'"></ul>
+                <div class="tab-content pt-3" x-template="'tabcontent'"></div>
+
+            </div>
+        </div>
+
+        <div class="col-1 text-muted text-center" x-template="'sidebar'"></div>
+    </div>
+
+</template>
+
+<template id=tabbar>
+    <li class="nav-item">
+        <a class="nav-link active" :id="'t1'+row.id" data-bs-toggle="tab" :href="'#p1'+row.id" role="tab" :aria-controls="'t1'+row.id" aria-selected="true">
+            Meta
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.event?.name">
+        <a class="nav-link" id="'t3'+row.id" data-bs-toggle="tab" :href="'#p3'+row.id" role="tab" :aria-controls="'t3'+row.id" aria-selected="true">
+            Event
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.ical?.name">
+        <a class="nav-link" id="'t4'+row.id" data-bs-toggle="tab" :href="'#p4'+row.id" role="tab" :aria-controls="'t4'+row.id" aria-selected="true">
+            iCal
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.company?.name">
+        <a class="nav-link" :id="'t5'+row.id" data-bs-toggle="tab" :href="'#p5'+row.id" role="tab" :aria-controls="'t5'+row.id" aria-selected="true">
+            Company
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.webpage?.name">
+        <a class="nav-link" :id="'t6'+row.id" data-bs-toggle="tab" :href="'#p6'+row.id" role="tab" :aria-controls="'t6'+row.id" aria-selected="true">
+            WebPage
+        </a>
+    </li>
+</template>
+
+<template id="tabcontent">
+
+    <div class="tab-pane active show fade" :id="'p1'+row.id" role="tabpanel" :aria-labelledby="'t1'+row.id">
+        <h6 x-text="row.meta?.name"></h6>
+        <div class="text-muted" x-text="row.meta?.description"></div>
+        <div class="py-1">
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'page.html')">HTML file</button>
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'page.txt')">Text file</button>
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'full.png')">Full screenshot</button>
+            <button class="btn btn-sm btn-outline-dark" x-show="row.logos?.length" @click="show(row, 'logos')">Other logos</button>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" :id="'p2'+row.id" role="tabpanel" :aria-labelledby="'t2'+row.id">
+        <h6 x-text="row.describe?.name"></h6>
+        <div class="text-muted" x-text="row.describe?.descr"></div>
+        <div class="py-1">Date: <small class="text-muted" x-text="row.describe?.date"></small></div>
+        <div class="py-1">Venue: <small class="text-muted" x-text="row.describe?.venue"></small></div>
+        <div class="py-1">Location: <small class="text-muted" x-text="row.describe?.location"></small></div>
+        <div class="py-1">Font: <small class="text-muted" x-text="row.describe?.font"></small></div>
+        <div class="py-1">Color: <small class="text-muted" x-text="row.describe?.color"></small></div>
+        <div class="py-1">Place: <small class="text-muted" x-text="row.describe?.place"></small></div>
+    </div>
+
+    <div class="tab-pane fade" :id="'p3'+row.id" role="tabpanel" :aria-labelledby="'t3'+row.id">
+        <h6 x-text="row.event?.name"></h6>
+        <div class="text-muted" x-text="row.event?.description"></div>
+        <div class="py-1">Date: <small class="text-muted" x-text="row.event?.date"></small></div>
+        <div class="py-1">Venue: <small class="text-muted" x-text="row.event?.venue"></small></div>
+        <div class="py-1">Location: <small class="text-muted" x-text="row.event?.location"></small></div>
+        <div class="py-1">
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'ld.json')">LD+JSON file</button>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" :id="'p4'+row.id" role="tabpanel" :aria-labelledby="'t4'+row.id">
+        <h6 x-text="row.ical?.name"></h6>
+        <div class="text-muted" x-text="row.ical?.descrition"></div>
+        <div class="py-1">Date: <small class="text-muted" x-text="row.ical?.date"></small></div>
+        <div class="py-1">Venue: <small class="text-muted" x-text="row.ical?.venue"></small></div>
+        <div class="py-1">Location: <small class="text-muted" x-text="row.ical?.location"></small></div>
+        <div class="py-1">
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'ld.ical')">iCal file</button>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" :id="'p5'+row.id" role="tabpanel" :aria-labelledby="'t5'+row.id">
+        <h6 x-text="row.company?.name"></h6>
+        <div class="text-muted" x-text="row.company?.url"></div>
+        <img class="my-3" :src="row.company?.logo||'/img/1.png'" height=100>
+    </div>
+
+    <div class="tab-pane fade" :id="'p6'+row.id" role="tabpanel" :aria-labelledby="'t6'+row.id">
+        <h6 x-text="row.webpage?.name"></h6>
+        <div class="text-muted" x-text="row.webpage?.description"></div>
+        <div class="text-muted" x-text="row.webpage?.url"></div>
+        <img class="my-3" :src="row.webpage?.logo||'/img/1.png'" height=100>
+    </div>
+
+</template>
+
+<template id="sidebar">
+    <img class="p-3" :src="row.logo?'/api/asset/'+row.id+'/logo.png':'/img/1.png'" width="100%">
+
+    <div class="m-2 badge rounded-pill" :class="row.error ? 'text-bg-danger' : 'text-bg-primary'" x-text="row.status" :title="row.error"></div>
+
+    <div class="m-3" role="button" @click="row._show=!row._show" title="Show/hide images"><i class="bi bi-image"></i></div>
+    <div class="m-3" role="button" @click="resubmit(row)" title="Resubmit"><i class="bi bi-arrow-clockwise"></i></div>
+    <div class="m-3" role="button" @click="del(row)" title="Delete"><i class="bi bi-trash"></i></div>
+</template>
+

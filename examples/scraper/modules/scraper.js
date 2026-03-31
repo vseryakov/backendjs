@@ -7,24 +7,23 @@ const { lib, file, logger, image } = require('backendjs');
 
 // Scrape the url and save the image and html
 
-const cookieRx = /^(Close[a-z ,-]*|Okay|Ok|Agree|Agree to all|Accept|Accept [a-z ,-]* cookies|Accept all|Allow|Allow all|Allow [a-z ,-]* cookies)$/i;
-
 class Scraper {
     browser;
     context;
 
     async create(options) {
         try {
-            this.browser = await puppeteer.launch({ dumpio: true });
+            this.browser = await puppeteer.launch({ dumpio: !!options.debug });
             this.context = await this.browser.createBrowserContext();
 
             const page = await this.context.newPage();
-            page.on('console', msg => logger.debug('scraper:', msg.text()));
+            page.on('console', msg => logger.debug("browser:", 'scraper:', msg.text()));
+
             await page.setViewport({ width: options.width || 1280, height: options.height || 1280 });
 
             return page;
         } catch (e) {
-            logger.trace(" create:", "scraper:", "create:", e)
+            logger.trace("create:", "scraper:", e)
             this.close()
         }
     }
@@ -40,13 +39,13 @@ class Scraper {
                 this.browser = null;
             }
         } catch (e) {
-            logger.trace("close:", "scraper:", "close:", e)
+            logger.trace("close:", "scraper:", e)
         }
     }
 
 
     async open(options) {
-        logger.info("scraper:", "open:", options);
+        logger.info("open:", "scraper:", options);
 
         const page = await this.create(options);
         if (!page) return;
@@ -54,14 +53,14 @@ class Scraper {
         try {
             await page.goto(options.url);
         } catch (e) {
-            logger.trace('scraper:', "goto:", e);
+            logger.trace("goto:", 'scraper:', e);
             return;
         }
 
         try {
-            await page.waitForNetworkIdle({ idleTime: options.idleTime || 1000, concurrency: options.idleConcurrency || 1 });
+            await page.waitForNetworkIdle({ idleTime: options.idleTime || 5000, concurrency: options.idleConcurrency || 1 });
         } catch (e) {
-            logger.debug('scraper:', "wait:", e);
+            logger.trace("wait:", 'scraper:', e);
         }
 
         return page;
@@ -73,6 +72,9 @@ module.exports = {
     ldjsonParse,
     icalParse,
     getDetails,
+    getExtra,
+    getLogos,
+    getMeta,
     autoScroll,
     acceptCookies,
     tileImages,
@@ -98,7 +100,12 @@ async function scraper(options)
         }
 
         if (!options.nodetails) {
-            await getDetails(options, page);
+            await Promise.allSettled([
+                getDetails(options, page),
+                getMeta(options, page),
+                getExtra(options, page),
+                getLogos(options, page),
+            ]);
         }
     }
 
@@ -151,6 +158,8 @@ async function autoScroll(page)
     });
     await lib.sleep(500);
 };
+
+var cookieRx = /^(Close[a-z ,-]*|Okay|Ok|Agree|Agree to all|Accept|Accept [a-z ,-]* cookies|Accept all|Allow|Allow all|Allow [a-z ,-]* cookies)$/i;
 
 async function acceptCookies(options, page)
 {
@@ -268,18 +277,54 @@ async function getDetails(options, page)
         const html = await page.content();
         file.store(Buffer.from(html), `${options.root}/page.html`);
 
+        const text = await page.$eval("body", (elements => elements.innerText));
+        file.store(Buffer.from(text), `${options.root}/page.txt`);
+
         options.title = await page.title();
 
     } catch (e) {
         logger.trace("getDetails:", "scraper:", e);
     }
+}
 
+async function getMeta(options, page)
+{
+    try {
+        const meta = await page.$$eval("meta",
+                                elements => (elements.map(el => [el.name || el.getAttribute('property'), el.getAttribute('content')])));
+
+        for (const [name, value] of meta) {
+            if (!options.meta) options.meta = {};
+            switch (name) {
+            case "og:site_name":
+                options.meta.name = value;
+                break;
+
+            case "description":
+            case "og:description":
+            case "schema:description":
+                options.meta.description = value;
+                break;
+
+            case "og:image":
+            case "schema:image":
+                options.meta.ogimage = value;
+                break;
+            }
+        }
+    } catch (e) {
+        logger.trace("getMeta:", "scraper:", e);
+    }
+}
+
+async function getExtra(options, page)
+{
     try {
         const links = await page.$$eval("link, script",
                                  elements => (elements.filter(el => ["application/ld+json", "text/calendar"].includes(el.type)).
                                                        map(el => [el.type, el.href, el.textContent])));
         for (const link of links) {
-            logger.debug("getDetails:", "scraper:", link)
+            logger.debug("getExtra:", "scraper:", link)
 
             if (link[0] == "text/calendar") {
                 const { data } = await lib.afetch({ url: link[1], retryCount: 3, retryOnError: 1 });
@@ -291,56 +336,85 @@ async function getDetails(options, page)
 
             if (link[0] == "application/ld+json") {
                 const data = lib.jsonParse(link[2]);
-                options.ldjson = ldjsonParse({}, data);
-                if (options.ldjson) {
+                if (data) {
+                    ldjsonParse(options, data);
                     file.store(Buffer.from(lib.stringify(data, null, 2)), `${options.root}/ld.json`);
                 }
             }
 
         }
     } catch (e) {
-        logger.trace("getDetails:", "scraper:", e);
+        logger.trace("getExtra:", "scraper:", e);
     }
+}
+
+async function getLogos(options, page)
+{
+    let logos = [];
 
     try {
-        const meta = await page.$$eval("meta",
-                                elements => (elements.map(el => [el.name || el.getAttribute('property'), el.getAttribute('content')])));
-        for (const [name, value] of meta) {
-            switch (name) {
-            case "og:site_name":
-                if (!options.name) options.name = value;
-                break;
-
-            case "description":
-            case "og:description":
-            case "schema:description":
-                if (!options.description) options.description = value;
-                break;
-
-            case "og:image":
-            case "schema:image":
-                if (!options.logo) options.logo = value;
-                break;
-            }
-        }
+        logos = await page.$$eval(`link[rel*="icon"], img`,
+                        elements => {
+                            const rx = /apple-touch-icon|logo|brand|favicon/i;
+                            return elements.filter(el => (/\.(png|jpg|jpeg)/.test(el.src || el.href) &&
+                                                     (rx.test(el.alt) ||
+                                                      rx.test(el.src || el.href) ||
+                                                      rx.test(el.className) ||
+                                                      rx.test(el.parentElement?.className) ||
+                                                      rx.test(el.parentElement?.parentElement?.className)))).
+                                            map(el => ({
+                                                rel: el.rel || el.localName,
+                                                src: el.src || el.href,
+                                                alt: el.alt,
+                                                class1: el.className,
+                                                class2: el.parentElement?.className,
+                                                class3: el.parentElement?.parentElement?.className,
+                                                sizes: el.sizes,
+                                            }))
+                            });
     } catch (e) {
-        logger.trace("getDetails:", "scraper:", e);
+        logger.trace("getLogos:", "scraper:", e);
+        return;
     }
 
-    if (!options.logo) {
-        try {
-            const images = await page.$$eval("img",
-                                      elements => (elements.filter(el => (/logo/i.test(el.alt) ||
-                                                                          /logo/i.test(el.src) ||
-                                                                          /logo/i.test(el.parentElement?.className) ||
-                                                                          /logo/i.test(el.parentElement?.parentElement?.className))).
-                                                            map(el => [el.src, el.alt])));
-            logger.debug("getDetails:", "scraper:", images);
-            if (images.length) options.logo = images?.[0][0];
-        } catch (e) {
-            logger.trace("getDetails:", "scraper:", e);
+    // Rank logos by priority, prefer Apple icon, then explicit logos, favicons and brands
+    logos.forEach((x, i) => {
+        x.sort = 0;
+        switch (x.rel) {
+        case "apple-touch-icon":
+            x.sort = 999999;
+            break;
+
+        case "img":
+            if (/^logo|logo$/i.test(x.alt) || /^logo|logo$/i.test(x.class1)) {
+                x.sort = 3000 - i*100;
+            } else
+            if (/logo/i.test(x.src)) {
+                x.sort = 2000;
+            } else
+            if (/brand/i.test(x.src) || /logo|brand/i.test(x.class2) || /logo|brand/i.test(x.class3)) {
+                x.sort = 500;
+            }
+            break;
+
+        case "favicon":
+            if (x.sizes) {
+                x.sort = lib.split(x.sizes, /[ ,x]/).map(x => lib.toNumber(x, { max: 300, mult: 10 })).filter(x => x).sort().pop();
+            }
+            break;
         }
-    }
+    });
+
+    logos = logos.sort((a, b) => (b.sort - a.sort)).
+                  reduce((a, b) => {
+                    if (!a.includes(b.src)) a.push(b);
+                    return a;
+                }, []);
+
+    logger.debug("getLogos:", "scraper:", logos);
+
+    options.logos = logos.slice(0, 5).map(x => x.src);
+    options.logo = logos[0]?.src;
 
     if (options.logo) {
         const { err, data } = await lib.afetch({ url: options.logo, binary: 1, retryCount: 3, retryOnError: 1 });
@@ -364,12 +438,19 @@ function dateRange(s, e)
     return s.join(" ");
 }
 
-// Parse known schemas: Event
+// Parse known schemas: Event, WebPage
 function ldjsonParse(options, obj)
 {
     switch (obj?.["@type"]) {
     case "Event":
-        if (options.name) break;
+        if (options.event) break;
+        options.event = {};
+        if (obj.name) {
+            options.event.name = obj.name;
+        }
+        if (obj.description) {
+            options.event.description = obj.description;
+        }
         if (obj.startDate) {
             const sdate = lib.toDate(obj.startDate);
             if (sdate < Date.now()) break;
@@ -378,27 +459,22 @@ function ldjsonParse(options, obj)
         if (obj.endDate) {
             obj.edate = lib.strftime(lib.toDate(obj.startDate), "%b,%d,%Y")
         }
-        options.date = dateRange(obj.sdate, obj.edate);
+        options.event.date = dateRange(obj.sdate, obj.edate);
 
-        if (obj.name) {
-            options.name = obj.name;
-        }
-        if (obj.description) {
-            options.description = obj.description;
-        }
+        options.event.logo = obj.image?.["@id"];
 
         if (obj.location?.["@type"] == "Place") {
-            options.venue = obj.location.name;
+            options.event.venue = obj.location.name;
             if (obj.location.address) {
                 const address = obj.location.address;
                 if (lib.isString(address)) {
-                    options.location = address;
+                    options.event.location = address;
                 } else {
                     let location = "";
                     for (const p of ["addressLocality", "addressRegion", "addressCountry"]) {
                         if (address[p]) location += p + " ";
                     }
-                    options.location = location.trim();
+                    options.event.location = location.trim();
                 }
             }
         }
@@ -406,7 +482,29 @@ function ldjsonParse(options, obj)
 
     case "Organization":
         if (options.company) break;
-        options.company = obj.name;
+        options.company = {
+            name: obj.name,
+            url: obj.url,
+            logo: lib.isString(obj.logo) || obj.logo?.url || obj.image?.["@id"],
+        };
+        break;
+
+    case "WebPage":
+        if (options.webpage) break;
+        options.webpage = {
+            name: obj.name,
+            description: obj.description,
+            url: obj.url,
+            logo: obj.thumbnailUrl || obj.image?.["@id"],
+        }
+        break;
+
+    case "ImageObject":
+        for (const p of ["event", "company", "webpage"]) {
+            if (obj["@id"] == options[p]?.logo) {
+                options[p].logo = obj.url;
+            }
+        }
         break;
     }
 
@@ -415,7 +513,6 @@ function ldjsonParse(options, obj)
             ldjsonParse(options, obj[p]);
         }
     }
-    return options;
 }
 
 function icalParse(data)

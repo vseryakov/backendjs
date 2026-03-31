@@ -929,10 +929,10 @@ See {@link module:file}
 See {@link module:image}
 ### **image-black**
  Default color to use for black text   
-##### Default: "#333"   
+##### Default: "#28282B"   
 ### **image-white**
  Default color to use for white text   
-##### Default: "#E9E9E9"   
+##### Default: "#F9F9F3"   
 ### **image-background**
  Default background color for new images   
 ##### Default: "#FFFFFF"   

@@ -10,13 +10,10 @@ module.exports = {
     args: [
         { name: "width", type: "int", descr: "Screenshot image width" },
         { name: "height", type: "int", descr: "Screenshot image height" },
-        { name: "cookie-rx", type: "regexp", descr: "Accept cookies popups patterns" },
     ],
 
     width: 1280,
     height: 1280,
-
-    cookieRx: /^(Close[a-z ,-]*|Okay|Ok|Agree|Agree to all|Accept|Accept [a-z ,-]* cookies|Accept all|Allow|Allow all|Allow [a-z ,-]* cookies)$/gi,
 
     tables: {
 
@@ -30,11 +27,12 @@ module.exports = {
             name: {},
             title: {},
             logo: {},
-            date: {},
-            venue: {},
-            location: {},
-            descr: {},
-            company: {},
+            logos: { type: "list" },
+            meta: { type: "obj" },
+            webpage: { type: "obj" },
+            event: { type: "obj" },
+            ical: { type: "obj" },
+            company: { type: "obj" },
             error: {},
             ctime: { type: "now", readonly: 1 },
             mtime: { type: "now" },
@@ -71,6 +69,7 @@ function assets(req, res)
 {
     db.get("scraper", { id: req.params.id }, (err, row) => {
         if (!row) return api.sendReply(res, 404, "no record found");
+        res.setHeader("cache-control", "max-age=0, no-cache, no-store");
         file.send(req, req.params.id + "/" + req.params.file);
     });
 }
@@ -109,7 +108,6 @@ function job(options, callback)
         root: options.id,
         width: mod.width,
         height: mod.height,
-        cookieRx: mod.cookieRx
     }
     scraper(opts).then(() => {
         mod.update(opts, callback);
