@@ -30,6 +30,11 @@ Small Backend.js sample that renders social poster images server-side with `shar
 - Backend.js is pulled from GitHub (`backendjs`).
 - The UI uses Bootstrap and Alpine;
 - The standalone `web/vibe-poster.html` uses CDN assets and is not related, just a vibe coded page for fun.
+- for testing images from the web folder can be used, just specify in the file path:
+  - web/woman.jpg
+  - web/man.jpg
+  - web/bg.jpg
+  - web/bg2.jpg
 
 **License**
 BSD-3-Clause
