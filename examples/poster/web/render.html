@@ -98,7 +98,7 @@
         <label class="col-2 col-form-label">File</label>
         <div class="col-10">
             <div class="input-group flex-nowrap">
-                <input type="text" readonly class="form-control-plaintext" :value="item.file">
+                <input type="text" class="form-control" x-model="item.file">
                 <button class="btn" type="button" title="Clear file" @click="item.file=item.data=undefined"><i class="bi bi-trash"></i></button>
             </div>
         </div>
@@ -413,8 +413,10 @@
             <select class="form-select" x-model="item.weight">
                 <option selected value="">Choose...</option>
                 <option>normal</option>
+                <option>ultralight</option>
                 <option>light</option>
                 <option>bold</option>
+                <option>ultrabold</option>
                 <option>heavy</option>
             </select>
         </div>
@@ -495,6 +497,21 @@
         </div>
 
         <div class="col-3" x-template="'color-input?id=dilate_color&name=Dilate+Color&prefix=dilate_'"></div>
+
+    </div>
+
+    <div class="row mb-3 pb-3 border-bottom" title="Drop shadow width for the outlined text, uses SVG rendering">
+        <div class="col-3">
+            <label class="form-label">Shadow Width</label>
+            <input type="number" class="form-control" min="0" x-model="item.shadow_width">
+        </div>
+
+        <div class="col-3" x-template="'color-input?id=shadow_color&name=Shadow+Color&prefix=shadow_'"></div>
+
+        <div class="col-3" title="Shadow blur as stdDeviation">
+            <label class="form-label">Shadow Blur</label>
+            <input type="number" class="form-control" min="0" x-model="item.shadow_blur">
+        </div>
 
     </div>
 
