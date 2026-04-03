@@ -30,6 +30,12 @@ app.components.render = class extends app.AlpineComponent {
 
     _item;
 
+    onCreate() {
+        if (this.params.src) {
+            app.$("#poster", this.$el).src = this.params.src;
+        }
+    }
+
     onFileDropped(event, item) {
         const reader = new FileReader();
         reader.addEventListener("load", () => { item.data = reader.result });
@@ -91,7 +97,8 @@ app.components.render = class extends app.AlpineComponent {
     async render() {
         const body = { items: this.items, defaults: this.defaults };
 
-        const { err, data } = await app.fetch("/api/render", { post: 1, body });
+        const url = `/api/render/${this.params.id || ""}`;
+        const { err, data } = await app.fetch(url, { post: 1, body });
         if (err) return app.showToast("error", err);
 
         const reader = new FileReader();

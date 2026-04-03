@@ -11,18 +11,9 @@
 
 <div class="p-1">
 
-    <div class="row mb-3">
-        <div class="col-3">
-            <label class="form-label fw-bolder">Profile</label>
-            <div class="input-group">
-                <input type="text" class="form-control" x-model="name">
-            </div>
-        </div>
-    </div>
-
     <div class="text-muted small mb-3">
-        - First image is the background, it must be large enough to fit other elements.<br>
-        - Common defaults for all elements: <span class="dropdown" x-data="{ item: defaults }" x-template="'element-dropdown'"></span>
+        - First image is the backgroud, it must be large enough to fit other elements.<br>
+        - Common defaults for all elements: <span class="dropdown" x-data="{ item: defaults || {} }" x-template="'element-dropdown'"></span>
     </div>
 
     <div class="row">
@@ -76,6 +67,7 @@
     <option value="system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif">System (SF)</option>
     <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica Neue</option>
     <option value="'Avenir Next', Avenir, sans-serif">Avenir</option>
+    <option value="'Verdana', sans-serif">Inter</option>
     <option value="'Inter', sans-serif">Inter</option>
     <option value="'Futura', sans-serif">Futura</option>
     <option value="'Gill Sans', 'Gill Sans MT', sans-serif">Gill Sans</option>
@@ -139,6 +131,7 @@
             <label class="form-label">Blur</label>
             <input class="form-control" x-model="item.blur_sigma" placeholder="sigma or auto">
         </div>
+
     </div>
 
     <div class="row mb-3 pb-3 border-bottom">
@@ -370,7 +363,7 @@
                 <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"></button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><button class="dropdown-item" @click.stop.prevent="item.text_auto=''">Clear...</button></li>
-                    <template x-for="type in ['luminance','dominant','complement','mean','lighter','darker','softlight']">
+                    <template x-for="type in ['luminance','dominant','complement','mean','stdev','lighter','darker','softlight']">
                         <li><button class="dropdown-item" @click.stop.prevent="item.text_auto=app.split(item.text_auto+','+$el.textContent)" x-text="type"></button></li>
                     </template>
                 </ul>
@@ -380,7 +373,7 @@
         <div class="col-4" x-template="'color-input?id=bgcolor&name=Bg+Color&prefix=bg'"></div>
     </div>
 
-    <div class="row mb-3 pb-3 border-bottom">
+    <div class="row mb-3 pb-3 border-bottom" title="A font description string, such as “Sans Italic 12”.">
         <div class="col-6">
             <label class="form-label">Font</label>
             <input class="form-control" list="font-list" x-model="item.font">
@@ -391,7 +384,7 @@
             <input type="number" class="form-control" min="72" max="1000" x-model="item.dpi">
         </div>
 
-        <div class="col-3" title="font size in 1024ths of a point, or in points (e.g. 12.5pt), or one of the absolute sizes, or a percentage (e.g. 200%), or one of the relative sizes smaller or larger">
+        <div class="col-3" title="font size in 1024ths of a point, or in points (e.g. 12.5pt), or one of the absolute sizes, or a percentage (e.g. 200%), or one of the relative sizes smaller or larger or a fraction of the height when > 0 and < 1">
             <label class="form-label">Font Size</label>
             <input class="form-control" list="font-sizes" x-model="item.size">
         </div>
@@ -405,7 +398,7 @@
 
         <div class="col-4" title="Overrides the line height. The value can be either a factor (< 1024) that is used to scale up the logical extents of runs or an absolute value (in 1024th of a point)">
             <label class="form-label">Line height</label>
-            <input type="number" class="form-control" min="0" max="1000" x-model="item.line_height">
+            <input type="number" class="form-control" min="0" x-model="item.line_height">
         </div>
 
         <div class="col-4" title="Inter-letter spacing in 1024ths of a point.">
@@ -476,6 +469,35 @@
         </div>
     </div>
 
+    <div class="row mb-3 pb-3 border-bottom" title="Stroke width for the outlined text, uses SVG rendering">
+        <div class="col-2">
+            <label class="form-label">Outline Width</label>
+            <input type="number" class="form-control" min="0" x-model="item.stroke_width">
+        </div>
+
+        <div class="col-3" x-template="'color-input?id=stroke_color&name=Outline+Color&prefix=stroke_'"></div>
+
+        <div class="col-2">
+            <label class="form-label">Line Join</label><br>
+            <select class="form-select" x-model="item.stroke_linejoin">
+                <option selected value="">Choose...</option>
+                <option>miter</option>
+                <option>miter-clip</option>
+                <option>arcs</option>
+                <option>bevel</option>
+                <option>round</option>
+            </select>
+        </div>
+
+        <div class="col-2" title="Outlined text dilate filter radius">
+            <label class="form-label">Dilate Radius</label>
+            <input type="number" class="form-control" min="0" x-model="item.dilate_radius">
+        </div>
+
+        <div class="col-3" x-template="'color-input?id=dilate_color&name=Dilate+Color&prefix=dilate_'"></div>
+
+    </div>
+
 </template>
 
 <template id="image-input">
@@ -510,13 +532,13 @@
         <div class="me-3">
             <label class="form-label">
                 <span x-text="$params.name"></span>
-                <span x-text="item[$params.id]||'not set'" @click="item[$params.id]=undefined"></span>
             </label>
             <input type="color" class="form-control form-control-color" x-model="item[$params.id]">
+            <small x-text="item[$params.id]" title="Click to reset" @click="item[$params.id]=undefined"></small>
         </div>
 
         <div class="me-1">
-            <label class="form-label">Opacity % <span x-text="item[`${$params.prefix||''}alpha`]"></span></label>
+            <label class="form-label">Opacity% <span x-text="item[`${$params.prefix||''}alpha`]"></span></label>
             <input type="number" class="form-control" min="0" max="100" x-model="item[`${$params.prefix||''}alpha`]">
         </div>
     </div>

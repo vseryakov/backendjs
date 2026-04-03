@@ -1,6 +1,5 @@
 
-const { db, api, file, jobs, lib, logger } = require('backendjs');
-const { scraper } = require("./scraper");
+const { db, api, file, jobs, lib, logger, webscraper } = require('backendjs');
 
 const mod =
 
@@ -109,7 +108,7 @@ function job(options, callback)
         width: mod.width,
         height: mod.height,
     }
-    scraper(opts).then(() => {
+    webscraper.run(opts).then(() => {
         mod.update(opts, callback);
     }).catch((err) => {
         logger.trace("job:", mod.name, opts, err);

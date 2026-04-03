@@ -12,6 +12,15 @@ app.components.poster = class extends app.AlpineComponent {
             var profile = JSON.parse(localStorage.poster || "");
             if (profile?.items?.length) {
                 this.profiles.push(this.setProfile(profile))
+            } else {
+                profile = {
+                    defaults: {
+
+                    },
+                    items: [
+
+                    ]
+                }
             }
         } catch (e) {}
     }
