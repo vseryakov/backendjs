@@ -204,9 +204,7 @@
     
     <dt class="tag-description">Description:</dt>
     <dd class="tag-description"><ul class="dummy"><li><p>Clip (crop) an item's image buffer so it fits within the background item's bounds.</p>
-<p>Computes the effective placement of <code>item</code> on top of <code>bgitem</code> (using <code>_top</code>/<code>top</code> and <code>_left</code>/<code>left</code>,
-normalized via <code>this.toNumber()</code>), then crops the item's buffer if any part would overflow the
-background width/height. If the item is completely outside the background, it marks it as skipped.</p>
+<p>If the item is completely outside the background, it marks it as skipped.</p>
 <p>Side effects:</p>
 <ul>
 <li>May set <code>item._skip = 1</code> when the item is fully outside the background.</li>
@@ -218,7 +216,7 @@ background width/height. If the item is completely outside the background, it ma
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line394">line 394</a>
+        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line389">line 389</a>
     </li></ul></dd>
     
 
@@ -260,9 +258,6 @@ background width/height. If the item is completely outside the background, it ma
 
 
 
-
-    <h5 class="h5-this">This:</h5>
-    <ul><li>{*}</li></ul>
 
 
 
@@ -474,43 +469,6 @@ background width/height. If the item is completely outside the background, it ma
 
         <tr>
             
-                <td class="name"><code>_top</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-|
-
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>Top position (relative to background).</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
                 <td class="name"><code>top</code></td>
             
 
@@ -542,43 +500,6 @@ background width/height. If the item is completely outside the background, it ma
             
 
             <td class="description last"><p>Top position (relative to background).</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>_left</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-|
-
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>Left position (relative to background).</p></td>
         </tr>
 
     
@@ -888,7 +809,7 @@ background width/height. If the item is completely outside the background, it ma
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line1150">line 1150</a>
+        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line1240">line 1240</a>
     </li></ul></dd>
     
 
@@ -1357,7 +1278,7 @@ additional string property <code>id</code> can be used to describe or distinguis
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line1027">line 1027</a>
+        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line1117">line 1117</a>
     </li></ul></dd>
     
 
@@ -3637,7 +3558,7 @@ operation (default <code>dest-in</code> or <code>item.border_blend</code>).</p><
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line936">line 936</a>
+        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line1026">line 1026</a>
     </li></ul></dd>
     
 
@@ -4080,7 +4001,7 @@ luminance/contrast, then builds an SVG sized to <code>item.meta.width</code>/<co
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line491">line 491</a>
+        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line569">line 569</a>
     </li></ul></dd>
     
 
@@ -4551,7 +4472,7 @@ a new Sharp instance is returned.</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line876">line 876</a>
+        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line966">line 966</a>
     </li></ul></dd>
     
 
@@ -5399,7 +5320,7 @@ which are mapped to <code>&lt;tspan&gt;</code> elements.</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line648">line 648</a>
+        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line728">line 728</a>
     </li></ul></dd>
     
 
@@ -6472,6 +6393,44 @@ which are mapped to <code>&lt;tspan&gt;</code> elements.</li>
         </tr>
 
     
+
+        <tr>
+            
+                <td class="name"><code>wrap</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>a factor for text wrapping, using naive formula: <code>width/fontSize*item.wrap</code></p></td>
+        </tr>
+
+    
     </tbody>
 </table>
 
@@ -6751,7 +6710,7 @@ and passes sizing/font/layout options to <code>sharp({ text: ... })</code>.</p><
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line796">line 796</a>
+        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line879">line 879</a>
     </li></ul></dd>
     
 
@@ -9958,7 +9917,7 @@ with each subsequent image positioned directly below the previous one.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line449">line 449</a>
+        <a href="util_image.js.html">util/image.js</a>, <a href="util_image.js.html#line527">line 527</a>
     </li></ul></dd>
     
 

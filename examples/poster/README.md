@@ -35,6 +35,7 @@ Small Backend.js sample that renders social poster images server-side with `shar
   - web/man.jpg
   - web/bg.jpg
   - web/bg2.jpg
+  - web/bg3.jpg
 
 **License**
 BSD-3-Clause

@@ -459,15 +459,15 @@
             </select>
         </div>
 
-        <div class="col-4">
+        <div class="col-4" title="Pango text wrap option or a factor for SVG wrapping as in: width/fontSize*wrapFactor">
             <label class="form-label">Text Wrap</label><br>
-            <select class="form-select" x-model="item.wrap">
-                <option selected value="">Choose...</option>
+            <input class="form-control" list="wrap-list" x-model="item.wrap">
+            <datalist id="wrap-list">
                 <option>word</option>
                 <option>char</option>
                 <option>word-char</option>
                 <option>none</option>
-            </select>
+            </datalist>
         </div>
     </div>
 
@@ -477,7 +477,29 @@
             <input type="number" class="form-control" min="0" x-model="item.stroke_width">
         </div>
 
-        <div class="col-3" x-template="'color-input?id=stroke_color&name=Outline+Color&prefix=stroke_'"></div>
+        <div class="col-4" x-template="'color-input?id=stroke_color&name=Outline+Color&prefix=stroke_'"></div>
+
+        <div class="col-2" title="Outlined text dilate filter radius">
+            <label class="form-label">Dilate Radius</label>
+            <input type="number" class="form-control" min="0" x-model="item.dilate_radius">
+        </div>
+
+        <div class="col-4" x-template="'color-input?id=dilate_color&name=Dilate+Color&prefix=dilate_'"></div>
+
+    </div>
+
+    <div class="row mb-3 pb-3 border-bottom" title="Drop shadow width for the outlined text, uses SVG rendering">
+        <div class="col-2">
+            <label class="form-label">Shadow Width</label>
+            <input type="number" class="form-control" min="0" x-model="item.shadow_width">
+        </div>
+
+        <div class="col-4" x-template="'color-input?id=shadow_color&name=Shadow+Color&prefix=shadow_'"></div>
+
+        <div class="col-2" title="Shadow blur as stdDeviation">
+            <label class="form-label">Shadow Blur</label>
+            <input type="number" class="form-control" min="0" x-model="item.shadow_blur">
+        </div>
 
         <div class="col-2">
             <label class="form-label">Line Join</label><br>
@@ -489,28 +511,6 @@
                 <option>bevel</option>
                 <option>round</option>
             </select>
-        </div>
-
-        <div class="col-2" title="Outlined text dilate filter radius">
-            <label class="form-label">Dilate Radius</label>
-            <input type="number" class="form-control" min="0" x-model="item.dilate_radius">
-        </div>
-
-        <div class="col-3" x-template="'color-input?id=dilate_color&name=Dilate+Color&prefix=dilate_'"></div>
-
-    </div>
-
-    <div class="row mb-3 pb-3 border-bottom" title="Drop shadow width for the outlined text, uses SVG rendering">
-        <div class="col-3">
-            <label class="form-label">Shadow Width</label>
-            <input type="number" class="form-control" min="0" x-model="item.shadow_width">
-        </div>
-
-        <div class="col-4" x-template="'color-input?id=shadow_color&name=Shadow+Color&prefix=shadow_'"></div>
-
-        <div class="col-3" title="Shadow blur as stdDeviation">
-            <label class="form-label">Shadow Blur</label>
-            <input type="number" class="form-control" min="0" x-model="item.shadow_blur">
         </div>
 
     </div>

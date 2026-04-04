@@ -3752,7 +3752,7 @@ For lists this is a number of items in the list, if less or equal the list is ig
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line774">line 774</a>
+        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line787">line 787</a>
     </li></ul></dd>
     
 
@@ -12622,7 +12622,7 @@ This is an alternative to AhoCorasick if number of words is less than 50-70.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line889">line 889</a>
+        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line902">line 902</a>
     </li></ul></dd>
     
 
@@ -20044,7 +20044,7 @@ true</code></pre>
             </td>
             <td class="description last">
                 
-                <p>itself if the value is a number and not equal 0</p>
+                <p>itself if the value is a valid number or NaN</p>
                 
             </td>
         </tr>
@@ -24617,7 +24617,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line396">line 396</a>
+        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line409">line 409</a>
     </li></ul></dd>
     
 
@@ -24701,7 +24701,7 @@ does not handle over the midninght ranges, i.e. time1 is always must be greater 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line422">line 422</a>
+        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line435">line 435</a>
     </li></ul></dd>
     
 
@@ -29215,7 +29215,7 @@ The default separator is space and default quotes are both double and single quo
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line265">line 265</a>
+        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line278">line 278</a>
     </li></ul></dd>
     
 
@@ -33488,7 +33488,7 @@ child_process.spawn with callback being called after the process exited</p></li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line157">line 157</a>
+        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line170">line 170</a>
     </li></ul></dd>
     
 
@@ -34326,7 +34326,7 @@ child_process.spawn with callback being called after the process exited</p></li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line331">line 331</a>
+        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line344">line 344</a>
     </li></ul></dd>
     
 
@@ -50050,7 +50050,7 @@ lib.whilst(
 <li>wrap - max length, 80 default</li>
 <li>nl - newline character, \n default</li>
 <li>delim - delimiters for breaking the line, space is default</li>
-<li>over - percentage over 1 how long to go for delimiter</li>
+<li>over - length factor, &gt; 1 how long to go for delimiter forward, &lt; 1 how long to go backwards</li>
 <li>indent - prefix for every line wrapped</li>
 <li>quotes - a single quote symbol or list with opening and closing quotes</li>
 </ul></td>
@@ -50106,6 +50106,14 @@ lib.whilst(
     
 
 
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code># lib.wrap("very long text line to wrap forward", { wrap: 15, over: 1.5})
+'very long text line\nto wrap forward'
+# lib.wrap("very long text line to wrap backwards", { wrap: 15, over: 0.5 })
+'very long text\nline to wrap\nbackwards'</code></pre>
 
 
 
@@ -50474,7 +50482,7 @@ lib.whilst(
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line319">line 319</a>
+        <a href="lib_str.js.html">lib/str.js</a>, <a href="lib_str.js.html#line332">line 332</a>
     </li></ul></dd>
     
 
