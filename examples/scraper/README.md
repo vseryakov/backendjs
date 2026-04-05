@@ -2,6 +2,8 @@
 
 Small `backendjs` example app that queues website capture jobs, takes full-page screenshots with Puppeteer, and stores both image and HTML output.
 
+![Screenshot](screenshot.jpg)
+
 ## What It Does
 
 - Accepts URL submissions from a web UI.

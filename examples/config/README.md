@@ -1,6 +1,8 @@
 
 # Backend.js sample CRUD app with Alpine.js to manage config database
 
+![Screenshot](screenshot.jpg)
+
 ## Tech Stack
 
 - **Framework**: Backendjs

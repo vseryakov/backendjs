@@ -1,6 +1,6 @@
 
 const cluster = require("node:cluster");
-const { app, lib, jobs, cache } = require("../");
+const { app, lib, jobs, queue } = require("../");
 const { ainit, astop, testJob } = require("./utils");
 
 jobs.testJob = testJob;
@@ -24,8 +24,7 @@ describe("Jobs tests", async () => {
 
     before(async () => {
         await ainit({ jobs: 1, roles: process.env.BKJS_ROLES || "redis" })
-        await cache.adel(queueName, opts);
-        await cache.adel(queueName + "#", opts);
+        await queue.apurge(opts);
     });
 
     after(async () => {
