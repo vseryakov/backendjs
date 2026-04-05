@@ -2,6 +2,8 @@
 
 Small Backend.js sample that renders social poster images server-side with `sharp`, plus a browser UI to compose layers and send them to the API.
 
+![Screenshot](screenshot.jpg)
+
 **What’s here**
 
 - `modules/poster.js`: API endpoint that composes images and text overlays.

@@ -26,7 +26,7 @@ app.components.poster = class extends app.AlpineComponent {
                     { id: "bg", type: "image", file: "web/bg.jpg", filters: [ { name: "blur", value: "sigma:1" } ], width: 1376, height: 768 },
                     { id: "avatar", type: "image", file: "web/man.jpg", width: 0.3, border: 20, gravity: "east", radius: 2 },
                     { id: "logo", type: "image", gravity: "south" },
-                    { id: "title", type: "text", text: "<i>Nice weather</i>\n<b>outdoors</b>", gravity: "northwest", dpi: 650, font: "'Montserrat', sans-serif", stroke_width: 4, size: 0.17, shadow_width: 3 },
+                    { id: "title", type: "text", text: "Nice weather\noutdoors", gravity: "northwest", dpi: 650, font: "'Montserrat', sans-serif", stroke_width: 4, size: 0.17, shadow_width: 3 },
                     { id: "location", type: "text", text: "Aug 15, 2024\nVail, CO", gravity: "southwest", width: 600, gradient: 1 },
                     { id: "name", type: "text", text: "My Name\n<small><i>Freelancer</i></small>", gravity: "southeast", font: "'Futura', sans-serif", stroke_width: 4, dilate_radius: 5, dilate_alpha: 15, padding_right: 0.1 },
                 ],

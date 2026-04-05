@@ -23,10 +23,10 @@ Small `backendjs` example app that queues website capture jobs, takes full-page 
 ## Project Layout
 
 ```text
-modules/scraper.js   # API routes + job handler + Puppeteer logic
+modules/api.js       # API routes + job handler + Puppeteer logic
 web/index.html       # Main page shell
-web/list.html        # Screenshot list UI
-web/index.js         # Frontend component logic
+web/scraper.html     # Scraper UI
+web/scraper.js       # Frontend component logic
 bkjs.conf            # Runtime, queue, db, files config
 ```
 
@@ -36,6 +36,7 @@ bkjs.conf            # Runtime, queue, db, files config
 
    ```bash
    npm install
+   puppeteer browsers install chrome
    ```
 
 2. Create DB tables:
@@ -61,8 +62,8 @@ bkjs.conf            # Runtime, queue, db, files config
 - `POST /api/submit` - submit `{ "url": "https://example.com" }`
 - `PUT /api/resubmit/:id` - requeue a job
 - `DELETE /api/del/:id` - delete job and stored files
-- `GET /api/png/:id` - download screenshot
-- `GET /api/html/:id` - download saved HTML
+- `GET /api/asset/:id/page.png` - download screenshot
+- `GET /api/asset/:id/page.html` - download saved HTML
 
 ## To use DynamoDB
 
