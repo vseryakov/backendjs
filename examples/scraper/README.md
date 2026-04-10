@@ -9,8 +9,12 @@ Small `backendjs` example app that queues website capture jobs, takes full-page 
 - Accepts URL submissions from a web UI.
 - Creates async jobs in the `scraper` table.
 - Worker opens the page in Puppeteer, auto-scrolls, and captures:
-  - `*.png` full-page screenshot
-  - `*.html` rendered page source
+  - `full.png` full-page screenshot
+  - `page.png` first-page screenshot
+  - `page.html` rendered page source
+  - `page.txt` text only content
+  - `ld.json` - LD+JSON file
+  - `ld.ical` - iCal file
 - Pushes status updates over WebSocket (`pending` -> `done`/`error`).
 
 ## Stack

@@ -12,38 +12,44 @@ case "$BKJS_CMD" in
     echo "  nats-getcli - install NATS command line tool in $BKJS_HOME/bin"
     echo "  nats-run - run local NATS server installed in $BKJS_HOME/bin"
     echo "  nats-stop - stop local NATS server"
+    echo "  nats-config - create $BKJS_HOME/etc/nats.conf"
     ;;
 
   nats-get)
     platform=$(to_lower $PLATFORM)
-    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.9.15/nats-server-v2.9.15-$platform-$OS_ARCH.tar.gz
+    curl -L -o /tmp/nats.tgz https://github.com/nats-io/nats-server/releases/download/v2.12.6/nats-server-v2.12.6-$platform-$OS_ARCH.tar.gz
     tar --strip-components=1 -C /tmp -xzf /tmp/nats.tgz
     mv /tmp/nats-server $BKJS_HOME/bin
     rm -rf /tmp/nats.tgz
-    if [ ! -f $BKJS_HOME/etc/nats.conf ]; then
-        echo 'listen: localhost:4222' >> $BKJS_HOME/etc/nats.conf
-        echo 'http: localhost:8222' >> $BKJS_HOME/etc/nats.conf
-        echo 'syslog: true' >> $BKJS_HOME/etc/nats.conf
-        echo 'logtime: false' >> $BKJS_HOME/etc/nats.conf
-        echo "pid_file: $BKJS_HOME/var/nats.pid" >> $BKJS_HOME/etc/nats.conf
-        echo 'jetstream: {' >> $BKJS_HOME/etc/nats.conf
-        echo "  store_dir: \"$BKJS_HOME/var\"" >> $BKJS_HOME/etc/nats.conf
-        echo '  max_file: 1G' >> $BKJS_HOME/etc/nats.conf
-        echo '}' >> $BKJS_HOME/etc/nats.conf
-        echo 'cluster {' >> $BKJS_HOME/etc/nats.conf
-        echo '  name: nats' >> $BKJS_HOME/etc/nats.conf
-        echo '  #listen: 0.0.0.0:6222' >> $BKJS_HOME/etc/nats.conf
-        echo '  routes: [' >> $BKJS_HOME/etc/nats.conf
-        echo '    nats-route://nats:6222' >> $BKJS_HOME/etc/nats.conf
-        echo '  ]' >> $BKJS_HOME/etc/nats.conf
-        echo '}' >> $BKJS_HOME/etc/nats.conf
-    fi
+    [ ! -f $BKJS_HOME/etc/nats.conf ] && $BKJS_BIN nats-config
+    exit
+    ;;
+
+  nats-config)
+    conf=$BKJS_HOME/etc/nats.conf
+    echo 'server_name: nats' > $conf
+    echo 'listen: localhost:4222' >> $conf
+    echo 'http: localhost:8222' >> $conf
+    echo 'syslog: true' >> $conf
+    echo 'logtime: false' >> $conf
+    echo "pid_file: $BKJS_HOME/var/nats.pid" >> $conf
+    echo 'jetstream: {' >> $conf
+    echo "  store_dir: \"$BKJS_HOME/var\"" >> $conf
+    echo '  max_file: 1G' >> $conf
+    echo '}' >> $conf
+    echo 'cluster {' >> $conf
+    echo '  name: nats' >> $conf
+    echo '  #listen: 0.0.0.0:6222' >> $conf
+    echo '  routes: [' >> $conf
+    echo '    nats-route://nats:6222' >> $conf
+    echo '  ]' >> $conf
+    echo '}' >> $conf
     exit
     ;;
 
   nats-getcli)
     platform=$(to_lower $PLATFORM)
-    curl -L -o /tmp/nats.zip https://github.com/nats-io/natscli/releases/download/v0.0.35/nats-0.0.35-$platform-$OS_ARCH.zip
+    curl -L -o /tmp/nats.zip https://github.com/nats-io/natscli/releases/download/v0.3.2/nats-0.3.2-$platform-$OS_ARCH.zip
     unzip -j /tmp/nats.zip -d /tmp '*/nats'
     mv /tmp/nats $BKJS_HOME/bin
     rm -rf /tmp/nats.zip

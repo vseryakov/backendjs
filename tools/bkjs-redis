@@ -15,6 +15,7 @@ case "$BKJS_CMD" in
     echo "  redis-run [-memsize PERCENT] [-memmax SIZE] [-slave-host HOST] - run local Redis server, uses config file $BKJS_HOME/etc/redis.conf"
     echo "  redis-stop - stop local Redis server"
     echo "  redis-init-monit [-memsize PERCENT] [-memmax SIZE] - setup Redis server to be run on start and to be monitored (Linux only)"
+    echo "  redis-config - create $BKJS_HOME/etc/redis.local.conf"
     echo ""
     ;;
 

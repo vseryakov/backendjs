@@ -12,7 +12,7 @@ module.exports = {
     name: "poster",
 
     //
-    // Default hook to initialize our Express routes
+    // Default hook to initialize our Express routes, called automatically durng API initialization
     //
     configureWeb(options, callback)
     {

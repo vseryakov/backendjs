@@ -6,9 +6,9 @@ Small Backend.js sample that renders social poster images server-side with `shar
 
 **What’s here**
 
-- `modules/poster.js`: API endpoint that composes images and text overlays.
-- `web/index.html` + `web/index.js`: UI for adding layers and rendering via `/api/render`.
-- `web/vibe-poster.html`: standalone, browser-only poster creator (no backend).
+- `modules/api.js`: API endpoint that composes images and text overlays.
+- `web/index.html` + `web/index.js`: UI main page
+- `web/render.html` + `web/render.js`: UI Alpine component for rendering images via `/api/render`.
 
 **Run**
 
@@ -31,13 +31,9 @@ Small Backend.js sample that renders social poster images server-side with `shar
 
 - Backend.js is pulled from GitHub (`backendjs`).
 - The UI uses Bootstrap and Alpine;
-- The standalone `web/vibe-poster.html` uses CDN assets and is not related, just a vibe coded page for fun.
 - for testing images from the web folder can be used, just specify in the file path:
   - web/woman.jpg
   - web/man.jpg
   - web/bg.jpg
   - web/bg2.jpg
   - web/bg3.jpg
-
-**License**
-BSD-3-Clause
