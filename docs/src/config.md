@@ -909,7 +909,7 @@ See {@link module:events}
 ##### Type: map   
 ##### Example:
 ```
--events-routing-options-sqs groupKey:id
+-events-routing-options-nats groupName:group
 ```
 
 ### **events-shutdown-timeout**

@@ -19,7 +19,6 @@ describe("Jobs tests", async () => {
     var queueName = lib.split(process.env.BKJS_ROLES)[0] || "redis";
     var opts = {
         queueName,
-        cacheName: queueName
     };
 
     before(async () => {
