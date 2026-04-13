@@ -2,6 +2,8 @@
 app.components.scraper = class extends app.AlpineComponent {
     list = [];
     next_token = "";
+    defaults = {}
+    editing;
 
     onCreate() {
         this.refresh()
@@ -25,7 +27,7 @@ app.components.scraper = class extends app.AlpineComponent {
 
     submit() {
         var popup = app.bootpopup({
-            title: "Website URFL",
+            title: "Website URL",
             alert: 1,
             debug: 1,
             content: [
@@ -43,11 +45,25 @@ app.components.scraper = class extends app.AlpineComponent {
     }
 
     resubmit(body) {
-        app.bootpopup.confirm("Re-scraper this site?", async (ok) => {
-            if (!ok) return;
-            const { err } = await app.fetch('/api/resubmit/' + body.id, { method: "PUT" });
-            if (err) app.showToast("error", err);
-        });
+        var popup = app.bootpopup({
+            title: "Resubmit",
+            alert: 1,
+            debug: 1,
+            content: [
+                { radio: { name: "mode", label: "Everything", value: "all" } },
+                { radio: { name: "mode", label: "Web Scrape", value: "scrape" } },
+                { radio: { name: "mode", label: "AI Scraper", value: "describe" } },
+                { radio: { name: "mode", label: "Generate Variants", value: "variants" } },
+                { radio: { name: "mode", label: "Generate Samples", value: "samples" } },
+            ],
+            buttons: ["cancel", "Submit"],
+            Submit: async (d) => {
+                if (!d.mode) return popup.showAlert("Select mode");
+                if (d.mode == "all") delete d.mode;
+                const { err } = await app.fetch('/api/resubmit/' + body.id, { post: 1, body: d });
+                if (err) return popup.showAlert(err);
+            }
+        })
     }
 
     del(row) {
@@ -57,6 +73,36 @@ app.components.scraper = class extends app.AlpineComponent {
             if (err) return app.showToast("error", err);
             setTimeout(this.refresh.bind(this, 1), 500);
         });
+    }
+
+    edit(row, profile) {
+        app.bootpopup({
+            title: `Profile: ${profile.name}`,
+            size: "xxl",
+            scroll: 1,
+            data: { id: row.id, name: profile.name, items: profile.items, defaults: this.defaults },
+            content: [
+                { div: { "x-template": `'/render.html?id=${row.id}&src=/api/asset/${row.id}/profile-${profile.name}.png'` } },
+            ],
+            buttons: ["Render", "JSON", "close"],
+            class_Render: "btn btn-primary",
+            title_JSON: "Download profile rendering JSON",
+            Render: () => {
+                app.emit(app.event, "render");
+                return null;
+            },
+            JSON: () => {
+                this.download(profile);
+                return null;
+            }
+        })
+    }
+
+    download(profile) {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([ JSON.stringify(profile) ], { type: "application/json" }))
+        link.download = profile.name.replace(/[^a-z0-9_.-]/ig, "-") + '-poster.json';
+        setTimeout(() => { link.click() }, 100);
     }
 
     async show(row, file) {

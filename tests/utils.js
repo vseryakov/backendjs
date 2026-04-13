@@ -1,5 +1,5 @@
 
-const { api, app, db, ipc, jobs, lib, cache, queue, logger, modules } = require("../");
+const { api, app, ipc, jobs, events, lib, cache, queue, logger, modules } = require("../");
 const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
@@ -44,6 +44,10 @@ function initServices(options)
         } else {
             jobs.initWorker(options);
         }
+    }
+
+    if (options.events) {
+        events.initWorker(options);
     }
 
     if (options.worker) {
@@ -178,6 +182,11 @@ exports.testJob = function(options, callback)
     logger.logger("info", "testJob:", "start", options);
     if (options.dead) return;
 
+    if (options.err_expires > 0 && Date.now() > options.err_expires) {
+        logger.info("testJob:", "err expired", options);
+        delete options.err;
+    }
+
     var timer, interval, done;
 
     if (options.cancel) {
@@ -236,5 +245,12 @@ exports.testJob = function(options, callback)
         logger.info("testJob:", "end", options);
         callback(options.err);
     }
+}
+
+exports.testEvent = function(event, callback)
+{
+    logger.logger("info", "testEvent:", event);
+    fs.appendFileSync(event.data.file, `${Date.now()} ${event.received} ${event.data.data}\n`);
+    callback(event.data.err);
 }
 

@@ -1,4 +1,4 @@
-# Kanban Board - Alpine.js Implementation
+# Kanban Board - Alpine.js Implementation (Work in progress)
 
 A full-featured Kanban board application built with Alpine.js and Alpinejs-app,
 featuring drag-and-drop, real-time updates, and SQLite/PostgreSQL persistence.

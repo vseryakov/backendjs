@@ -872,12 +872,16 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
  Pool alias to refer by an alternative name   
 ## events
 See {@link module:events}
-### **events-worker-queue-(.+)**
- Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is `queue#channel@consumer`   
-##### Type: list   
+### **events-cap-(.+)**
+ Capability parameters   
+##### Type: int   
+### **events-worker-queue**
+ Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is `queue@subject#group`   
+##### Type: map   
+##### Default: {}   
 ##### Example:
 ```
--events-worker-queue-ticket ticket.processEvents, -events-worker-queue-ticket#inbox@staff ticket.processInboxEvents, -events-worker-queue-ticket@staff ticket.processStaffEvents
+events-worker-queue = ticket:ticket.processEvents, ticket@inbox#staff: ticket.processInboxEvents, ticket#staff: ticket.processStaffEvents
 ```
 
 ### **events-worker-options-(.+)**
@@ -901,7 +905,7 @@ See {@link module:events}
 ##### Default: {}   
 ##### Example:
 ```
--events-routing redis:local.+,nats:.+,sqs:billing.+
+-events-routing redis:local.+, nats:.+, sqs:billing.+
 ```
 
 ### **events-routing-options-(.+)**

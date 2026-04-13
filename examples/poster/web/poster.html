@@ -1,9 +1,11 @@
 
-<div class="ms-3">
-    <div class="m-3 d-flex justify-content-between align-items-center">
-        <h1 class="mb-3">Create a Poster</h1>
+<div class="fixed-top bg-light">
+    <div class="m-1 d-flex justify-content-between align-items-center">
+        <h1 class="mx-3 mb-3">Create a Poster</h1>
 
         <div class="d-flex flex-nowrap">
+            <button class="btn btn-primary me-2" @click.stop.prevent="render"><i class="bi bi-image"></i> Render</button>
+
             <div class="dropdown me-2" x-show="profiles.length">
                 <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     Select poster...
@@ -22,7 +24,9 @@
             <button class="btn btn-outline-dark me-2" @click.stop.prevent="save"><i class="bi bi-sd-card"></i> Save Draft</button>
         </div>
     </div>
+</div>
 
+<div class="mt-5 pt-5 ms-3">
     <div class="row mb-3">
         <div class="col-3">
             <label class="form-label fw-bolder">Profile</label>

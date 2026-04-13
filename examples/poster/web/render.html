@@ -9,7 +9,7 @@
     }
 </style>
 
-<div class="p-1">
+<div class="p-0">
 
     <div class="text-muted small mb-3">
         - First image is the backgroud, it must be large enough to fit other elements.<br>
@@ -29,7 +29,6 @@
 
                 <div class="mb-3">
                     <button class="btn btn-outline-dark" @click.stop.prevent="addItem"><i class="bi bi-plus"></i> Add</button>
-                    <button class="btn btn-primary" @click.stop.prevent="render"><i class="bi bi-image"></i> Render</button>
                 </div>
             </form>
         </div>
@@ -44,7 +43,7 @@
                 </div>
 
                 <template x-if="_item">
-                    <div class="card-body w-100 h-100 overflow-y-auto" style="height: 75vh; max-height: 75vh">
+                    <div class="card-body w-100 h-100 overflow-y-auto" style1="height: 75vh; max-height: 75vh">
                        <form x-data="{item:_item}" x-template="'element-form'"></form>
                     </div>
                 </template>

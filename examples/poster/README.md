@@ -7,7 +7,8 @@ Small Backend.js sample that renders social poster images server-side with `shar
 **What’s here**
 
 - `modules/api.js`: API endpoint that composes images and text overlays.
-- `web/index.html` + `web/index.js`: UI main page
+- `web/index.html`: UI main page
+- `web/poster.html` + `web/poster.js`: Alpine component for listing
 - `web/render.html` + `web/render.js`: UI Alpine component for rendering images via `/api/render`.
 
 **Run**

@@ -2122,55 +2122,6 @@
   /**
    * Bootpopup instance returned by `bootpopup(options)` when a new popup is created.
    *
-   * See https://github.com/vseryakov/bootpopup for more documentation.
-   *
-   */
-  /**
-   * Configuration object for a single element in a Bootpopup form/layout.
-   *
-   * “Special element properties” are parsed by Bootpopup to create DOM, apply Bootstrap
-   * classes, add labels/groups, input-group addons, validation feedback, etc.
-   *
-   * @typedef {Object} BootpopupElement
-   *
-   * @property {string} [class]   Classes for the main element. If empty/omitted, `form-control` is used.
-   * @property {string} [text]  Sets element's `textContent`.
-   * @property {string} [html]   HTML to be parsed into DOM and appended (after sanitizing, if available).
-   * @property {boolean} [autofocus]  Focus this element when the popup is shown.
-   * @property {boolean} [nosanitize]  Skip sanitizer for `label` or `html` (if sanitizer is installed).
-   * @property {boolean} [floating]   Adds `form-floating` to the group to enable floating labels.
-   * @property {boolean} [checked]   When `true`, makes checkbox/radio selected.
-   * @property {boolean} [switch]   When `true`, converts a checkbox into a toggle switch style.
-   * @property {boolean} [inline]   When `true`, adds `form-check-inline` (checkbox/radio inline style).
-   * @property {boolean} [reverse]   When `true`, adds `form-check-reverse` (checkbox style).
-   * @property {string} [input_label]   Checkbox/radio specific label instead of the element's main label.
-   * @property {string} [class_input_btn]   Converts checkbox into a button style. Must be one of Bootstrap `btn-*` classes.
-   * @property {string} [class_check]   Adds a custom class to the checkbox/radio input element.
-   * @property {string} [class_label]   Extra classes for the label element (added to default `form-label`).
-   * @property {Object<string, any>} [attrs_label]   Attributes for the label element.
-   * @property {number|string} [size_label]  Column width for the label (Bootstrap grid sizing).
-   * @property {number|string} [size_input]  Column width for the input (Bootstrap grid sizing).
-   * @property {string} [class_group]  Classes for the group wrapper div.
-   *   Example: `"row my-3 py-1 border-bottom"`.
-   * @property {Object<string, any>} [attrs_group] Attributes for the group wrapper div.
-   *   Example: `{ id: "group1" }`.
-   * @property {string} [class_prefix]  Class for a prefix span inserted as the first element in the group.
-   * @property {string} [text_prefix]  Text for a prefix span inserted as the first element in the group.
-   * @property {string} [class_suffix]  Class for a suffix element inserted as the last element in the group.
-   * @property {string} [text_suffix]  Text for a suffix element inserted as the last element in the group.
-   * @property {string} [text_valid]  Adds a “valid feedback” div (used with `validate()`).
-   * @property {string} [text_invalid]  Adds an “invalid feedback” div (used with `validate()`).
-   * @property {string} [class_append]   Appends a span to the element (mostly for non-input entries) with this class.
-   * @property {string} [text_append]   Appends a span to the element (mostly for non-input entries) with this text.
-   * @property {string} [text_input_button]   Adds a button tied to the input to perform an action.
-   *   The button gets `data-formid` and `data-inputid` attributes.
-   * @property {string} [class_input_button]   Button style class for the input button.
-   * @property {string} [class_input_group]   Class for the input-group wrapper when using input buttons / dropdowns.
-   * @property {Object<string, any>} [attrs_input_button]  Attributes for the input button (often includes `{ click: (ev) => {} }`).
-   * @property {Array<string|{name:string, value:any}>} [list_input_button]  Adds a dropdown button with options; selected value is placed into an input.
-   * @property {Array<string|{name:string, value:any}>} [list_input_tags]  Same as `list_input_button`, but also adds selected values as tags in the list.
-   * @property {string} [class_list_button]  Class for the dropdown list button.
-   * @property {string} [class_input_menu]  Class for the dropdown menu.
    */
   /**
    * Bootpopup creation options.
@@ -2188,7 +2139,8 @@
    * @property {boolean} [scroll=true] Apply `modal-dialog-scrollable` if true.
    * @property {boolean} [center=false] Apply `modal-dialog-centered` if true.
    * @property {boolean} [horizontal=false] Enable/disable horizontal layout in the form element.
-   * @property {("sm"|"lg"|"xl"|"")} [size=""] Size of the modal window.
+   * @property {("sm"|"lg"|"xl"|"")} [size="md"] Size of the modal window, a class name in form `modal={size}`, must implement
+   *   `.modal-dialog.modal-{size}` and `.modal-{size} .modal-content` classes to handle width and height (watch spaces)
    * @property {string} [size_label="col-sm-4"] Classes applied to labels in the form.
    * @property {string} [size_input="col-sm-8"] Classes applied to inputs wrapper in the form.
    * @property {("close"|"ok"|"cancel"|"yes"|"no")} [onsubmit="close"] Default action when form is submitted (overridden by `submit` callback).
@@ -2240,6 +2192,55 @@
    * @property {string} [class_list_button="btn btn-outline-secondary dropdown-toggle"] Default class for `list_input_button` button.
    * @property {string} [class_input_menu="dropdown-menu bg-light"] Default class for `list_input_button` dropdown.
    * @property {string} [list_input_mh="25vh"] Default max height of the dropdown in `list_input_button`.
+   * @property {object} [data] - an object to be used as Alpine context, injected as immediate "x-data", it is converted into Proxy using
+   *  `Alpine.reactive` and that proxy can be accessed as popup property `xdata`.
+   */
+  /**
+   * Configuration object for a single element in a Bootpopup form/layout.
+   *
+   * “Special element properties” are parsed by Bootpopup to create DOM, apply Bootstrap
+   * classes, add labels/groups, input-group addons, validation feedback, etc.
+   *
+   * @typedef {Object} BootpopupElement
+   *
+   * @property {string} [class]   Classes for the main element. If empty/omitted, `form-control` is used.
+   * @property {string} [text]  Sets element's `textContent`.
+   * @property {string} [html]   HTML to be parsed into DOM and appended (after sanitizing, if available).
+   * @property {boolean} [autofocus]  Focus this element when the popup is shown.
+   * @property {boolean} [nosanitize]  Skip sanitizer for `label` or `html` (if sanitizer is installed).
+   * @property {boolean} [floating]   Adds `form-floating` to the group to enable floating labels.
+   * @property {boolean} [checked]   When `true`, makes checkbox/radio selected.
+   * @property {boolean} [switch]   When `true`, converts a checkbox into a toggle switch style.
+   * @property {boolean} [inline]   When `true`, adds `form-check-inline` (checkbox/radio inline style).
+   * @property {boolean} [reverse]   When `true`, adds `form-check-reverse` (checkbox style).
+   * @property {string} [input_label]   Checkbox/radio specific label instead of the element's main label.
+   * @property {string} [class_input_btn]   Converts checkbox into a button style. Must be one of Bootstrap `btn-*` classes.
+   * @property {string} [class_check]   Adds a custom class to the checkbox/radio input element.
+   * @property {string} [class_label]   Extra classes for the label element (added to default `form-label`).
+   * @property {Object<string, any>} [attrs_label]   Attributes for the label element.
+   * @property {number|string} [size_label]  Column width for the label (Bootstrap grid sizing).
+   * @property {number|string} [size_input]  Column width for the input (Bootstrap grid sizing).
+   * @property {string} [class_group]  Classes for the group wrapper div.
+   *   Example: `"row my-3 py-1 border-bottom"`.
+   * @property {Object<string, any>} [attrs_group] Attributes for the group wrapper div.
+   *   Example: `{ id: "group1" }`.
+   * @property {string} [class_prefix]  Class for a prefix span inserted as the first element in the group.
+   * @property {string} [text_prefix]  Text for a prefix span inserted as the first element in the group.
+   * @property {string} [class_suffix]  Class for a suffix element inserted as the last element in the group.
+   * @property {string} [text_suffix]  Text for a suffix element inserted as the last element in the group.
+   * @property {string} [text_valid]  Adds a “valid feedback” div (used with `validate()`).
+   * @property {string} [text_invalid]  Adds an “invalid feedback” div (used with `validate()`).
+   * @property {string} [class_append]   Appends a span to the element (mostly for non-input entries) with this class.
+   * @property {string} [text_append]   Appends a span to the element (mostly for non-input entries) with this text.
+   * @property {string} [text_input_button]   Adds a button tied to the input to perform an action.
+   *   The button gets `data-formid` and `data-inputid` attributes.
+   * @property {string} [class_input_button]   Button style class for the input button.
+   * @property {string} [class_input_group]   Class for the input-group wrapper when using input buttons / dropdowns.
+   * @property {Object<string, any>} [attrs_input_button]  Attributes for the input button (often includes `{ click: (ev) => {} }`).
+   * @property {Array<string|{name:string, value:any}>} [list_input_button]  Adds a dropdown button with options; selected value is placed into an input.
+   * @property {Array<string|{name:string, value:any}>} [list_input_tags]  Same as `list_input_button`, but also adds selected values as tags in the list.
+   * @property {string} [class_list_button]  Class for the dropdown list button.
+   * @property {string} [class_input_menu]  Class for the dropdown menu.
    */
   var inputs = [
     "text",
@@ -2275,7 +2276,7 @@
    * All the following Bootpopup properties are native HTML elements:
    *
    * - `modal` - entire window, including the fade background. You can use this property in the same way as
-   *  described in [Bootstrap Modals Usage](https://getbootstrap.com/docs/javascript/#modals-usage)
+   *   described in [Bootstrap Modals Usage](https://getbootstrap.com/docs/javascript/#modals-usage)
    * - `dialog` - entire window, without the background
    * - `content` - content of the dialog
    * - `header` - header of the dialog
@@ -2448,15 +2449,15 @@
    *
    * ### Prompt:
    *
-   *   ```javascript
-   *   bootpopup.prompt("Name", (value) => {
-   *     alert(value);
-   *   });
-   *   ```
+   * ```javascript
+   *  bootpopup.prompt("Name", (value) => {
+   *    alert(value);
+   *  });
+   * ```
    *
    * ### Customized prompt:
    *
-   *   ```javascript
+   * ```javascript
    *   bootpopup({
    *      title: "Add image",
    *       content: [
@@ -2469,6 +2470,7 @@
    *       ok: (data, list) => { console.log(data, list) },
    *       complete: () => { alert("complete") },
    *   });
+   * ```
    *
    * ### Validation:
    *
@@ -2485,6 +2487,19 @@
    *         if (!data.name) return popup.showAlert("name is required")
    *     },
    * });
+   * ```
+   *
+   * ### Alpine reactivity
+   *
+   * ```javascript
+   *  app.bootpopup({
+   *       title: `Profile`,
+   *       data: { quiet: true, email: "" },
+   *       content: [
+   *           { checkbox: { name: "quiet", label: " ", input_label: "Quiet", value: "1", switch: 1, "x-model": "quiet" } },
+   *           { input: { name: "email", label: "Email(s)", placeholder: "Email, email,....", "x-model": "email", attrs_group: { "x-show": "!quiet" } } },
+   *       ],
+   *   })
    * ```
    *
    * See more [Examples](https://vseryakov.github.io/bootpopup/index.html).
@@ -2735,6 +2750,7 @@
         const btn = $elem("button", {
           type: "button",
           class: `${this.options.class_buttons} ${this.options["class_" + name] || this.options.class_button}`,
+          title: this.options["title_" + name],
           "data-callback": name,
           "data-formid": "#" + this.formid,
           click: (event) => {

@@ -1,8 +1,7 @@
-# Screenshot Example
+# Events scraper and poster generation
 
-Small `backendjs` example app that queues website capture jobs, takes full-page screenshots with Puppeteer, and stores both image and HTML output.
-
-![Screenshot](screenshot.jpg)
+![Screenshot1](shreenshot.jpg)
+![Screenshot2](shreenshot2.jpg)
 
 ## What It Does
 
@@ -15,7 +14,10 @@ Small `backendjs` example app that queues website capture jobs, takes full-page 
   - `page.txt` text only content
   - `ld.json` - LD+JSON file
   - `ld.ical` - iCal file
+  - `bg-[1...5].jpg` Gemeni generated backgrounds
 - Pushes status updates over WebSocket (`pending` -> `done`/`error`).
+- Generate background images from AI produced descriptions
+- Generate poster examples for different profiles/layouts
 
 ## Stack
 
@@ -23,16 +25,18 @@ Small `backendjs` example app that queues website capture jobs, takes full-page 
 - Browser automation: Puppeteer
 - UI: Alpine.js + Bootstrap
 - Default DB: SQLite (`var/scraper`)
-- Queue: Redis (`queue-default=redis://`)
 - File storage: local `var/`
 
 ## Project Layout
 
 ```text
 modules/api.js       # API routes + job handler + Puppeteer logic
+modules/gemeni.js    # Gemeni API helper
 web/index.html       # Main page shell
 web/scraper.html     # Scraper UI
 web/scraper.js       # Frontend component logic
+web/render.html      # Alpine template for rendering posters
+web/render.js        # Alpine component logic for rendering images via `/api/render`.
 bkjs.conf            # Runtime, queue, db, files config
 ```
 
@@ -51,6 +55,10 @@ bkjs.conf            # Runtime, queue, db, files config
    npm run initdb
    ```
 
+3. Create a config file $HOME/.bkjs.conf with Gemeni key
+
+   gemeni-apikey=A........
+
 3. Start server + worker:
 
    ```bash
@@ -59,8 +67,7 @@ bkjs.conf            # Runtime, queue, db, files config
 
 4. Open:
 
-   - App: `http://localhost:8000/app`
-   - API list endpoint: `http://localhost:8000/api/list`
+   - App: `http://localhost:8000/`
 
 ## API Endpoints
 
@@ -70,22 +77,12 @@ bkjs.conf            # Runtime, queue, db, files config
 - `DELETE /api/del/:id` - delete job and stored files
 - `GET /api/asset/:id/page.png` - download screenshot
 - `GET /api/asset/:id/page.html` - download saved HTML
-
-## To use DynamoDB
-
-```bash
-npm run initdb -- -app-roles dynamodb
-npm run start -- -app-roles dynamodb
-```
-
-## To use PostgreSQL
-
-```bash
-npm run initdb -- -app-roles pg
-npm run start -- -app-roles pg
-```
+- `PUT /api/render/:id` - render a poster with different parameters
 
 ## Notes
 
 - This example currently exposes `/api/*` as public in `bkjs.conf`.
-- `node_modules` is symlinked from a parent directory in this workspace.
+
+## Author
+  Vlad Seryakov
+

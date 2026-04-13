@@ -97,6 +97,28 @@ describe("Jobs tests", async () => {
 
     });
 
+    it("retry after visibilityTimeout", async () => {
+        const file = "/tmp/job6.test";
+        lib.unlinkSync(file);
+
+        const uopts = { ...opts, visibilityTimeout: 500, uniqueKey: "testRetry" }
+
+        jobs.submitJob({ job: { "jobs.testJob": { file, err: { status: 600 }, err_expires: Date.now() + 300, data: "retry" } } }, uopts);
+        await lib.sleep(200)
+
+        var data = lib.readFileSync(file);
+        assert.match(data, /retry/);
+
+        await lib.sleep(1000)
+
+        data = lib.readFileSync(file).split("\n");
+        assert.match(data[0], /retry/);
+        assert.match(data[1], /retry/);
+        assert.ok(lib.toNumber(data[1]) - lib.toNumber(data[0]) >= 500, data)
+
+    });
+
+
 });
 
 

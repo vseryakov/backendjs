@@ -1,12 +1,12 @@
 <style>
 .modal-dialog.modal-xxl {
-    width: 90% !important;
-    min-width: 90% !important;
+    width: 95% !important;
+    min-width: 95% !important;
 }
 
 .modal-xxl .modal-content {
-    height: 90vh !important;
-    min-height: 90vh !important;
+    height: 95vh !important;
+    min-height: 95vh !important;
 }
 </style>
 
@@ -69,12 +69,20 @@
         <div class="col-1 text-muted text-center" x-template="'sidebar'"></div>
     </div>
 
+    <div x-template="row.profiles&&row._show?'profiles':''"></div>
+
 </template>
 
 <template id=tabbar>
     <li class="nav-item">
         <a class="nav-link active" :id="'t1'+row.id" data-bs-toggle="tab" :href="'#p1'+row.id" role="tab" :aria-controls="'t1'+row.id" aria-selected="true">
             Meta
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.describe?.name">
+        <a class="nav-link" id="'t2'+row.id" data-bs-toggle="tab" :href="'#p2'+row.id" role="tab" :aria-controls="'t2'+row.id" aria-selected="true">
+            AI
         </a>
     </li>
 
@@ -172,5 +180,16 @@
     <div class="m-3" role="button" @click="row._show=!row._show" title="Show/hide images"><i class="bi bi-image"></i></div>
     <div class="m-3" role="button" @click="resubmit(row)" title="Resubmit"><i class="bi bi-arrow-clockwise"></i></div>
     <div class="m-3" role="button" @click="del(row)" title="Delete"><i class="bi bi-trash"></i></div>
+</template>
+
+
+<template id=profiles>
+    <div class="d-flex flex-wrap">
+        <template x-for="profile in row.profiles">
+            <div class="p-3 m-2" @click="edit(row, profile)">
+                <img :src="'/api/asset/'+row.id+'/profile-'+profile.name+'.png?'+Date.now()" :title="profile.name" style="width:300px">
+            </div>
+        </template>
+    </div>
 </template>
 

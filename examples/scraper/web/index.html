@@ -10,7 +10,7 @@
 </head>
 
 <body>
-    <div class="container h-100 w-100">
+    <div class="h-100 w-100">
         <div class="alerts"></div>
         <div id="app-main"></div>
     </div>
@@ -21,8 +21,9 @@
     <script src="/js/alpinejs.js"></script>
 
     <script src="/scraper.js"></script>
+    <script src="/render.js"></script>
 </body>
 
 <template id=index>
-    <div class="container" x-template="'/scraper.html'"></div>
+    <div x-template="'/scraper.html'"></div>
 </template>

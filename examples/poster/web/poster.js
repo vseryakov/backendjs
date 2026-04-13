@@ -56,6 +56,10 @@ app.components.poster = class extends app.AlpineComponent {
         setTimeout(() => { link.click() }, 100);
     }
 
+    render() {
+        app.emit(app.event, "render")
+    }
+
     load() {
         const file = app.$elem('input', {
             type: "file",
