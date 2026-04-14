@@ -1,13 +1,46 @@
 # Events scraper and poster generation
 
-![Screenshot1](shreenshot.jpg)
-![Screenshot2](shreenshot2.jpg)
+![Screenshot1](screenshot.jpg)
+![Screenshot2](screenshot2.jpg)
 
-## What It Does
+## Summary
 
-- Accepts URL submissions from a web UI.
-- Creates async jobs in the `scraper` table.
-- Worker opens the page in Puppeteer, auto-scrolls, and captures:
+This is a demonstration of backendjs modules `image` and `webscraper`:
+
+- scrape an event website, collect details from meta data and screenshots using Puppeteer
+- feed the screenshot to Gemeni to describe in specific and abstract terms
+- feed AI descriptions to Nano Banana to create several backgrounds variants
+- generate posters using these backgrounds with several different layouts and fonts
+
+Poster layouts are saved in the database for each profile, can be easily used by the
+`image.compose()` to create an actual poster image with real avatar and texts.
+
+An example of JSON layout with items to be placed onto background using gravity/padding as the main placement strategy.
+
+```js
+{
+    name: "layout1",
+    defaults: {
+        padding: 0.05,
+        "text.size": 0.07,
+        "text.font": "'Roboto Slab', serif",
+        "avatar.radius": 2,
+        "avatar.width": 0.25,
+        "title.width": 0.7,
+    },
+    items: [
+        { id: "bg", type: "image" },
+        { id: "logo", type: "image", gravity: "northeast" },
+        { id: "avatar", type: "image", gravity: "east" },
+        { id: "title", type: "text", gravity: "northwest" },
+        { id: "location", type: "text", gravity: "southwest" },
+        { id: "name", type: "text", gravity: "southeast" }
+    ]
+}
+```
+
+## Assets saved for each website:
+
   - `full.png` full-page screenshot
   - `page.png` first-page screenshot
   - `page.html` rendered page source
@@ -15,16 +48,14 @@
   - `ld.json` - LD+JSON file
   - `ld.ical` - iCal file
   - `bg-[1...5].jpg` Gemeni generated backgrounds
-- Pushes status updates over WebSocket (`pending` -> `done`/`error`).
-- Generate background images from AI produced descriptions
-- Generate poster examples for different profiles/layouts
 
 ## Stack
 
 - Backend: Node.js + `backendjs`
 - Browser automation: Puppeteer
 - UI: Alpine.js + Bootstrap
-- Default DB: SQLite (`var/scraper`)
+- Job queue using DB module (`queue/db.js`)
+- Default DB: SQLite (`var/scraper.db`)
 - File storage: local `var/`
 
 ## Project Layout
