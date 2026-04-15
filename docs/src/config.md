@@ -876,12 +876,12 @@ See {@link module:events}
  Capability parameters   
 ##### Type: int   
 ### **events-worker-queue**
- Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is `queue@subject#group`   
+ Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is `queue.subject#group`   
 ##### Type: map   
 ##### Default: {}   
 ##### Example:
 ```
-events-worker-queue = ticket:ticket.processEvents, ticket@inbox#staff: ticket.processInboxEvents, ticket#staff: ticket.processStaffEvents
+events-worker-queue = ticket:ticket.processEvents, ticket.inbox#staff: ticket.processInboxEvents, ticket#staff: ticket.processStaffEvents
 ```
 
 ### **events-worker-options-(.+)**
@@ -895,6 +895,7 @@ events-worker-queue = ticket:ticket.processEvents, ticket@inbox#staff: ticket.pr
 ### **events-worker-delay**
  Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start   
 ##### Type: int   
+##### Default: 50   
 ### **events-max-runtime**
  Max number of seconds an event processing can run before being killed   
 ##### Type: int   

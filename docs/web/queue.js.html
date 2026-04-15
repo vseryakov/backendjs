@@ -260,7 +260,7 @@ queue.getClient = queue.getQueue = function(options)
             }
         }
         if (typeof name == "string") {
-            var h = name.indexOf("@");
+            var h = name.indexOf(".");
             if (h > -1) name = name.substr(0, h);
             h = name.indexOf("#");
             if (h > -1) name = name.substr(0, h);

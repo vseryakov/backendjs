@@ -112,6 +112,7 @@ class NatsQueueClient extends QueueClient {
         nats.connect(this.options).then((client) => {
             this.client = client;
             this.emit("ready");
+            console.log(this._pending)
             for (const client of this._pending) {
                 this[client[0]].apply(this, client.slice(1));
             }
@@ -189,7 +190,7 @@ class NatsQueueClient extends QueueClient {
 
     listen(options, callback) {
         if (!this.client) {
-            return this._pending.push(["subscribeQueue", options, callback]);
+            return this._pending.push(["listen", options, callback]);
         }
         if (!this.js) {
             this.js = this.client.jetstream();

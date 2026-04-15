@@ -849,11 +849,11 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <p>Capability parameters</p>
 <h5 id="type%3A-int-25">Type: int</h5>
 <h3 id="events-worker-queue"><strong>events-worker-queue</strong></h3>
-<p>Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is <code>queue@subject#group</code></p>
+<p>Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is <code>queue.subject#group</code></p>
 <h5 id="type%3A-map-14">Type: map</h5>
 <h5 id="default%3A-%7B%7D-3">Default: {}</h5>
 <h5 id="example%3A-38">Example:</h5>
-<pre class="prettyprint source"><code>events-worker-queue = ticket:ticket.processEvents, ticket@inbox#staff: ticket.processInboxEvents, ticket#staff: ticket.processStaffEvents
+<pre class="prettyprint source"><code>events-worker-queue = ticket:ticket.processEvents, ticket.inbox#staff: ticket.processInboxEvents, ticket#staff: ticket.processStaffEvents
 </code></pre>
 <h3 id="events-worker-options-(.%2B)"><strong>events-worker-options-(.+)</strong></h3>
 <p>Custom parameters by queue name, passed to <code>queue.listen</code> on worker start, useful with channels</p>
@@ -864,6 +864,7 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="events-worker-delay"><strong>events-worker-delay</strong></h3>
 <p>Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start</p>
 <h5 id="type%3A-int-26">Type: int</h5>
+<h5 id="default%3A-50">Default: 50</h5>
 <h3 id="events-max-runtime"><strong>events-max-runtime</strong></h3>
 <p>Max number of seconds an event processing can run before being killed</p>
 <h5 id="type%3A-int-27">Type: int</h5>
@@ -884,7 +885,7 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="events-shutdown-timeout"><strong>events-shutdown-timeout</strong></h3>
 <p>Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</p>
 <h5 id="type%3A-int-28">Type: int</h5>
-<h5 id="default%3A-50">Default: 50</h5>
+<h5 id="default%3A-50-1">Default: 50</h5>
 <h2 id="file">file</h2>
 <p>See <a href="module-file.html">module:file</a></p>
 <h3 id="file-url"><strong>file-url</strong></h3>
@@ -936,7 +937,7 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="jobs-worker-delay"><strong>jobs-worker-delay</strong></h3>
 <p>Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start</p>
 <h5 id="type%3A-int-30">Type: int</h5>
-<h5 id="default%3A-50-1">Default: 50</h5>
+<h5 id="default%3A-50-2">Default: 50</h5>
 <h3 id="jobs-worker-queue"><strong>jobs-worker-queue</strong></h3>
 <p>Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues</p>
 <h5 id="type%3A-list-26">Type: list</h5>
@@ -958,7 +959,7 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 <h3 id="jobs-shutdown-timeout"><strong>jobs-shutdown-timeout</strong></h3>
 <p>Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits</p>
 <h5 id="type%3A-int-33">Type: int</h5>
-<h5 id="default%3A-50-2">Default: 50</h5>
+<h5 id="default%3A-50-3">Default: 50</h5>
 <h3 id="jobs-cron-queue"><strong>jobs-cron-queue</strong></h3>
 <p>Default queue to use for cron jobs</p>
 <h5 id="type%3A-list-27">Type: list</h5>

@@ -112,11 +112,11 @@ by backendjs workers or by other systems using shared queues.</p>
 <p>If any of <code>events-worker-queue-XXX</code> parameters are defined then workers subscribe to configured event queues and listen for events.</p>
 <p>Drivers like NATS support multiple consumers in the same queue using subject/group syntax:</p>
 <ul>
-<li><code>queueName@subject</code></li>
+<li><code>queueName.subject</code></li>
 <li><code>queueName#groupName</code></li>
-<li><code>queueName@subject#groupName</code></li>
-<li><code>groupName</code> property in the queue options can be used as a group as well</li>
+<li><code>queueName.subject#groupName</code></li>
 </ul>
+<p>The <code>options.groupName</code> property can be used as a group as well when passsed to listen.</p>
 <p>Multiple event queues can be defined and processed at the same time.</p>
 <p>An event processing function takes 2 arguments, an event and callback to call on finish</p></li></ul></dd>
     
@@ -124,7 +124,7 @@ by backendjs workers or by other systems using shared queues.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="events.js.html">events.js</a>, <a href="events.js.html#line145">line 145</a>
+        <a href="events.js.html">events.js</a>, <a href="events.js.html#line146">line 146</a>
     </li></ul></dd>
     
 
@@ -304,7 +304,7 @@ app.start({ server: true });</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="events.js.html">events.js</a>, <a href="events.js.html#line346">line 346</a>
+        <a href="events.js.html">events.js</a>, <a href="events.js.html#line347">line 347</a>
     </li></ul></dd>
     
 
@@ -556,7 +556,7 @@ console.log("Sent to:", data.map(x => x.event))</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="events.js.html">events.js</a>, <a href="events.js.html#line284">line 284</a>
+        <a href="events.js.html">events.js</a>, <a href="events.js.html#line285">line 285</a>
     </li></ul></dd>
     
 

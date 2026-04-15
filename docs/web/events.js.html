@@ -72,7 +72,7 @@ const events = {
     name: "events",
     args: [
         { name: "cap-(.+)", type: "int", strip: "cap-", descr: "Capability parameters" },
-        { name: "worker-queue", obj: "worker-queue", type: "map", merge: 1, maptype: "list", onupdate: function() { if (ipc.role=="worker"&amp;&amp;app.role=="worker") this.subscribeWorker()}, descr: "Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is `queue@subject#group`", example: "events-worker-queue = ticket:ticket.processEvents, ticket@inbox#staff: ticket.processInboxEvents, ticket#staff: ticket.processStaffEvents" },
+        { name: "worker-queue", obj: "worker-queue", type: "map", merge: 1, maptype: "list", onupdate: function() { if (ipc.role=="worker"&amp;&amp;app.role=="worker") this.subscribeWorker()}, descr: "Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is `queue.subject#group`", example: "events-worker-queue = ticket:ticket.processEvents, ticket.inbox#staff: ticket.processInboxEvents, ticket#staff: ticket.processStaffEvents" },
         { name: "worker-options-(.+)", obj: "workerOptions", make: "$1", type: "map", descr: "Custom parameters by queue name, passed to `queue.listen` on worker start, useful with channels", example: "-events-worker-options-ticket count:3,raw:1" },
         { name: "worker-delay", type: "int", descr: "Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start" },
         { name: "max-runtime", type: "int", min: 0, multiplier: 1000, descr: "Max number of seconds an event processing can run before being killed" },
@@ -86,7 +86,7 @@ const events = {
     maxRuntime: 60000,
     checkRuntime: 0,
     shutdownTimeout: 50,
-    workerDelay: 0,
+    workerDelay: 50,
     workerQueue: {},
     workerOptions: {},
     routing: {},
@@ -121,10 +121,11 @@ const events = {
  *
  *  Drivers like NATS support multiple consumers in the same queue using subject/group syntax:
  *
- * - `queueName@subject`
+ * - `queueName.subject`
  * - `queueName#groupName`
- * - `queueName@subject#groupName`
- * - `groupName` property in the queue options can be used as a group as well
+ * - `queueName.subject#groupName`
+ *
+ * The `options.groupName` property can be used as a group as well when passsed to listen.
  *
  * Multiple event queues can be defined and processed at the same time.
  *

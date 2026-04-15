@@ -16,9 +16,8 @@ const assert = require('node:assert/strict');
 
 describe("Events tests", async () => {
 
-    var queueName = lib.split(process.env.BKJS_ROLES)[0] || "redisevent";
     var opts = {
-        queueName,
+        queueName: (lib.split(process.env.BKJS_ROLES)[0] || "redisevent").replace("event", "")
     };
 
     before(async () => {
@@ -40,7 +39,23 @@ describe("Events tests", async () => {
         await lib.sleep(500)
 
         var data = lib.readFileSync(file).split("\n");
-        assert.equal(data.filter(x => /test$|subject1$/.test(x)).length, 2);
+        assert.equal(data.filter(x => /# test$|subject1#.+subject1$/.test(x)).length, 2);
+    });
+
+    await it("group events", async () => {
+        if (opts.queueName != "nats") return;
+
+        var file = "/tmp/event2.test";
+        lib.unlinkSync(file);
+
+        await events.aputEvent("SUBJECT1", { file, data: "subject1" });
+        await events.aputEvent("SUBJECT2", { file, data: "subject2" });
+        await events.aputEvent("SUBJECT1", { file, data: "subject12" });
+        await lib.sleep(500)
+
+        var data = lib.readFileSync(file).split("\n");
+        assert.equal(data.filter(x => /subject2#group2/.test(x)).length, 1);
+        assert.equal(data.filter(x => /subject1#group1/.test(x)).length, 2);
     });
 
 
