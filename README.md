@@ -98,8 +98,8 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Local LRU caching for performance.
 
 6. **Job Queue**
-   - Supports **SQS, NATS, and Redis** for job processing.
-   - Workers pull jobs from queues and execute them.
+   - Supports **SQS, NATS, DB and Redis** for job processing.
+   - Workers pull jobs from queues and execute them, designed by SQS visibility timeout logic.
 
 7. **Event System**
    - Pub/Sub model for real-time event processing.
@@ -135,7 +135,7 @@ The library is configured via:
 - **Environment variables** (e.g., `BKJS_DB_POOL=pg://localhost/dbname`).
 - **Database** (e. g. `-db-config dynamodb`)
 - **AWS Secrets Manager** (e. g. `-aws-config-secrets production-worker`)
-- **AWS S3 file** (e. g. `-aws-config-s3-file mybucjet/config`)
+- **AWS S3 file** (e. g. `-aws-config-s3-file mybucket/config`)
 - **AWS Config Parameters Store** (e. g. `-aws-config-parameters /my-config`)
 
 ---

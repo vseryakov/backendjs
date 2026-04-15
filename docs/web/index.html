@@ -244,8 +244,8 @@ send raw SQL or JSON directy.</li>
 <li>
 <p><strong>Job Queue</strong></p>
 <ul>
-<li>Supports <strong>SQS, NATS, and Redis</strong> for job processing.</li>
-<li>Workers pull jobs from queues and execute them.</li>
+<li>Supports <strong>SQS, NATS, DB and Redis</strong> for job processing.</li>
+<li>Workers pull jobs from queues and execute them, designed by SQS visibility timeout logic.</li>
 </ul>
 </li>
 <li>
@@ -299,7 +299,7 @@ send raw SQL or JSON directy.</li>
 <li><strong>Environment variables</strong> (e.g., <code>BKJS_DB_POOL=pg://localhost/dbname</code>).</li>
 <li><strong>Database</strong> (e. g. <code>-db-config dynamodb</code>)</li>
 <li><strong>AWS Secrets Manager</strong> (e. g. <code>-aws-config-secrets production-worker</code>)</li>
-<li><strong>AWS S3 file</strong> (e. g. <code>-aws-config-s3-file mybucjet/config</code>)</li>
+<li><strong>AWS S3 file</strong> (e. g. <code>-aws-config-s3-file mybucket/config</code>)</li>
 <li><strong>AWS Config Parameters Store</strong> (e. g. <code>-aws-config-parameters /my-config</code>)</li>
 </ul>
 <hr>

@@ -60,7 +60,7 @@ const util = require('util');
 const path = require('path');
 const fs = require('fs');
 const modules = require("../modules");
-const { app, lib, api, db, jobs, cache, queue, shell, stats } = modules;
+const { app, lib, api, jobs, events, cache, queue, shell, stats } = modules;
 
 shell.help.push(
     "-help-config - show all config parameters",
@@ -351,6 +351,13 @@ shell.commands.runJobs = function(options)
 shell.commands.runWorker = function(options)
 {
     if (app.isPrimary) jobs.initWorker();
+    return "continue";
+}
+
+// Run event workers inside the shell
+shell.commands.runEvents = function(options)
+{
+    events.initWorker();
     return "continue";
 }
 

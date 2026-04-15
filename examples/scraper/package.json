@@ -5,6 +5,7 @@
  "description": "scraper",
  "dependencies": {
     "backendjs": "github:vseryakov/backendjs",
+    "ws": "",
     "puppeteer": "latest"
  },
  "engines": { "node": ">= 24.0" },

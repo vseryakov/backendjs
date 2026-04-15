@@ -202,7 +202,7 @@ function list(req, res)
  */
 function assets(req, res)
 {
-    db.get("scraper", { id: req.params.id }, (err, row) => {
+    db.get("scraper", req.params.id, (err, row) => {
         if (!row) return api.sendReply(res, 404, "no record found");
         res.setHeader("cache-control", "max-age=0, no-cache, no-store");
         file.send(req, req.params.id + "/" + req.params.file);
@@ -282,7 +282,7 @@ function submit(req, res)
  */
 function resubmit(req, res)
 {
-    db.get("scraper", { id: req.params.id }, (err, row) => {
+    db.get("scraper", req.params.id, (err, row) => {
         if (!row) return api.sendReply(res, 404, "no record found");
 
         jobs.submitJob({ job: { "scraper.job": { id: row.id, mode: req.body.mode } } }, { noWait: 1 }, (err) => {
@@ -342,7 +342,7 @@ function job(options, callback)
 
 function scrape(options, callback)
 {
-    db.get("scraper", { id: options.id }, (err, data) => {
+    db.get("scraper", options.id, (err, data) => {
         if (!data) return callback(err || "not found");
 
         api.ws.notify({}, { event: "scraper:status", data: { id: options.id, status: "scraping" } });
@@ -364,7 +364,7 @@ function scrape(options, callback)
 
 function describe(options, callback)
 {
-    db.get("scraper", { id: options.id }, (err, data) => {
+    db.get("scraper", options.id, (err, data) => {
         if (!data) return callback(err || "not found");
 
         api.ws.notify({}, { event: "scraper:status", data: { id: options.id, status: "describing" } });
@@ -394,7 +394,7 @@ function describe(options, callback)
 
 function genVariants(options, callback)
 {
-    db.get("scraper", { id: options.id }, (err, data) => {
+    db.get("scraper", options.id, (err, data) => {
         if (!data) return callback(err || "not found");
 
         api.ws.notify({}, { event: "scraper:status", data: { id: options.id, status: "generating" } });
@@ -426,7 +426,7 @@ function genVariants(options, callback)
 
 function genSamples(options, callback)
 {
-    db.get("scraper", { id: options.id }, (err, data) => {
+    db.get("scraper", options.id, (err, data) => {
         if (!data) return callback(err || "not found");
 
         api.ws.notify({}, { event: "scraper:status", data: { id: options.id, status: "sampling", profiles: [] } });
