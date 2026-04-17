@@ -89,7 +89,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="queue_sqs.js.html">queue/sqs.js</a>, <a href="queue_sqs.js.html#line27">line 27</a>
+        <a href="queue_sqs.js.html">queue/sqs.js</a>, <a href="queue_sqs.js.html#line26">line 26</a>
     </li></ul></dd>
     
 
@@ -195,7 +195,7 @@
 
         <tr>
             
-                <td class="name"><code>options.retryCount</code></td>
+                <td class="name"><code>options.visibilityTimeout</code></td>
             
 
             <td class="type">
@@ -222,8 +222,8 @@
 
             
 
-            <td class="description last"><p>and <code>retryTimeout</code> define how many times to retry failed AWS HTTP requests, default is 5 times starting
-with the backoff starting at 500 milliseconds.</p></td>
+            <td class="description last"><p>property specifies how long the messages being processed stay hidden, in milliseconds.
+<strong>Because SQS operates in seconds the timeout less than 1000 is rounded to 1 second.</strong></p></td>
         </tr>
 
     
@@ -251,8 +251,8 @@ with the backoff starting at 500 milliseconds.</p></td>
 
     <h5 class="h5-examples">Example</h5>
     
-    <pre class="prettyprint"><code>queue-messages=sqs://messages?bk-interval=60000
-queue-messages=sqs://sqs.us-east-1.amazonaws.com/123456/messages?bk-visibilityTimeout=300&amp;bk-count=2</code></pre>
+    <pre class="prettyprint"><code>queue-messages=sqs://messages?bk-pollInterval=60000
+queue-messages=sqs://sqs.us-east-1.amazonaws.com/123456/messages?bk-visibilityTimeout=3000&amp;bk-queueCount=2</code></pre>
 
 
 

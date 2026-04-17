@@ -56,7 +56,6 @@
  *  backendjs 2018
  */
 
-const logger = require(__dirname + '/../logger');
 const lib = require(__dirname + '/../lib');
 const aws = require(__dirname + '/../aws');
 const QueueClient = require(__dirname + "/client");
@@ -66,13 +65,13 @@ const QueueClient = require(__dirname + "/client");
  *
  * @param {int} [options.timeout] property defines how long to wait for new messages, i.e. the long poll, in milliseconds
  *
- * @param {int} [options.retryCount] and `retryTimeout` define how many times to retry failed AWS HTTP requests, default is 5 times starting
- *  with the backoff starting at 500 milliseconds.
+ * @param {int} [options.visibilityTimeout] property specifies how long the messages being processed stay hidden, in milliseconds.
+ * **Because SQS operates in seconds the timeout less than 1000 is rounded to 1 second.**
  *
  * @example
  *
- * queue-messages=sqs://messages?bk-interval=60000
- * queue-messages=sqs://sqs.us-east-1.amazonaws.com/123456/messages?bk-visibilityTimeout=300&amp;bk-count=2
+ * queue-messages=sqs://messages?bk-pollInterval=60000
+ * queue-messages=sqs://sqs.us-east-1.amazonaws.com/123456/messages?bk-visibilityTimeout=3000&amp;bk-queueCount=2
  *
  * @memberOf module:queue
  */
@@ -85,7 +84,6 @@ class SQSQueueClient extends QueueClient {
         this.applyOptions();
 
         if (!/amazonaws.com/.test(this.url)) {
-            this.url = "";
             aws.querySQS("GetQueueUrl", { QueueName: this.hostname }, this.options, (err, data) => {
                 if (err) return;
                 this.url = data?.GetQueueUrlResponse?.GetQueueUrlResult?.QueueUrl;
@@ -95,21 +93,11 @@ class SQSQueueClient extends QueueClient {
             this.url = "https" + this.url.substr(3);
             this.emit("ready");
         }
-        // Retrieve and apply SQS queue attributes
-        if (!this.options.visibilityTimeout &amp;&amp; this.options.sqs) {
-            this.stats({}, (err, rc) => {
-                if (err) return;
-                this.options.visibilityTimeout = lib.toNumber(rc.VisibilityTimeout) * 1000;
-            })
-        }
     }
 
     applyOptions(options) {
         super.applyOptions(options);
         this.options.timeout = lib.toNumber(this.options.timeout, { dflt: 20000, min: 0 });
-        this.options.retryCount = lib.toNumber(this.options.retryCount, { dflt: 5, min: 0 });
-        this.options.retryTimeout = lib.toNumber(this.options.retryTimeout, { dflt: 250, min: 0 });
-        this.options.retryOnError = lib.toBool(this.options.retryOnError, { dflt: 1 });
     }
 
     stats(options, callback) {
@@ -127,7 +115,6 @@ class SQSQueueClient extends QueueClient {
     }
 
     submit(job, options, callback) {
-        logger.dev("submit:", this.url, job, options);
         var opts = this.options;
         if (options.region || options.delay) {
             opts = Object.assign({}, this.options, { region: options.region, delay: options.delay });
@@ -136,7 +123,7 @@ class SQSQueueClient extends QueueClient {
             if (opts === this.options) {
                 opts = Object.assign({}, this.options);
             }
-            opts.groupName = options.groupName || options.uniqueKey || this.queueName;
+            opts.groupName = this.group(options) || options.uniqueKey || this.queueName;
             opts.dedupId = options.dedupId;
         }
         if (typeof job != "string") job = lib.stringify(job);
@@ -154,6 +141,7 @@ class SQSQueueClient extends QueueClient {
     _poll_get(options, callback) {
 
         const opts = {
+            timeout: this.options.timeout,
             count: this.options.queueCount,
             visibilityTimeout: this.options.visibilityTimeout,
         };
@@ -174,7 +162,7 @@ class SQSQueueClient extends QueueClient {
         const req = {
             QueueUrl: this.url,
             ReceiptHandle: item.id,
-            VisibilityTimeout: Math.round(visibilityTimeout/1000)
+            VisibilityTimeout: Math.ceil(visibilityTimeout/1000)
         };
         aws.querySQS("ChangeMessageVisibility", req, this.options, callback);
     }

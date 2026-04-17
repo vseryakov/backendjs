@@ -6,12 +6,13 @@ const { init } = require("./utils");
 
 describe("Cache tests", () => {
 
+    const cacheName = lib.split(process.env.BKJS_ROLES)[0] || "redis";
     var opts = {
-        cacheName: process.env.TEST_CACHE || "redis",
+        cacheName,
     };
 
     before((t, done) => {
-        init({ cache: 1, roles: "redis" }, done)
+        init({ cache: 1, roles: process.env.BKJKS_ROLES || "redis" }, done)
     });
 
 
@@ -19,7 +20,37 @@ describe("Cache tests", () => {
         app.stop(done)
     });
 
+    it("runs lock tests", async () => {
+
+        await cache.aunlock("TEST", opts);
+
+        let rc = await cache.alock("TEST", opts);
+        assert.strictEqual(rc.locked, true);
+
+        rc = await cache.alock("TEST", opts);
+        assert.strictEqual(rc.locked, false);
+
+        rc = await cache.alock("TEST", { set: 1, cacheName });
+        assert.strictEqual(rc.locked, true);
+
+        await cache.aunlock("TEST", opts);
+
+
+        rc = await cache.alock("TEST", { ttl: 200, cacheName });
+        assert.strictEqual(rc.locked, true);
+
+        rc = await cache.alock("TEST", opts);
+        assert.strictEqual(rc.locked, false);
+
+        await lib.sleep(200);
+
+        rc = await cache.alock("TEST", opts);
+        assert.strictEqual(rc.locked, true);
+
+    });
+
     it("runs cache tests", (t, done) => {
+        if (cacheName == "local") return done()
 
         lib.series([
             function(next) {

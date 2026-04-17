@@ -93,9 +93,12 @@ aws.sqsReceiveMessage = function(url, options, callback)
         if (options.timeout > 999) params.WaitTimeSeconds = Math.round(options.timeout/1000);
         if (options.attempt) params.ReceiveRequestAttemptId = options.attempt;
     }
-    this.querySQS("ReceiveMessage", params, options, function(err, obj) {
+    this.querySQS("ReceiveMessage", params, options, (err, obj) => {
         var rows = [];
-        if (!err) rows = lib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
+        if (!err) {
+            rows = obj?.ReceiveMessageResponse?.ReceiveMessageResult?.Message;
+            if (!Array.isArray(rows)) rows = rows ? [ rows ] : [];
+        }
         if (typeof callback == "function") callback(err, rows);
     });
 }
@@ -135,11 +138,7 @@ aws.sqsSendMessage = function(url, body, options, callback)
             }
         }
     }
-    this.querySQS("SendMessage", params, options, function(err, obj) {
-        var rows = [];
-        if (!err) rows = lib.objGet(obj, "ReceiveMessageResponse.ReceiveMessageResult.Message", { list: 1 });
-        if (typeof callback == "function") callback(err, rows);
-    });
+    this.querySQS("SendMessage", params, options, callback);
 }
 </code></pre>
         </article>

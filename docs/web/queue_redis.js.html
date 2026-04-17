@@ -197,9 +197,8 @@ class RedisQueueClient extends QueueClient {
 
     _poll_get(options, callback) {
         const subject = this.subject(options);
-        const visibilityTimeout = lib.validPositive(options.visibilityTimeout, this.options.visibilityTimeout);
 
-        this.client.eval(scripts.poller, 3, subject, Date.now(), visibilityTimeout, (err, data) => {
+        this.client.eval(scripts.poller, 3, subject, Date.now(), this.options.visibilityTimeout, (err, data) => {
             if (!err &amp;&amp; data) {
                 data = [ { data } ];
             }

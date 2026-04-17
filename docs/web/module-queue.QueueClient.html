@@ -253,7 +253,7 @@ not supported methods just do nothing without raising any errors</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line238">line 238</a>
+        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line240">line 240</a>
     </li></ul></dd>
     
 
@@ -340,7 +340,7 @@ not supported methods just do nothing without raising any errors</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line264">line 264</a>
+        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line268">line 268</a>
     </li></ul></dd>
     
 
@@ -427,7 +427,7 @@ not supported methods just do nothing without raising any errors</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line227">line 227</a>
+        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line229">line 229</a>
     </li></ul></dd>
     
 
@@ -547,7 +547,7 @@ not supported methods just do nothing without raising any errors</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line243">line 243</a>
+        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line245">line 245</a>
     </li></ul></dd>
     
 
@@ -634,7 +634,7 @@ not supported methods just do nothing without raising any errors</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line278">line 278</a>
+        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line282">line 282</a>
     </li></ul></dd>
     
 
@@ -721,7 +721,7 @@ not supported methods just do nothing without raising any errors</p></div>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line232">line 232</a>
+        <a href="queue_client.js.html">queue/client.js</a>, <a href="queue_client.js.html#line234">line 234</a>
     </li></ul></dd>
     
 
@@ -1159,7 +1159,7 @@ automatically in the listen. The typical implementation when using default SQS l
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Schedule next poller iteration immediately or after timeout, check configured polling rate, make sure it polls no more than
+    <dd class="tag-description"><ul class="dummy"><li><p>Schedule next poller iteration after <code>pollInterval</code> timeout, check configured <code>maxPollRate</code>, make sure it polls no more than
 configured number of times per second. If not ready then keep polling until the ready signal is sent.</p>
 <p>Two events can be used for back pressure support: <code>pause</code> and <code>unpause</code> to stop/restart queue processing</p></li></ul></dd>
     

@@ -3,10 +3,14 @@ const cluster = require("node:cluster");
 const { app, lib, events, queue } = require("../");
 const { ainit, astop, testEvent } = require("./utils");
 
+const roles = process.env.BKJS_ROLES || "redisevent";
+
+const queueName = lib.split(roles)[0].replace("event", "")
+
 events.testEvent = testEvent;
 
 if (cluster.isWorker) {
-    return app.start({ events: 1, roles: process.env.BKJS_ROLES || "redisevent", config: __dirname + "/bkjs.conf" }, () => {
+    return app.start({ events: 1, roles, config: __dirname + "/bkjs.conf" }, () => {
         process.exit();
     });
 }
@@ -16,13 +20,15 @@ const assert = require('node:assert/strict');
 
 describe("Events tests", async () => {
 
-    var opts = {
-        queueName: (lib.split(process.env.BKJS_ROLES)[0] || "redisevent").replace("event", "")
-    };
 
     before(async () => {
-        await ainit({ events: 1, roles: process.env.BKJS_ROLES || "redisevent" })
-        await queue.apurge(opts);
+        await ainit({ events: 1, roles })
+
+        const purge = lib.getArgInt("-purge");
+        if (purge > 0) {
+            await queue.apurge(queueName);
+            await lib.sleep(purge)
+        }
     });
 
     after(async () => {
@@ -39,12 +45,18 @@ describe("Events tests", async () => {
         await lib.sleep(500)
 
         var data = lib.readFileSync(file).split("\n");
-        assert.equal(data.filter(x => /# test$|subject1#.+subject1$/.test(x)).length, 2);
+
+        switch (queueName) {
+        case "sqs":
+            assert.equal(data.filter(x => /# test$| subject1$/.test(x)).length, 2);
+            break;
+
+        default:
+            assert.equal(data.filter(x => /# test$|subject1#.+subject1$/.test(x)).length, 2);
+        }
     });
 
     await it("group events", async () => {
-        if (opts.queueName != "nats") return;
-
         var file = "/tmp/event2.test";
         lib.unlinkSync(file);
 
@@ -54,8 +66,17 @@ describe("Events tests", async () => {
         await lib.sleep(500)
 
         var data = lib.readFileSync(file).split("\n");
-        assert.equal(data.filter(x => /subject2#group2/.test(x)).length, 1);
-        assert.equal(data.filter(x => /subject1#group1/.test(x)).length, 2);
+
+        switch (queueName) {
+        case "nats":
+            assert.equal(data.filter(x => /subject2#group2/.test(x)).length, 1);
+            assert.equal(data.filter(x => /subject1#group1/.test(x)).length, 2);
+            break;
+
+        default:
+            assert.equal(data.filter(x => /# subject1| subject2$| subject12$/.test(x)).length, 3);
+        }
+
     });
 
 

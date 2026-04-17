@@ -65,7 +65,7 @@ exports.init = function(options, callback)
 
     app.init(options, () => {
         initServices(options);
-        setTimeout(callback || lib.noop, options.delay || 250);
+        setTimeout(callback || lib.noop, options.delay || 500);
     });
 }
 
@@ -250,7 +250,10 @@ exports.testJob = function(options, callback)
 exports.testEvent = function(event, callback)
 {
     logger.logger("info", "testEvent:", event);
-    fs.appendFileSync(event.data.file, `${Date.now()} ${event.received} ${event.data.data}\n`);
-    callback(event.data.err);
+    const data = event.data;
+    if (data?.file) {
+        fs.appendFileSync(data.file, `${Date.now()} ${event.received} ${data.data}\n`);
+    }
+    callback(data?.err);
 }
 
