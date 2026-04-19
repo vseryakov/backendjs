@@ -1014,6 +1014,7 @@ See {@link module:jobs}
 ##### Type: json   
 ### **jobs-unique-cache**
  Default cache name to use for keeping track of unique jobs   
+##### Default: "local"   
 ### **jobs-unique-ignore**
  Ignore all unique parameters if a job's uniqueKey matches   
 ##### Type: regexp   
