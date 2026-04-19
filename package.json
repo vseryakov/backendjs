@@ -12,8 +12,6 @@
   },
   "dependencies": {
     "express": "5.2.1",
-    "mime-types": "3.0.2",
-    "qs": "6.15.1",
     "fast-xml-parser": "5.7.1"
   },
   "peerDependencies": {

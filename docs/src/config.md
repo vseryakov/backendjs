@@ -87,7 +87,7 @@ api-errlog-codes = 4|5
 ### **api-express-options**
  Set Express config options during initialization   
 ##### Type: json   
-##### Default: {}   
+##### Default: {"trust proxy":1,"x-powered-by":false}   
 ##### Example:
 ```
 -api-express-options { "trust proxy": 1, "strict routing": true }
