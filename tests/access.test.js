@@ -4,10 +4,10 @@ const { describe, it, before, after } = require('node:test');
 const { acheckAccess, ainit } = require("./utils");
 const { app, api } = require("../");
 
-describe('Check Static, Routing, Redirect', async () => {
+describe('Access Static, Routing, Redirect, CSRF', async () => {
 
     before(async () => {
-        await ainit({ api: 1, nodb: 1, noipc: 1 })
+        await ainit({ api: 1, nodb: 1, noipc: 1, roles: "users,csrf" })
     });
 
     it("checks basic endpoints", async () => {
@@ -22,18 +22,7 @@ describe('Check Static, Routing, Redirect', async () => {
         await acheckAccess({ config });
     });
 
-    after(async () => {
-        await app.astop()
-    })
-})
-
-describe('Access Tests with CSRF', async () => {
-
-    before(async () => {
-        await ainit({ api: 1, nodb: 1, noipc: 1, roles: "users,csrf" })
-    });
-
-    it("checks basic endpoints", async () => {
+    it("checks CSRF endpoints", async () => {
 
         const origin = "http://127.0.0.1:" + api.port;
         const config = [
@@ -41,7 +30,7 @@ describe('Access Tests with CSRF', async () => {
             { url: "/test", status: 403, regexp: /NOORIGIN/ },
             { url: "/login", data: { login: "test", secret: "test" } },
             { get: "/ping" },
-            { url: "/test", status: 403, regexp: /NOORIGIN/ },
+            { url: "/test", status: 403, data: { test: 1 }, regexp: /NOORIGIN/ },
             { url: "/test", headers: { origin: "http://127.0.0.1:8000" }, status: 403, regexp: /NOORIGIN/ },
             { url: "/test", headers: { origin }, status: 403, regexp: /NOMATCH/ },
             { url: "/auth", headers: { origin: "http://127.0.0.1:8000", "sec-fetch-site": "cross-origin" }, status: 403 },

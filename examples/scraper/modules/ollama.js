@@ -40,7 +40,7 @@ mod.configureWeb = function(options, callback)
 
 
     api.app.use("/ollama",
-            api.express.Router().
+            api.Router().
                 post("/chat", chat));
  
     callback();

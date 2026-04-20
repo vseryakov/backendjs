@@ -125,6 +125,49 @@ describe("Jobs tests", async () => {
 
     });
 
+    await it("check noWait", async () => {
+        var file = "/tmp/job7.test";
+        lib.unlinkSync(file);
+
+        const opts = { queueName, noWait: 1 };
+
+        await jobs.asubmitJob({ job: { "jobs.testJob": { file, err: { status: 600 }, err_expires: Date.now() + 300, data: "noWait" } } }, opts);
+        await lib.sleep(2000)
+
+        var data = lib.readFileSync(file).split("\n");
+        assert.match(data[0], /noWait/);
+        assert.match(data[1], /^$/);
+    });
+
+    await it("check endTime", async () => {
+        var file = "/tmp/job8.test";
+        lib.unlinkSync(file);
+
+        const opts = { queueName, endTime: Date.now() - 100 };
+
+        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "endTime" } } }, opts);
+        await lib.sleep(500)
+
+        const data = lib.readFileSync(file);
+        assert.strictEqual(data, "");
+
+    });
+
+    await it("check startTime", async () => {
+        var file = "/tmp/job9.test";
+        lib.unlinkSync(file);
+
+        const now = Date.now();
+        const opts = { queueName, startTime: now + 1500 };
+
+        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "startTime" } } }, opts);
+        await lib.sleep(1600)
+
+        const data = lib.readFileSync(file);
+        assert.match(data, /startTime/);
+        assert.ok(lib.toNumber(data) - now >= 1500, data)
+
+    });
 
 });
 

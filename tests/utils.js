@@ -59,9 +59,11 @@ exports.init = function(options, callback)
 {
     options = Object.assign({}, options, { nodbconf: 1, config: __dirname + "/bkjs.conf" });
 
-    api.accessTokenSecret = lib.random();
+    api.tokenSecret = lib.random();
 
-    app.addModule(mock);
+    if (!modules.mock) {
+        app.addModule(mock);
+    }
 
     app.init(options, () => {
         initServices(options);
@@ -126,7 +128,7 @@ exports.checkAccess = function(options, callback)
         if (q.url[0] == "/") q.url = "http://127.0.0.1:" + api.port + q.url;
         if (conf.nosig) tmp.sig = null;
         if (!conf.user && tmp.sig) {
-            q.cookies[api.signature.header] = tmp.sig;
+            q.cookies[api.session.header] = tmp.sig;
         }
         lib.everySeries([
             function(next2) {
@@ -138,8 +140,8 @@ exports.checkAccess = function(options, callback)
                 lib.fetch(q, (err, rc) => {
                     assert.ok(rc.status == q._rc, util.inspect({ err: `${conf.user?.login || "pub"}: ${q.url}: expect ${q._rc} but got ${rc.status}`, data: rc.data, conf, tmp }, { depth: null }));
 
-                    if (rc.rescookies[api.signature.header]) {
-                        tmp.sig = rc.rescookies[api.signature.header].value;
+                    if (rc.rescookies[api.session.header]) {
+                        tmp.sig = rc.rescookies[api.session.header].value;
                     }
                     if (typeof conf.match == "function") {
                         assert.ok(conf.match(rc, conf), util.inspect({ err: "match failed", obj: rc.obj, conf, tmp }, { depth: null }));

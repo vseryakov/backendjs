@@ -63,7 +63,7 @@ module.exports = {
     configureWeb(options, callback) {
 
         api.app.use("/api",
-            api.express.Router().
+            api.Router().
                 get("/boards", listBoards).
                 post("/boards", createBoard).
                 get("/board/:id", getBoard).

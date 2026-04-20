@@ -17,7 +17,7 @@ module.exports = {
     configureWeb(options, callback)
     {
         api.app.use("/api",
-            api.express.Router().
+            api.Router().
                 post("/render", api.handleMultipart, render));
 
         callback();

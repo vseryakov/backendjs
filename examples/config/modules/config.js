@@ -44,7 +44,7 @@ module.exports = {
     configureWeb(options, callback)
     {
         api.app.use("/config",
-            api.express.Router().
+            api.Router().
                 use(perms).
                 get("/list", list).
                 post("/put", put).

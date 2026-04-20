@@ -6,23 +6,6 @@ See {@link module:api}
 ### **api-cap-(.+)**
  Capability parameters   
 ##### Type: int   
-### **api-max-request-queue**
- Max number of requests in the processing queue, if exceeds this value server returns too busy error   
-##### Type: number   
-### **api-timeout**
- HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests   
-##### Type: number   
-##### Default: 30000   
-### **api-keep-alive-timeout**
- Number of milliseconds to keep the HTTP conection alive   
-##### Type: int   
-##### Default: 61000   
-### **api-request-timeout**
- Number of milliseconds to receive the entire request from the client   
-##### Type: int   
-### **api-max-requests-per-socket**
- The maximum number of requests a socket can handle before closing keep alive connection   
-##### Type: int   
 ### **api-port**
  port to listen for the HTTP server, this is global default   
 ##### Type: number   
@@ -54,7 +37,7 @@ See {@link module:api}
 ##### Type: list   
 ##### Example:
 ```
--api-log-fields h:Referer,u:name,q:action
+api-log-fields = h:Referer,u:name,q:action
 ```
 
 ### **api-errlog-max**
@@ -75,12 +58,8 @@ See {@link module:api}
 api-errlog-codes = 4|5
 ```
 
-### **api-qs-options-(.+)**
- Options to pass to qs when parsing the body: depth, arrayLimit, allowDots, comma, plainObjects, allowPrototypes, parseArrays   
-### **api-query-token-secret**
- Name of the property to be used for encrypting tokens for pagination or other sensitive data, any property from bk_user can be used, if empty no secret is used, if not a valid property then it is used as the secret   
-### **api-access-token-secret**
- A generic secret to be used for API access or signatures   
+### **api-token-secret**
+ A generic secret to be used for API sessions, signatures, passkeys   
 ### **api-allow-configure-(web|middleware)**
  Modules allowed to call configureWeb or Middleware, i.e. only allowed endpoints   
 ##### Type: regexp   
@@ -96,29 +75,34 @@ api-errlog-codes = 4|5
 ### **api-body-methods**
  HTTP methods allowed to have body   
 ##### Type: list   
-##### Default: ["POST","PUT","PATCH"]   
 ### **api-body-types**
  Collect full request body in the req.body property for the given MIME types in addition to default json/form posts, this is for custom body processing   
 ##### Type: regexpobj   
-### **api-body-raw**
- Do not parse the collected body for the following MIME content types, keep it as a string   
-##### Type: regexpobj   
 ### **api-body-multipart**
- URLs that expect multipart/form-data payloads, parsing will happend after the signature processed   
+ Paths that expect multipart/form-data payloads, parsing will happen after the signature processed automatically, other routes need to call api.handleMultipart explicitely   
 ##### Type: regexpobj   
+##### Example:
+```
+api-allow-multipart = ^/upload
+```
+
+### **api-body-allow**
+ Paths that expect JSON/form payloads, parsing will happen before the signature processed, by default all requests are parsed, if defined only matched paths will be processed, the rest will have to use api.handleBody explicitely   
+##### Type: regexpobj   
+##### Example:
+```
+api-body-allow = ^/api
+```
+
 ### **api-cors-origin**
  Origin header for CORS requests   
-##### Default: "*"   
 ### **api-cors-allow**
  Enable CORS requests if a request host/path matches the given regexp   
 ##### Type: regexpobj   
-### **api-tz-header**
- Name for the timezone offset header a client can send for time sensitive requests, the backend decides how to treat this offset   
-##### Default: "bk-tz"   
 ### **api-server-header**
  Custom Server: header to return for all requests   
 ### **api-rlimits-([a-z]+)$**
- Default rate limiter parameters, default interval is 1s, `ttl` is to expire old cache entries, message for error   
+ Default rate limiter parameters, default interval is 1s, `ttl` is to expire old cache entries, message for error, default cache is local   
 ### **api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+)**
  Rate limiter parameters by type for Token Bucket algorithm. `queue` to use specific queue, ttl` is to expire cache entries, `ip` is to limit by IP address as well   
 ##### Example:
@@ -137,17 +121,29 @@ api-rlimits-map-/url=rate:1,interval:2000
 api-rlimits-map-GET/url=rate:10
 ```
 
-### **api-(query|header|upload)-limit**
+### **api-limits-(query|header|upload)-size**
  Max size for query/headers/uploads, bytes   
 ##### Type: number   
-### **api-(files|fields)-limit**
+### **api-limits-(files|fields)**
  Max number of files or fields in uploads   
 ##### Type: number   
-### **api-limiter-cache**
- Name of a cache for API rate limiting   
-##### Default: "local"   
+### **api-limits-queue-size**
+ Max number of requests in the processing queue, if exceeds this value server returns too busy error   
+##### Type: number   
+### **api-limits-requests-per-socket**
+ The maximum number of requests a socket can handle before closing keep alive connection   
+##### Type: int   
+### **api-limits-timeout**
+ HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests   
+##### Type: number   
+### **api-limits-keep-alive-timeout**
+ Number of milliseconds to keep the HTTP conection alive   
+##### Type: int   
+### **api-limits-request-timeout**
+ Number of milliseconds to receive the entire request from the client   
+##### Type: int   
 ### **api-response-headers**
- An JSON object with list of regexps to match against the location and set response headers defined as a ist of pairs name, value...   
+ An JSON object with list of regexps to match against the location and set response headers defined as a list of pairs name, value...   
 ##### Type: regexpmap   
 ##### Default: []   
 ##### Example:
@@ -164,7 +160,7 @@ api-response-headers={ "^/": ["x-frame-options","sameorigin","x-xss-protection",
 ### **api-request-cleanup**
  List of fields to explicitely cleanup on request end   
 ##### Type: list   
-##### Default: ["options","user","signature","body","raw_body","trace"]   
+##### Default: ["options","user","signature","body","trace"]   
 ### **api-query-defaults-([a-z0-9_]+)-(.+)**
  Global query defaults for getQuery, can be path specific   
 ##### Example:
@@ -376,11 +372,13 @@ See {@link module:api.session}
 -api-session-cookie-/testing secure:false,sameSite:None
 ```
 
+### **api-session-secret**
+ Cookies secret   
+### **api-session-header**
+ Header to use for signature   
+##### Default: "bk-signature"   
 ## api.signature
 See {@link module:api.signature}
-### **api-signature-header**
- Header/query name to use for signature   
-##### Default: "bk-signature"   
 ### **api-signature-age**
  Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts   
 ##### Type: int   

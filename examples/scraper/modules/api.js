@@ -153,7 +153,7 @@ module.exports = {
     configureWeb(options, callback)
     {
         api.app.use("/api",
-            api.express.Router().
+            api.Router().
                 post("/render/:id", render).
                 get("/list", list).
                 get("/asset/:id/:file", assets).
