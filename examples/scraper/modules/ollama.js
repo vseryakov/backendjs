@@ -48,7 +48,7 @@ mod.configureWeb = function(options, callback)
 
 function chat(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         prompt: { required: { messages: null }, max: 64000 },
         messages: { required: { prompt: null }, type: "list" },
         system: { max: 64000 },

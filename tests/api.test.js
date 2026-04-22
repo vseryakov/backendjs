@@ -3,7 +3,7 @@ const { describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { api, db, lib } = require("../");
 
-describe('API session Tests', (t) => {
+describe('API session tests', (t) => {
 
     api.session.cookie = {
         '/': { secure: true },
@@ -70,7 +70,7 @@ describe("API cleanup tests", () => {
 
     db.describeTables(tables);
 
-    api.cleanupStrict = 0;
+    api.cleanup.strict = 0;
 
     var res = api.cleanupResult({ options: { isInternal: 1 } }, "cleanup", Object.assign({}, row))
     assert.ok(res.internal && !res.priv && res.extra && !res.notpub, lib.newError({ message: "should keep internal", res }));
@@ -99,19 +99,19 @@ describe("API cleanup tests", () => {
     res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
     assert.deepEqual(res, { pub: "pub", extra: "extra", extra2: "extra2" }, "should keep extras");
 
-    api.cleanupStrict = 1;
+    api.cleanup.strict = 1;
     res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
     assert.deepEqual(res, { pub: "pub" }, "should not keep extras in strict mode:")
 
     res = api.cleanupResult({ options: { cleanup_rules: { extra: 1 } } }, "cleanup", Object.assign({}, row))
     assert.deepEqual(res, { pub: "pub", extra: "extra" }, "should keep extra but not extra2 in strict mode");
 
-    api.cleanupRules = { '*': { extra2: 1 } };
+    api.cleanup.rules = { '*': { extra2: 1 } };
 
     res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
     assert.ok(!res.extra && res.extra2, lib.newError({ message: "should keep no extra but keep extra2 via * rule", res }));
 
-    api.cleanupRules = { cleanup: { extra2: 1 } };
+    api.cleanup.rules = { cleanup: { extra2: 1 } };
 
     res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
     assert.ok(!res.extra && res.extra2, lib.newError({ message: "should keep extra2 but not extra via table rule", res }));

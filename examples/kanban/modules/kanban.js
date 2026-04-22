@@ -94,7 +94,7 @@ function getBoard(req, res)
 
 function createBoard(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         title: { required: 1, max: 128 },
         description: { required: 1, max: 256 },
         id: { value: lib.uuid() },
@@ -109,7 +109,7 @@ function createBoard(req, res)
 
 function updateBoard(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         id: { required: 1, value: req.params.id },
         title: { required: 1, max: 128 },
         description: { required: 1, max: 256 },
@@ -123,7 +123,7 @@ function updateBoard(req, res)
 
 function delBoard(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         id: { required: 1, value: req.params.id },
     });
     if (typeof query == "string") return api.sendReply(res, 400, query);

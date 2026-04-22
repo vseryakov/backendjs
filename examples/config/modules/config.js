@@ -80,7 +80,7 @@ function list(req, res)
 // implements POST /config/put
 function put(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         name: { required: 1 },
         type: {},
         value: {},
@@ -96,7 +96,7 @@ function put(req, res)
 // implements PUT /config/update
 function update(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         ctime: { type: "int", required: 1 },
         name: { required: 1 },
         type: {},
@@ -113,7 +113,7 @@ function update(req, res)
 // implements POST /config/del
 function del(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         ctime: { type: "int", required: 1 },
         name: { required: 1 },
     });

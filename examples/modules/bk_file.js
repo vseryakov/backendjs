@@ -14,7 +14,7 @@ module.exports = mod;
 mod.configureWeb = function(options, callback)
 {
     api.app.all(/^\/file\/([a-z]+)$/, function(req, res) {
-        var query = api.toParams(req, {
+        var query = api.validate(req, {
             name: { required: 1 },
             prefix: { required: 1 },
         }, { query: 1 });

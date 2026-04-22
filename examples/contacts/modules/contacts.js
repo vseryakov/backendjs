@@ -37,7 +37,7 @@ module.exports = {
 
 function listContacts(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         q: { max: 128 },
         start: { type: "int" },
         count: { type: "int", dflt: 10 },
@@ -89,7 +89,7 @@ const schema = {
 
 function createContact(req, res)
 {
-    var query = api.toParams(req, schema);
+    var query = api.validate(req, schema);
     if (typeof query == "string") return api.sendReply(res, 400, query);
 
     db.add("contacts", query, { result_query: 1 }, (err, row) => {
@@ -99,7 +99,7 @@ function createContact(req, res)
 
 function updateContact(req, res)
 {
-    var query = api.toParams(req, schema);
+    var query = api.validate(req, schema);
     if (typeof query == "string") return api.sendReply(res, 400, query);
 
     query.id = req.params.id;

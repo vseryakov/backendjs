@@ -179,7 +179,7 @@ module.exports = {
  */
 function list(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         start: { type: "int" },
         count: { type: "int", dflt: 10 },
     });
@@ -255,7 +255,7 @@ function update(options, callback)
  */
 function submit(req, res)
 {
-    var query = api.toParams(req, {
+    var query = api.validate(req, {
         url: { type: "url", required: 1 },
         status: { value: "pending" },
     })

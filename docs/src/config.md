@@ -6,6 +6,9 @@ See {@link module:api}
 ### **api-cap-(.+)**
  Capability parameters   
 ##### Type: int   
+### **api-version**
+ Custom Server: header to return for all requests   
+##### Default: "api/1.0"   
 ### **api-port**
  port to listen for the HTTP server, this is global default   
 ##### Type: number   
@@ -24,7 +27,10 @@ See {@link module:api}
  SSL params: port, bind, key, cert, pfx, ca, passphrase, crl, ciphers   
 ##### Type: map   
 ##### Default: {"port":443,"bind":"0.0.0.0"}   
-### **api-accesslog-disable**
+### **api-allow-configure-(web|middleware)**
+ Modules allowed to call configureWeb or Middleware, i.e. only allowed endpoints   
+##### Type: regexp   
+### **api-accesslog-disabled**
  Disable access logging in both file or syslog   
 ##### Type: bool   
 ### **api-accesslog-file**
@@ -33,11 +39,11 @@ See {@link module:api}
  Syslog level priority, default is local5.info, 21 * 8 + 6   
 ##### Type: int   
 ### **api-accesslog-fields**
- Additional fields from the request or user to put in the access log, prefix defines where the field is lcoated: q: - query, h: - headers, u: - user otherwise from the request   
+ Additional fields from the request or user to put in the access log, prefix defines where the field is lcoated: q: - query, b: - body, o: - options, h: - headers, u: - user otherwise from the request   
 ##### Type: list   
 ##### Example:
 ```
-api-log-fields = h:Referer,u:name,q:action
+api-log-fields = h:Referer,u:name,q:action,b:id
 ```
 
 ### **api-errlog-max**
@@ -49,8 +55,13 @@ api-log-fields = h:Referer,u:name,q:action
 ### **api-errlog-ignore**
  Do not show errors that match the regexp   
 ##### Type: regexpobj   
+##### Example:
+```
+api-errlog-ignore = ConditionalException
+```
+
 ### **api-errlog-codes**
- Error codes in exceptions to return in the response to the user, if not matched the errlog.message will be returned   
+ Error code/status in exceptions to return in the response to the user, if not matched the errInternalError will be returned, default codes to skip: validate|toolarge   
 ##### Type: regexpobj   
 ##### Example:
 ```
@@ -59,19 +70,10 @@ api-errlog-codes = 4|5
 ```
 
 ### **api-token-secret**
- A generic secret to be used for API sessions, signatures, passkeys   
-### **api-allow-configure-(web|middleware)**
- Modules allowed to call configureWeb or Middleware, i.e. only allowed endpoints   
-##### Type: regexp   
-### **api-express-options**
- Set Express config options during initialization   
-##### Type: json   
-##### Default: {"trust proxy":1,"x-powered-by":false}   
-##### Example:
-```
--api-express-options { "trust proxy": 1, "strict routing": true }
-```
-
+ A generic secret to be used for API sessions, signatures, passkeys, must be set for user logins to work   
+### **api-body-disabled**
+ Disable default JSON and multipart body parsers   
+##### Type: bool   
 ### **api-body-methods**
  HTTP methods allowed to have body   
 ##### Type: list   
@@ -94,22 +96,30 @@ api-allow-multipart = ^/upload
 api-body-allow = ^/api
 ```
 
+### **api-body-defaults-([a-z0-9_]+)-(.+)**
+ Global body limits defaults for api.validate, format is: api-body-defaults-LIMIT-NAME, where LIMIT is an property that performs limiting like max, maxlist, min, required.., NAME is a schema property, it can be path specific   
+##### Example:
+```
+# Limit all names length up to 128 chars
+api-body-defaults-max-name = 128
+# Limit groups list size for /endpoint to 255
+api-body-defaults-maxlist-/endpoint-groups = 255
+```
+
 ### **api-cors-origin**
  Origin header for CORS requests   
 ### **api-cors-allow**
  Enable CORS requests if a request host/path matches the given regexp   
 ##### Type: regexpobj   
-### **api-server-header**
- Custom Server: header to return for all requests   
 ### **api-rlimits-([a-z]+)$**
  Default rate limiter parameters, default interval is 1s, `ttl` is to expire old cache entries, message for error, default cache is local   
 ### **api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+)**
  Rate limiter parameters by type for Token Bucket algorithm. `queue` to use specific queue, ttl` is to expire cache entries, `ip` is to limit by IP address as well   
 ##### Example:
 ```
-api-rlimits-ip-ip=10
-api-rlimits-rate-/path=1
-api-rlimits-rate-GET/path=1
+api-rlimits-ip-ip = 10
+api-rlimits-rate-/path = 1
+api-rlimits-rate-GET/path = 1
 ```
 
 ### **api-rlimits-map-(.+)**
@@ -142,47 +152,34 @@ api-rlimits-map-GET/url=rate:10
 ### **api-limits-request-timeout**
  Number of milliseconds to receive the entire request from the client   
 ##### Type: int   
-### **api-response-headers**
- An JSON object with list of regexps to match against the location and set response headers defined as a list of pairs name, value...   
-##### Type: regexpmap   
-##### Default: []   
+### **api-cleanup-rules-(.+)**
+ Rules for the api.cleanupResult per table   
+##### Type: map   
 ##### Example:
 ```
-api-response-headers={ "^/": ["x-frame-options","sameorigin","x-xss-protection","1; mode=block"] }
+api-cleanup-rules-bk_user = email:0,phone:1
 ```
 
-### **api-cleanup-rules-(.+)**
- Rules for the cleanupResult per table, ex. api-cleanup-rules-bk_user=email:0,phone:1   
-##### Type: map   
 ### **api-cleanup-strict**
  Default mode for cleanup results   
 ##### Type: bool   
-### **api-request-cleanup**
- List of fields to explicitely cleanup on request end   
+### **api-cleanup-fields**
+ List of fields inside requests to explicitely cleanup on end   
 ##### Type: list   
-##### Default: ["options","user","signature","body","trace"]   
-### **api-query-defaults-([a-z0-9_]+)-(.+)**
- Global query defaults for getQuery, can be path specific   
+### **api-headers-(.+)**
+ An JSON object with response headers to be set in matching responses, empty value to remove the header   
+##### Type: regexpobj   
 ##### Example:
 ```
--api-query-defaults-max-name 128 -api-query-defaults-max-/endpoint-name 255
-```
-
-### **api-delays-(.+)**
- Delays in ms by status and code, useful for delaying error responses to slow down brute force attacks   
-##### Type: int   
-##### Example:
-```
--api-delays-401 1000 -api-delays-403:DENY -1
+api-headers-^/ = { "x-frame-options": "sameorigin", "x-xss-protection": "1; mode=block" }
 ```
 
 ### **api-restart-hours**
  List of hours when to restart api workers, only done once for each hour   
 ##### Type: list   
-### **api-trace-options**
+### **api-trace**
  Options for tracing, host where to send if not local, path:regexp for URLs to be traced, interval:Interval in ms how often to trace requests, must be > 0 to enable tracing   
 ##### Type: map   
-##### Default: {}   
 ### **api-exit-on-error**
  Exit on uncaught exception in the route handler   
 ##### Type: bool   
@@ -192,6 +189,24 @@ api-response-headers={ "^/": ["x-frame-options","sameorigin","x-xss-protection",
 ### **api-proxy-(.+)**
  Proxy matched requests by path to given host   
 ##### Type: regexp   
+### **api-delays-(.+)**
+ Delays in ms by status and code, useful for delaying error responses to slow down brute force attacks   
+##### Type: int   
+##### Example:
+```
+api-delays-401 = 1000
+api-delays-403:DENY = -1
+```
+
+### **api-express**
+ Set Express config options during initialization   
+##### Type: json   
+##### Default: {"trust proxy":1,"x-powered-by":false}   
+##### Example:
+```
+api-express = { "trust proxy": 1, "strict routing": true }
+```
+
 ## api.access
 See {@link module:api.access}
 ### **api-access-err-(.+)**
@@ -304,12 +319,13 @@ See {@link module:api.passkey}
 See {@link module:api.redirect}
 ### **api-redirect-err-(.+)**
  Error messages for various cases   
-### **api-redirect-url**
- Add to the list a JSON object with property name defining a location regexp to be matched early against in order to redirect using the value of the property, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
-##### Type: regexpmap   
+### **api-redirect-url-(.+)**
+ Define a location regexp to be matched early in order to redirect, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
+##### Type: regexpobj   
 ##### Example:
 ```
-{ '^[^/]+/path/$': '/path2/index.html', '.+/$': '301:@PATH@/index.html' }
+api-redirect-url-^[^/]+/path/$ = /path2/index.html
+api-redirect-url-.+/$ = 301:@PATH@/index.html
 ```
 
 ### **api-redirect-login-(.+)**
@@ -317,7 +333,7 @@ See {@link module:api.redirect}
 ##### Type: regexpobj   
 ##### Example:
 ```
-api-redirect-login-^/admin/=/login.html
+api-redirect-login-^/admin/ = /login.html
 ```
 
 ### **api-redirect-reset**
@@ -332,7 +348,7 @@ See {@link module:api.routing}
 ##### Type: regexpobj   
 ##### Example:
 ```
--api-routing-path-^/user/get /user/read
+api-routing-path-^/user/get = /user/read
 ```
 
 ### **api-routing-auth-(.+)**
@@ -340,7 +356,7 @@ See {@link module:api.routing}
 ##### Type: regexpobj   
 ##### Example:
 ```
--api-routing-auth-^/user/get /user/read
+api-routing-auth-^/user/get = /user/read
 ```
 
 ### **api-routing-reset**
