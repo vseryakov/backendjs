@@ -88,6 +88,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
 3. **API Workers**
    - Handle HTTP requests and WebSocket connections.
    - Use Express.js middleware for routing and authentication.
+   - Includes simple but powerful input validation
 
 4. **Database Pools**
    - Maintain connections to databases (SQLite, PostgreSQL, DynamoDB, Elasticsearch, Rqlite).
@@ -150,6 +151,8 @@ The library is configured via:
 ## Getting started
 
 Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-start.html).
+
+Check out [examples](https://github.com/vseryakov/backendjs/tree/master/examples).
 
 ## Full documentation
 

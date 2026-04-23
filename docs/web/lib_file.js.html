@@ -63,19 +63,23 @@ const logger = require(__dirname + '/../logger');
 const lib = require(__dirname + '/../lib');
 
 /**
- * Safe path.normalize, no exceptions
+ * Safe path.normalize, no exceptions, removes invalid characters `% \ .. : \x0 - \x19`
+ * making path safe but non-existent, does not support `..`
  * @param {...any} args
  * @memberof module:lib
  * @method normalize
+ * @example
+ * > lib.normalize("/usr/www/root", "../%2e%2e//../etc/......./\r\necho/./pas\1swd\00.0\x00.exe")
+ * '/usr/www/root/2e2e/etc/echo/passwd.0.exe'
  */
 lib.normalize = function(...args)
 {
     try {
-        return path.normalize(path.join.apply(path, args.map((x) => (typeof x == "string" ? x : x ? String(x) : "")))).replace(/\\/g, "/");
+        return path.normalize(path.join(...args.map((x) => lib.isString(x).replace(/([%:\\\x00-\x19])|(\.{2,})/g, ""))))
     } catch (e) {
         logger.error("lib.normalize:", e, args);
-        return "";
     }
+    return "";
 }
 
 /**

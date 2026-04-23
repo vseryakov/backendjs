@@ -1,44 +1,44 @@
 # Config parameters
 ## api
 See {@link module:api}
-### **api-err-(.+)**
+### **$ api-err-(.+) **
  Error messages for various cases   
-### **api-cap-(.+)**
+### **$ api-cap-(.+) **
  Capability parameters   
 ##### Type: int   
-### **api-version**
+### **$ api-version **
  Custom Server: header to return for all requests   
 ##### Default: "api/1.0"   
-### **api-port**
+### **$ api-port **
  port to listen for the HTTP server, this is global default   
 ##### Type: number   
 ##### Default: 8000   
-### **api-bind**
+### **$ api-bind **
  Bind to this address only, if not specified listen on all interfaces   
 ##### Default: "0.0.0.0"   
-### **api-backlog**
+### **$ api-backlog **
  The maximum length of the queue of pending connections, used by HTTP server in listen.   
 ##### Type: int   
 ##### Default: 5000   
-### **api-reuse-port**
+### **$ api-reuse-port **
  Allow multiple sockets on the same host to bind to the same port   
 ##### Type: bool   
-### **api-ssl**
+### **$ api-ssl **
  SSL params: port, bind, key, cert, pfx, ca, passphrase, crl, ciphers   
 ##### Type: map   
 ##### Default: {"port":443,"bind":"0.0.0.0"}   
-### **api-allow-configure-(web|middleware)**
+### **$ api-allow-configure-(web|middleware) **
  Modules allowed to call configureWeb or Middleware, i.e. only allowed endpoints   
 ##### Type: regexp   
-### **api-accesslog-disabled**
+### **$ api-accesslog-disabled **
  Disable access logging in both file or syslog   
 ##### Type: bool   
-### **api-accesslog-file**
+### **$ api-accesslog-file **
  File for access logging   
-### **api-accesslog-level**
+### **$ api-accesslog-level **
  Syslog level priority, default is local5.info, 21 * 8 + 6   
 ##### Type: int   
-### **api-accesslog-fields**
+### **$ api-accesslog-fields **
  Additional fields from the request or user to put in the access log, prefix defines where the field is lcoated: q: - query, b: - body, o: - options, h: - headers, u: - user otherwise from the request   
 ##### Type: list   
 ##### Example:
@@ -46,13 +46,13 @@ See {@link module:api}
 api-log-fields = h:Referer,u:name,q:action,b:id
 ```
 
-### **api-errlog-max**
+### **$ api-errlog-max **
  How many error messages to put in the log before throttling kicks in   
 ##### Type: int   
-### **api-errlog-interval**
+### **$ api-errlog-interval **
  Interval for error log limiter, max errors per this interval   
 ##### Type: int   
-### **api-errlog-ignore**
+### **$ api-errlog-ignore **
  Do not show errors that match the regexp   
 ##### Type: regexpobj   
 ##### Example:
@@ -60,7 +60,7 @@ api-log-fields = h:Referer,u:name,q:action,b:id
 api-errlog-ignore = ConditionalException
 ```
 
-### **api-errlog-codes**
+### **$ api-errlog-codes **
  Error code/status in exceptions to return in the response to the user, if not matched the errInternalError will be returned, default codes to skip: validate|toolarge   
 ##### Type: regexpobj   
 ##### Example:
@@ -69,18 +69,18 @@ api-errlog-ignore = ConditionalException
 api-errlog-codes = 4|5
 ```
 
-### **api-token-secret**
+### **$ api-token-secret **
  A generic secret to be used for API sessions, signatures, passkeys, must be set for user logins to work   
-### **api-body-disabled**
+### **$ api-body-disabled **
  Disable default JSON and multipart body parsers   
 ##### Type: bool   
-### **api-body-methods**
+### **$ api-body-methods **
  HTTP methods allowed to have body   
 ##### Type: list   
-### **api-body-types**
+### **$ api-body-types **
  Collect full request body in the req.body property for the given MIME types in addition to default json/form posts, this is for custom body processing   
 ##### Type: regexpobj   
-### **api-body-multipart**
+### **$ api-body-multipart **
  Paths that expect multipart/form-data payloads, parsing will happen after the signature processed automatically, other routes need to call api.handleMultipart explicitely   
 ##### Type: regexpobj   
 ##### Example:
@@ -88,7 +88,7 @@ api-errlog-codes = 4|5
 api-allow-multipart = ^/upload
 ```
 
-### **api-body-allow**
+### **$ api-body-allow **
  Paths that expect JSON/form payloads, parsing will happen before the signature processed, by default all requests are parsed, if defined only matched paths will be processed, the rest will have to use api.handleBody explicitely   
 ##### Type: regexpobj   
 ##### Example:
@@ -96,7 +96,7 @@ api-allow-multipart = ^/upload
 api-body-allow = ^/api
 ```
 
-### **api-body-defaults-([a-z0-9_]+)-(.+)**
+### **$ api-body-defaults-([a-z0-9_]+)-(.+) **
  Global body limits defaults for api.validate, format is: api-body-defaults-LIMIT-NAME, where LIMIT is an property that performs limiting like max, maxlist, min, required.., NAME is a schema property, it can be path specific   
 ##### Example:
 ```
@@ -106,14 +106,14 @@ api-body-defaults-max-name = 128
 api-body-defaults-maxlist-/endpoint-groups = 255
 ```
 
-### **api-cors-origin**
+### **$ api-cors-origin **
  Origin header for CORS requests   
-### **api-cors-allow**
+### **$ api-cors-allow **
  Enable CORS requests if a request host/path matches the given regexp   
 ##### Type: regexpobj   
-### **api-rlimits-([a-z]+)$**
+### **$ api-rlimits-([a-z]+)$ **
  Default rate limiter parameters, default interval is 1s, `ttl` is to expire old cache entries, message for error, default cache is local   
-### **api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+)**
+### **$ api-rlimits-(rate|max|interval|ttl|ip|delay|multiplier|queue)-(.+) **
  Rate limiter parameters by type for Token Bucket algorithm. `queue` to use specific queue, ttl` is to expire cache entries, `ip` is to limit by IP address as well   
 ##### Example:
 ```
@@ -122,7 +122,7 @@ api-rlimits-rate-/path = 1
 api-rlimits-rate-GET/path = 1
 ```
 
-### **api-rlimits-map-(.+)**
+### **$ api-rlimits-map-(.+) **
  Rate limiter parameters for Token Bucket algorithm. set all at once   
 ##### Type: map   
 ##### Example:
@@ -131,28 +131,28 @@ api-rlimits-map-/url=rate:1,interval:2000
 api-rlimits-map-GET/url=rate:10
 ```
 
-### **api-limits-(query|header|upload)-size**
+### **$ api-limits-(query|header|upload)-size **
  Max size for query/headers/uploads, bytes   
 ##### Type: number   
-### **api-limits-(files|fields)**
+### **$ api-limits-(files|fields) **
  Max number of files or fields in uploads   
 ##### Type: number   
-### **api-limits-queue-size**
+### **$ api-limits-queue-size **
  Max number of requests in the processing queue, if exceeds this value server returns too busy error   
 ##### Type: number   
-### **api-limits-requests-per-socket**
+### **$ api-limits-requests-per-socket **
  The maximum number of requests a socket can handle before closing keep alive connection   
 ##### Type: int   
-### **api-limits-timeout**
+### **$ api-limits-timeout **
  HTTP request idle timeout for servers in ms, how long to keep the connection socket open, this does not affect Long Poll requests   
 ##### Type: number   
-### **api-limits-keep-alive-timeout**
+### **$ api-limits-keep-alive-timeout **
  Number of milliseconds to keep the HTTP conection alive   
 ##### Type: int   
-### **api-limits-request-timeout**
+### **$ api-limits-request-timeout **
  Number of milliseconds to receive the entire request from the client   
 ##### Type: int   
-### **api-cleanup-rules-(.+)**
+### **$ api-cleanup-rules-(.+) **
  Rules for the api.cleanupResult per table   
 ##### Type: map   
 ##### Example:
@@ -160,13 +160,13 @@ api-rlimits-map-GET/url=rate:10
 api-cleanup-rules-bk_user = email:0,phone:1
 ```
 
-### **api-cleanup-strict**
+### **$ api-cleanup-strict **
  Default mode for cleanup results   
 ##### Type: bool   
-### **api-cleanup-fields**
+### **$ api-cleanup-fields **
  List of fields inside requests to explicitely cleanup on end   
 ##### Type: list   
-### **api-headers-(.+)**
+### **$ api-headers-(.+) **
  An JSON object with response headers to be set in matching responses, empty value to remove the header   
 ##### Type: regexpobj   
 ##### Example:
@@ -174,22 +174,22 @@ api-cleanup-rules-bk_user = email:0,phone:1
 api-headers-^/ = { "x-frame-options": "sameorigin", "x-xss-protection": "1; mode=block" }
 ```
 
-### **api-restart-hours**
+### **$ api-restart-hours **
  List of hours when to restart api workers, only done once for each hour   
 ##### Type: list   
-### **api-trace**
+### **$ api-trace **
  Options for tracing, host where to send if not local, path:regexp for URLs to be traced, interval:Interval in ms how often to trace requests, must be > 0 to enable tracing   
 ##### Type: map   
-### **api-exit-on-error**
+### **$ api-exit-on-error **
  Exit on uncaught exception in the route handler   
 ##### Type: bool   
-### **api-restart**
+### **$ api-restart **
  On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts   
 ##### Default: "server,web,process"   
-### **api-proxy-(.+)**
+### **$ api-proxy-(.+) **
  Proxy matched requests by path to given host   
 ##### Type: regexp   
-### **api-delays-(.+)**
+### **$ api-delays-(.+) **
  Delays in ms by status and code, useful for delaying error responses to slow down brute force attacks   
 ##### Type: int   
 ##### Example:
@@ -198,7 +198,7 @@ api-delays-401 = 1000
 api-delays-403:DENY = -1
 ```
 
-### **api-express**
+### **$ api-express **
  Set Express config options during initialization   
 ##### Type: json   
 ##### Default: {"trust proxy":1,"x-powered-by":false}   
@@ -209,16 +209,16 @@ api-express = { "trust proxy": 1, "strict routing": true }
 
 ## api.access
 See {@link module:api.access}
-### **api-access-err-(.+)**
+### **$ api-access-err-(.+) **
  Error messages for various cases   
-### **api-access-disabled**
+### **$ api-access-disabled **
  Disable default security middleware   
 ##### Type: bool   
 ## api.acl
 See {@link module:api.acl}
-### **api-acl-err-(.+)**
+### **$ api-acl-err-(.+) **
  Error messages for various cases   
-### **api-acl-add-([a-z0-9_]+)**
+### **$ api-acl-add-([a-z0-9_]+) **
  Add URLs to the named ACL which can be used in allow/deny rules per role   
 ##### Type: regexpobj   
 ##### Example:
@@ -226,7 +226,7 @@ See {@link module:api.acl}
 -api-acl-add-admins ^/admin
 ```
 
-### **api-acl-deny-([a-z0-9_]+)**
+### **$ api-acl-deny-([a-z0-9_]+) **
  Match all regexps from the specified acls to deny access for the specified role   
 ##### Type: list   
 ##### Example:
@@ -234,7 +234,7 @@ See {@link module:api.acl}
 -api-acl-deny-user admins,billing
 ```
 
-### **api-acl-allow-([a-z0-9_]+)**
+### **$ api-acl-allow-([a-z0-9_]+) **
  Match all regexps from the specified acls for allow access for the specified role   
 ##### Type: list   
 ##### Example:
@@ -242,7 +242,7 @@ See {@link module:api.acl}
 -api-acl-allow-staff admins,support,-billing
 ```
 
-### **api-acl-public**
+### **$ api-acl-public **
  Match all regexps from the specified acls for public access   
 ##### Type: list   
 ##### Default: ["public"]   
@@ -251,7 +251,7 @@ See {@link module:api.acl}
 -api-acl-public pub,docs,-intdocs
 ```
 
-### **api-acl-anonymous**
+### **$ api-acl-anonymous **
  Match all regexps from the specified acls to allow access with or without authentication   
 ##### Type: list   
 ##### Example:
@@ -259,7 +259,7 @@ See {@link module:api.acl}
 -api-acl-anonymous pub,docs
 ```
 
-### **api-acl-authenticated**
+### **$ api-acl-authenticated **
  Match all regexps from the specified acls to allow access only with authentication any role   
 ##### Type: list   
 ##### Example:
@@ -267,14 +267,14 @@ See {@link module:api.acl}
 -api-acl-authenticated stats,profile
 ```
 
-### **api-acl-reset**
+### **$ api-acl-reset **
  Reset all rules   
 ##### Type: callback   
 ## api.csrf
 See {@link module:api.csrf}
-### **api-csrf-err-(.+)**
+### **$ api-csrf-err-(.+) **
  Error messages for various cases   
-### **api-csrf-origin-(.+)**
+### **$ api-csrf-origin-(.+) **
  Regexp for URLs to by allowed by origin   
 ##### Type: regexpobj   
 ##### Example:
@@ -283,7 +283,7 @@ api-csrf-origin-^/account = http://host.com
 api-csrf-origin-^/account = https://host.com,http://localhost
 ```
 
-### **api-csrf-sec-fetch-(.+)**
+### **$ api-csrf-sec-fetch-(.+) **
  Regexp for URLs to use specific Sec-Fetch-Site header validation by: same-origin, same-site, cross-site, none   
 ##### Type: regexpobj   
 ##### Example:
@@ -292,34 +292,34 @@ api-csrf-sec-fetch-^/webhook = cross-site
 api-csrf-sec-fetch-^/ = same-origin,same-site
 ```
 
-### **api-csrf-skip-method**
+### **$ api-csrf-skip-method **
  Do not check for specified methods   
 ##### Type: list   
 ##### Default: ["GET","HEAD","OPTIONS","TRACE"]   
 ## api.passkey
 See {@link module:api.passkey}
-### **api-passkey-err-(.+)**
+### **$ api-passkey-err-(.+) **
  Error messages for various cases   
-### **api-passkey-cap-(.+)**
+### **$ api-passkey-cap-(.+) **
  Capability parameters   
 ##### Type: int   
-### **api-passkey-secret**
+### **$ api-passkey-secret **
  Cookies secret   
-### **api-passkey-cache**
+### **$ api-passkey-cache **
  Cache for challenges   
-### **api-passkey-cookie**
+### **$ api-passkey-cookie **
  Cookie name   
 ##### Default: "bk_passkey"   
-### **api-passkey-domain**
+### **$ api-passkey-domain **
  Explicit domain to use instead of host   
-### **api-passkey-endpoint**
+### **$ api-passkey-endpoint **
  Root endpoint for the api routes to remount under differnet top path   
 ##### Default: "/passkey"   
 ## api.redirect
 See {@link module:api.redirect}
-### **api-redirect-err-(.+)**
+### **$ api-redirect-err-(.+) **
  Error messages for various cases   
-### **api-redirect-url-(.+)**
+### **$ api-redirect-url-(.+) **
  Define a location regexp to be matched early in order to redirect, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
 ##### Type: regexpobj   
 ##### Example:
@@ -328,7 +328,7 @@ api-redirect-url-^[^/]+/path/$ = /path2/index.html
 api-redirect-url-.+/$ = 301:@PATH@/index.html
 ```
 
-### **api-redirect-login-(.+)**
+### **$ api-redirect-login-(.+) **
  Define a location where to redirect if no login is provided, same format and placeholders as in redirect-url   
 ##### Type: regexpobj   
 ##### Example:
@@ -336,14 +336,14 @@ api-redirect-url-.+/$ = 301:@PATH@/index.html
 api-redirect-login-^/admin/ = /login.html
 ```
 
-### **api-redirect-reset**
+### **$ api-redirect-reset **
  Reset all rules   
 ##### Type: callback   
 ## api.routing
 See {@link module:api.routing}
-### **api-routing-err-(.+)**
+### **$ api-routing-err-(.+) **
  Error messages for various cases   
-### **api-routing-path-(.+)**
+### **$ api-routing-path-(.+) **
  Locations to be re-routed to other path, this is done inside the server at the beginning, only the path is replaced, same format and placeholders as in redirect-url, use ! in front of regexp to remove particular redirect from the list   
 ##### Type: regexpobj   
 ##### Example:
@@ -351,7 +351,7 @@ See {@link module:api.routing}
 api-routing-path-^/user/get = /user/read
 ```
 
-### **api-routing-auth-(.+)**
+### **$ api-routing-auth-(.+) **
  URL path to be re-routed to other path after the authentication is successful, this is done inside the server, only the path is replaced, same format and placeholders as in redirect-url   
 ##### Type: regexpobj   
 ##### Example:
@@ -359,28 +359,28 @@ api-routing-path-^/user/get = /user/read
 api-routing-auth-^/user/get = /user/read
 ```
 
-### **api-routing-reset**
+### **$ api-routing-reset **
  Reset all rules   
 ##### Type: callback   
 ## api.session
 See {@link module:api.session}
-### **api-session-disabled**
+### **$ api-session-disabled **
  Disable cookie session support, all requests must be signed for Web clients   
 ##### Type: bool   
-### **api-session-cache**
+### **$ api-session-cache **
  Cache name for session control   
-### **api-session-age**
+### **$ api-session-age **
  Session age in milliseconds, for cookie based authentication   
 ##### Type: int   
 ##### Default: 1209600000   
-### **api-session-same-site**
+### **$ api-session-same-site **
  Session SameSite option, for cookie based authentication   
 ##### Default: "strict"   
-### **api-session-secure**
+### **$ api-session-secure **
  Set cookie Secure flag   
 ##### Type: bool   
 ##### Default: true   
-### **api-session-cookie-(.+)**
+### **$ api-session-cookie-(.+) **
  Cookie values for requests that match beginning of the path   
 ##### Type: map   
 ##### Example:
@@ -388,30 +388,30 @@ See {@link module:api.session}
 -api-session-cookie-/testing secure:false,sameSite:None
 ```
 
-### **api-session-secret**
+### **$ api-session-secret **
  Cookies secret   
-### **api-session-header**
+### **$ api-session-header **
  Header to use for signature   
 ##### Default: "bk-signature"   
 ## api.signature
 See {@link module:api.signature}
-### **api-signature-age**
+### **$ api-signature-age **
  Max age for request signature in milliseconds, how old the API signature can be to be considered valid, the 'expires' field in the signature must be less than current time plus this age, this is to support time drifts   
 ##### Type: int   
-### **api-signature-max-length**
+### **$ api-signature-max-length **
  Max login and tag length   
 ##### Type: int   
 ##### Default: 140   
 ## api.static
 See {@link module:api.static}
-### **api-static-disabled**
+### **$ api-static-disabled **
  Disable static files from /web folder, no .js or .html files will be served by the server   
 ##### Type: bool   
-### **api-static-options**
+### **$ api-static-options **
  Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified   
 ##### Type: map   
 ##### Default: {"maxAge":0}   
-### **api-static-views-(.+)**
+### **$ api-static-views-(.+) **
  Locations to be rendered as views, use ! in front of regexp to remove particular redirect from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@,   
 ##### Type: regexpobj   
 ##### Example:
@@ -419,14 +419,14 @@ See {@link module:api.static}
 -api-static-views-^/user/get show-user
 ```
 
-### **api-static-mime-(.+)**
+### **$ api-static-mime-(.+) **
  File extension to MIME content type mapping, this is used by static-serve   
 ##### Example:
 ```
 -api-static-mime-mobileconfig application/x-apple-aspen-config
 ```
 
-### **api-static-vhost-([^/]+)**
+### **$ api-static-vhost-([^/]+) **
  Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match   
 ##### Type: regexp   
 ##### Example:
@@ -434,10 +434,10 @@ See {@link module:api.static}
 api-static-vhost-test_dir=test.com$
 ```
 
-### **api-static-no-vhost**
+### **$ api-static-no-vhost **
  Add to the list of URL paths that should be served for all virtual hosts   
 ##### Type: regexpobj   
-### **api-static-no-cache**
+### **$ api-static-no-cache **
  Set cache-control=no-cache header for matching static files   
 ##### Type: regexpobj   
 ##### Example:
@@ -445,7 +445,7 @@ api-static-vhost-test_dir=test.com$
 api-static-no-cache = .+
 ```
 
-### **api-static-compressed-([^/]+)**
+### **$ api-static-compressed-([^/]+) **
  Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention   
 ##### Type: regexp   
 ##### Example:
@@ -455,108 +455,108 @@ api-static-no-cache = .+
 
 ## api.users
 See {@link module:api.users}
-### **api-users-table**
+### **$ api-users-table **
  Table to use for users   
 ##### Default: "bk_user"   
-### **api-users-err-(.+)**
+### **$ api-users-err-(.+) **
  Error messages for various cases   
-### **api-users-cap-(.+)**
+### **$ api-users-cap-(.+) **
  Capability parameters   
 ##### Type: int   
-### **api-users-max-length**
+### **$ api-users-max-length **
  Max login and name length   
 ##### Type: int   
 ##### Default: 140   
-### **api-users-users**
+### **$ api-users-users **
  An object with users   
 ##### Type: json   
 ##### Default: {}   
-### **api-users-file**
+### **$ api-users-file **
  A JSON file with users   
-### **api-users-endpoint**
+### **$ api-users-endpoint **
  Root endpoint for the api routes to remount under differnet top path   
 ##### Default: "/"   
 ## api.ws
 See {@link module:api.ws}
-### **api-ws-port**
+### **$ api-ws-port **
  Port to listen for WebSocket server, it can be the same as HTTP/S ports to co-exist on existing web servers   
 ##### Type: number   
-### **api-ws-bind**
+### **$ api-ws-bind **
  Bind to this address only for WebSocket, if not specified listen on all interfaces, only when the port is different from existing web ports   
 ##### Default: "0.0.0.0"   
-### **api-ws-ping**
+### **$ api-ws-ping **
  How often to ping Websocket connections   
 ##### Type: number   
 ##### Default: 30000   
-### **api-ws-path**
+### **$ api-ws-path **
  Websockets will be accepted only if request matches this pattern   
 ##### Type: regexp   
-### **api-ws-origin**
+### **$ api-ws-origin **
  Websockets will be accepted only if request Origin: header maches the pattern   
 ##### Type: regexp   
-### **api-ws-queue**
+### **$ api-ws-queue **
  A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets    
 ## app
 See {@link module:app}
-### **app-log**
+### **$ app-log **
  Set debugging level to any of DEV,DEBUG,INFO,LOG,WARN,ERROR,NONE   
 ##### Type: callback   
-### **app-log-options**
+### **$ app-log-options **
  Update logger options, the format is a map: name:val,...   
 ##### Type: map   
-### **app-log-file**
+### **$ app-log-file **
  Log to a file, if not specified used default logfile, disables syslog   
 ##### Type: callback   
-### **app-log-ignore**
+### **$ app-log-ignore **
  Regexp with property names which must not be exposed in the log when using custom logger inspector   
 ##### Type: regexp   
-### **app-log-inspect**
+### **$ app-log-inspect **
  Install custom logger inspector instead of util.inspect: 'json' - JSON output, 1|true - lib.inspect, 0 - util.inspect   
 ##### Type: callback   
 ##### Default: {"depth":7,"count":200,"keys":100,"func":0,"keepempty":1,"length":1500,"replace":{" ":{}},"ignore":{}}   
-### **app-log-inspect-map**
+### **$ app-log-inspect-map **
  Properties for the custom log inspect via inspect   
 ##### Type: map   
-### **app-log-filter**
+### **$ app-log-filter **
  Enable debug filters, format is: label,... to enable, and !label,... to disable. Only first argument is used for label in logger.debug   
 ##### Type: callback   
-### **app-log-clear**
+### **$ app-log-clear **
  Clear all log filters   
 ##### Type: bool   
-### **app-syslog**
+### **$ app-syslog **
  Log messages to syslog, pass 0 to disable, 1 or url (tcp|udp|unix):[//host:port][/path]?[facility=F][&tag=T][&retryCount=N][&bsd=1][&rfc5424=1][&rfc3164=1]...   
 ##### Type: callback   
-### **app-console**
+### **$ app-console **
  All logging goes to the console resetting all previous log related settings, this is used in the development mode mostly   
 ##### Type: callback   
-### **app-home**
+### **$ app-home **
  Specify home directory for the server, the server will try to chdir there or exit if it is not possible, the directory must exist   
 ##### Type: callback   
 ##### Default: "/Users/vlad/src/backendjs"   
-### **app-config**
+### **$ app-config **
  Name of the config file to be loaded, can be relative or absolute path   
 ##### Type: path   
 ##### Default: "bkjs.conf"   
-### **app-tmp-dir**
+### **$ app-tmp-dir **
  Path where to keep temp files   
 ##### Type: path   
 ##### Default: "/tmp"   
-### **app-path-web**
+### **$ app-path-web **
  Add a path where to keep web pages and other static files to be served by the web servers   
 ##### Type: path   
-### **app-path-views**
+### **$ app-path-views **
  Add a path where to keep Express render templates and virtual hosts web pages, every subdirectory name is a host name to match with Host: header, www. is always stripped before matching vhost directory   
 ##### Type: path   
-### **app-path-modules**
+### **$ app-path-modules **
  Add a path from where to load modules, these are the backendjs modules but in the same format and same conventions as regular node.js modules. The modules can load any other files or directories, this is just an entry point   
 ##### Type: path   
-### **app-salt**
+### **$ app-salt **
  Set random or specific salt value to be used for consistent suuid generation   
 ##### Type: callback   
-### **app-version**
+### **$ app-version **
  Set app name/version explicitely and skip reading it from the package.json   
 ##### Default: "bkjs/0.0"   
-### **app-roles**
+### **$ app-roles **
  Additional config roles, a shortcut for app-env-roles   
 ##### Type: list   
 ##### Example:
@@ -564,7 +564,7 @@ See {@link module:app}
 app-roles = redis, dynamodb
 ```
 
-### **app-env-([a-z0-9_-]+)**
+### **$ app-env-([a-z0-9_-]+) **
  Set runtime env properties explicitly: tag, region, zone, roles, ...   
 ##### Example:
 ```
@@ -572,47 +572,47 @@ app-env-roles = dev,web
 app-env-tag = api
 ```
 
-### **app-daemon**
+### **$ app-daemon **
  Daemonize the process, go to the background, can be specified only in the command line   
 ##### Type: none   
-### **app-shell**
+### **$ app-shell **
  Run command line shell, load the backend into the memory and prompt for the commands, can be specified only in the command line   
 ##### Type: none   
-### **app-server**
+### **$ app-server **
  Start the server server, can be specified only in the command line, this process handles job schedules and starts Web server in separate process, keeps track of failed processes and restarts them   
 ##### Type: none   
-### **app-worker**
+### **$ app-worker **
  Set this process as a worker even it is actually a primary, this skips some initializations   
 ##### Type: bool   
-### **app-no**
+### **$ app-no **
  List of subsystems to disable instead of using many inidividual -no-NNN parameters   
 ##### Type: callback   
-### **app-no-([a-z]+)**
+### **$ app-no-([a-z]+) **
  Do not start or disable a service, server, web, jobs, ipc, db, dbconf, watch, modules, packages, configure   
 ##### Type: callback   
-### **app-ok-(.+)**
+### **$ app-ok-(.+) **
  Enable disabled service, opposite of -no   
 ##### Type: callback   
-### **app-repl-port-([a-z]+)$**
+### **$ app-repl-port-([a-z]+)$ **
  Base REPL port for process role (server, web, worker), if specified it initializes REPL in the processes, for workers the port is computed by adding a worker id to the base port, for example if specified `-repl-port-web 2090` then a web worker will use any available 2091,2092...   
 ##### Type: number   
-### **app-repl-([a-z]+)**
+### **$ app-repl-([a-z]+) **
  REPL settings: listen, file, size   
 ##### Type: auto   
-### **app-import**
+### **$ app-import **
  NPM packages to load on startup, the modules, views, web subfolders from the package will be added automatically to the system paths, modules will be loaded if present, the bkjs.conf will be parsed if present   
 ##### Type: list   
 ##### Default: []   
-### **app-modules-include**
+### **$ app-modules-include **
  Modules to load only, the whole path is checked   
 ##### Type: regexp   
-### **app-modules-exclude**
+### **$ app-modules-exclude **
  Modules not to load, the whole path is checked   
 ##### Type: regexp   
-### **app-modules-depth**
+### **$ app-modules-depth **
  How deep to go looking for modules, it uses lib.findFileSync to locate all .js files   
 ##### Type: int   
-### **app-modules-methods-(.+)**
+### **$ app-modules-methods-(.+) **
  Modules that allowed to run methods by name, useful to restrict configure methods   
 ##### Type: regexp   
 ##### Example:
@@ -620,99 +620,99 @@ app-env-tag = api
 -app-modules-methods-configureWeb app
 ```
 
-### **app-host-name**
+### **$ app-host-name **
  Hostname/domain to use for communications, default is current domain of the host machine   
 ##### Type: callback   
-### **app-workers**
+### **$ app-workers **
  Max number of web processes to launch, -1 disables workers, 0 means launch as many as the CPUs available`   
 ##### Type: int   
 ##### Default: 1   
-### **app-worker-cpu-factor**
+### **$ app-worker-cpu-factor **
  A number to multiply the number of CPUs available to make the total number of workers to launch, only used if `workers` is 0   
 ##### Type: real   
 ##### Default: 2   
-### **app-worker-args**
+### **$ app-worker-args **
  Node arguments for workers, job and web processes, for passing v8 options, use %20 for spaces   
 ##### Type: list   
 ##### Default: []   
-### **app-worker-delay**
+### **$ app-worker-delay **
  Delay in milliseconds for a web worker before it will start accepting requests, for cases when other dependencies may take some time to start   
 ##### Type: int   
-### **app-no-restart**
+### **$ app-no-restart **
  Do not restart any workers   
 ##### Type: bool   
-### **app-stop-on-error**
+### **$ app-stop-on-error **
  Exit the process on any error when loading modules, for dev purposes   
 ##### Type: bool   
-### **app-exit-on-empty**
+### **$ app-exit-on-empty **
  Duration in ms to exit the server process after last worker terminated   
 ##### Type: int   
-### **app-pid-file**
+### **$ app-pid-file **
  Server process pid file   
-### **app-err-file**
+### **$ app-err-file **
  Server error log file in daemon mode   
 ## aws
 See {@link module:aws}
-### **aws-key**
+### **$ aws-key **
  AWS access key   
-### **aws-secret**
+### **$ aws-secret **
  AWS access secret   
-### **aws-token**
+### **$ aws-token **
  AWS security token   
-### **aws-region**
+### **$ aws-region **
  AWS region   
-### **aws-zone**
+### **$ aws-zone **
  AWS availability zone   
-### **aws-meta**
+### **$ aws-meta **
  Retrieve instance metadata, 0 to disable   
 ##### Type: bool   
 ##### Default: 1   
-### **aws-sdk-profile**
+### **$ aws-sdk-profile **
  AWS SDK profile to use when reading credentials file   
-### **aws-sns-app-arn**
+### **$ aws-sns-app-arn **
  SNS Platform application ARN to be used for push notifications   
-### **aws-key-name**
+### **$ aws-key-name **
  AWS instance keypair name for remote job instances or other AWS commands   
-### **aws-target-group**
+### **$ aws-target-group **
  AWS ELB target group to be registered with on start up or other AWS commands   
-### **aws-elastic-ip**
+### **$ aws-elastic-ip **
  AWS Elastic IP to be associated on start   
-### **aws-host-name**
+### **$ aws-host-name **
  List of hosts to update in Route54 zone with the current private IP address, hosts must be in FQDN format, supports @..@ app.env placeholders   
 ##### Type: list   
-### **aws-iam-profile**
+### **$ aws-iam-profile **
  IAM instance profile name for instances or commands   
-### **aws-image-id**
+### **$ aws-image-id **
  AWS image id to be used for instances or commands   
-### **aws-subnet-id**
+### **$ aws-subnet-id **
  AWS subnet id to be used for instances or commands   
-### **aws-vpc-id**
+### **$ aws-vpc-id **
  AWS VPC id to be used for instances or commands   
-### **aws-group-id**
+### **$ aws-group-id **
  AWS security group(s) to be used for instances or commands   
-### **aws-public-ip**
+### **$ aws-public-ip **
  AWS public IP option for instances or commands   
 ##### Type: bool   
-### **aws-ecs-cluster**
+### **$ aws-ecs-cluster **
  AWS ECS cluster to use as default   
-### **aws-instance-type**
+### **$ aws-instance-type **
  AWS instance type to launch on demand   
-### **aws-metadata-options**
+### **$ aws-metadata-options **
  Default instance metadata options   
 ##### Type: list   
-### **aws-account-id**
+### **$ aws-account-id **
  AWS account id if not running on an instance   
-### **aws-eni-id**
+### **$ aws-eni-id **
  AWS Elastic Network Interfaces to attach on start, format is: eni[:index],eni...   
 ##### Type: list   
-### **aws-config-parameters**
+### **$ aws-config-parameters **
  Prefix for AWS Systems Manager parameters to load and parse as config before initializing the database pools   
 ##### Example:
 ```
 /bkjs/config/
 ```
 
-### **aws-config-secrets**
+### **$ aws-config-secrets **
  AWS Secrets Manager filters to load and parse as config before initializing the database pools, supports @..@ app.env placeholders in filters   
 ##### Type: list   
 ##### Example:
@@ -720,14 +720,14 @@ See {@link module:aws}
 production,production-@tag@,production-@role@
 ```
 
-### **aws-config-s3-file**
+### **$ aws-config-s3-file **
  S3 url for config file to download on start, may include @placeholders@ to refer properties from app.env   
-### **aws-config-s3-interval**
+### **$ aws-config-s3-interval **
  Load S3 config file every specified interval in minites   
 ##### Type: int   
 ## cache
 See {@link module:cache}
-### **cache-config**
+### **$ cache-config **
  An object with driver configs, an object with at least url or an url string   
 ##### Type: json   
 ##### Example:
@@ -735,7 +735,7 @@ See {@link module:cache}
 -cache-config {"redis":{"url":redis://localhost","count":1},"nats":"nats://localhost:4222"}
 ```
 
-### **cache-([a-z0-9]+)-options$**
+### **$ cache-([a-z0-9]+)-options$ **
  Additional parameters for clients, specific to each implementation   
 ##### Type: map   
 ##### Example:
@@ -743,14 +743,14 @@ See {@link module:cache}
 -cache-redis-options count:10,interval:100
 ```
 
-### **cache-([a-z0-9]+)-options-(.+)**
+### **$ cache-([a-z0-9]+)-options-(.+) **
  Additional parameters for clients, specific to each implementation   
 ##### Example:
 ```
 -cache-default-options-count 10
 ```
 
-### **cache-([a-z0-9]+)**
+### **$ cache-([a-z0-9]+) **
  An URL that points to a cache server in the format PROTO://HOST[:PORT]?PARAMS, multiple clients can be defined with unique names, all params starting with bk- will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url   
 ##### Example:
 ```
@@ -759,62 +759,62 @@ See {@link module:cache}
 
 ## db
 See {@link module:db}
-### **db-cap-(.+)**
+### **$ db-cap-(.+) **
  Capability parameters   
 ##### Type: int   
-### **db-none**
+### **$ db-none **
  disable all db pools   
 ##### Type: bool   
-### **db-pool**
+### **$ db-pool **
  Default pool to be used for db access without explicit pool specified   
-### **db-name**
+### **$ db-name **
  Default database name to be used for default connections in cases when no db is specified in the connection url   
 ##### Default: "db"   
-### **db-cache-tables**
+### **$ db-cache-tables **
  List of tables that can be cached: users, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.   
 ##### Type: list   
 ##### Default: []   
-### **db-skip-tables**
+### **$ db-skip-tables **
  List of tables that will not be created or modified, this is global for all pools   
 ##### Type: list   
-### **db-skip-pools**
+### **$ db-skip-pools **
  List of pools to be skipped during initialization   
 ##### Type: list   
-### **db-cache-pools**
+### **$ db-cache-pools **
  List of pools which trigger cache flushes on update.   
 ##### Type: list   
 ##### Default: []   
-### **db-cache-sync**
+### **$ db-cache-sync **
  List of tables that perform synchronized cache updates before returning from a DB call, by default cache updates are done in the background   
 ##### Type: list   
 ##### Default: []   
-### **db-cache-keys-([a-z0-9_]+)-(.+)**
+### **$ db-cache-keys-([a-z0-9_]+)-(.+) **
  List of columns to be used for the table cache, all update operations will flush the cache if the cache key can be created from the record columns. This is for ad-hoc and caches to be used for custom selects which specified the cache key.   
 ##### Type: list   
-### **db-describe-tables**
+### **$ db-describe-tables **
  A JSON object with table descriptions to be merged with the existing definitions   
 ##### Type: callback   
-### **db-cache-ttl-(.+)**
+### **$ db-cache-ttl-(.+) **
  TTL in milliseconds for each individual table being cached, use * as default for all tables   
 ##### Type: int   
-### **db-cache-name-(.+)**
+### **$ db-cache-name-(.+) **
  Cache client name to use for cache reading and writing for each table instead of the default in order to split cache usage for different tables, it can be just a table name or `pool.table`, use `*` to set default cache for all tables   
-### **db-cache-update-(.+)**
+### **$ db-cache-update-(.+) **
  Cache client name to use for updating only for each table instead of the default in order to split cache usage for different tables, it can be just a table name or `pool.table` or `*`. This cache takes precedence for updating cache over `cache-name` parameter   
-### **db-cache2-max**
+### **$ db-cache2-max **
  Max number of items to keep in the LRU Level 2 cache   
 ##### Type: int   
-### **db-cache2-(.+)**
+### **$ db-cache2-(.+) **
  Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the given amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work   
 ##### Type: int   
-### **db-custom-column-([a-zA-Z0-9_]+)-(.+)**
+### **$ db-custom-column-([a-zA-Z0-9_]+)-(.+) **
  A column that is allowed to be used in any table, the name is a column name regexp with the value to be a type   
 ##### Example:
 ```
 -db-custom-column-users-^stats=counter
 ```
 
-### **db-describe-column-([a-z0-9_]+)-([a-zA-Z0-9_.]+)**
+### **$ db-describe-column-([a-z0-9_]+)-([a-zA-Z0-9_.]+) **
  Describe a table column properties, can be a new or existing column, overrides existing property   
 ##### Type: map   
 ##### Example:
@@ -822,22 +822,22 @@ See {@link module:db}
 -db-describe-column-users-name.check max:255
 ```
 
-### **db-config**
+### **$ db-config **
  Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters   
-### **db-config-map**
+### **$ db-config-map **
  Config options: `.interval` between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db, `.count` max records to load in one select, see the docs about `.top`, `.main`, `.other` config parameters   
 ##### Type: map   
 ##### Default: {"count":1000,"interval":1440,"top":"roles","main":"role,tag","other":"role"}   
-### **db-skip-drop**
+### **$ db-skip-drop **
  A pattern of table names which will skipp in db.drop operations to prevent accidental table deletion   
 ##### Type: regexpobj   
-### **db-aliases-(.+)**
+### **$ db-aliases-(.+) **
  Table aliases to be used instead of the requested table name, only high level db operations will use it, al low level utilities use the real table names   
-### **db-concurrency**
+### **$ db-concurrency **
  How many simultaneous tasks to run at the same time inside one process   
 ##### Type: number   
 ##### Default: 3   
-### **db-([a-z0-9]+)-pool**
+### **$ db-([a-z0-9]+)-pool **
  A database pool name, depending on the driver it can be an URL, name or pathname   
 ##### Example:
 ```
@@ -847,49 +847,49 @@ url format: `protocol://[user:password@]hostname[:port]/dbname`
 `default`
 ```
 
-### **db-([a-z0-9]+)-pool-(disabled)**
+### **$ db-([a-z0-9]+)-pool-(disabled) **
  Disable the specified pool but keep the configuration   
 ##### Type: bool   
-### **db-([a-z0-9]+)-pool-(max)**
+### **$ db-([a-z0-9]+)-pool-(max) **
  Max number of open connections for a pool, default is Infinity   
 ##### Type: number   
-### **db-([a-z0-9]+)-pool-(min)**
+### **$ db-([a-z0-9]+)-pool-(min) **
  Min number of open connections for a pool   
 ##### Type: number   
-### **db-([a-z0-9]+)-pool-(idle)**
+### **$ db-([a-z0-9]+)-pool-(idle) **
  Number of ms for a db pool connection to be idle before being destroyed   
 ##### Type: number   
-### **db-([a-z0-9]+)-pool-(tables)**
+### **$ db-([a-z0-9]+)-pool-(tables) **
  Tables to be created only in this pool, to prevent creating all tables in every pool   
 ##### Type: list   
-### **db-([a-z0-9]+)-pool-connect**
+### **$ db-([a-z0-9]+)-pool-connect **
  Connect options for a DB pool driver for new connection, driver specific   
 ##### Type: map   
-### **db-([a-z0-9]+)-pool-options**
+### **$ db-([a-z0-9]+)-pool-options **
  General options for a DB pool, a simple map case   
 ##### Type: map   
-### **db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$**
+### **$ db-([a-z0-9]+)-pool-options-([a-zA-Z0-9_.-]+)$ **
  General options for a DB pool by name with specific type   
-### **db-([a-z0-9]+)-pool-table-map**
+### **$ db-([a-z0-9]+)-pool-table-map **
  Table mapping, aliases   
 ##### Type: map   
-### **db-([a-z0-9]+)-pool-(skip-tables)**
+### **$ db-([a-z0-9]+)-pool-(skip-tables) **
  Tables not to be created in this pool   
 ##### Type: list   
-### **db-([a-z0-9]+)-pool-(metrics-tables)**
+### **$ db-([a-z0-9]+)-pool-(metrics-tables) **
  Tables to collect metrics in this pool   
 ##### Type: list   
-### **db-([a-z0-9]+)-pool-cache2-(.+)**
+### **$ db-([a-z0-9]+)-pool-cache2-(.+) **
  Level 2 cache TTL for the specified pool and table, data is JSON strings in the LRU cache   
 ##### Type: int   
-### **db-([a-z0-9]+)-pool-alias**
+### **$ db-([a-z0-9]+)-pool-alias **
  Pool alias to refer by an alternative name   
 ## events
 See {@link module:events}
-### **events-cap-(.+)**
+### **$ events-cap-(.+) **
  Capability parameters   
 ##### Type: int   
-### **events-worker-queue**
+### **$ events-worker-queue **
  Queues to subscribe for workers, same queues can be used at the same time with different functions and channels and consumers, event queue format is `queue.subject#group`   
 ##### Type: map   
 ##### Default: {}   
@@ -898,7 +898,7 @@ See {@link module:events}
 events-worker-queue = ticket:ticket.processEvents, ticket.inbox#staff: ticket.processInboxEvents, ticket#staff: ticket.processStaffEvents
 ```
 
-### **events-worker-options-(.+)**
+### **$ events-worker-options-(.+) **
  Custom parameters by queue name, passed to `queue.listen` on worker start, useful with channels   
 ##### Type: map   
 ##### Example:
@@ -906,15 +906,15 @@ events-worker-queue = ticket:ticket.processEvents, ticket.inbox#staff: ticket.pr
 -events-worker-options-ticket count:3,raw:1
 ```
 
-### **events-worker-delay**
+### **$ events-worker-delay **
  Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start   
 ##### Type: int   
 ##### Default: 50   
-### **events-max-runtime**
+### **$ events-max-runtime **
  Max number of seconds an event processing can run before being killed   
 ##### Type: int   
 ##### Default: 60000   
-### **events-routing**
+### **$ events-routing **
  Routing map by event subject or type   
 ##### Type: map   
 ##### Default: {}   
@@ -923,7 +923,7 @@ events-worker-queue = ticket:ticket.processEvents, ticket.inbox#staff: ticket.pr
 -events-routing redis:local.+, nats:.+, sqs:billing.+
 ```
 
-### **events-routing-options-(.+)**
+### **$ events-routing-options-(.+) **
  Routing options by queue name, used by `putEvent` to merge with passed queue options   
 ##### Type: map   
 ##### Example:
@@ -931,67 +931,67 @@ events-worker-queue = ticket:ticket.processEvents, ticket.inbox#staff: ticket.pr
 -events-routing-options-nats groupName:group
 ```
 
-### **events-shutdown-timeout**
+### **$ events-shutdown-timeout **
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
 ##### Type: int   
 ##### Default: 50   
 ## file
 See {@link module:file}
-### **file-url**
+### **$ file-url **
  URL where files are stored, for cases of central file server(s), must be full URL with optional path   
-### **file-s3**
+### **$ file-s3 **
  S3 bucket name where to store files uploaded with the File API   
-### **file-root**
+### **$ file-root **
  Root directory where to keep files   
 ##### Type: path   
 ## image
 See {@link module:image}
-### **image-black**
+### **$ image-black **
  Default color to use for black text   
 ##### Default: "#28282B"   
-### **image-white**
+### **$ image-white **
  Default color to use for white text   
 ##### Default: "#F9F9F3"   
-### **image-background**
+### **$ image-background **
  Default background color for new images   
 ##### Default: "#FFFFFF"   
 ## ipc
 See {@link module:ipc}
-### **ipc-ping**
+### **$ ipc-ping **
  Keep alive pings for workers: interval:ms how oftern do pings, kill:ms kill worker after this period   
 ##### Type: map   
 ##### Default: {}   
-### **ipc-system-queue**
+### **$ ipc-system-queue **
  System queue name to send broadcast control messages, this is a PUB/SUB queue to process system messages like restart, re-init config,...   
 ## jobs
 See {@link module:jobs}
-### **jobs-cap-(.+)**
+### **$ jobs-cap-(.+) **
  Capability parameters   
 ##### Type: int   
-### **jobs-workers**
+### **$ jobs-workers **
  How many worker processes to launch to process the job queue, -1 disables jobs, 0 means launch as many as the CPUs available   
 ##### Type: number   
 ##### Default: -1   
-### **jobs-worker-cpu-factor**
+### **$ jobs-worker-cpu-factor **
  A number to multiply the number of CPUs available to make the total number of workers to launch, only used if `workers` is 0   
 ##### Type: real   
 ##### Default: 2   
-### **jobs-worker-env**
+### **$ jobs-worker-env **
  Environment to be passed to the worker via fork, see `cluster.fork`   
 ##### Type: map   
 ##### Default: {}   
-### **jobs-worker-settings**
+### **$ jobs-worker-settings **
  Worker fork setting, see cluster.setupPrimary   
 ##### Type: json   
-### **jobs-worker-delay**
+### **$ jobs-worker-delay **
  Delay in milliseconds for a worker before it will start accepting jobs, for cases when other dependencies may take some time to start   
 ##### Type: int   
 ##### Default: 50   
-### **jobs-worker-queue**
+### **$ jobs-worker-queue **
  Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues   
 ##### Type: list   
 ##### Default: []   
-### **jobs-worker-options-(.+)**
+### **$ jobs-worker-options-(.+) **
  Custom parameters by queue name, passed to `queue.subscribeQueue` on worker start, useful with channels   
 ##### Type: json   
 ##### Example:
@@ -999,40 +999,40 @@ See {@link module:jobs}
 -jobs-worker-options-nats#events {"count":10}
 ```
 
-### **jobs-max-runtime**
+### **$ jobs-max-runtime **
  Max number of milliseconds a job can run before being killed   
 ##### Type: int   
 ##### Default: 900000   
-### **jobs-max-lifetime**
+### **$ jobs-max-lifetime **
  Max number of milliseconds a worker can live, after that amount of time it will exit once all the jobs are finished, 0 means indefinitely   
 ##### Type: int   
 ##### Default: 43200000   
-### **jobs-shutdown-timeout**
+### **$ jobs-shutdown-timeout **
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
 ##### Type: int   
 ##### Default: 50   
-### **jobs-cron-queue**
+### **$ jobs-cron-queue **
  Default queue to use for cron jobs   
 ##### Type: list   
-### **jobs-global-queue**
+### **$ jobs-global-queue **
  Default queue for all jobs, the queueName is ignored   
 ##### Type: list   
-### **jobs-global-ignore**
+### **$ jobs-global-ignore **
  Queue names which ignore the global setting, the queueName is used as usual, local and worker are ignored by default   
 ##### Type: list   
 ##### Default: ["local","worker"]   
-### **jobs-cron-file**
+### **$ jobs-cron-file **
  File with cron jobs in JSON format   
-### **jobs-cron**
+### **$ jobs-cron **
  Cron jobs to be scheduled, the JSON must be in the same format as crontab file, cron format by https://croner.56k.guru   
 ##### Type: json   
-### **jobs-unique-cache**
+### **$ jobs-unique-cache **
  Default cache name to use for keeping track of unique jobs   
 ##### Default: "local"   
-### **jobs-unique-ignore**
+### **$ jobs-unique-ignore **
  Ignore all unique parameters if a job's uniqueKey matches   
 ##### Type: regexp   
-### **jobs-unique-ttl-([0-9]+)**
+### **$ jobs-unique-ttl-([0-9]+) **
  Override unique TTL to a new value if matches the unique key   
 ##### Type: regexp   
 ##### Example:
@@ -1040,64 +1040,64 @@ See {@link module:jobs}
 -jobs-unique-ttl-100 KEY
 ```
 
-### **jobs-unique-logger**
+### **$ jobs-unique-logger **
  Log level for unique error conditions   
-### **jobs-retry-visibility-timeout**
+### **$ jobs-retry-visibility-timeout **
  Visibility timeout by error code >= 500 for queues that support it   
 ##### Type: map   
-### **jobs-task-ignore**
+### **$ jobs-task-ignore **
  Ignore matched tasks   
 ##### Type: regexp   
 ## logwatcher
 See {@link module:logwatcher}
-### **logwatcher-pool**
+### **$ logwatcher-pool **
  DB pool to keep track of positions for log files, default is local   
-### **logwatcher-table**
+### **$ logwatcher-table **
  DB table to keep positions, must have name and value columns   
-### **logwatcher-from**
+### **$ logwatcher-from **
  Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses   
-### **logwatcher-subject**
+### **$ logwatcher-subject **
  Email subject template, all placeholders have access to the core module only   
 ##### Default: "logwatcher: @counter@ @type@s: @hostname@/@ipaddr@/@instance.id@/@instance.tag@/@instance.roles@/@instance.region@"   
-### **logwatcher-interval**
+### **$ logwatcher-interval **
  How often to check for errors in the log files in seconds, 0 to disable   
 ##### Type: number   
-### **logwatcher-any-range**
+### **$ logwatcher-any-range **
  Number of lines for matched channel `any` to be attached to the previous matched channel, if more than this number use the channel `any` on its own   
 ##### Type: number   
 ##### Default: 5   
-### **logwatcher-matches-[a-z]+**
+### **$ logwatcher-matches-[a-z]+ **
  Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, like error, warning.... Special channel `any` is reserved to send matched lines to the previously matched channel if within configured range. Example: `-logwatcher-match-error=^failed:` `-match-any=line:[0-9]+`   
-### **logwatcher-send-[a-z]+**
+### **$ logwatcher-send-[a-z]+ **
  Email address or other supported transport for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define a transport separately, one of error, warning, info, all. Supported transports: table://TABLE, http://URL, sns://ARN, ses://EMAIL, email@addr. Example: `-logwatcher-send-error=help@error.com`   
-### **logwatcher-ignore-[a-z]+**
+### **$ logwatcher-ignore-[a-z]+ **
  Regexp with patterns that need to be ignored by the logwatcher process, it is added to the list of existing patterns for each specified channel separately   
-### **logwatcher-once-[a-z0-9]+**
+### **$ logwatcher-once-[a-z0-9]+ **
  Regexp with patterns that need to be included only once by the logwatcher process, it is added to the list of existng patterns by tag to keep track each pattern separately, example: -logwatcher-once-restart 'restarting.+' -logwatcher-once-recon 'reconnecting:.+'   
-### **logwatcher-files(-[a-z]+)?**
+### **$ logwatcher-files(-[a-z]+)? **
  Add a file to be watched by the logwatcher, it will use all configured match patterns   
 ##### Type: callback   
-### **logwatcher-local**
+### **$ logwatcher-local **
  Save matched lines in local file, ex. file:filename, size:maxsize, ext:ext   
 ##### Type: map   
 ##### Default: {"newline":1,"size":104857600}   
-### **logwatcher-cw-run**
+### **$ logwatcher-cw-run **
  Run AWS Cloudwatch logwatcher   
 ##### Type: bool   
-### **logwatcher-cw-filter**
+### **$ logwatcher-cw-filter **
  AWS Cloudwatch Logs filter pattern, only matched events will be returned and analyzed the the core logwatcher regexps   
-### **logwatcher-cw-groups**
+### **$ logwatcher-cw-groups **
  List of AWS Cloudwatch Logs groups to watch for errors, format is: name:type,...   
 ##### Type: map   
 ##### Default: {}   
-### **logwatcher-cw-filters-(.+)**
+### **$ logwatcher-cw-filters-(.+) **
  AWS Cloudwatch Logs filter pattern by group, overrides the global filter   
-### **logwatcher-cw-matches-(.+)**
+### **$ logwatcher-cw-matches-(.+) **
  Logwatcher line regexp patterns by group, overrides default regexp patterns   
 ##### Type: regexp   
 ## push
 See {@link module:push}
-### **push-config**
+### **$ push-config **
  An object with client configs by type   
 ##### Type: json   
 ##### Example:
@@ -1105,7 +1105,7 @@ See {@link module:push}
 -push-config {"webpush":{"type":"webpush",key":XXX","pubkey":"XXXX"}}
 ```
 
-### **push-([a-z0-9]+)**
+### **$ push-([a-z0-9]+) **
  A single client type parameters   
 ##### Type: map   
 ##### Example:
@@ -1115,7 +1115,7 @@ See {@link module:push}
 
 ## queue
 See {@link module:queue}
-### **queue-config**
+### **$ queue-config **
  An object with driver configs, an object with at least url or an url string   
 ##### Type: json   
 ##### Example:
@@ -1123,7 +1123,7 @@ See {@link module:queue}
 -queue-config {"redis":{"url":redis://localhost","count":1},"nats":"nats://localhost:4222"}
 ```
 
-### **queue-([a-z0-9_]+)-options$**
+### **$ queue-([a-z0-9_]+)-options$ **
  Additional parameters for drivers, specific to each implementation   
 ##### Type: map   
 ##### Example:
@@ -1131,14 +1131,14 @@ See {@link module:queue}
 -queue-redis-options count:10,interval:100
 ```
 
-### **queue-([a-z0-9_]+)-options-(.+)**
+### **$ queue-([a-z0-9_]+)-options-(.+) **
  Additional parameters for drivers, specific to each implementation   
 ##### Example:
 ```
 -queue-default-options-count 10
 ```
 
-### **queue-([a-z0-9_]+)**
+### **$ queue-([a-z0-9_]+) **
  An URL that points to a server in the format `PROTO://HOST[:PORT]?PARAMS`, multiple clients can be defined with unique names, all params starting with `bk-` will be copied into the options without the prefix and removed from the url, the rest of params will be left in the url   
 ##### Example:
 ```
@@ -1147,14 +1147,14 @@ See {@link module:queue}
 
 ## sendmail
 See {@link module:sendmail}
-### **sendmail-from**
+### **$ sendmail-from **
  Email address to be used when sending emails from the backend   
-### **sendmail-transport**
+### **$ sendmail-transport **
  Send emails via supported transports: ses:, sendgrid:, fake:, file:, json:, if not set default SMTP settings are used   
-### **sendmail-smtp**
+### **$ sendmail-smtp **
  SMTP server parameters, user, password, host, ssl, tls...see nodemailer for details   
 ##### Type: map   
-### **sendmail-options-(.+)**
+### **$ sendmail-options-(.+) **
  Transport specific parameters   
 ##### Type: map   
 ##### Example:
@@ -1165,25 +1165,25 @@ sendmail-options-ses = config:cfg1,region:us-west-2
 
 ## sql
 See {@link module:sql}
-### **sql-config-(.+)**
+### **$ sql-config-(.+) **
  Common SQL config parameters   
 ##### Type: map   
 ## stats
 See {@link module:stats}
-### **stats-flags**
+### **$ stats-flags **
  Feature flags   
 ##### Type: list   
-### **stats-interval**
+### **$ stats-interval **
  Interval for process stats collection in ms   
 ##### Type: int   
-### **stats-target**
+### **$ stats-target **
  Target options, one of file, url, log...   
 ##### Type: json   
-### **stats-roles**
+### **$ stats-roles **
  Process roles that report stats only   
 ##### Type: list   
 ##### Default: []   
-### **stats-filter**
+### **$ stats-filter **
  For each metric prefix provide regexp to keep only matched stats   
 ##### Type: map   
 ##### Example:
