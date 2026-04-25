@@ -55,6 +55,14 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
     - **CSRF protection**, **signature verification**, and **rate limiting**.
     - **JWT (JSON Web Tokens)** support for authentication.
 
+## **Optional Features**
+
+1. Log watcher, notify about errors by parsing log files
+
+2. Image composing with Sharp.js from JSON schema, supports avatars, shadows, outline fonts, wrapping, padding
+
+3. Web scraping with Puppeteer
+
 ---
 
 ## **Key Modules**

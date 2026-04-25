@@ -1,4 +1,6 @@
 
+const { describe, it, before, after } = require('node:test');
+const assert = require('node:assert/strict');
 const cluster = require("node:cluster");
 const { app, lib, jobs, queue } = require("../");
 const { ainit, astop, testJob } = require("./utils");
@@ -14,8 +16,6 @@ if (cluster.isWorker) {
     });
 }
 
-const { describe, it, before, after } = require('node:test');
-const assert = require('node:assert/strict');
 
 describe("Jobs tests", async () => {
 
@@ -35,7 +35,7 @@ describe("Jobs tests", async () => {
     });
 
     it("run local job", async () => {
-        const file = "/tmp/job3.test";
+        const file = app.tmpDir + "/job3.test";
         lib.unlinkSync(file);
 
         await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "local" } } }, { queueName: "local" });
@@ -47,7 +47,7 @@ describe("Jobs tests", async () => {
     });
 
     it("run worker job", async() => {
-        var file = "/tmp/job4.test";
+        var file = app.tmpDir + "/job4.test";
         lib.unlinkSync(file);
 
         await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "worker" } } }, { queueName: "worker" });
@@ -58,7 +58,7 @@ describe("Jobs tests", async () => {
     });
 
     await it("run simple job", async () => {
-        var file = "/tmp/job1.test";
+        var file = app.tmpDir + "/job1.test";
         lib.unlinkSync(file);
 
         const opts = { queueName };
@@ -71,7 +71,7 @@ describe("Jobs tests", async () => {
     });
 
     await it("run cancel job", async () => {
-        const file = "/tmp/job2.test";
+        const file = app.tmpDir + "/job2.test";
         lib.unlinkSync(file);
 
         const opts = { queueName };
@@ -86,8 +86,8 @@ describe("Jobs tests", async () => {
         assert.match(data, /cancelled/);
     });
 
-    it("serialize with uniqueKey", async () => {
-        const file = "/tmp/job5.test";
+    await it("serialize with uniqueKey", async () => {
+        const file = app.tmpDir + "/job5.test";
         lib.unlinkSync(file);
 
         const opts = { queueName, visibilityTimeout: 1000, uniqueKey: "testTtl" }
@@ -104,8 +104,8 @@ describe("Jobs tests", async () => {
 
     });
 
-    it("retry after visibilityTimeout", async () => {
-        const file = "/tmp/job6.test";
+    await it("retry after visibilityTimeout", async () => {
+        const file = app.tmpDir + "/job6.test";
         lib.unlinkSync(file);
 
         const opts = { queueName, visibilityTimeout: 1000, uniqueKey: "testRetry" }
@@ -126,7 +126,7 @@ describe("Jobs tests", async () => {
     });
 
     await it("check noWait", async () => {
-        var file = "/tmp/job7.test";
+        var file = app.tmpDir + "/job7.test";
         lib.unlinkSync(file);
 
         const opts = { queueName, noWait: 1 };
@@ -140,7 +140,7 @@ describe("Jobs tests", async () => {
     });
 
     await it("check endTime", async () => {
-        var file = "/tmp/job8.test";
+        var file = app.tmpDir + "/job8.test";
         lib.unlinkSync(file);
 
         const opts = { queueName, endTime: Date.now() - 100 };
@@ -154,7 +154,7 @@ describe("Jobs tests", async () => {
     });
 
     await it("check startTime", async () => {
-        var file = "/tmp/job9.test";
+        var file = app.tmpDir + "/job9.test";
         lib.unlinkSync(file);
 
         const now = Date.now();

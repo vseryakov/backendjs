@@ -1,12 +1,24 @@
 
 const fs = require("fs");
-const { describe, it } = require('node:test');
+const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { app, lib, logwatcher } = require("../");
+const { init } = require("./utils");
 
 describe("Logwatcher tests", () => {
 
-    var argv = ["-logwatcher-send-error", "none://",
+    before((t, done) => {
+        init({}, done)
+    });
+
+
+    after((t, done) => {
+        app.stop(done)
+    });
+
+    it("process log files", (t, callback) => {
+
+        var argv = ["-logwatcher-send-error", "none://",
                 "-logwatcher-send-test", "none://",
                 "-logwatcher-send-ignore", "none://",
                 "-logwatcher-send-warning", "none://",
@@ -17,11 +29,11 @@ describe("Logwatcher tests", () => {
                 "-logwatcher-once-test2", "test2",
                 "-logwatcher-matches-any", "line:[0-9]+",
                 "-logwatcher-interval", "1",
-                "-app-log-file", "/tmp/message.log",
-                "-app-err-file", "/tmp/error.log",
+                "-app-log-file", app.tmpDir + "/message.log",
+                "-app-err-file", app.tmpDir + "/error.log",
                 "-db-pool", "none",
             ];
-    var lines = [
+            var lines = [
                 " ERROR: error1",
                 " continue error1",
                 "]: WARN: warning1",
@@ -41,13 +53,12 @@ describe("Logwatcher tests", () => {
                 " backtrace test line:456",
             ];
 
-    logwatcher.files = logwatcher.files?.filter((x) => (x.name));
+        logwatcher.files = logwatcher.files?.filter((x) => (x.name));
 
-    app.parseArgs(argv);
-    fs.writeFileSync(app.errFile, lines.join("\n"));
-    fs.writeFileSync(app.logFile, lines.join("\n"));
+        app.parseArgs(argv);
+        fs.writeFileSync(app.errFile, lines.join("\n"));
+        fs.writeFileSync(app.logFile, lines.join("\n"));
 
-    it("process log files", (t, callback) => {
         logwatcher.run((err, rc) => {
             assert.ifError(err);
             assert.equal(lib.objKeys(rc?.errors).length, 5);

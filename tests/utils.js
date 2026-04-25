@@ -66,6 +66,7 @@ exports.init = function(options, callback)
     }
 
     app.init(options, () => {
+        lib.makePathSync(app.tmpDir);
         initServices(options);
         setTimeout(callback || lib.noop, options.delay || 500);
     });

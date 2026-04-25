@@ -3,7 +3,7 @@
 //  backendjs 2025
 //
 
-const { db, api, image, modules, file, jobs, lib, logger, webscraper } = require('backendjs');
+const { db, api, image, modules, files, jobs, lib, logger, webscraper } = require('backendjs');
 
 const mod =
 
@@ -205,7 +205,7 @@ function assets(req, res)
     db.get("scraper", req.params.id, (err, row) => {
         if (!row) return api.sendReply(res, 404, "no record found");
         res.setHeader("cache-control", "max-age=0, no-cache, no-store");
-        file.send(req, req.params.id + "/" + req.params.file);
+        files.send(req, req.params.id + "/" + req.params.file);
     });
 }
 
@@ -221,7 +221,7 @@ async function render(req, res)
         const item = req.body.items[i];
         if (!item.file) continue;
         if (item.file.startsWith("web/")) continue;
-        item.file = file.root + "/" + req.params.id + "/" + item.file;
+        item.file = files.root + "/" + req.params.id + "/" + item.file;
     }
 
     image.composite(req.body.items, req.body.defaults).then(rc => {
@@ -299,8 +299,8 @@ function del(req, res)
     const id = req.params.id
     db.del("scraper", { id }, (err, row, info) => {
         if (!err && info.affected_rows) {
-            file.del(`${id}.png`);
-            file.del(`${id}.html`);
+            files.del(`${id}.png`);
+            files.del(`${id}.html`);
         }
         api.sendJSON(req, err);
     });
@@ -369,8 +369,8 @@ function describe(options, callback)
 
         api.ws.notify({}, { event: "scraper:status", data: { id: options.id, status: "describing" } });
 
-        const size = lib.statSync(file.root + "/" + options.id + "/full.png").size
-        const screenshot = file.root + "/" + options.id + "/" + (size ? "full" : "page") + ".png";
+        const size = lib.statSync(files.root + "/" + options.id + "/full.png").size
+        const screenshot = files.root + "/" + options.id + "/" + (size ? "full" : "page") + ".png";
         if (!lib.statSync(screenshot).size) {
             options.error = "no screenshot";
             logger.trace("describe:", mod.name, options);
@@ -416,7 +416,7 @@ function genVariants(options, callback)
             var data = parts.find(x => x.data);
             if (!data) return next();
 
-            file.store(data.data, `${options.id}/bg-${options.variants++}.jpg`, next);
+            files.store(data.data, `${options.id}/bg-${options.variants++}.jpg`, next);
         }, (err) => {
             if (err) options.error = err.message;
             update(options, callback);
@@ -442,7 +442,7 @@ function genSamples(options, callback)
                 const profile = lib.extend({}, item);
                 profile.name += "." + i;
                 profile.defaults = Object.assign({}, mod.defaults, profile.defaults);
-                profile.defaults["bg.file"] = file.root + "/" + options.id + "/bg-" + i + ".jpg";
+                profile.defaults["bg.file"] = files.root + "/" + options.id + "/bg-" + i + ".jpg";
                 profile.defaults["avatar.file"] = i % 2 == 0 ? "web/woman.jpg" : "web/man.jpg";
                 if (title) profile.defaults["title.text"] += lib.textToEntity(title);
                 if (location) profile.defaults["location.text"] = `${date}\n${lib.textToEntity(location)}`;
@@ -456,7 +456,7 @@ function genSamples(options, callback)
 
             image.composite(profile.items, profile.defaults).then(items => {
                 if (!items.length) return next();
-                file.store(items[0]._buffer, `${options.id}/profile-${profile.name}.png`);
+                files.store(items[0]._buffer, `${options.id}/profile-${profile.name}.png`);
 
                 logger.debug("genSamples:", mod.name, "done:", items);
                 items[0].file = profile.items[0].file.split("/").pop();

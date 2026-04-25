@@ -37,7 +37,7 @@ describe("Events tests", async () => {
 
 
     await it("put events", async () => {
-        var file = "/tmp/event1.test";
+        var file = app.tmpDir + "/event1.test";
         lib.unlinkSync(file);
 
         await events.aputEvent("TEST", { file, data: "test" });
@@ -57,7 +57,7 @@ describe("Events tests", async () => {
     });
 
     await it("group events", async () => {
-        var file = "/tmp/event2.test";
+        var file = app.tmpDir + "/event2.test";
         lib.unlinkSync(file);
 
         await events.aputEvent("SUBJECT1", { file, data: "subject1" });

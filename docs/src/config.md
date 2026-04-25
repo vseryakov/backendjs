@@ -85,7 +85,7 @@ api-errlog-codes = 4|5
 ##### Type: regexpobj   
 ##### Example:
 ```
-api-allow-multipart = ^/upload
+api-body-multipart = ^/upload
 ```
 
 ### **$ api-body-allow **
@@ -935,13 +935,11 @@ events-worker-queue = ticket:ticket.processEvents, ticket.inbox#staff: ticket.pr
  Max number of milliseconds to wait for the graceful shutdown sequence to finish, after this timeout the process just exits   
 ##### Type: int   
 ##### Default: 50   
-## file
-See {@link module:file}
-### **$ file-url **
- URL where files are stored, for cases of central file server(s), must be full URL with optional path   
-### **$ file-s3 **
+## files
+See {@link module:files}
+### **$ files-s3 **
  S3 bucket name where to store files uploaded with the File API   
-### **$ file-root **
+### **$ files-root **
  Root directory where to keep files   
 ##### Type: path   
 ## image

@@ -118,7 +118,7 @@ it("test parameters", async () => {
     assert.partialDeepStrictEqual(logwatcher.files, [{ file: "a", type: "error" }]);
     assert.partialDeepStrictEqual(logwatcher.files, [{ file: "b" }]);
 
-    assert.partialDeepStrictEqual(api.cleanupRules.aaa, { one: 1, two: 2, three: 3 })
+    assert.partialDeepStrictEqual(api.cleanup.rules.aaa, { one: 1, two: 2, three: 3 })
 
     assert.partialDeepStrictEqual(app.logInspect, { length: 222, b: true, s: ["s :"], ignore: /test/ })
 })

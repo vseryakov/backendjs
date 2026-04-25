@@ -3,7 +3,7 @@
 //  backendjs 2018
 //
 
-const { api } = require('backendjs');
+const { api, files } = require('backendjs');
 
 const mod = {
     name: "bk_file",
@@ -24,17 +24,17 @@ mod.configureWeb = function(options, callback)
 
         switch (req.params[0]) {
         case "get":
-            api.files.send(req, file);
+            files.send(req, file);
             break;
 
         case "put":
-            api.files.put(req, "file", query, (err) => {
+            files.upload(req, "file", query, (err) => {
                 api.sendReply(res, err);
             });
             break;
 
         case "del":
-            api.files.del(file, (err) => {
+            files.del(file, (err) => {
                 api.sendReply(res, err);
             });
             break;

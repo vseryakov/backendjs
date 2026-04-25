@@ -5,10 +5,12 @@ const { app, lib, db, aws } = require("../");
 const { ainit } = require("./utils");
 const { promisify } = require("util");
 
+const roles = process.env.BKJS_ROLES || "sqlite";
+
 describe("DB tests", async () => {
 
     before(async () => {
-        await ainit({ roles: process.env.TEST_DB || "sqlite" })
+        await ainit({ roles })
     });
 
     after(async () => {
