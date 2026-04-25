@@ -1,8 +1,8 @@
 :root {
   --color: #333;
   --bg-color: #f0f0f0;
-  --bg-source: #CFD8E8;
-  --color-source: #948D00;
+  --bg-source: #0d152a;
+  --color-source: #aeaeae;
   --bg-linenums: #084298;
   --signature: #ffc107;
   --attrs-color: #eee;
@@ -201,8 +201,8 @@ h6 {
 
 tt, code, kbd, samp, pre {
     font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    background-color: var(--bg-source);
-    color: var(--color-source);
+    background-color: var(--code-bg-color);
+    color: var(--code-color);
 }
 
 tt, code, kbd, samp{
