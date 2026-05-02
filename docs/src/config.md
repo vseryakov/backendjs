@@ -832,7 +832,7 @@ See {@link module:db}
  A pattern of table names which will skipp in db.drop operations to prevent accidental table deletion   
 ##### Type: regexpobj   
 ### **$ db-aliases-(.+) **
- Table aliases to be used instead of the requested table name, only high level db operations will use it, al low level utilities use the real table names   
+ Table aliases to be used instead of the requested table name, only high level db operations will use it, low level utilities use the real table names   
 ### **$ db-concurrency **
  How many simultaneous tasks to run at the same time inside one process   
 ##### Type: number   
@@ -1161,11 +1161,6 @@ sendmail-options-sendgrid = key:xxxx
 sendmail-options-ses = config:cfg1,region:us-west-2
 ```
 
-## sql
-See {@link module:sql}
-### **$ sql-config-(.+) **
- Common SQL config parameters   
-##### Type: map   
 ## stats
 See {@link module:stats}
 ### **$ stats-flags **
