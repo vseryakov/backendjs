@@ -16,7 +16,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Modules can be configured via command-line arguments or configuration files.
 
 2. **Database Abstraction**
-   - Supports multiple databases: **SQLite, Rqlite, PostgreSQL-wire compatible, DynamoDB, Elasticsearch**.
+   - Supports multiple databases: **SQLite, Rqlite, PostgreSQL-wire compatible (PostgreSQL, DSQL, CockroachDB), DynamoDB, Elasticsearch**.
    - Provides a unified API for CRUD operations, caching, and transactions, access to native engine allows to
      send raw SQL or JSON directy.
    - Supports **primary keys, indexes, and schema migrations**.
@@ -99,7 +99,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Includes simple but powerful input validation
 
 4. **Database Pools**
-   - Maintain connections to databases (SQLite, PostgreSQL, DynamoDB, Elasticsearch, Rqlite).
+   - Maintain connections to databases (SQLite, PostgreSQL, DSQL, CockroachDB, DynamoDB, Elasticsearch, Rqlite).
    - Support for **connection pooling** and **schema migrations**.
 
 5. **Caching Layer**
