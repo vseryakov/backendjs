@@ -20,9 +20,6 @@ See {@link module:api}
  The maximum length of the queue of pending connections, used by HTTP server in listen.   
 ##### Type: int   
 ##### Default: 5000   
-### **$ api-reuse-port **
- Allow multiple sockets on the same host to bind to the same port   
-##### Type: bool   
 ### **$ api-ssl **
  SSL params: port, bind, key, cert, pfx, ca, passphrase, crl, ciphers   
 ##### Type: map   
@@ -138,7 +135,7 @@ api-rlimits-map-GET/url=rate:10
  Max number of files or fields in uploads   
 ##### Type: number   
 ### **$ api-limits-queue-size **
- Max number of requests in the processing queue, if exceeds this value server returns too busy error   
+ Max number of requests in the processing queue, if exceeds this value server returns 503 too busy error   
 ##### Type: number   
 ### **$ api-limits-requests-per-socket **
  The maximum number of requests a socket can handle before closing keep alive connection   
@@ -163,9 +160,6 @@ api-cleanup-rules-bk_user = email:0,phone:1
 ### **$ api-cleanup-strict **
  Default mode for cleanup results   
 ##### Type: bool   
-### **$ api-cleanup-fields **
- List of fields inside requests to explicitely cleanup on end   
-##### Type: list   
 ### **$ api-headers-(.+) **
  An JSON object with response headers to be set in matching responses, empty value to remove the header   
 ##### Type: regexpobj   
@@ -180,9 +174,13 @@ api-headers-^/ = { "x-frame-options": "sameorigin", "x-xss-protection": "1; mode
 ### **$ api-trace **
  Options for tracing, host where to send if not local, path:regexp for URLs to be traced, interval:Interval in ms how often to trace requests, must be > 0 to enable tracing   
 ##### Type: map   
-### **$ api-exit-on-error **
- Exit on uncaught exception in the route handler   
+### **$ api-reuse-port **
+ Allow multiple sockets on the same host to bind to the same port   
 ##### Type: bool   
+### **$ api-exit-on-error **
+ Exit on uncaught exception in the route handler, shutdown the worker process gracefully   
+##### Type: bool   
+##### Default: true   
 ### **$ api-restart **
  On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts   
 ##### Default: "server,web,process"   
@@ -498,6 +496,9 @@ See {@link module:api.ws}
  A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets    
 ## app
 See {@link module:app}
+### **$ app-cap-(.+) **
+ Capability parameters   
+##### Type: int   
 ### **$ app-log **
  Set debugging level to any of DEV,DEBUG,INFO,LOG,WARN,ERROR,NONE   
 ##### Type: callback   
@@ -644,6 +645,9 @@ app-env-tag = api
 ### **$ app-stop-on-error **
  Exit the process on any error when loading modules, for dev purposes   
 ##### Type: bool   
+### **$ app-exit-timeout **
+ Duration in ms to delay process exit in app.exit   
+##### Type: int   
 ### **$ app-exit-on-empty **
  Duration in ms to exit the server process after last worker terminated   
 ##### Type: int   

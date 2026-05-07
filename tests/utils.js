@@ -137,7 +137,7 @@ exports.checkAccess = function(options, callback)
                 conf.preprocess(conf, next2);
             },
             function(next2) {
-                logger.debug("checkAccess:", q);
+                logger.debug("checkAccess:", q, "tmp:", tmp);
                 lib.fetch(q, (err, rc) => {
                     assert.ok(rc.status == q._rc, util.inspect({ err: `${conf.user?.login || "pub"}: ${q.url}: expect ${q._rc} but got ${rc.status}`, data: rc.data, conf, tmp }, { depth: null }));
 
