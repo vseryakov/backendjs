@@ -93,7 +93,7 @@ lib.typeName = function(value)
         case "WeakMap":
             return cname.toLowerCase();
         }
-        if (Error.isError(value)) return "error";
+        if (util.types.isNativeError(value)) return "error";
         if (util.types.isProxy(value)) return "proxy";
     }
     return t;

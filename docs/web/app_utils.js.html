@@ -80,9 +80,10 @@ app.setLogInspect = function(val)
 {
     if (val == "json") {
         logger.setInspect(val => (lib.stringify(val, (key, value) => {
-            if (lib.typeName(value) == 'error') {
+            if (util.types.isNativeError(value)) {
                 return Object.getOwnPropertyNames(value).reduce((a, b) => { a[b] = value[b]; return a }, {});
             }
+            if (app.logInspect?.ignore?.test(key)) return undefined;
             return value;
         })))
     } else {

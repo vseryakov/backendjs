@@ -1622,7 +1622,7 @@ lib.inspect = function(obj, options)
 
     let rc = "", n = 0, p, v, h, e, t, keys = [];
 
-    const type = this.typeName(obj);
+    const type = lib.typeName(obj);
     switch (type) {
     case "object":
         break;
@@ -1641,10 +1641,15 @@ lib.inspect = function(obj, options)
         p = keys[i];
         if (ignore &amp;&amp; ignore.test(p)) continue;
         if (allow &amp;&amp; !allow.test(p)) continue;
-        v = obj[p];
+        const desc = Object.getOwnPropertyDescriptor(obj, p);
+        if (desc) {
+            v = desc.value;
+        } else {
+            v = obj[p];
+        }
         if (typeof v == "undefined" &amp;&amp; !options.undefined) continue;
         h = hide &amp;&amp; hide.test(p);
-        t = this.typeName(v);
+        t = lib.typeName(v);
 
         switch (t) {
         case "buffer":
@@ -1762,7 +1767,7 @@ lib.inspect = function(obj, options)
                 } else {
                     options.__seen.add(v);
                     options.__depth++;
-                    v = h ? Object.keys(v).length : this.inspect(typeof v.toJSON == "function" ? v.toJSON() : v, options);
+                    v = h ? Object.keys(v).length : lib.inspect(typeof v.toJSON == "function" ? v.toJSON() : v, options);
                     if (v || options.keepempty) {
                         if (rc) rc += comma;
                         if (p) rc += p + ": ";
@@ -1798,7 +1803,7 @@ lib.inspect = function(obj, options)
             break;
 
         default:
-            e = this.isEmpty(v);
+            e = lib.isEmpty(v);
             if (!e || options.keepempty) {
                 n++;
                 v = "" + v;

@@ -114,7 +114,7 @@ by the API, only single table access. SQL joins can be passed as SQL statements 
 then default db pool is used, <strong>none</strong> is default if no -db-pool config parameter specified in the command line or the config file.</p>
 <p>Even if the specified pool does not exist, the default pool will be returned, this allows to pre-configure the app with different pools
 in the code and enable or disable any particular pool at any time.</p>
-<p>To use PostgreSQL db pool to get a record and update the current pool:</p>
+<p>To use PostgreSQL db pool to get a record and update the dynamodb pool:</p>
 <p>db-pg-pool=pg://localhost/dbname</p>
 <pre class="prettyprint source lang-js"><code>db.get(&quot;users&quot;, { id: &quot;123&quot; }, { pool: &quot;pg&quot; }, (err, row) => {
    if (row) {
@@ -7137,7 +7137,7 @@ defined by the table columns, most use cases are json, lists, defaults</p></li><
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line638">line 638</a>
+        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line647">line 647</a>
     </li></ul></dd>
     
 
@@ -11483,7 +11483,7 @@ given by the application. If <code>options.names</code> is 1 then return just ta
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line726">line 726</a>
+        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line735">line 735</a>
     </li></ul></dd>
     
 
@@ -12947,7 +12947,7 @@ Returns prepared object to be passed to the driver's .query method.</p></li></ul
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line130">line 130</a>
+        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line139">line 139</a>
     </li></ul></dd>
     
 
@@ -13391,7 +13391,7 @@ Returns prepared object to be passed to the driver's .query method.</p></li></ul
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line250">line 250</a>
+        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line259">line 259</a>
     </li></ul></dd>
     
 
@@ -13640,7 +13640,7 @@ Returns prepared object to be passed to the driver's .query method.</p></li></ul
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line157">line 157</a>
+        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line166">line 166</a>
     </li></ul></dd>
     
 
@@ -13777,7 +13777,7 @@ Returns prepared object to be passed to the driver's .query method.</p></li></ul
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line292">line 292</a>
+        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line301">line 301</a>
     </li></ul></dd>
     
 
@@ -14795,7 +14795,7 @@ db.setProcessRow("post", "*", (req, row) => { db.queryProcessSync("elasticsearch
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line738">line 738</a>
+        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line747">line 747</a>
     </li></ul></dd>
     
 
@@ -16097,7 +16097,7 @@ allow to handle such situations and can be used to set necessary propeties to th
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line700">line 700</a>
+        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line709">line 709</a>
     </li></ul></dd>
     
 
@@ -16212,7 +16212,7 @@ callbacks to keep the record consistent.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line769">line 769</a>
+        <a href="db_prepare.js.html">db/prepare.js</a>, <a href="db_prepare.js.html#line778">line 778</a>
     </li></ul></dd>
     
 

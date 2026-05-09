@@ -514,7 +514,7 @@ See {@link module:app}
 ### **$ app-log-inspect **
  Install custom logger inspector instead of util.inspect: 'json' - JSON output, 1|true - lib.inspect, 0 - util.inspect   
 ##### Type: callback   
-##### Default: {"depth":7,"count":200,"keys":100,"func":0,"keepempty":1,"length":1500,"replace":{" ":{}},"ignore":{}}   
+##### Default: {"depth":7,"count":200,"keys":100,"func":0,"keepempty":1,"length":1500,"ignore":{}}   
 ### **$ app-log-inspect-map **
  Properties for the custom log inspect via inspect   
 ##### Type: map   

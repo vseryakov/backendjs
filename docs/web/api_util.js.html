@@ -714,7 +714,7 @@ api.replacePath = function(req, path)
     if (!lib.isString(path)) return;
     req.options.opath = req.options.path;
     req.options.path = path;
-    req.url = req.options.path + req.url.substr(req.options.opath.length);
+    req.url = req.options.url = req.options.path + req.url.substr(req.options.opath.length);
 }
 
 
