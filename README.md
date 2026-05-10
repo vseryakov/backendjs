@@ -34,6 +34,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Built on **Express.js** with middleware for authentication, rate limiting, and logging.
    - Supports **RESTful APIs** with JSON responses.
    - Includes **WebSocket support** for real-time communication.
+   - Includes simple but powerful input validation
 
 6. **AWS Integration**
    - Supports **AWS services** like **S3, SQS, SNS, DynamoDB, and EC2**.
@@ -80,39 +81,6 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
 | `push`      | Push notifications for mobile and web clients.                                     |
 | `stats`     | Metrics collection and reporting.                                                  |
 | `logger`    | Advanced logging with syslog, file, and console support.                           |
-
----
-
-### **Architecture Overview**
-
-1. **Server Process**
-   - Manages worker processes, job queues, and event subscriptions.
-   - Handles configuration and dynamic reloading.
-
-2. **Worker Processes**
-   - Execute jobs and process events.
-   - Can be spawned dynamically based on workload.
-
-3. **API Workers**
-   - Handle HTTP requests and WebSocket connections.
-   - Use Express.js middleware for routing and authentication.
-   - Includes simple but powerful input validation
-
-4. **Database Pools**
-   - Maintain connections to databases (SQLite, PostgreSQL, DSQL, CockroachDB, DynamoDB, Elasticsearch, Rqlite).
-   - Support for **connection pooling** and **schema migrations**.
-
-5. **Caching Layer**
-   - Distributed caching with Redis/NATS.
-   - Local LRU caching for performance.
-
-6. **Job Queue**
-   - Supports **SQS, NATS, DB and Redis** for job processing.
-   - Workers pull jobs from queues and execute them, designed by SQS visibility timeout logic.
-
-7. **Event System**
-   - Pub/Sub model for real-time event processing.
-   - Supports **Redis, NATS, and SQS** for event distribution.
 
 ---
 
