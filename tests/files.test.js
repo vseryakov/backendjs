@@ -14,7 +14,7 @@ describe('Files tests', async () => {
             configureWeb(options, callback) {
                 api.app.all(/^\/upload$/, (req, res) => {
                     files.upload(req, "file", { namekeep: true, name: "files2.txt" }, (err) => {
-                        api.sendReply(res, err);
+                        api.sendReply(req, err);
                     });
                 });
                 callback();

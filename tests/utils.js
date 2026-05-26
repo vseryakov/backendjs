@@ -16,7 +16,7 @@ const mock = {
     }
 };
 
-function initServices(options)
+async function initServices(options)
 {
     if (options.cache) {
         cache.initClients();
@@ -53,21 +53,26 @@ function initServices(options)
     if (options.worker) {
         jobs.initWorker(options);
     }
+
+    if (api.users.users?.test) {
+        const { secret } = await lib.aprepareSecret(api.users.users?.test.secret);
+        api.users.users.test.secret = secret;
+    }
 }
 
 exports.init = function(options, callback)
 {
     options = Object.assign({}, options, { nodbconf: 1, config: __dirname + "/bkjs.conf" });
 
-    api.tokenSecret = lib.random();
+    api.session.secret = lib.random();
 
     if (!modules.mock) {
         app.addModule(mock);
     }
 
-    app.init(options, () => {
+    app.init(options, async () => {
         lib.makePathSync(app.tmpDir);
-        initServices(options);
+        await initServices(options);
         setTimeout(callback || lib.noop, options.delay || 500);
     });
 }
@@ -127,9 +132,9 @@ exports.checkAccess = function(options, callback)
             _rc: conf.status || 200,
         };
         if (q.url[0] == "/") q.url = "http://127.0.0.1:" + api.port + q.url;
-        if (conf.nosig) tmp.sig = null;
-        if (!conf.user && tmp.sig) {
-            q.cookies[api.session.header] = tmp.sig;
+        if (conf.nosession) tmp.session = null;
+        if (!conf.user && tmp.session) {
+            q.cookies[api.session.header] = tmp.session;
         }
         lib.everySeries([
             function(next2) {
@@ -142,7 +147,7 @@ exports.checkAccess = function(options, callback)
                     assert.ok(rc.status == q._rc, util.inspect({ err: `${conf.user?.login || "pub"}: ${q.url}: expect ${q._rc} but got ${rc.status}`, data: rc.data, conf, tmp }, { depth: null }));
 
                     if (rc.rescookies[api.session.header]) {
-                        tmp.sig = rc.rescookies[api.session.header].value;
+                        tmp.session = rc.rescookies[api.session.header].value;
                     }
                     if (typeof conf.match == "function") {
                         assert.ok(conf.match(rc, conf), util.inspect({ err: "match failed", obj: rc.obj, conf, tmp }, { depth: null }));

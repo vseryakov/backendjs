@@ -18,7 +18,7 @@ mod.configureWeb = function(options, callback)
             name: { required: 1 },
             prefix: { required: 1 },
         }, { query: 1 });
-        if (typeof query == "string") return api.sendReply(res, 400, query);
+        if (typeof query == "string") return api.sendReply(req, 400, query);
 
         var file = query.prefix.replace("/", "") + "/" + query.name.replace("/", "");
 
@@ -29,18 +29,18 @@ mod.configureWeb = function(options, callback)
 
         case "put":
             files.upload(req, "file", query, (err) => {
-                api.sendReply(res, err);
+                api.sendReply(req, err);
             });
             break;
 
         case "del":
             files.del(file, (err) => {
-                api.sendReply(res, err);
+                api.sendReply(req, err);
             });
             break;
 
         default:
-            api.sendReply(res, 400, "Invalid command");
+            api.sendReply(req, 400, "Invalid command");
         }
     });
 

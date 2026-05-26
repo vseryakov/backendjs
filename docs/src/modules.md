@@ -114,9 +114,11 @@ module.exports = {
 
 function onWebhook(req, res)
 {
-    if (req.body?.type == "invoice.payment_succeeded") {
+    const body = req.context.body;
 
-        app.runMethods("onInvoiceEvent", { invoice: req.body.data.object }, (err) => {
+    if (body?.type == "invoice.payment_succeeded") {
+
+        app.runMethods("onInvoiceEvent", { invoice: body.data.object }, (err) => {
             if (err) logger.error("onWebhook:", this.name, err);
         }
     }

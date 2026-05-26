@@ -10,7 +10,7 @@ Create a new directory myproject, and from there run:
 
 ```shell
 cd myproject
-npm install vseryakov/backendjs --save
+npm install vseryakov/backendjs express --save
 ```
 
 this will install the latest version of backendjs as a dependency in your package.json.
@@ -113,7 +113,7 @@ This example is in the repository at [starter](https://github.com/vseryakov/back
 Another simple way to create a demo example is using command:
 
 ```
-npm install vseryakov/backendjs --save
+npm install vseryakov/backendjs express --save
 node_modules/.bin/bkjs demo myapp
 ```
 

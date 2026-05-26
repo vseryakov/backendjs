@@ -13,33 +13,33 @@ describe('API session tests', (t) => {
         'www.host.com': { secure: false }
     }
 
-    var c = api.session.makeCookie({ options: { path: "/" } })
+    var c = api.session.getCookieOptions({ context: { path: "/" } })
 
     assert.strictEqual(c?.secure, true, "expect secure: true for / " + lib.inspect(c));
 
-    c = api.session.makeCookie({ options: { path: "/test" } })
+    c = api.session.getCookieOptions({ context: { path: "/test" } })
 
     assert.strictEqual(c?.secure, true, "expect secure: true for /test " + lib.inspect(c));
 
-    c = api.session.makeCookie({ options: { path: "/pub/" } })
+    c = api.session.getCookieOptions({ context: { path: "/pub/" } })
 
     assert.strictEqual(c?.maxAge, 123, "expect maxAge: 123 for /pub/ "+ lib.inspect(c));
 
-    c = api.session.makeCookie({ options: { path: "/iframe/" } })
+    c = api.session.getCookieOptions({ context: { path: "/iframe/" } })
 
     assert.strictEqual(c?.sameSite, "None", "expect sameSite: None for /iframe/ " + lib.inspect(c));
 
-    c = api.session.makeCookie({ options: { path: "/", domain: "host.com" } })
+    c = api.session.getCookieOptions({ context: { path: "/", domain: "host.com" } })
 
     assert.strictEqual(c?.secure, true, "expect secure: true for host.com/ " + lib.inspect(c));
     assert.strictEqual(c?.domain, "host.com", "expect domain:host.com for host.com/ "+ lib.inspect(c));
 
-    c = api.session.makeCookie({ options: { path: "/", hostname: "www.host.com", domain: "host.com" } })
+    c = api.session.getCookieOptions({ context: { path: "/", host: "www.host.com", domain: "host.com" } })
 
     assert.strictEqual(c?.secure, false, "expect secure: false for www.host.com/ " + lib.inspect(c));
     assert.ok(!c?.domain, "expect no domain for www.host.com/ " + lib.inspect(c));
 
-    c = api.session.makeCookie({ options: { path: "/", hostname: "api.host.com", domain: "host.com" } })
+    c = api.session.getCookieOptions({ context: { path: "/", host: "api.host.com", domain: "host.com" } })
 
     assert.strictEqual(c?.domain, "host.com", "expect domain:host.com for api.host.com/ " + lib.inspect(c));
     assert.strictEqual(c?.secure, true, "expect secure: true for api.host.com/ " + lib.inspect(c));
@@ -72,48 +72,48 @@ describe("API cleanup tests", () => {
 
     api.cleanup.strict = 0;
 
-    var res = api.cleanupResult({ options: { isInternal: 1 } }, "cleanup", Object.assign({}, row))
+    var res = api.cleanupResult({ context: { isInternal: 1 } }, "cleanup", Object.assign({}, row))
     assert.ok(res.internal && !res.priv && res.extra && !res.notpub, lib.newError({ message: "should keep internal", res }));
 
-    res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: {} }, "cleanup", Object.assign({}, row))
     assert.ok(res.pub && !res.priv, lib.newError({ message: "should keep only public", res }));
 
-    res = api.cleanupResult({ options: { isAdmin: 1 } }, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: { isAdmin: 1 } }, "cleanup", Object.assign({}, row))
     assert.ok(res.pub_admin && !res.internal && !res.priv, lib.newError({ message: "should keep pub_admin", res }));
 
-    res = api.cleanupResult({ options: { isStaff: 1 } }, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: { isStaff: 1 } }, "cleanup", Object.assign({}, row))
     assert.ok(res.pub_staff && !res.pub_admin && !res.priv, lib.newError({ message: "should keep pub_staff", res }));
 
-    res = api.cleanupResult({ options: { isAdmin: 1, isStaff: 1 } }, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: { isAdmin: 1, isStaff: 1 } }, "cleanup", Object.assign({}, row))
     assert.ok(res.pub_admin && res.pub_staff && !res.priv, lib.newError({ message: "should keep pub_admin and pub_staff", res }));
 
-    res = api.cleanupResult({ user: { roles: ["billing"] }, options: { isAdmin: 1 } }, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: { user: { roles: ["billing"] } , isAdmin: 1 } }, "cleanup", Object.assign({}, row))
     assert.ok(res.billing && !res.priv, lib.newError({ message: "should keep billing", res }));
 
-    res = api.cleanupResult({ user: { roles: ["billing"] }, options: { isAdmin: 1 } }, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: { user: { roles: ["billing"] }, isAdmin: 1 } }, "cleanup", Object.assign({}, row))
     assert.ok(!res.nobilling && !res.priv, lib.newError({ message: "should keep nobilling", res }));
 
-    res = api.cleanupResult({ user: { roles: ["staff"] }, options: { isAdmin: 1 } }, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: { user: { roles: ["staff"] }, isAdmin: 1 } }, "cleanup", Object.assign({}, row))
     assert.ok(res.billing_staff && !res.priv, lib.newError({ message: "should keep billing_staff", res }));
 
-    res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: {} }, "cleanup", Object.assign({}, row))
     assert.deepEqual(res, { pub: "pub", extra: "extra", extra2: "extra2" }, "should keep extras");
 
     api.cleanup.strict = 1;
-    res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: {} }, "cleanup", Object.assign({}, row))
     assert.deepEqual(res, { pub: "pub" }, "should not keep extras in strict mode:")
 
-    res = api.cleanupResult({ options: { cleanup_rules: { extra: 1 } } }, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: { cleanup_rules: { extra: 1 } } }, "cleanup", Object.assign({}, row))
     assert.deepEqual(res, { pub: "pub", extra: "extra" }, "should keep extra but not extra2 in strict mode");
 
     api.cleanup.rules = { '*': { extra2: 1 } };
 
-    res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: {} }, "cleanup", Object.assign({}, row))
     assert.ok(!res.extra && res.extra2, lib.newError({ message: "should keep no extra but keep extra2 via * rule", res }));
 
     api.cleanup.rules = { cleanup: { extra2: 1 } };
 
-    res = api.cleanupResult({}, "cleanup", Object.assign({}, row))
+    res = api.cleanupResult({ context: {} }, "cleanup", Object.assign({}, row))
     assert.ok(!res.extra && res.extra2, lib.newError({ message: "should keep extra2 but not extra via table rule", res }));
 
 });

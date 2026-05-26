@@ -33,13 +33,13 @@ mod.configureWeb = function(options, callback)
     api.app.post("/data/:op/:table", (req, res) => {
 
         if (!["select", "search", "get", "add", "put", "update", "del", "incr"].includes(req.params.op)) {
-            return api.sendReply(res, 400, "invalid op");
+            return api.sendReply(req, 400, "invalid op");
         }
         if (!db.getColumns(req.params.table)) {
-            return api.sendReply(res, 404, "Unknown table");
+            return api.sendReply(req, 404, "Unknown table");
         }
 
-        db[req.params.op](req.params.table, req.body, (err, rows, info) => {
+        db[req.params.op](req.params.table, req.context.body, (err, rows, info) => {
             api.sendJSON(req, err, api.getResultPage(req, rows, info));
         });
     });

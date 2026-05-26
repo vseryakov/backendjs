@@ -58,8 +58,8 @@ module.exports = {
 // Express middleware for checking user roles
 function perms(req, res, next)
 {
-    if (!lib.isFlag(module.exports.roles, req.user?.roles)) {
-        return api.sendReply(res, 403, "access denied");
+    if (!lib.isFlag(module.exports.roles, req.context.user?.roles)) {
+        return api.sendReply(req, 403, "access denied");
     }
     next();
 }
@@ -85,7 +85,7 @@ function put(req, res)
         type: {},
         value: {},
     });
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     db.put("bk_config", query, (err) => {
         api.sendJSON(req, err);
@@ -102,7 +102,7 @@ function update(req, res)
         type: {},
         value: {},
     });
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     db.update("bk_config", query, (err) => {
         api.sendJSON(req, err);
@@ -117,7 +117,7 @@ function del(req, res)
         ctime: { type: "int", required: 1 },
         name: { required: 1 },
     });
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     db.del("bk_config", query, (err) => {
         api.sendJSON(req, err);

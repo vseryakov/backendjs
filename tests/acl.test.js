@@ -3,7 +3,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { api, app, logger, lib } = require("../");
 
-describe("Auth tests", () => {
+describe("ACL tests", () => {
 
     var argv = [
         "-api-acl-allow-admin", "auth, admin, manager, -userallow, -manageronly",
@@ -65,16 +65,16 @@ describe("Auth tests", () => {
 
     api.acl.reset();
     app.parseArgs(argv);
-    var req = { user: {}, options: {} };
+    var req = { context: { user: {} } };
 
     logger.setLevel(process.env.BKJS_TEST_LOG)
 
     it("checks all acls", (t, callback) => {
 
         lib.forEachSeries(checks, (check, next) => {
-            req.user.id = check.roles || "anon";
-            req.user.roles = lib.split(check.roles);
-            req.options.path = check.path;
+            req.context.user.id = check.roles || "anon";
+            req.context.user.roles = lib.split(check.roles);
+            req.context.path = check.path;
             logger.debug("checking:", check);
             api.access.authorize(req, (err) => {
                 logger.debug("checked:", err);

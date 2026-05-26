@@ -8,7 +8,9 @@ module.exports = {
     "parserOptions": {
         "ecmaVersion": 2022
     },
-    "extends": "eslint:recommended",
+    "extends": [
+        "eslint:recommended"
+    ],
     "rules": {
         "accessor-pairs": "error",
         "array-bracket-newline": "off",

@@ -15,13 +15,7 @@
 
 const fs = require('fs');
 const os = require('os');
-const modules = require(__dirname + '/../modules');
-const app = require(__dirname + '/../app');
-const lib = require(__dirname + '/../lib');
-const logger = require(__dirname + '/../logger');
-const db = require(__dirname + '/../db');
-const aws = require(__dirname + '/../aws');
-const sendmail = require(__dirname + '/../sendmail');
+const { app, lib, logger, db, aws, sendmail, modules } = require("backendjs");
 
 const logwatcher = {
     name: "logwatcher",
@@ -31,7 +25,6 @@ const logwatcher = {
         { name: "table", descr: "DB table to keep positions, must have name and value columns" },
         { name: "from", descr: "Email address to send logwatcher notifications from, for cases with strict mail servers accepting only from known addresses" },
         { name: "subject", descr: "Email subject template, all placeholders have access to the core module only" },
-        { name: "interval", min: 0, type: "number", descr: "How often to check for errors in the log files in seconds, 0 to disable" },
         { name: "any-range", type: "number", min: 1, descr: "Number of lines for matched channel `any` to be attached to the previous matched channel, if more than this number use the channel `any` on its own" },
         { name: "matches-[a-z]+", obj: "matches", array: 1, descr: "Regexp patterns that match conditions for logwatcher notifications, this is in addition to default backend logger patterns, suffix defines the log channel to use, like error, warning.... Special channel `any` is reserved to send matched lines to the previously matched channel if within configured range. Example: `-logwatcher-match-error=^failed:` `-match-any=line:[0-9]+`" },
         { name: "send-[a-z]+", obj: "send", descr: "Email address or other supported transport for the logwatcher notifications, the monitor process scans system and backend log files for errors and sends them to this email address, if not specified no log watching will happen, each channel must define a transport separately, one of error, warning, info, all. Supported transports: table://TABLE, http://URL, sns://ARN, ses://EMAIL, email@addr. Example: `-logwatcher-send-error=help@error.com`" },
@@ -48,7 +41,6 @@ const logwatcher = {
 
     mtime: 0,
     max: 1000000,
-    interval: 0,
     anyRange: 5,
     send: {},
     ignore: {},
@@ -85,14 +77,6 @@ const logwatcher = {
 };
 module.exports = logwatcher;
 
-logwatcher.configureServer = function(options, callback)
-{
-    // Log watcher job, always runs to allow turn on/off anytime
-    this._interval = setInterval(this.run.bind(this), 30000);
-
-    callback();
-}
-
 logwatcher.shutdown = function(options, callback)
 {
     clearInterval(this._interval);
@@ -105,7 +89,7 @@ logwatcher.run = function(options, callback)
 {
     if (typeof options == "function") callback = options, options = null;
 
-    if (this.running || !this.interval || Date.now() - this.mtime < this.interval * 1000) {
+    if (this.running || (this.interval > 0 && Date.now() - this.mtime < this.interval * 1000)) {
         return lib.tryCall(callback);
     }
     this.mtime = this.running = Date.now();

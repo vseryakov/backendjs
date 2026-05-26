@@ -5,7 +5,8 @@
 
 /* global window document */
 
-const { lib, files, logger, image } = require('backendjs');
+const { lib, files, logger } = require('backendjs');
+const image = require('backendjs/dist/image')
 
 const mod =
 

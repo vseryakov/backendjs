@@ -42,7 +42,7 @@ function listContacts(req, res)
         start: { type: "int" },
         count: { type: "int", dflt: 10 },
     });
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     const q = {
         $or: {
@@ -90,7 +90,7 @@ const schema = {
 function createContact(req, res)
 {
     var query = api.validate(req, schema);
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     db.add("contacts", query, { result_query: 1 }, (err, row) => {
         api.sendJSON(req, err, row);
@@ -100,7 +100,7 @@ function createContact(req, res)
 function updateContact(req, res)
 {
     var query = api.validate(req, schema);
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     query.id = req.params.id;
     db.update("contacts", query, (err) => {

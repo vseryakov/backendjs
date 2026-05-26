@@ -56,12 +56,12 @@ mod.configureWeb = function(options, callback)
                 }, {}));
                 break;
             default:
-                api.sendReply(res, 400, "Invalid command");
+                api.sendReply(req, 400, "Invalid command");
             }
             break;
 
         default:
-            api.sendReply(res, 400, "Invalid command");
+            api.sendReply(req, 400, "Invalid command");
         }
     });
 }

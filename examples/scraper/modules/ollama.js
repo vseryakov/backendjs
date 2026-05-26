@@ -58,7 +58,7 @@ function chat(req, res)
         raw: { type: "bool" },
         options: { type: "obj" },
     });
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     logger.debug("chat:", mod.name, query);
 

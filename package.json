@@ -10,11 +10,8 @@
     "type": "git",
     "url": "https://github.com/vseryakov/backendjs.git"
   },
-  "dependencies": {
-    "express": "5.2.1",
-    "fast-xml-parser": "5.7.2"
-  },
   "peerDependencies": {
+    "express": "5.2.1",
     "croner": "10.0.1",
     "formidable": "3.5.4",
     "nodemailer": "8.0.7",
@@ -24,10 +21,11 @@
     "sharp": "0.34.5",
     "unix-dgram": "2.0.7",
     "web-push": "3.6.7",
-    "ws": "8.20.0",
+    "ws": "8.20.1",
     "@parse/node-apn": "8.1.0"
   },
   "peerDependenciesMeta": {
+    "express": { "optional": true },
     "croner": { "optional": true },
     "formidable": { "optional": true },
     "nodemailer": { "optional": true },

@@ -3,7 +3,9 @@
 //  backendjs 2025
 //
 
-const { db, api, image, modules, files, jobs, lib, logger, webscraper } = require('backendjs');
+const { db, api, modules, files, jobs, lib, logger } = require('backendjs');
+const image = require('backendjs/dist/image')
+const webscraper = require('backendjs/dist/webscraper')
 
 const mod =
 
@@ -183,7 +185,7 @@ function list(req, res)
         start: { type: "int" },
         count: { type: "int", dflt: 10 },
     });
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     const opts = {
         start: query.start,
@@ -203,7 +205,7 @@ function list(req, res)
 function assets(req, res)
 {
     db.get("scraper", req.params.id, (err, row) => {
-        if (!row) return api.sendReply(res, 404, "no record found");
+        if (!row) return api.sendReply(req, 404, "no record found");
         res.setHeader("cache-control", "max-age=0, no-cache, no-store");
         files.send(req, req.params.id + "/" + req.params.file);
     });
@@ -215,23 +217,24 @@ function assets(req, res)
 async function render(req, res)
 {
     const { data } = await db.aget("scraper", { id: req.params.id });
-    if (!data) return api.sendReply(res, 404, "no record found");
+    if (!data) return api.sendReply(req, 404, "no record found");
 
-    for (const i in req.body?.items) {
-        const item = req.body.items[i];
+    const body = req.context.body;
+    for (const i in body?.items) {
+        const item = body.items[i];
         if (!item.file) continue;
         if (item.file.startsWith("web/")) continue;
         item.file = files.root + "/" + req.params.id + "/" + item.file;
     }
 
-    image.composite(req.body.items, req.body.defaults).then(rc => {
+    image.composite(body.items, body.defaults).then(rc => {
         req.res.header("pragma", "no-cache");
         res.setHeader("cache-control", "max-age=0, no-cache, no-store");
         res.type("image/png");
         res.send(rc[0]._buffer);
     }).catch(err => {
         logger.trace("render:", err);
-        api.sendReply(res, 400, err)
+        api.sendReply(req, 400, err)
     });
 }
 
@@ -259,7 +262,7 @@ function submit(req, res)
         url: { type: "url", required: 1 },
         status: { value: "pending" },
     })
-    if (typeof query == "string") return api.sendReply(res, 400, query)
+    if (typeof query == "string") return api.sendReply(req, 400, query)
 
     query.id = query.url.replace(/^https?:\/\//, "").
                          replace(/[^a-z0-9-]/gi, "-").
@@ -283,9 +286,9 @@ function submit(req, res)
 function resubmit(req, res)
 {
     db.get("scraper", req.params.id, (err, row) => {
-        if (!row) return api.sendReply(res, 404, "no record found");
+        if (!row) return api.sendReply(req, 404, "no record found");
 
-        jobs.submitJob({ job: { "scraper.job": { id: row.id, mode: req.body.mode } } }, { noWait: 1 }, (err) => {
+        jobs.submitJob({ job: { "scraper.job": { id: row.id, mode: req.context.body.mode } } }, { noWait: 1 }, (err) => {
             api.sendJSON(req, err, row);
         });
     });

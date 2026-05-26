@@ -14,7 +14,7 @@ describe('CSRF checks', async () => {
 
         const origin = "http://127.0.0.1:" + api.port;
         const config = [
-            { url: "/none", status: 417 },
+            { url: "/none", status: 401 },
             { url: "/test", status: 403, regexp: /NOORIGIN/ },
             { url: "/login", data: { login: "test", secret: "test" } },
             { get: "/ping" },

@@ -36,7 +36,7 @@ const mod = {
                     throw new Error("series");
                 },
             ], (err) => {
-                api.sendReply(res, err);
+                api.sendReply(req, err);
             });
         });
 

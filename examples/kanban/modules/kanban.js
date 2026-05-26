@@ -100,7 +100,7 @@ function createBoard(req, res)
         id: { value: lib.uuid() },
         created_at: { value: Date.now() },
     });
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     db.put("boards", query, (err) => {
         api.sendJSON(req, err, query);
@@ -114,7 +114,7 @@ function updateBoard(req, res)
         title: { required: 1, max: 128 },
         description: { required: 1, max: 256 },
     });
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     db.update("boards", query, (err) => {
         api.sendJSON(req, err, query);
@@ -126,7 +126,7 @@ function delBoard(req, res)
     var query = api.validate(req, {
         id: { required: 1, value: req.params.id },
     });
-    if (typeof query == "string") return api.sendReply(res, 400, query);
+    if (typeof query == "string") return api.sendReply(req, 400, query);
 
     db.del("boards", query, (err) => {
         api.sendJSON(req, err);
