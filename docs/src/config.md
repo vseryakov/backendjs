@@ -1,13 +1,6 @@
 # Config parameters
 ## api
 See {@link module:api}
-###  api-err-(.+) 
----- 
-####  Error messages for various cases   
-###  api-cap-(.+) 
----- 
-####  Capability parameters   
-#### Type: int   
 ###  api-version 
 ---- 
 ####  Custom Server: header to return for all requests   
@@ -55,33 +48,6 @@ See {@link module:api}
 api-log-fields = h:Referer,u:name,q:action,b:id
 ```
 
-###  api-errlog-max 
----- 
-####  How many error messages to put in the log before throttling kicks in   
-#### Type: int   
-###  api-errlog-interval 
----- 
-####  Interval for error log limiter, max errors per this interval   
-#### Type: int   
-###  api-errlog-ignore 
----- 
-####  Do not show errors that match the regexp   
-#### Type: regexpobj   
-#### Example:
-```
-api-errlog-ignore = ConditionalException
-```
-
-###  api-errlog-codes 
----- 
-####  Error code/status in exceptions to return in the response to the user, if not matched the errInternalError will be returned, default codes to skip: validate|toolarge   
-#### Type: regexpobj   
-#### Example:
-```
-# For development it may be useful to see all exceptions
-api-errlog-codes = 4|5
-```
-
 ###  api-max-requests 
 ---- 
 ####  Max number of requests in the processing queue, if exceeds this value server returns 503 too busy error   
@@ -108,6 +74,20 @@ api-errlog-codes = 4|5
 ---- 
 ####  Allow multiple sockets on the same host to bind to the same port   
 #### Type: bool   
+###  api-exit-on-error 
+---- 
+####  Exit on uncaught exception in the route handler, shutdown the worker process gracefully   
+#### Type: bool   
+#### Default: true   
+###  api-run-mode 
+---- 
+####  als - run inside async local storage `lib.als`, domain - run inside node:domain, other - direct callback   
+#### Default: "als"   
+###  api-trust-proxy 
+---- 
+####  Trust proxy headers for IP/Host   
+#### Type: bool   
+#### Default: true   
 ###  api-defaults-([a-z0-9_]+)-(.+) 
 ---- 
 ####  Global body limits for api.validate, format is: api-defaults-LIMIT-NAME, where LIMIT is an property that performs limiting like max, maxlist, min, required.., NAME is a schema property, it can be path specific   
@@ -123,30 +103,12 @@ api-defaults-maxlist-/endpoint-groups = 255
 ---- 
 ####  List of hours when to restart api workers, only done once for each hour   
 #### Type: list   
-###  api-exit-on-error 
----- 
-####  Exit on uncaught exception in the route handler, shutdown the worker process gracefully   
-#### Type: bool   
-#### Default: true   
-###  api-restart 
+###  api-restart-process 
 ---- 
 ####  On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts   
-#### Default: "server,web,process"   
-###  api-delays-(.+) 
----- 
-####  Delays in ms by status and code, useful for delaying error responses to slow down brute force attacks   
-#### Type: int   
-#### Example:
-```
-api-delays-401 = 1000
-api-delays-403:DENY = -1
-```
-
+#### Default: "server,web"   
 ## api.acl
 See {@link module:api/acl}
-###  api-acl-err-(.+) 
----- 
-####  Error messages for various cases   
 ###  api-acl-add-([a-z0-9_]+) 
 ---- 
 ####  Add URLs to the named ACL which can be used in allow/deny rules per role   
@@ -174,158 +136,9 @@ See {@link module:api/acl}
 -api-acl-allow-staff admins,support,-billing
 ```
 
-###  api-acl-public 
----- 
-####  Match all regexps from the specified acls for public access   
-#### Type: list   
-#### Default: ["public"]   
-#### Example:
-```
--api-acl-public pub,docs,-intdocs
-```
-
-###  api-acl-anonymous 
----- 
-####  Match all regexps from the specified acls to allow access with or without authentication   
-#### Type: list   
-#### Example:
-```
--api-acl-anonymous pub,docs
-```
-
-###  api-acl-authenticated 
----- 
-####  Match all regexps from the specified acls to allow access only with authentication any role   
-#### Type: list   
-#### Example:
-```
--api-acl-authenticated stats,profile
-```
-
 ###  api-acl-reset 
 ---- 
-####  Reset all rules   
-#### Type: callback   
-## api.csrf
-See {@link module:api/csrf}
-###  api-csrf-err-(.+) 
----- 
-####  Error messages for various cases   
-###  api-csrf-origin-(.+) 
----- 
-####  Regexp for URLs to by allowed by origin   
-#### Type: regexpobj   
-#### Example:
-```
-api-csrf-origin-^/account = http://host.com
-api-csrf-origin-^/account = https://host.com,http://localhost
-```
-
-###  api-csrf-sec-fetch-(.+) 
----- 
-####  Regexp for URLs to use specific Sec-Fetch-Site header validation by: same-origin, same-site, cross-site, none   
-#### Type: regexpobj   
-#### Example:
-```
-api-csrf-sec-fetch-^/webhook = cross-site
-api-csrf-sec-fetch-^/ = same-origin,same-site
-```
-
-###  api-csrf-skip-method 
----- 
-####  Do not check for specified methods   
-#### Type: list   
-#### Default: ["GET","HEAD","OPTIONS","TRACE"]   
-## api.passkey
-See {@link module:api/passkey}
-###  api-passkey-err-(.+) 
----- 
-####  Error messages for various cases   
-###  api-passkey-cap-(.+) 
----- 
-####  Capability parameters   
-#### Type: int   
-###  api-passkey-secret 
----- 
-####  Cookies secret   
-###  api-passkey-cache 
----- 
-####  Cache for challenges   
-###  api-passkey-cookie 
----- 
-####  Cookie name   
-#### Default: "bk_passkey"   
-###  api-passkey-domain 
----- 
-####  Explicit domain to use instead of host   
-###  api-passkey-endpoint 
----- 
-####  Root endpoint for the api routes to remount under differnet top path   
-#### Default: "/passkey"   
-## api.redirect
-See {@link module:api/redirect}
-###  api-redirect-err-(.+) 
----- 
-####  Error messages for various cases   
-###  api-redirect-path-(.+) 
----- 
-####  Define a path regexp to be matched early in order to redirect, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
-#### Type: regexpobj   
-#### Example:
-```
-api-redirect-path-^[^/]+/path/$ = /path2/index.html
-api-redirect-path-.+/$ = 301:@PATH@/index.html
-```
-
-###  api-redirect-location-(.+) 
----- 
-####  Define a location regexp to be matched early in order to redirect, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
-#### Type: regexpobj   
-#### Example:
-```
-api-redirect-location-domain.com[^/]+/path/$ = /path2/index.html
-api-redirect-location-.+com/$ = 301:@PATH@/index.html
-```
-
-###  api-redirect-login-path-(.+) 
----- 
-####  Define a path where to redirect if no login is provided, same format and placeholders as in redirect-path   
-#### Type: regexpobj   
-#### Example:
-```
-api-redirect-login-path-^/admin/ = /login.html
-```
-
-###  api-redirect-login-location-(.+) 
----- 
-####  Define a location where to redirect if no login is provided, same format and placeholders as in redirect-path   
-#### Type: regexpobj   
-#### Example:
-```
-api-redirect-location-domain.com/admin/ = /login.html
-```
-
-###  api-redirect-reset 
----- 
-####  Reset all rules   
-#### Type: callback   
-## api.routing
-See {@link module:api/routing}
-###  api-routing-err-(.+) 
----- 
-####  Error messages for various cases   
-###  api-routing-([a-z0-9]+)-(.+) 
----- 
-####  Paths or locations to be re-routed to other path, this is done inside the server, only the path is replaced, use ! in front of regexp to remove particular redirect from the list   
-#### Type: regexpobj   
-#### Example:
-```
-api-routing-path-^/user/get = /user/read
-```
-
-###  api-routing-reset 
----- 
-####  Reset all rules   
+####  Reset all acls   
 #### Type: callback   
 ## api.session
 See {@link module:api/session}
@@ -362,78 +175,15 @@ See {@link module:api/session}
 ---- 
 ####  Cookie name to use for session   
 #### Default: "bk-sid"   
-## api.static
-See {@link module:api/static}
-###  api-static-disabled 
----- 
-####  Disable static files from /web folder, no .js or .html files will be served by the server   
-#### Type: bool   
-###  api-static-options 
----- 
-####  Options to pass to serve-static module: maxAge, dotfiles, etag, redirect, fallthrough, extensions, index, lastModified   
-#### Type: map   
-#### Default: {"maxAge":0}   
-###  api-static-views-(.+) 
----- 
-####  Paths to be rendered as views, use ! in front of regexp to remove particular redirect from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@,   
-#### Type: regexpobj   
-#### Example:
-```
-api-static-views-^/user/get = show-user
-```
-
-###  api-static-mime-(.+) 
----- 
-####  File extension to MIME content type mapping, this is used by static-serve   
-#### Example:
-```
--api-static-mime-mobileconfig application/x-apple-aspen-config
-```
-
-###  api-static-vhost-([^/]+) 
----- 
-####  Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match   
-#### Type: regexp   
-#### Example:
-```
-api-static-vhost-test_dir = test.com$
-```
-
-###  api-static-no-vhost 
----- 
-####  Add to the list of URL paths that should be served for all virtual hosts   
-#### Type: regexpobj   
-###  api-static-no-cache 
----- 
-####  Set cache-control=no-cache header for matching static files   
-#### Type: regexpobj   
-#### Example:
-```
-api-static-no-cache = .+
-```
-
-###  api-static-compressed-([^/]+) 
----- 
-####  Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention   
-#### Type: regexp   
-#### Example:
-```
--api-static-compress-bundle.js gz
-```
-
 ## api.users
 See {@link module:api/users}
+###  api-users-err-(.+) 
+---- 
+####  Error messages for various cases   
 ###  api-users-table 
 ---- 
 ####  Table to use for users   
 #### Default: "bk_user"   
-###  api-users-err-(.+) 
----- 
-####  Error messages for various cases   
-###  api-users-cap-(.+) 
----- 
-####  Capability parameters   
-#### Type: int   
 ###  api-users-users 
 ---- 
 ####  An object with users   
@@ -442,10 +192,10 @@ See {@link module:api/users}
 ###  api-users-file 
 ---- 
 ####  A JSON file with users   
-###  api-users-endpoint 
+###  api-users-path 
 ---- 
-####  Root endpoint for the api routes to remount under differnet top path   
-#### Default: "/"   
+####  Paths to verify access   
+#### Type: list   
 ## api.ws
 See {@link module:api/ws}
 ###  api-ws-port 
@@ -543,10 +293,6 @@ app-log-filter = api,query:
 ###  app-path-web 
 ---- 
 ####  Add a path where to keep web pages and other static files to be served by the web servers   
-#### Type: path   
-###  app-path-views 
----- 
-####  Add a path where to keep Express render templates and virtual hosts web pages, every subdirectory name is a host name to match with Host: header, www. is always stripped before matching vhost directory   
 #### Type: path   
 ###  app-path-modules 
 ---- 
@@ -827,7 +573,7 @@ See {@link module:db}
 ###  db-cap-(.+) 
 ---- 
 ####  Capability parameters   
-#### Type: int   
+#### Type: number   
 ###  db-none 
 ---- 
 ####  disable all db pools   
@@ -839,37 +585,46 @@ See {@link module:db}
 ---- 
 ####  Default database name to be used for default connections in cases when no db is specified in the connection url   
 #### Default: "db"   
+###  db-config 
+---- 
+####  Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters   
+###  db-config-map 
+---- 
+####  Config options: `.interval` between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db, `.count` max records to load in one select, see the docs about `.top`, `.main`, `.other` config parameters   
+#### Type: map   
+#### Default: {"count":1000,"interval":1440,"top":"roles","main":"role,tag","other":"role"}   
+###  db-aliases-(.+) 
+---- 
+####  Table aliases to be used instead of the requested table name, only high level db operations will use it, low level utilities use the real table names   
+###  db-describe-tables 
+---- 
+####  A JSON object with table descriptions to be merged with the existing definitions   
+#### Type: callback   
+###  db-describe-column-([a-z0-9_]+)-([a-zA-Z0-9_.]+) 
+---- 
+####  Describe a table column properties, can be a new or existing column, overrides existing property   
+#### Type: map   
+#### Example:
+```
+-db-describe-column-users-name.check max:255
+```
+
 ###  db-cache-tables 
 ---- 
 ####  List of tables that can be cached: users, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools.   
-#### Type: list   
-#### Default: []   
-###  db-skip-tables 
----- 
-####  List of tables that will not be created or modified, this is global for all pools   
-#### Type: list   
-###  db-skip-pools 
----- 
-####  List of pools to be skipped during initialization   
 #### Type: list   
 ###  db-cache-pools 
 ---- 
 ####  List of pools which trigger cache flushes on update.   
 #### Type: list   
-#### Default: []   
 ###  db-cache-sync 
 ---- 
 ####  List of tables that perform synchronized cache updates before returning from a DB call, by default cache updates are done in the background   
 #### Type: list   
-#### Default: []   
 ###  db-cache-keys-([a-z0-9_]+)-(.+) 
 ---- 
 ####  List of columns to be used for the table cache, all update operations will flush the cache if the cache key can be created from the record columns. This is for ad-hoc and caches to be used for custom selects which specified the cache key.   
 #### Type: list   
-###  db-describe-tables 
----- 
-####  A JSON object with table descriptions to be merged with the existing definitions   
-#### Type: callback   
 ###  db-cache-ttl-(.+) 
 ---- 
 ####  TTL in milliseconds for each individual table being cached, use * as default for all tables   
@@ -888,6 +643,18 @@ See {@link module:db}
 ---- 
 ####  Tables with TTL for level2 cache, i.e. in the local process LRU memory. It works before the primary cache and keeps records in the local LRU cache for the given amount of time, the TTL is in ms and must be greater than zero for level 2 cache to work   
 #### Type: int   
+###  db-skip-tables 
+---- 
+####  List of tables that will not be created or modified, this is global for all pools   
+#### Type: list   
+###  db-skip-pools 
+---- 
+####  List of pools to be skipped during initialization   
+#### Type: list   
+###  db-skip-drop 
+---- 
+####  A pattern of table names which will skipp in db.drop operations to prevent accidental table deletion   
+#### Type: regexpobj   
 ###  db-custom-column-([a-zA-Z0-9_]+)-(.+) 
 ---- 
 ####  A column that is allowed to be used in any table, the name is a column name regexp with the value to be a type   
@@ -896,35 +663,6 @@ See {@link module:db}
 -db-custom-column-users-^stats=counter
 ```
 
-###  db-describe-column-([a-z0-9_]+)-([a-zA-Z0-9_.]+) 
----- 
-####  Describe a table column properties, can be a new or existing column, overrides existing property   
-#### Type: map   
-#### Example:
-```
--db-describe-column-users-name.check max:255
-```
-
-###  db-config 
----- 
-####  Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters   
-###  db-config-map 
----- 
-####  Config options: `.interval` between loading configuration from the database configured with -db-config, in minutes, 0 disables refreshing config from the db, `.count` max records to load in one select, see the docs about `.top`, `.main`, `.other` config parameters   
-#### Type: map   
-#### Default: {"count":1000,"interval":1440,"top":"roles","main":"role,tag","other":"role"}   
-###  db-skip-drop 
----- 
-####  A pattern of table names which will skipp in db.drop operations to prevent accidental table deletion   
-#### Type: regexpobj   
-###  db-aliases-(.+) 
----- 
-####  Table aliases to be used instead of the requested table name, only high level db operations will use it, low level utilities use the real table names   
-###  db-concurrency 
----- 
-####  How many simultaneous tasks to run at the same time inside one process   
-#### Type: number   
-#### Default: 3   
 ###  db-cleanup-rules-(.+) 
 ---- 
 ####  Rules for the db.cleanupResult per table   
@@ -1184,6 +922,312 @@ See {@link module:jobs}
 ---- 
 ####  Ignore matched tasks   
 #### Type: regexp   
+## middleware.body
+See {@link module:middleware/body}
+###  middleware-body-err-(.+) 
+---- 
+####  Error messages for various cases   
+###  middleware-body-path 
+---- 
+####  Paths that expect JSON/form payloads, parsing will happen before the signature processed, by default all requests are parsed, if defined only matched paths will be processed, the rest will have to use middleware.body explicitely   
+#### Type: regexpobj   
+#### Example:
+```
+middleware-body-path = ^/api
+```
+
+###  middleware-body-methods 
+---- 
+####  HTTP methods allowed to have body   
+#### Type: list   
+#### Default: ["POST","PUT","PATCH"]   
+###  middleware-body-max-size 
+---- 
+####  Max size for body in bytes   
+#### Type: number   
+#### Default: 64000   
+## middleware.cors
+See {@link module:middleware/cors}
+###  middleware-cors-path 
+---- 
+####  Match request path   
+#### Type: regexpobj   
+###  middleware-cors-origin 
+---- 
+####  Origin header   
+#### Default: "*"   
+###  middleware-cors-credentials 
+---- 
+####  Allow credentials   
+#### Type: bool   
+#### Default: true   
+###  middleware-cors-methods 
+---- 
+####  Allow methods   
+#### Type: list   
+#### Default: ["OPTIONS","HEAD","GET","POST","PUT","PATCH","DELETE"]   
+###  middleware-cors-headers 
+---- 
+####  Allow headers   
+#### Type: list   
+#### Default: ["content-type"]   
+###  middleware-cors-expose 
+---- 
+####  Expose headers   
+#### Type: list   
+###  middleware-cors-max-age 
+---- 
+####  Set max-age   
+#### Type: number   
+## middleware.csrf
+See {@link module:middleware/csrf}
+###  middleware-csrf-err-(.+) 
+---- 
+####  Error messages for various cases   
+###  middleware-csrf-origin-(.+) 
+---- 
+####  Regexp for URLs to by allowed by origin   
+#### Type: regexpobj   
+#### Example:
+```
+middleware-csrf-origin-^/account = http://host.com
+middleware-csrf-origin-^/account = https://host.com,http://localhost
+```
+
+###  middleware-csrf-sec-fetch-(.+) 
+---- 
+####  Regexp for URLs to use specific Sec-Fetch-Site header validation by: same-origin, same-site, cross-site, none   
+#### Type: regexpobj   
+#### Example:
+```
+middleware-csrf-sec-fetch-^/webhook = cross-site
+middleware-csrf-sec-fetch-^/ = same-origin,same-site
+```
+
+###  middleware-csrf-skip-method 
+---- 
+####  Do not check for specified methods   
+#### Type: list   
+#### Default: ["GET","HEAD","OPTIONS","TRACE"]   
+## middleware.headers
+See {@link module:middleware/headers}
+###  middleware-headers-(.+) 
+---- 
+####  An JSON object with response headers to be set in matching responses, empty value to remove the header   
+#### Type: regexpobj   
+#### Example:
+```
+middleware-headers-^/ = { "x-frame-options": "sameorigin", "x-xss-protection": "1; mode=block" }
+```
+
+## middleware.multipart
+See {@link module:middleware/multipart}
+###  middleware-multipart-err-(.+) 
+---- 
+####  Error messages for various cases   
+###  middleware-multipart-path 
+---- 
+####  Paths that expect multipart/form-data payloads, parsing will happen after the signature processed automatically, other routes need to call middleware.multipart.handle explicitely   
+#### Type: regexpobj   
+#### Example:
+```
+middleware-multipart-path = ^/upload
+```
+
+###  middleware-multipart-max-size 
+---- 
+####  Max size for uploads in bytes   
+#### Type: number   
+#### Default: 25000000   
+###  middleware-multipart-max-(files|fields) 
+---- 
+####  Max number of files or fields in uploads   
+#### Type: number   
+## middleware.passkey
+See {@link module:middleware/passkey}
+###  middleware-passkey-err-(.+) 
+---- 
+####  Error messages for various cases   
+###  middleware-passkey-cap-(.+) 
+---- 
+####  Capability parameters   
+#### Type: int   
+###  middleware-passkey-secret 
+---- 
+####  Cookies secret   
+###  middleware-passkey-cache 
+---- 
+####  Cache for challenges   
+###  middleware-passkey-cookie 
+---- 
+####  Cookie name   
+#### Default: "bk_passkey"   
+###  middleware-passkey-domain 
+---- 
+####  Explicit domain to use instead of host   
+###  middleware-passkey-endpoint 
+---- 
+####  Root endpoint for the api routes to remount under differnet top path   
+#### Default: "/passkey"   
+## middleware.proxy
+See {@link module:middleware/proxy}
+###  middleware-proxy-path-(.+) 
+---- 
+####  Proxy matched requests by path to given host   
+#### Type: regexp   
+## middleware.redirect
+See {@link module:middleware/redirect}
+###  middleware-redirect-err-(.+) 
+---- 
+####  Error messages for various cases   
+###  middleware-redirect-path-(.+) 
+---- 
+####  Define a path regexp to be matched early in order to redirect, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
+#### Type: regexpobj   
+#### Example:
+```
+api-redirect-path-^[^/]+/path/$ = /path2/index.html
+api-redirect-path-.+/$ = 301:@PATH@/index.html
+```
+
+###  middleware-redirect-location-(.+) 
+---- 
+####  Define a location regexp to be matched early in order to redirect, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
+#### Type: regexpobj   
+#### Example:
+```
+api-redirect-location-domain.com[^/]+/path/$ = /path2/index.html
+api-redirect-location-.+com/$ = 301:@PATH@/index.html
+```
+
+###  middleware-redirect-login-path-(.+) 
+---- 
+####  Define a path where to redirect if no login is provided, same format and placeholders as in redirect-path   
+#### Type: regexpobj   
+#### Example:
+```
+api-redirect-login-path-^/admin/ = /login.html
+```
+
+###  middleware-redirect-login-location-(.+) 
+---- 
+####  Define a location where to redirect if no login is provided, same format and placeholders as in redirect-path   
+#### Type: regexpobj   
+#### Example:
+```
+api-redirect-location-domain.com/admin/ = /login.html
+```
+
+###  middleware-redirect-reset 
+---- 
+####  Reset all rules   
+#### Type: callback   
+## middleware.rlimits
+See {@link module:middleware/rlimits}
+###  middleware-rlimits-err-(.+) 
+---- 
+####  Error messages for various cases   
+###  middleware-rlimits-(rate|max|interval|ttl|delay|multiplier|queue) 
+---- 
+####  Default rate limiter parameters for Token Bucket algorithm. `queue` to use specific queue, ttl` is to expire cache entries   
+#### Example:
+```
+middleware-rlimits-queue = redis
+middleware-rlimits-rate = 1
+middleware-rlimits-ttl = 60000
+```
+
+###  middleware-rlimits-map-(.+) 
+---- 
+####  Rate limiter parameters for Token Bucket algorithm. set all at once   
+#### Type: map   
+#### Example:
+```
+middleware-rlimits-map-/url=rate:1,interval:2000
+middleware-rlimits-map-GET/url=rate:10
+```
+
+## middleware.routing
+See {@link module:middleware/routing}
+###  middleware-routing-err-(.+) 
+---- 
+####  Error messages for various cases   
+###  middleware-routing-([a-z0-9]+)-(.+) 
+---- 
+####  Paths or locations to be re-routed to other path, this is done inside the server, only the path is replaced, use ! in front of regexp to remove particular redirect from the list   
+#### Type: regexpobj   
+#### Example:
+```
+middleware-routing-path-^/user/get = /user/read
+```
+
+###  middleware-routing-reset 
+---- 
+####  Reset all rules   
+#### Type: callback   
+## middleware.static
+See {@link module:middleware/static}
+###  middleware-static-disabled 
+---- 
+####  Disable static files from /web folder, no .js or .html files will be served by the server   
+#### Type: bool   
+###  middleware-static-options 
+---- 
+####  Options to pass to serve-static module: maxAge, noCache, lastModified   
+#### Type: map   
+#### Default: {}   
+###  middleware-static-mime-(.+) 
+---- 
+####  File extension to MIME content type mapping, this is used by static-serve   
+#### Example:
+```
+-api-static-mime-mobileconfig application/x-apple-aspen-config
+```
+
+###  middleware-static-vhost-([^/]+) 
+---- 
+####  Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match   
+#### Type: regexp   
+#### Example:
+```
+api-static-vhost-test_dir = test.com$
+```
+
+###  middleware-static-no-vhost 
+---- 
+####  Add to the list of URL paths that should be served for all virtual hosts   
+#### Type: regexpobj   
+###  middleware-static-no-cache 
+---- 
+####  Set cache-control=no-cache header for matching static files   
+#### Type: regexpobj   
+#### Example:
+```
+api-static-no-cache = .+
+```
+
+###  middleware-static-compressed-([^/]+) 
+---- 
+####  Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention   
+#### Type: regexp   
+#### Example:
+```
+-api-static-compress-bundle.js gz
+```
+
+## middleware.xray
+See {@link module:middleware/xray}
+###  middleware-xray-path 
+---- 
+####  Trace only if matched request path   
+#### Type: regexpobj   
+###  middleware-xray-interval 
+---- 
+####  Interval in ms how often to trace requests, must be > 0 to enable tracing   
+#### Type: number   
+###  middleware-xray-host 
+---- 
+####  Host where to send traces   
 ## push
 See {@link module:push}
 ###  push-config 

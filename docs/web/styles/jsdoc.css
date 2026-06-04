@@ -20,8 +20,8 @@
   --params-color: #333;
   --params-bg: #f0f0f0;
   --disabled-color: #454545;
-  --code-color: #948D00;
-  --code-bg-color: #CFD8E8;
+  --code-color: #004F73;
+  --code-bg-color: transparent;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,8 +45,8 @@
       --params-color: #ccc;
       --params-bg: #333333;
       --disabled-color: #454545;
-      --code-color: #C3C965;
-      --code-bg-color: #3A4D68;
+      --code-color: #C8C9A8;
+      --code-bg-color: transparent;
   }
 }
 

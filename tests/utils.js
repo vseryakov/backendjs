@@ -7,13 +7,6 @@ const fs = require("fs");
 const mock = {
     name: "mock",
 
-    configureStaticWeb(options, callback)
-    {
-        api.app.engine('html', (path, opts, cb) => {
-            cb(null, `Mocked ${path} with ${JSON.stringify(opts)}`);
-        });
-        callback();
-    }
 };
 
 async function initServices(options)

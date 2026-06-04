@@ -1,3 +1,4 @@
+
 const { db, app, api } = require('../../');
 
 const mod = {
@@ -11,17 +12,17 @@ const mod = {
         }
     },
 
-    configureWeb(options, callback)
+    configureMiddleware(options, callback)
     {
         api.app.get("/counter", this.getCounter);
 
         callback();
     },
 
-    getCounter(req, res)
+    getCounter(context)
     {
         db.incr("counter", { id: 1, value: 1 }, { returning: "*", first: 1 }, (err, row) => {
-            api.sendJSON(req, err, row);
+            context.reply(err, row);
         });
     }
 

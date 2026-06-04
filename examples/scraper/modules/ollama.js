@@ -11,7 +11,7 @@ module.exports = {
     name: "ollama",
     args: [
         { name: "err-(.+)", descr: "Error messages for various cases" },
-        { name: "cap-(.+)", type: "int", strip: "cap-", descr: "Capability parameters" },
+        { name: "cap-(.+)", type: "int", strip: "cap-", sametype: 1, descr: "Capability parameters" },
         { name: "host", descr: "Server host" },
         { name: "model", descr: "Default model" },
     ],

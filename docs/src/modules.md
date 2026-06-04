@@ -57,7 +57,6 @@ application structure all subfolders inside each NPM package will be added to th
 
   - modules will be loaded from the **modules/** folder
   - files in the **web/** folder will be added to the static search path
-  - all templates from **views/** folder will be used for rendering via Express render
 
 If there is a config file present specified by {@link module:app.config}, it will be loaded as well, this way each package can maintain its default config parameters if necessary without touching other or global configuration.
 

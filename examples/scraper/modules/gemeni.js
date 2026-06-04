@@ -67,7 +67,7 @@ mod.fetch = async function(options)
         const { data } = await lib.areadFile(options.file, { encoding: "base64" });
         if (data) {
             parts.push({
-                inlineData: { mimeType: app.getMimeType(options.file), data }
+                inlineData: { mimeType: lib.getMimeType(options.file), data }
             });
         }
     }

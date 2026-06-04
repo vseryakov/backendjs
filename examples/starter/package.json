@@ -9,7 +9,6 @@
     "bksh": "bksh"
   },
   "dependencies": {
-    "backendjs": "github:vseryakov/backendjs",
-    "express": ""
+    "backendjs": "github:vseryakov/backendjs"
   }
 }

@@ -4,31 +4,29 @@
 //  (cd tests && node bench.js)
 //
 
-const { app, api, lib, db } = require("backendjs");
+const { app, api, lib, db, middleware } = require("backendjs");
 
 const mod = {
     name: "bench",
 
-    configureWeb(options, callback)
+    configureMiddleware(options, callback)
     {
         api.app.
-        get('/', (req, res) => {
-            res.setHeader('content-type', 'text/plain').
-            send('Hi')
+        get('/', (context) => {
+            context.send(200, 'Hi')
         }).
-        post('/json', ({ body }, res) => {
-            res.json(body)
+        post('/json', middleware.body, (context) => {
+            context.json(context.body)
         }).
-        get('/id/:id', ({ params: { id }, query: { name } }, res) => {
-            res.setHeader('x-powered-by', 'benchmark').
-                setHeader('content-type', 'text/plain').
-                send(`${id} ${name}`)
+        get('/id/:id', (context) => {
+            context.setHeader('x-powered-by', 'benchmark');
+            context.send(200, `${context.params.id} ${context.query.name}`)
         }).
-        get('/error/:id', (req, res) => {
+        get('/error/:id', (context) => {
             lib.series([
                 function(next) {
-                    db.get("bk_user", { login: req.params.id }, (err, row) => {
-                        if (req.params.id == "found") throw new Error("found");
+                    db.get("bk_user", { login: context.params.id }, (err, row) => {
+                        if (context.params.id == "found") throw new Error("found");
                         next();
                     });
                 },
@@ -36,7 +34,7 @@ const mod = {
                     throw new Error("series");
                 },
             ], (err) => {
-                api.sendReply(req, err);
+                context.reply(err);
             });
         });
 

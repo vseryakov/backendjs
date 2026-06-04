@@ -11,7 +11,6 @@
     "url": "https://github.com/vseryakov/backendjs.git"
   },
   "peerDependencies": {
-    "express": "5.2.1",
     "croner": "10.0.1",
     "formidable": "3.5.4",
     "nodemailer": "8.0.7",
@@ -25,7 +24,6 @@
     "@parse/node-apn": "8.1.0"
   },
   "peerDependenciesMeta": {
-    "express": { "optional": true },
     "croner": { "optional": true },
     "formidable": { "optional": true },
     "nodemailer": { "optional": true },
