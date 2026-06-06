@@ -6,15 +6,14 @@ const { ainit, astop } = require("./utils");
 describe('Files tests', async () => {
 
     before(async () => {
-        api.access.disabled = 1;
 
         app.addModule({
             name: "files.test",
 
-            configureWeb(options, callback) {
-                api.app.all(/^\/upload$/, (req, res) => {
-                    files.upload(req, "file", { namekeep: true, name: "files2.txt" }, (err) => {
-                        api.sendReply(req, err);
+            configureMiddleware(options, callback) {
+                api.app.all("/upload/", (context) => {
+                    files.upload(context, "file", { namekeep: true, name: "files2.txt" }, (err) => {
+                        context.reply(err);
                     });
                 });
                 callback();
@@ -62,11 +61,13 @@ describe('Files tests', async () => {
 
         if (lib.isFlag(app.env.roles, "multipart")) {
             rc = await lib.afetch("http://127.0.0.1:" + api.port + "/upload", {
+                method: "POST",
                 multipart: [ { name: "file", file: "files2.txt", data: buf } ]
             });
             assert.strictEqual(rc.status, 200);
         } else {
             rc = await lib.afetch("http://127.0.0.1:" + api.port + "/upload", {
+                method: "POST",
                 postdata: { file: buf }
             });
             assert.strictEqual(rc.status, 200);

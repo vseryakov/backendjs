@@ -4,8 +4,7 @@
  "name": "contacts",
  "description": "contacts",
  "dependencies": {
-    "backendjs": "github:vseryakov/backendjs",
-    "express": ""
+    "backendjs": "github:vseryakov/backendjs"
  },
  "engines": { "node": ">= 24.0" },
  "eslintConfig": {

@@ -20,22 +20,21 @@ module.exports = {
 
     incr: 1,
 
-    configureWeb(options, callback)
+    configureMiddleware(options, callback)
     {
-        api.app.use("/api",
-            api.Router().
-                get("/contacts", listContacts).
-                post("/contacts", createContact).
-                get("/contact/:id", getContact).
-                put("/contact/:id", updateContact).
-                delete("/contact/:id", delContact));
+        api.app.
+            get("/api/contacts", listContacts).
+            post("/api/contacts", createContact).
+            get("/api/contact/:id", getContact).
+            put("/api/contact/:id", updateContact).
+            delete("/api/contact/:id", delContact);
 
         callback();
     },
 
 }
 
-function listContacts(req, res)
+function listContacts(context)
 {
     var query = api.validate(req, {
         q: { max: 128 },
@@ -70,7 +69,7 @@ function listContacts(req, res)
     });
 }
 
-function getContact(req, res)
+function getContact(context)
 {
     db.get("contacts", { id: req.params.id }, (err, row) => {
         api.sendJSON(req, err, row);
@@ -87,7 +86,7 @@ const schema = {
     logo: { type: "url" },
 };
 
-function createContact(req, res)
+function createContact(context)
 {
     var query = api.validate(req, schema);
     if (typeof query == "string") return api.sendReply(req, 400, query);
@@ -97,7 +96,7 @@ function createContact(req, res)
     });
 }
 
-function updateContact(req, res)
+function updateContact(context)
 {
     var query = api.validate(req, schema);
     if (typeof query == "string") return api.sendReply(req, 400, query);
@@ -108,7 +107,7 @@ function updateContact(req, res)
     });
 }
 
-function delContact(req, res)
+function delContact(context)
 {
     db.del("contacts", { id: req.params.id }, (err) => {
         api.sendJSON(req, err);

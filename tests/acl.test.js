@@ -1,7 +1,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { api, app, logger, lib } = require("../");
+const { api, app, logger, lib, middleware } = require("../");
 
 describe("ACL tests", () => {
 
@@ -9,12 +9,12 @@ describe("ACL tests", () => {
         "-api-acl-allow-admin", "auth, admin, manager, -userallow, -manageronly",
         "-api-acl-allow-manager", "manager, user, -useronly",
         "-api-acl-allow-user", "user, userallow",
-        "-api-acl-authenticated", "auth",
 
         "-api-acl-deny-manager", "useronly",
         "-api-acl-deny-user", "userdeny",
 
-        "-api-acl-add-auth", "^/auth",
+        "-api-acl-add-*", "^/auth",
+
         "-api-acl-add-admin", "^/admin",
         "-api-acl-add-manager", "^/manager",
         "-api-acl-add-user", "^/user",
@@ -65,26 +65,25 @@ describe("ACL tests", () => {
 
     api.acl.reset();
     app.parseArgs(argv);
-    var req = { context: { user: {} } };
+    var context = { user: {} };
 
     logger.setLevel(process.env.BKJS_TEST_LOG)
 
     it("checks all acls", (t, callback) => {
 
-        lib.forEachSeries(checks, (check, next) => {
-            req.context.user.id = check.roles || "anon";
-            req.context.user.roles = lib.split(check.roles);
-            req.context.path = check.path;
+        for (const check of checks) {
+            context.user.id = check.roles || "anon";
+            context.user.roles = lib.split(check.roles);
+            context.path = check.path;
             logger.debug("checking:", check);
-            api.access.authorize(req, (err) => {
-                logger.debug("checked:", err);
-                assert.ok((err?.status || 200) === check.status, lib.inspect({ check, err }));
-                if (err && check.code !== undefined) {
-                    assert.ok((err.code || "") === check.code, lib.inspect({ check, err }));
-                }
-                next();
-            });
-        }, callback);
+            var err = middleware.users.authorize(context);
+            logger.debug("checked:", err);
+            assert.ok((err?.status || 200) === check.status, lib.inspect({ check, err, user: context.user }));
+            if (err && check.code !== undefined) {
+                assert.ok((err.code || "") === check.code, lib.inspect({ check, err }));
+            }
+        }
+        callback();
     });
 
 });

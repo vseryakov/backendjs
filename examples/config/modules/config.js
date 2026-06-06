@@ -41,32 +41,31 @@ module.exports = {
     //
     // Default hook to initialize our Express routes
     //
-    configureWeb(options, callback)
+    configureMiddleware(options, callback)
     {
-        api.app.use("/config",
-            api.Router().
-                use(perms).
-                get("/list", list).
-                post("/put", put).
-                put("/update", update).
-                post("/del", del));
+        api.app.
+            use(perms).
+            get("/config/list", list).
+            post("/config/put", put).
+            put("/config/update", update).
+            post("/config/del", del);
 
         callback();
     }
 };
 
 // Express middleware for checking user roles
-function perms(req, res, next)
+function perms(context, next)
 {
-    if (!lib.isFlag(module.exports.roles, req.context.user?.roles)) {
-        return api.sendReply(req, 403, "access denied");
+    if (!lib.isFlag(module.exports.roles, context.user?.roles)) {
+        return context.send(403, "access denied");
     }
     next();
 }
 
 // Return all rows fron the table,
 // implements GET /config/list
-function list(req, res)
+function list(context)
 {
     var data = [];
     db.scan("bk_config", {}, { sync: 1 }, (rows) => {
@@ -78,7 +77,7 @@ function list(req, res)
 
 // Store a new record
 // implements POST /config/put
-function put(req, res)
+function put(context)
 {
     var query = api.validate(req, {
         name: { required: 1 },
@@ -94,7 +93,7 @@ function put(req, res)
 
 // Update existing record
 // implements PUT /config/update
-function update(req, res)
+function update(context)
 {
     var query = api.validate(req, {
         ctime: { type: "int", required: 1 },
@@ -111,7 +110,7 @@ function update(req, res)
 
 // Delete a record
 // implements POST /config/del
-function del(req, res)
+function del(context)
 {
     var query = api.validate(req, {
         ctime: { type: "int", required: 1 },

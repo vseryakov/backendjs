@@ -3,7 +3,7 @@
 //  backendjs 2025
 //
 
-const { api } = require('backendjs');
+const { api, middleware } = require('backendjs');
 const image = require('backendjs/lib/util/image');
 
 //
@@ -15,30 +15,26 @@ module.exports = {
     //
     // Default hook to initialize our Express routes, called automatically durng API initialization
     //
-    configureWeb(options, callback)
+    configureMiddleware(options, callback)
     {
-        api.app.use("/api",
-            api.Router().
-                post("/render", api.handleMultipart, render));
+        api.app.use("/api/render", middleware.multipart, render);
 
         callback();
     },
 };
 
-function render(req, res)
+function render(context)
 {
-    const body = req.context.body;
+    const body = context.body;
 
     for (const i in body?.items) {
         const item = body.items[i];
-        if (req.files?.[item.id]?.path) item.file = req.files[item.id]?.path;
+        if (context.files?.[item.id]?.path) item.file = context.files[item.id]?.path;
     }
 
     image.composite(body.items, body.defaults).then(rc => {
-        req.res.header("pragma", "no-cache");
-        res.setHeader("cache-control", "max-age=0, no-cache, no-store");
-        res.type("image/png");
-        res.send(rc[0]._buffer);
-    }).catch(err => api.sendReply(req, 400, err));
+        context.setHeader("cache-control", "max-age=0, no-cache, no-store").
+                send(200, rc[0]._buffer, "image/png");
+    }).catch(err => context.reply(err));
 }
 

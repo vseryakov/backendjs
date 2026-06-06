@@ -152,16 +152,15 @@ module.exports = {
     /**
      * Setup all routes
      */
-    configureWeb(options, callback)
+    configureMiddleware(options, callback)
     {
-        api.app.use("/api",
-            api.Router().
-                post("/render/:id", render).
-                get("/list", list).
-                get("/asset/:id/:file", assets).
-                post("/submit", submit).
-                post("/resubmit/:id", resubmit).
-                delete("/del/:id", del));
+        api.app.
+            post("/api/render/:id", render).
+            get("/api/list", list).
+            get("/api/asset/:id/:file", assets).
+            post("/api/submit", submit).
+            post("/api/resubmit/:id", resubmit).
+            delete("/api/del/:id", del);
 
         callback();
     },
@@ -179,13 +178,13 @@ module.exports = {
 /**
  * Return a list of all jobs submitted
  */
-function list(req, res)
+function list(context)
 {
-    var query = api.validate(req, {
+    var query = api.validate(context, {
         start: { type: "int" },
         count: { type: "int", dflt: 10 },
     });
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    if (typeof query == "string") return context.reply({ status: 400, message: query });
 
     const opts = {
         start: query.start,
@@ -195,46 +194,44 @@ function list(req, res)
     };
 
     db.select("scraper", {}, opts, (err, rows, info) => {
-        api.sendJSON(req, err, api.getResultPage(req, rows, info));
+        context.reply(err, db.paginateResult(rows, info));
     });
 }
 
 /**
  * Return image or html content
  */
-function assets(req, res)
+function assets(context)
 {
-    db.get("scraper", req.params.id, (err, row) => {
-        if (!row) return api.sendReply(req, 404, "no record found");
-        res.setHeader("cache-control", "max-age=0, no-cache, no-store");
-        files.send(req, req.params.id + "/" + req.params.file);
+    db.get("scraper", context.params.id, (err, row) => {
+        if (!row) return context.reply({ status: 404, message: "no record found" });
+        context.setHeader("cache-control", "max-age=0, no-cache, no-store");
+        files.send(context, context.params.id + "/" + context.params.file);
     });
 }
 
 /**
  * Render new image for given parameters
  */
-async function render(req, res)
+async function render(context)
 {
-    const { data } = await db.aget("scraper", { id: req.params.id });
-    if (!data) return api.sendReply(req, 404, "no record found");
+    const { data } = await db.aget("scraper", { id: context.params.id });
+    if (!data) return context.reply({ status: 404, message: "no record found" });
 
-    const body = req.context.body;
+    const body = context.body;
     for (const i in body?.items) {
         const item = body.items[i];
         if (!item.file) continue;
         if (item.file.startsWith("web/")) continue;
-        item.file = files.root + "/" + req.params.id + "/" + item.file;
+        item.file = files.root + "/" + context.params.id + "/" + item.file;
     }
 
     image.composite(body.items, body.defaults).then(rc => {
-        req.res.header("pragma", "no-cache");
-        res.setHeader("cache-control", "max-age=0, no-cache, no-store");
-        res.type("image/png");
-        res.send(rc[0]._buffer);
+        context.setHeader("cache-control", "max-age=0, no-cache, no-store").
+                send(200, rc[0]._buffer, "image/png");
     }).catch(err => {
         logger.trace("render:", err);
-        api.sendReply(req, 400, err)
+        context.reply(err)
     });
 }
 
@@ -256,13 +253,13 @@ function update(options, callback)
 /**
  * Submit a new scrape job
  */
-function submit(req, res)
+function submit(context)
 {
-    var query = api.validate(req, {
+    var query = api.validate(context, {
         url: { type: "url", required: 1 },
         status: { value: "pending" },
     })
-    if (typeof query == "string") return api.sendReply(req, 400, query)
+    if (typeof query == "string") return context.reply({ status: 400, message: query })
 
     query.id = query.url.replace(/^https?:\/\//, "").
                          replace(/[^a-z0-9-]/gi, "-").
@@ -270,12 +267,12 @@ function submit(req, res)
                          replace(/^-+|-+$/g, "");
 
     db.put("scraper", query, { result_query: 1, first: 1 }, (err, row) => {
-        if (err) return api.sendJSON(req, err, row);
+        if (err) return context.reply(err, row);
 
         api.ws.notify({}, { event: "scraper:status", data: row });
 
         jobs.submitJob({ job: { "scraper.job": { id: row.id } } }, { noWait: 1 }, (err) => {
-            api.sendJSON(req, err, row);
+            context.reply(err, row);
         });
     });
 }
@@ -283,13 +280,13 @@ function submit(req, res)
 /**
  * Resubmit a scrape job
  */
-function resubmit(req, res)
+function resubmit(context)
 {
-    db.get("scraper", req.params.id, (err, row) => {
-        if (!row) return api.sendReply(req, 404, "no record found");
+    db.get("scraper", context.params.id, (err, row) => {
+        if (!row) return context.reply({ status: 404, message: "no record found" });
 
-        jobs.submitJob({ job: { "scraper.job": { id: row.id, mode: req.context.body.mode } } }, { noWait: 1 }, (err) => {
-            api.sendJSON(req, err, row);
+        jobs.submitJob({ job: { "scraper.job": { id: row.id, mode: context.body.mode } } }, { noWait: 1 }, (err) => {
+            context.reply(err, row);
         });
     });
 }
@@ -297,15 +294,15 @@ function resubmit(req, res)
 /**
  * Delete a job by id
  */
-function del(req, res)
+function del(context)
 {
-    const id = req.params.id
+    const id = context.params.id
     db.del("scraper", { id }, (err, row, info) => {
         if (!err && info.affected_rows) {
             files.del(`${id}.png`);
             files.del(`${id}.html`);
         }
-        api.sendJSON(req, err);
+        context.reply(err);
     });
 }
 

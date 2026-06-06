@@ -109,7 +109,7 @@ api-defaults-maxlist-/endpoint-groups = 255
 #### Default: "server,web"   
 ## api.acl
 See {@link module:api/acl}
-###  api-acl-add-([a-z0-9_]+) 
+###  api-acl-add-([a-z0-9_*]+) 
 ---- 
 ####  Add URLs to the named ACL which can be used in allow/deny rules per role   
 #### Type: regexpobj   
@@ -182,8 +182,7 @@ See {@link module:api/users}
 ####  Error messages for various cases   
 ###  api-users-table 
 ---- 
-####  Table to use for users   
-#### Default: "bk_user"   
+####  Database table to create and use for users   
 ###  api-users-users 
 ---- 
 ####  An object with users   
@@ -192,10 +191,6 @@ See {@link module:api/users}
 ###  api-users-file 
 ---- 
 ####  A JSON file with users   
-###  api-users-path 
----- 
-####  Paths to verify access   
-#### Type: list   
 ## api.ws
 See {@link module:api/ws}
 ###  api-ws-port 
@@ -924,28 +919,32 @@ See {@link module:jobs}
 #### Type: regexp   
 ## middleware.body
 See {@link module:middleware/body}
-###  middleware-body-err-(.+) 
+###  middleware-body-global 
 ---- 
-####  Error messages for various cases   
-###  middleware-body-path 
----- 
-####  Paths that expect JSON/form payloads, parsing will happen before the signature processed, by default all requests are parsed, if defined only matched paths will be processed, the rest will have to use middleware.body explicitely   
-#### Type: regexpobj   
-#### Example:
-```
-middleware-body-path = ^/api
-```
-
+####  Enable the middlware to parse body by content type for all routes   
+#### Type: bool   
 ###  middleware-body-methods 
 ---- 
-####  HTTP methods allowed to have body   
+####  HTTP methods enabled in global mode   
 #### Type: list   
 #### Default: ["POST","PUT","PATCH"]   
+###  middleware-body-content-type 
+---- 
+####  List of additional content types to be parsed in additional to default json/url-encoded/text   
+#### Type: list   
+#### Example:
+```
+middleware-body-content-type = text/xml, image/png
+```
+
 ###  middleware-body-max-size 
 ---- 
 ####  Max size for body in bytes   
 #### Type: number   
 #### Default: 64000   
+###  middleware-body-err-(.+) 
+---- 
+####  Error messages for various cases   
 ## middleware.cors
 See {@link module:middleware/cors}
 ###  middleware-cors-path 
@@ -1022,18 +1021,10 @@ middleware-headers-^/ = { "x-frame-options": "sameorigin", "x-xss-protection": "
 
 ## middleware.multipart
 See {@link module:middleware/multipart}
-###  middleware-multipart-err-(.+) 
+###  middleware-multipart-global 
 ---- 
-####  Error messages for various cases   
-###  middleware-multipart-path 
----- 
-####  Paths that expect multipart/form-data payloads, parsing will happen after the signature processed automatically, other routes need to call middleware.multipart.handle explicitely   
-#### Type: regexpobj   
-#### Example:
-```
-middleware-multipart-path = ^/upload
-```
-
+####  Enable the middlware to serve multipart by content type for all routes   
+#### Type: bool   
 ###  middleware-multipart-max-size 
 ---- 
 ####  Max size for uploads in bytes   
@@ -1043,6 +1034,9 @@ middleware-multipart-path = ^/upload
 ---- 
 ####  Max number of files or fields in uploads   
 #### Type: number   
+###  middleware-multipart-err-(.+) 
+---- 
+####  Error messages for various cases   
 ## middleware.passkey
 See {@link module:middleware/passkey}
 ###  middleware-passkey-err-(.+) 
@@ -1071,10 +1065,24 @@ See {@link module:middleware/passkey}
 #### Default: "/passkey"   
 ## middleware.proxy
 See {@link module:middleware/proxy}
+###  middleware-proxy-host 
+---- 
+####  Host where to proxy requests, takes precedence over the path, for direct routing   
+#### Example:
+```
+middleware-proxy-host = myhost.com
+```
+
 ###  middleware-proxy-path-(.+) 
 ---- 
 ####  Proxy matched requests by path to given host   
 #### Type: regexp   
+#### Example:
+```
+middleware-proxy-path-blog.host.com = ^/blog/
+middleware-proxy-path-www.host.com = ^/products/
+```
+
 ## middleware.redirect
 See {@link module:middleware/redirect}
 ###  middleware-redirect-err-(.+) 
@@ -1167,54 +1175,34 @@ middleware-routing-path-^/user/get = /user/read
 #### Type: callback   
 ## middleware.static
 See {@link module:middleware/static}
-###  middleware-static-disabled 
+###  middleware-static-global 
 ---- 
-####  Disable static files from /web folder, no .js or .html files will be served by the server   
+####  Enable the middlware to serve static files from all 'app.path.web' folders   
 #### Type: bool   
-###  middleware-static-options 
+###  middleware-static-root 
 ---- 
-####  Options to pass to serve-static module: maxAge, noCache, lastModified   
-#### Type: map   
-#### Default: {}   
-###  middleware-static-mime-(.+) 
+####  Root path for files   
+###  middleware-static-max-age 
 ---- 
-####  File extension to MIME content type mapping, this is used by static-serve   
-#### Example:
-```
--api-static-mime-mobileconfig application/x-apple-aspen-config
-```
-
-###  middleware-static-vhost-([^/]+) 
----- 
-####  Define a virtual host regexp to be matched against the hostname header to serve static content from a different root, a vhost path must be inside the web directory, if the regexp starts with !, that means negative match   
-#### Type: regexp   
-#### Example:
-```
-api-static-vhost-test_dir = test.com$
-```
-
-###  middleware-static-no-vhost 
----- 
-####  Add to the list of URL paths that should be served for all virtual hosts   
-#### Type: regexpobj   
+####  Max age for files in ms   
+#### Type: int   
 ###  middleware-static-no-cache 
 ---- 
-####  Set cache-control=no-cache header for matching static files   
-#### Type: regexpobj   
-#### Example:
-```
-api-static-no-cache = .+
-```
-
-###  middleware-static-compressed-([^/]+) 
+####  Serve files as non cacheable   
+#### Type: bool   
+###  middleware-static-last-modified 
 ---- 
-####  Match static paths to be returned compressed, files must exist and be pre-compressed with the given extention   
-#### Type: regexp   
-#### Example:
-```
--api-static-compress-bundle.js gz
-```
-
+####  Serve Last-Modified header to support conditional requests   
+#### Type: bool   
+###  middleware-static-index 
+---- 
+####  Name of index file to use for default directory requests   
+#### Default: "index.html"   
+## middleware.users
+See {@link module:middleware/users}
+###  middleware-users-err-(.+) 
+---- 
+####  Error messages for various cases   
 ## middleware.xray
 See {@link module:middleware/xray}
 ###  middleware-xray-path 
