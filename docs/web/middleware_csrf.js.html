@@ -60,6 +60,7 @@
   * @module middleware/csrf
   */
 
+const logger = require(__dirname + '/../logger');
 const lib = require(__dirname + '/../lib');
 const api = require(__dirname + '/../api');
 const Router = require(__dirname + "/../router");
@@ -145,9 +146,10 @@ mod.configureMiddleware = function(options, callback)
 {
     if (mod.enable === "fixed") {
         mod.router.walk(node => {
+            logger.debug("configureMiddleware:", mod.name, node.handlers[0]);
             api.app.use("#0", node.handlers[0].path, {
-                origin: node.handlers[0].origin,
-                secFetchSite: node.handlers[0].secFetchSite,
+                origin: node.handlers[0].handler.origin,
+                secFetchSite: node.handlers[0].handler.secFetchSite,
                 handle: mod.handle
             });
         });
@@ -155,7 +157,7 @@ mod.configureMiddleware = function(options, callback)
     } else
 
     if (lib.toBool(mod.enable)) {
-        api.app.use('', "*", mod.handle);
+        api.app.use('', "*", mod);
     }
 
     callback();
@@ -182,16 +184,19 @@ mod.handle = function(context, next)
     if (context.method === "GET" || context.method === "HEAD") return next();
 
     // Even empty handler means we must have both headers anyway
-    const origin = context.req.header('origin');
-    const secFetchSite = context.req.header('sec-fetch-site');
+    const origin = context.req.headers.origin;
+    const secFetchSite = context.req.headers['sec-fetch-site'];
 
     if (!origin || !secFetchSite) return next(error());
 
-    // Global config
-    if (this.router?.find) {
+    if (this === mod) {
+        // Global config
+
         const routes = mod.router.find(context.method, context.path);
         if (routes.length) {
             const config = routes[0].route.handler;
+
+            logger.debug("handle:", mod.name, context, "CONFIG:", config);
 
             if (config.origin &amp;&amp; !check(origin, config.origin)) return next(error());
 
@@ -199,6 +204,9 @@ mod.handle = function(context, next)
         }
     } else {
         // Local config or fixed mode
+
+        logger.debug("handle:", mod.name, context, "OBJ:", this);
+
         if (this.origin &amp;&amp; !check(origin, this.origin)) return next(error());
 
         if (this.secFetchSite &amp;&amp; !check(secFetchSite, this.secFetchSite)) return next(error());

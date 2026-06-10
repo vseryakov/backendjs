@@ -205,7 +205,7 @@ mod.handle = function(context, next)
             }
             return next(err);
         }
-        logger.debug("parse:", mod.name, err, context, data, Object.keys(files));
+        logger.debug("handle:", mod.name, err, context, data, Object.keys(files));
 
         context.body = data;
         context.files = files;

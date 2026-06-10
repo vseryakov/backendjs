@@ -1124,7 +1124,7 @@ See {@link module:middleware/static}
 ####  Root path for files   
 ###  middleware-static-max-age 
 ---- 
-####  Max age for files in ms   
+####  Max age for files in ms, -1 to disable   
 #### Type: int   
 ###  middleware-static-no-cache 
 ---- 
@@ -1134,6 +1134,7 @@ See {@link module:middleware/static}
 ---- 
 ####  Serve Last-Modified header to support conditional requests   
 #### Type: bool   
+#### Default: true   
 ###  middleware-static-index 
 ---- 
 ####  Name of index file to use for default directory requests   

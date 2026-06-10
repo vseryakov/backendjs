@@ -76,7 +76,7 @@ const mod = {
 };
 
 /**
- * Config based route rewriting and redirection, for redirection 30X code must be prefixed
+ * Config based rewriting and redirection middleware, for redirection 30X code must prefix the url
  *
  * @example
  * // Enable dynamic routing, every request will be chercked against current config
@@ -100,6 +100,13 @@ const mod = {
  */
 module.exports = mod;
 
+function onupdate(value, options)
+{
+    if (/^(\/|30[1-8] \/)/.test(value)) {
+        mod.router.add("*", options.name, value);
+    }
+}
+
 /**
  * Start global middleware, makes it the first route via #0 routing method
  *
@@ -119,13 +126,6 @@ mod.configureMiddleware = function(options, callback)
     }
 
     callback();
-}
-
-function onupdate(value, options)
-{
-    if (/^(\/|30[1-8] \/)/.test(value)) {
-        mod.router.add("*", options.name, value);
-    }
 }
 
 mod.reset = function()
@@ -161,7 +161,7 @@ mod.handle = function(context, next)
         route = routes[0].route.handler;
     }
 
-    logger.debug("handle:", this.name, context, "switch to:", route);
+    logger.debug("handle:", mod.name, context, "switch to:", route);
 
     if (route[0] == "3") {
         const loc = route.split(" ");

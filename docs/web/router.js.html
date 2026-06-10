@@ -200,7 +200,9 @@ class Router {
 
         for (let handler of handlers) {
             if (lib.isFunc(handler.handle)) {
+                const bound = handler;
                 handler = handler.handle.bind(handler);
+                Object.defineProperty(handler, "boundThis", { value: bound });
             }
             this.add(method, path, handler);
         }
@@ -216,10 +218,7 @@ class Router {
     unuse(method, path, ...handlers) {
         logger.dev("unuse:", "router", method, path, handlers);
 
-        for (let handler of handlers) {
-            if (lib.isFunc(handler.handle)) {
-                handler = handler.handle.bind(handler);
-            }
+        for (const handler of handlers) {
             this.del(method, path, handler);
         }
         return this;
@@ -493,23 +492,24 @@ class Router {
     }
 
     /**
-     * Delete a handler from the Trie, must match explicitly by method, path and handler
+     * Delete a handler from the Trie, must match explicitly by method, path with optional handler
      * @param {string} method to handle
      * @param {string} path to handle
-     * @param {any} handler - associated data
+     * @param {any} [handler] - associated data, if missing all handlers will be deleted
      * @returns {object[]} - deleted routes
      * @example
      * router.del("GET", "/api/info", middleware1)
-     * router.del("*", "/api/", middleware2)
+     * router.del("*", "/api/")
      */
     del(method, path, handler) {
         return this.#find(method, path, (result, method, paths, node) => {
             const rc = [];
             for (const route of node.handlers) {
-                if (route.handler === handler &amp;&amp;
+                if ((!handler || route.handler === handler) &amp;&amp;
                     route.path === path &amp;&amp;
                     (!route.method || route.method === method)) {
                     result.push(route);
+                    delete route.handler.boundThis;
                 } else {
                     rc.push(route);
                 }

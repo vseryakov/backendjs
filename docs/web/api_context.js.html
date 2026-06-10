@@ -111,7 +111,7 @@ class RequestContext {
     method
 
     /** @var {string} - full request url from the IncomingMessage */
-    url = "/"
+    url
 
     /** @var {string} - request path only */
     path = "/"
@@ -183,7 +183,7 @@ class RequestContext {
     setUrl(url) {
         if (!lib.isString(url)) return this;
 
-        if (this.url) {
+        if (this.url &amp;&amp; this.url !== url) {
             this.orig = {
                 url: this.url,
                 path: this.path,
@@ -688,28 +688,30 @@ class RequestContext {
                     return this.reply(err);
                 }
 
-                const unmodifiedSince = lib.toMtime(this.#req.headers['if-unmodified-since'])
-                if (unmodifiedSince &amp;&amp; stat.mtime > unmodifiedSince) {
-                    return this.send(412)
-                }
-
-                if (options?.maxAge > 0) {
-                    this.setHeader("cache-control", 'public, max-age=' + Math.floor(options.maxAge / 1000));
-                } else
-
-                if (options?.noCache) {
-                    this.setHeader("cache-control", "max-age=0, no-cache, no-store");
-                }
-
                 if (options?.lastModified) {
                     this.setHeader('last-modified', stat.mtime.toUTCString());
                 }
 
-                const modifiedSince = lib.toMtime(this.#req.headers['if-modified-since'])
-                if (modifiedSince) {
-                    const cache = this.#req.headers['cache-control'];
-                    if (stat.mtime &lt;= modifiedSince &amp;&amp; !/no-cache/.test(cache)) {
-                        return this.send(304);
+                if (options?.noCache) {
+
+                    this.setHeader("cache-control", "max-age=0, no-cache, no-store");
+
+                } else {
+
+                    const unmodifiedSince = Math.floor(lib.toMtime(this.#req.headers['if-unmodified-since'])/1000)
+                    if (unmodifiedSince &amp;&amp; stat.mtimeMs > unmodifiedSince) {
+                        return this.send(412)
+                    }
+
+                    if (options?.maxAge >= 0) {
+                        this.setHeader("cache-control", 'public, max-age=' + Math.floor(options.maxAge / 1000));
+                    }
+
+                    const modifiedSince = Math.floor(lib.toMtime(this.#req.headers['if-modified-since'])/1000)
+                    if (modifiedSince) {
+                        if (Math.floor(stat.mtimeMs/1000) &lt;= modifiedSince &amp;&amp; !options?.noCache) {
+                            return this.send(304);
+                        }
                     }
                 }
 

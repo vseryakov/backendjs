@@ -369,7 +369,7 @@ const res = router.find('get', '/entry/789/123');
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line321">line 321</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line320">line 320</a>
     </li></ul></dd>
     
 
@@ -560,7 +560,7 @@ router.add("*", "/api/", middleware2)</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line182">line 182</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line181">line 181</a>
     </li></ul></dd>
     
 
@@ -710,7 +710,7 @@ router.add("*", "/api/", middleware2)</code></pre>
 
     
 
-    <h4 class="name" id="del"><span class="type-signature"></span>del<span class="signature">(method, path, handler)</span><span class="type-signature"> &rarr; {Array.&lt;object>}</span></h4>
+    <h4 class="name" id="del"><span class="type-signature"></span>del<span class="signature">(method, path, handler<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {Array.&lt;object>}</span></h4>
 
     
 
@@ -720,13 +720,13 @@ router.add("*", "/api/", middleware2)</code></pre>
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Delete a handler from the Trie, must match explicitly by method, path and handler</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Delete a handler from the Trie, must match explicitly by method, path with optional handler</p></li></ul></dd>
     
 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line452">line 452</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line451">line 451</a>
     </li></ul></dd>
     
 
@@ -784,6 +784,8 @@ router.add("*", "/api/", middleware2)</code></pre>
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
         
 
@@ -810,6 +812,14 @@ router.add("*", "/api/", middleware2)</code></pre>
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
 
             
 
@@ -833,6 +843,14 @@ router.add("*", "/api/", middleware2)</code></pre>
             
             </td>
 
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
             
 
             
@@ -858,10 +876,20 @@ router.add("*", "/api/", middleware2)</code></pre>
             </td>
 
             
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
 
             
 
-            <td class="description last"><p>associated data</p></td>
+            <td class="description last"><p>associated data, if missing all handlers will be deleted</p></td>
         </tr>
 
     
@@ -923,7 +951,7 @@ router.add("*", "/api/", middleware2)</code></pre>
     <h5 class="h5-examples">Example</h5>
     
     <pre class="prettyprint"><code>router.del("GET", "/api/info", middleware1)
-router.del("*", "/api/", middleware2)</code></pre>
+router.del("*", "/api/")</code></pre>
 
 
 
@@ -950,7 +978,7 @@ router.del("*", "/api/", middleware2)</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line231">line 231</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line230">line 230</a>
     </li></ul></dd>
     
 
@@ -1111,7 +1139,7 @@ router.del("*", "/api/", middleware2)</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line381">line 381</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line380">line 380</a>
     </li></ul></dd>
     
 
@@ -1279,7 +1307,7 @@ router.del("*", "/api/", middleware2)</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line193">line 193</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line192">line 192</a>
     </li></ul></dd>
     
 
@@ -1445,7 +1473,7 @@ router.del("*", "/api/", middleware2)</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line241">line 241</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line240">line 240</a>
     </li></ul></dd>
     
 
@@ -1607,7 +1635,7 @@ can be chained to next middleware</p></td>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line297">line 297</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line296">line 296</a>
     </li></ul></dd>
     
 
@@ -1694,7 +1722,7 @@ can be chained to next middleware</p></td>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line213">line 213</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line212">line 212</a>
     </li></ul></dd>
     
 
@@ -1855,7 +1883,7 @@ can be chained to next middleware</p></td>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line204">line 204</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line203">line 203</a>
     </li></ul></dd>
     
 
@@ -2021,7 +2049,7 @@ can be chained to next middleware</p></td>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line222">line 222</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line221">line 221</a>
     </li></ul></dd>
     
 
@@ -2269,7 +2297,7 @@ can be chained to next middleware</p></td>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line304">line 304</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line303">line 303</a>
     </li></ul></dd>
     
 
@@ -2356,7 +2384,7 @@ can be chained to next middleware</p></td>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="router.js.html">router.js</a>, <a href="router.js.html#line163">line 163</a>
+        <a href="router.js.html">router.js</a>, <a href="router.js.html#line165">line 165</a>
     </li></ul></dd>
     
 
