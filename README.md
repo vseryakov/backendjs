@@ -31,7 +31,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Event-based architecture for real-time processing.
 
 5. **API Layer**
-   - Built on **Express.js** with middleware for authentication, rate limiting, and logging.
+   - Trie router similar to **Express** and **Hono** with middleware for authentication, rate limiting, and logging.
    - Supports **RESTful APIs** with JSON responses.
    - Includes **WebSocket support** for real-time communication.
    - Includes simple but powerful input validation
@@ -74,7 +74,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
 | `db`        | Database abstraction layer for SQLite, Rqlite, PostgreSQL, DynamoDB, and Elasticsearch.    |
 | `cache`     | Caching layer with Redis, NATS, and local memory support.                          |
 | `queue`     | Job queue and event processing with SQS, NATS, DB, and Redis.                          |
-| `api`       | HTTP API layer built on Express.js with middleware for auth, logging, etc.         |
+| `api`       | HTTP API layer with middleware for auth, logging, etc.         |
 | `aws`       | AWS SDK integration for S3, SQS, SNS, DynamoDB, and EC2.                           |
 | `jobs`      | Job processing with worker pools and cron-like scheduling.                         |
 | `events`    | Event-based messaging and subscriptions.                                           |

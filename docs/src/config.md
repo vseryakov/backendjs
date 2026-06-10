@@ -919,9 +919,9 @@ See {@link module:jobs}
 #### Type: regexp   
 ## middleware.body
 See {@link module:middleware/body}
-###  middleware-body-global 
+###  middleware-body-enable 
 ---- 
-####  Enable the middlware to parse body by content type for all routes   
+####  Enable the middlware globally   
 #### Type: bool   
 ###  middleware-body-methods 
 ---- 
@@ -947,10 +947,6 @@ middleware-body-content-type = text/xml, image/png
 ####  Error messages for various cases   
 ## middleware.cors
 See {@link module:middleware/cors}
-###  middleware-cors-path 
----- 
-####  Match request path   
-#### Type: regexpobj   
 ###  middleware-cors-origin 
 ---- 
 ####  Origin header   
@@ -980,50 +976,41 @@ See {@link module:middleware/cors}
 #### Type: number   
 ## middleware.csrf
 See {@link module:middleware/csrf}
+###  middleware-csrf-enable 
+---- 
+####  Enable the middlware, 'true' means dynamicaly check all requests, 'fixed' means set routes from the config on start   
+###  middleware-csrf-origin-(/.+) 
+---- 
+####  Paths to by allowed by origin   
+#### Type: list   
+#### Example:
+```
+middleware-csrf-origin-/account = http://host.com
+middleware-csrf-origin-/account/* = https://host.com,http://localhost
+```
+
+###  middleware-csrf-sec-fetch-site-(/.+) 
+---- 
+####  Paths to use specific Sec-Fetch-Site header validation by: same-origin, same-site, cross-site, none   
+#### Type: list   
+#### Example:
+```
+middleware-csrf-sec-fetch-/webhook/* = cross-site
+middleware-csrf-sec-fetch-/* = same-origin,same-site
+```
+
+###  middleware-csrf-reset 
+---- 
+####  Reset all rules   
+#### Type: callback   
 ###  middleware-csrf-err-(.+) 
 ---- 
 ####  Error messages for various cases   
-###  middleware-csrf-origin-(.+) 
----- 
-####  Regexp for URLs to by allowed by origin   
-#### Type: regexpobj   
-#### Example:
-```
-middleware-csrf-origin-^/account = http://host.com
-middleware-csrf-origin-^/account = https://host.com,http://localhost
-```
-
-###  middleware-csrf-sec-fetch-(.+) 
----- 
-####  Regexp for URLs to use specific Sec-Fetch-Site header validation by: same-origin, same-site, cross-site, none   
-#### Type: regexpobj   
-#### Example:
-```
-middleware-csrf-sec-fetch-^/webhook = cross-site
-middleware-csrf-sec-fetch-^/ = same-origin,same-site
-```
-
-###  middleware-csrf-skip-method 
----- 
-####  Do not check for specified methods   
-#### Type: list   
-#### Default: ["GET","HEAD","OPTIONS","TRACE"]   
-## middleware.headers
-See {@link module:middleware/headers}
-###  middleware-headers-(.+) 
----- 
-####  An JSON object with response headers to be set in matching responses, empty value to remove the header   
-#### Type: regexpobj   
-#### Example:
-```
-middleware-headers-^/ = { "x-frame-options": "sameorigin", "x-xss-protection": "1; mode=block" }
-```
-
 ## middleware.multipart
 See {@link module:middleware/multipart}
-###  middleware-multipart-global 
+###  middleware-multipart-enable 
 ---- 
-####  Enable the middlware to serve multipart by content type for all routes   
+####  Enable the middlware globally   
 #### Type: bool   
 ###  middleware-multipart-max-size 
 ---- 
@@ -1083,53 +1070,6 @@ middleware-proxy-path-blog.host.com = ^/blog/
 middleware-proxy-path-www.host.com = ^/products/
 ```
 
-## middleware.redirect
-See {@link module:middleware/redirect}
-###  middleware-redirect-err-(.+) 
----- 
-####  Error messages for various cases   
-###  middleware-redirect-path-(.+) 
----- 
-####  Define a path regexp to be matched early in order to redirect, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
-#### Type: regexpobj   
-#### Example:
-```
-api-redirect-path-^[^/]+/path/$ = /path2/index.html
-api-redirect-path-.+/$ = 301:@PATH@/index.html
-```
-
-###  middleware-redirect-location-(.+) 
----- 
-####  Define a location regexp to be matched early in order to redirect, if the regexp starts with !, that means it must be removed from the list, variables can be used for substitution: @HOST@, @PATH@, @URL@, @BASE@, @DIR@, @QUERY@, status code can be prepended to the location   
-#### Type: regexpobj   
-#### Example:
-```
-api-redirect-location-domain.com[^/]+/path/$ = /path2/index.html
-api-redirect-location-.+com/$ = 301:@PATH@/index.html
-```
-
-###  middleware-redirect-login-path-(.+) 
----- 
-####  Define a path where to redirect if no login is provided, same format and placeholders as in redirect-path   
-#### Type: regexpobj   
-#### Example:
-```
-api-redirect-login-path-^/admin/ = /login.html
-```
-
-###  middleware-redirect-login-location-(.+) 
----- 
-####  Define a location where to redirect if no login is provided, same format and placeholders as in redirect-path   
-#### Type: regexpobj   
-#### Example:
-```
-api-redirect-location-domain.com/admin/ = /login.html
-```
-
-###  middleware-redirect-reset 
----- 
-####  Reset all rules   
-#### Type: callback   
 ## middleware.rlimits
 See {@link module:middleware/rlimits}
 ###  middleware-rlimits-err-(.+) 
@@ -1147,7 +1087,7 @@ middleware-rlimits-ttl = 60000
 
 ###  middleware-rlimits-map-(.+) 
 ---- 
-####  Rate limiter parameters for Token Bucket algorithm. set all at once   
+####  Rate limiter parameters for Token Bucket algorithm   
 #### Type: map   
 #### Example:
 ```
@@ -1157,27 +1097,27 @@ middleware-rlimits-map-GET/url=rate:10
 
 ## middleware.routing
 See {@link module:middleware/routing}
-###  middleware-routing-err-(.+) 
+###  middleware-routing-enable 
 ---- 
-####  Error messages for various cases   
-###  middleware-routing-([a-z0-9]+)-(.+) 
----- 
-####  Paths or locations to be re-routed to other path, this is done inside the server, only the path is replaced, use ! in front of regexp to remove particular redirect from the list   
-#### Type: regexpobj   
-#### Example:
-```
-middleware-routing-path-^/user/get = /user/read
-```
-
+####  Enable the middlware, 'true' means dynamicaly check all requests, 'fixed' means set routes from the config on start   
 ###  middleware-routing-reset 
 ---- 
 ####  Reset all rules   
 #### Type: callback   
+###  middleware-routing-/.+ 
+---- 
+####  Paths to be re-routed/redirected   
+#### Example:
+```
+middleware-routing-/user/get = /user/details
+middleware-routing-/old/path = 302 /new/path?@SEARCH@
+```
+
 ## middleware.static
 See {@link module:middleware/static}
-###  middleware-static-global 
+###  middleware-static-enable 
 ---- 
-####  Enable the middlware to serve static files from all 'app.path.web' folders   
+####  Enable the middlware for all folders in 'app.path.web'   
 #### Type: bool   
 ###  middleware-static-root 
 ---- 
@@ -1207,8 +1147,8 @@ See {@link module:middleware/users}
 See {@link module:middleware/xray}
 ###  middleware-xray-path 
 ---- 
-####  Trace only if matched request path   
-#### Type: regexpobj   
+####  Trace only if request path match   
+#### Type: regexp   
 ###  middleware-xray-interval 
 ---- 
 ####  Interval in ms how often to trace requests, must be > 0 to enable tracing   

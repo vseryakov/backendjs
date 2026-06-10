@@ -1,10 +1,10 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { api } = require("../");
+const { Router } = require("../");
 
 describe('Root Node', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('get', '/', 'get root')
   it('get /', () => {
     assert.strictEqual(router.find('get', '/')[0]?.route?.handler, 'get root')
@@ -13,7 +13,7 @@ describe('Root Node', () => {
 })
 
 describe('Root Node is not defined', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('get', '/hello', 'get hello')
   it('get /', () => {
     assert.strictEqual(router.find('get', '/').length, 0)
@@ -21,7 +21,7 @@ describe('Root Node is not defined', () => {
 })
 
 describe('Get with *', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('get', '*', 'get all')
   it('get /', () => {
     assert.strictEqual(router.find('get', '/').length, 1)
@@ -30,7 +30,7 @@ describe('Get with *', () => {
 })
 
 describe('Get with * including JS reserved words', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('get', '*', 'get all')
   it('get /', () => {
     assert.strictEqual(router.find('get', '/hello/constructor').length, 1)
@@ -39,8 +39,10 @@ describe('Get with * including JS reserved words', () => {
 })
 
 describe('Basic Usage', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('get', '/hello', 'get hello')
+  router.add('get', '/hello', 'get hello')
+
   router.add('post', '/hello', 'post hello')
   router.add('get', '/hello/foo', 'get hello foo')
 
@@ -62,10 +64,16 @@ describe('Basic Usage', () => {
   it('/hello/foo/bar', () => {
     assert.strictEqual(router.find('get', '/hello/foo/bar').length, 0)
   })
+  it('no dups and del', () => {
+    assert.strictEqual(router.find('get', '/hello').length, 1)
+
+    router.del('get', '/hello', 'get hello')
+    assert.strictEqual(router.find('get', '/hello').length, 0)
+  })
 })
 
 describe('Name path', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('get', '/entry/:id', 'get entry')
   router.add('get', '/entry/:id/comment/:comment_id', 'get comment')
   router.add('get', '/map/:location/events', 'get events')
@@ -108,7 +116,7 @@ describe('Name path', () => {
   })
 
   it('Should not return a previous param value', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('delete', '/resource/:id', 'resource')
     const resA = router.find('delete', '/resource/a')
     const resB = router.find('delete', '/resource/b')
@@ -123,7 +131,7 @@ describe('Name path', () => {
   })
 
   it('Should return a sorted values', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/resource/a', 'A')
     router.add('get', '/resource/*', 'Star')
     const res = router.find('get', '/resource/a')
@@ -134,8 +142,8 @@ describe('Name path', () => {
   })
 })
 
-describe('Name path - Multiple route', () => {
-  const router = new api.Router()
+describe('Name path - Multiple routes', () => {
+  const router = new Router()
 
   router.add('get', '/:type/:id', 'common')
   router.add('get', '/posts/:id', 'specialized')
@@ -148,10 +156,16 @@ describe('Name path - Multiple route', () => {
     assert.strictEqual(res[1].route.handler, 'specialized')
     assert.strictEqual(res[1].params.id, '123')
   })
+  it('sorting order', () => {
+    router.add('get#0', '/posts/*', 'wildcard')
+    const res = router.find('get', '/posts/123')
+    assert.strictEqual(res.length, 3)
+    assert.strictEqual(res[0].route.handler, 'wildcard')
+  });
 })
 
 describe('Param prefix', () => {
-  const router = new api.Router()
+  const router = new Router()
 
   router.add('get', '/:foo', 'onepart')
   router.add('get', '/:bar/:baz', 'twopart')
@@ -173,7 +187,7 @@ describe('Param prefix', () => {
 })
 
 describe('Named params and a wildcard', () => {
-  const router = new api.Router()
+  const router = new Router()
 
   router.add('get', '/:id/*', 'onepart')
 
@@ -196,7 +210,7 @@ describe('Named params and a wildcard', () => {
 })
 
 describe('Wildcard', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('get', '/wildcard-abc/*/wildcard-efg', 'wildcard')
   it('/wildcard-abc/xxxxxx/wildcard-efg', () => {
     const res = router.find('get', '/wildcard-abc/xxxxxx/wildcard-efg')
@@ -212,7 +226,7 @@ describe('Wildcard', () => {
 })
 
 describe('All', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('*', '/all-methods', 'all methods') // ALL
   it('/all-methods', () => {
     let res = router.find('get', '/all-methods')
@@ -225,7 +239,7 @@ describe('All', () => {
 })
 
 describe('Special Wildcard', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('', '*', 'match all')
 
   it('/foo', () => {
@@ -246,7 +260,7 @@ describe('Special Wildcard', () => {
 })
 
 describe('Special Wildcard deeply', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('', '/hello/*', 'match hello')
   it('/hello', () => {
     const res = router.find('get', '/hello')
@@ -260,7 +274,7 @@ describe('Special Wildcard deeply', () => {
 })
 
 describe('Default with wildcard', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('', '/api/*', 'fallback')
   router.add('', '/api/abc', 'match api')
   it('/api/abc', () => {
@@ -278,7 +292,7 @@ describe('Default with wildcard', () => {
 
 describe('Multi match', () => {
   describe('Basic', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '*', 'GET *')
     router.add('get', '/abc/*', 'GET /abc/*')
     router.add('get', '/abc/*/edf', 'GET /abc/*/edf')
@@ -315,7 +329,7 @@ describe('Multi match', () => {
     })
   })
   describe('Blog', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '*', 'middleware a')
     router.add('*', '*', 'middleware b')
     router.add('get', '/entry', 'get entries')
@@ -359,7 +373,7 @@ describe('Multi match', () => {
     })
   })
   describe('ALL', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('*', '*', 'ALL *')
     router.add('', '/abc/*', 'ALL /abc/*')
     router.add('', '/abc/*/def', 'ALL /abc/*/def')
@@ -382,7 +396,7 @@ describe('Multi match', () => {
     })
   })
   describe('Trailing slash', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/book', 'GET /book')
     router.add('get', '/book/:id', 'GET /book/:id')
     it('get /book', () => {
@@ -395,7 +409,7 @@ describe('Multi match', () => {
     })
   })
   describe('Same path', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/hey', 'Middleware A')
     router.add('get', '/hey', 'Middleware B')
     it('get /hey', () => {
@@ -406,7 +420,7 @@ describe('Multi match', () => {
     })
   })
   describe('REST API', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/users/:username', 'profile')
     router.add('get', '/users/:username/posts', 'posts')
     it('get /users/123', () => {
@@ -426,7 +440,7 @@ describe('Multi match', () => {
 
 describe('Duplicate param name', () => {
   it('self', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/:id/:id', 'foo')
     const res = router.find('get', '/123/456')
     assert.strictEqual(res.length, 1)
@@ -435,7 +449,7 @@ describe('Duplicate param name', () => {
   })
 
   describe('parent', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/:id/:action', 'foo')
     router.add('get', '/posts/:id', 'bar')
     router.add('get', '/posts/:id/comments/:comment_id', 'comment')
@@ -449,7 +463,7 @@ describe('Duplicate param name', () => {
   })
 
   it('get /posts/456 for comments', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/posts/:id/comments/:comment_id', 'comment')
     const res = router.find('get', '/posts/abc/comments/edf')
     assert.strictEqual(res.length, 1)
@@ -458,7 +472,7 @@ describe('Duplicate param name', () => {
   })
 
   describe('child', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/posts/:id', 'foo')
     router.add('get', '/:id/:action', 'bar')
     it('get /posts/action', () => {
@@ -474,7 +488,7 @@ describe('Duplicate param name', () => {
 
 describe('Sort Order', () => {
   describe('Basic', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '*', 'a')
     router.add('get', '/page', '/page')
     router.add('get', '/:slug', '/:slug')
@@ -489,7 +503,7 @@ describe('Sort Order', () => {
   })
 
   describe('With Named path', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '*', 'a')
     router.add('get', '/posts/:id', '/posts/:id')
     router.add('get', '/:type/:id', '/:type/:id')
@@ -504,7 +518,7 @@ describe('Sort Order', () => {
   })
 
   describe('With Wildcards', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/api/*', '1st')
     router.add('get', '/api/*', '2nd')
     router.add('get', '/api/posts/:id', '3rd')
@@ -521,7 +535,7 @@ describe('Sort Order', () => {
   })
 
   describe('With special Wildcard', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/posts', '/posts')
     router.add('get', '/posts/*', '/posts/*')
     router.add('get', '/posts/:id', '/posts/:id')
@@ -538,7 +552,7 @@ describe('Sort Order', () => {
   })
 
   describe('Complex', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/api', 'a') // not match
     router.add('get', '/api/*', 'b') // match
     router.add('get', '/api/:type', 'c') // not match
@@ -564,7 +578,7 @@ describe('Sort Order', () => {
   })
 
   describe('Multi match', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '*', 'GET *')
     router.add('get', '/abc/*', 'GET /abc/*')
     router.add('get', '/abc/edf', 'GET /abc/edf')
@@ -579,7 +593,7 @@ describe('Sort Order', () => {
   })
 
   describe('Multi match', () => {
-    const router = new api.Router()
+    const router = new Router()
 
     router.add('get', '/api/*', 'a')
     router.add('get', '/api/entry', 'entry')
@@ -596,7 +610,7 @@ describe('Sort Order', () => {
 
   describe('fallback', () => {
     describe('Blog - failed', () => {
-      const router = new api.Router()
+      const router = new Router()
       router.add('post', '/entry', 'post entry')
       router.add('post', '/entry/*', 'fallback')
       router.add('get', '/entry/:id', 'get entry')
@@ -611,7 +625,7 @@ describe('Sort Order', () => {
     })
   })
   describe('page', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/page', 'page')
     router.add('', '/*', 'fallback')
     it('get /page', () => {
@@ -624,7 +638,7 @@ describe('Sort Order', () => {
 })
 
 describe('star', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('get', '/', '/')
   router.add('get', '/*', '/*')
   router.add('get', '*', '*')
@@ -658,7 +672,7 @@ describe('star', () => {
 })
 
 describe('Routing order With named parameters', () => {
-  const router = new api.Router()
+  const router = new Router()
   router.add('get', '/book/a', 'no-slug')
   router.add('get', '/book/:slug', 'slug')
   router.add('get', '/book/b', 'no-slug-b')
@@ -692,7 +706,7 @@ describe('Routing order With named parameters', () => {
 
 describe('The same name is used for path params', () => {
   describe('Basic', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/:a/:b/:c', 'abc')
     router.add('get', '/:a/:b/:c/:d', 'abcd')
     it('/1/2/3', () => {
@@ -705,7 +719,7 @@ describe('The same name is used for path params', () => {
   })
 
   describe('Complex', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/:a', 'a')
     router.add('get', '/:b/:a', 'ba')
     it('/about/me', () => {
@@ -718,7 +732,7 @@ describe('The same name is used for path params', () => {
   })
 
   describe('Complex with tails', () => {
-    const router = new api.Router()
+    const router = new Router()
     router.add('get', '/:id/:id2/comments', 'a')
     router.add('get', '/posts/:id/comments', 'b')
     it('/posts/123/comments', () => {

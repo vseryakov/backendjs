@@ -103,7 +103,7 @@ const { app, api, logger } = require("backendjs");
 module.exports = {
     name: "billing.stripe",
 
-    configureWeb(options, callback) {
+    configureMiddleware(options, callback) {
 
         api.app.post("/webhook/stripe", onWebhook);
 
@@ -111,9 +111,9 @@ module.exports = {
     }
 };
 
-function onWebhook(req, res)
+function onWebhook(context)
 {
-    const body = req.context.body;
+    const body = context.body;
 
     if (body?.type == "invoice.payment_succeeded") {
 
@@ -122,7 +122,7 @@ function onWebhook(req, res)
         }
     }
 
-    res.sendStatus(200);
+    context.send(200);
 }
 ```
 
@@ -152,21 +152,9 @@ This method is called regardless of what kind of server is about to start, it is
 function configureMiddleware(options, callback)
 ```
 
-Called during the Express server initialization just after the security middleware. This is a chance to install custom middleware before
-routes.
+Called during the server initialization. This is a chance to install custom middleware.
 
-NOTE: **api.app** refers to the Express instance.
-
-```js
-function configureWeb(options, callback)
-```
-
- Called after the Express server has been setup and middleware is initialized but the Web server
- is not ready for incoming requests yet.
-
- This hook is intended for defining application routes.
-
- NOTE: **api.app** refers to the Express instance
+NOTE: **api.app** refers to the router instance.
 
 ```js
 function configureWebServer(options, callback)
