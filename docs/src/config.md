@@ -140,6 +140,33 @@ See {@link module:api/acl}
 ---- 
 ####  Reset all acls   
 #### Type: callback   
+## api.passkey
+See {@link module:api/passkey}
+###  api-passkey-enable 
+---- 
+####  Enable the middlware globally   
+#### Type: bool   
+###  api-passkey-err-(.+) 
+---- 
+####  Error messages for various cases   
+###  api-passkey-cap-(.+) 
+---- 
+####  Capability parameters   
+#### Type: int   
+###  api-passkey-secret 
+---- 
+####  Cookies secret   
+###  api-passkey-cache 
+---- 
+####  Cache for challenges   
+#### Default: "local"   
+###  api-passkey-cookie 
+---- 
+####  Cookie name   
+#### Default: "bk_passkey"   
+###  api-passkey-domain 
+---- 
+####  Explicit domain to use instead of host   
 ## api.session
 See {@link module:api/session}
 ###  api-session-cache 
@@ -1024,32 +1051,6 @@ See {@link module:middleware/multipart}
 ###  middleware-multipart-err-(.+) 
 ---- 
 ####  Error messages for various cases   
-## middleware.passkey
-See {@link module:middleware/passkey}
-###  middleware-passkey-err-(.+) 
----- 
-####  Error messages for various cases   
-###  middleware-passkey-cap-(.+) 
----- 
-####  Capability parameters   
-#### Type: int   
-###  middleware-passkey-secret 
----- 
-####  Cookies secret   
-###  middleware-passkey-cache 
----- 
-####  Cache for challenges   
-###  middleware-passkey-cookie 
----- 
-####  Cookie name   
-#### Default: "bk_passkey"   
-###  middleware-passkey-domain 
----- 
-####  Explicit domain to use instead of host   
-###  middleware-passkey-endpoint 
----- 
-####  Root endpoint for the api routes to remount under differnet top path   
-#### Default: "/passkey"   
 ## middleware.proxy
 See {@link module:middleware/proxy}
 ###  middleware-proxy-host 

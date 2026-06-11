@@ -1,9 +1,11 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     
     <meta charset="utf-8">
-    <title>ipc - Backendjs Documentation</title>
+    <title>api/passkey.js - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -39,1480 +41,276 @@
 
 <div id="main">
     
-    <h1 class="page-title">ipc</h1>
-    
-
-    
-
-
-
-
-<section>
-
-
-    <div class="toc">
-    
-    
-    
-    
-        <h4><a href="#methods">↓ Methods.</a></h4>
-    
-    </div>
-
-
-<header>
-    
-        
-            
-        
-    
-</header>
-
-<article>
-    
-        <div class="container-overview">
-        
-            
-
-            
-                
-
-    
-
-    <h4 class="name" id="module:ipc"><span class="type-signature"></span>module:ipc<span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><h1 id="ipc-communications-between-processes-and-support-for-subscriptions-via-queues.">IPC communications between processes and support for subscriptions via queues.</h1>
-<p>The module is EventEmitter and emits messages received.</p>
-<p>A special system queue can be configured and it will be used by all processes to listen for
-messages on the channel <strong>bkjs:role</strong>, where the role is the process role, the same messages
-that are processed by the server/worker message handlers like api:restart, config:init,....</p>
-<p>All instances will be listening and processing these messages at once, the most
-usefull use case is refreshing the DB config on demand or restarting without configuring
-any other means like SSH, keys....</p>
-<h2 id="redis-system-bus">Redis system bus</h2>
-<p>If configured all processes subscribe to it and listen for system messages.
-Websockets in the API server also use the system bus to send broadcasts between multiple api instances.</p>
-<pre class="prettyprint source"><code>queue-system=redis://
-ipc-system-queue=system
-</code></pre></li></ul></dd>
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ipc.js.html">ipc.js</a>, <a href="ipc.js.html#line409">line 409</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            
-        
-        </div>
-    
-
-    
-
-    
-
-    
-
-    
-    
-    
-
-     
-
-    
-
-    
-
-
-    
-        <a name="methods">
-            <h2 class="subsection-title">Methods</h2>
-        </a>
-
-        
-            
-
-    
-
-    <h4 class="name" id=".broadcast"><span class="type-signature type-signature-static">(static) </span>broadcast<span class="signature">(channel, msg, options<span class="signature-attributes">opt</span>, callback<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Send a message to a channel, this is high level routine that uses the corresponding queue, it uses eventually queue.publish.
-If no client or queue is provided in the options it uses default <code>systemQueue</code>.
-If the channel starts with : the <code>app.id</code> will be prepended automatically.</p></li></ul></dd>
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ipc.js.html">ipc.js</a>, <a href="ipc.js.html#line360">line 360</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>channel</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>msg</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-|
-
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>callback</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">function</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-examples">Example</h5>
-    
-    <pre class="prettyprint"><code>ipc.broadcast(":worker", "worker:restart")</code></pre>
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id=".emitMsg"><span class="type-signature type-signature-static">(static) </span>emitMsg<span class="signature">(op, msg, options<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Wrapper around EventEmitter <code>emit</code> call to send unified IPC messages in the same format, this is for in-process
-mesaging only between modules.</p></li></ul></dd>
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ipc.js.html">ipc.js</a>, <a href="ipc.js.html#line296">line 296</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>op</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>msg</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-|
-
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-examples">Examples</h5>
-    
-        <p class="code-caption">mymod.js</p>
-    
-    <pre class="prettyprint"><code>const { ipc } = require("backendjs");
-...
-ipc.on("user:subscribed", (msg) => {
-   console.log(msg);
-});</code></pre>
-
-        <p class="code-caption">othermod.js</p>
-    
-    <pre class="prettyprint"><code>const { api, ipc } = require("backendjs");
-...
-api.users.add({ ... }, (err, user) => {
-   if (!err) ipc.emitMsg("user.subscribed", user);
-})</code></pre>
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id=".initServer"><span class="type-signature type-signature-static">(static) </span>initServer<span class="signature">(options)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>This function is called by a server server process to setup IPC channels and support for cache and messaging</p></li></ul></dd>
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ipc.js.html">ipc.js</a>, <a href="ipc.js.html#line35">line 35</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id=".initWorker"><span class="type-signature type-signature-static">(static) </span>initWorker<span class="signature">(options)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>This function is called by a worker process to setup IPC channels and support for cache and messaging</p></li></ul></dd>
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ipc.js.html">ipc.js</a>, <a href="ipc.js.html#line84">line 84</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id=".newMsg"><span class="type-signature type-signature-static">(static) </span>newMsg<span class="signature">(op, msg, options<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Returns an IPC message object, <code>msg</code> must be an object if given.</p></li></ul></dd>
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ipc.js.html">ipc.js</a>, <a href="ipc.js.html#line279">line 279</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>op</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>msg</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-|
-
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id=".sendMsg"><span class="type-signature type-signature-static">(static) </span>sendMsg<span class="signature">(op, msg, options<span class="signature-attributes">opt</span>, callback<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Send a message to the server process via IPC messages, callback is used for commands that return value back</p>
-<p>If called inside the server, it process the message directly, reply is passed in the callback if given.</p></li></ul></dd>
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="ipc.js.html">ipc.js</a>, <a href="ipc.js.html#line323">line 323</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>op</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>msg</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-|
-
-<span class="param-type">string</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last">
-                <h6>Properties</h6>
-                
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>timeout</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">int</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>can be used to specify a timeout for how long to wait the reply, if not given the default is used</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-            </td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>callback</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">function</span>
-
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-examples">Example</h5>
-    
-    <pre class="prettyprint"><code>ipc.sendMsg("op1", { data: "data" }, { timeout: 100 })
-ipc.sendMsg("op1", { name: "name", value: "data" }, (data) => { console.log(data); })
-ipc.sendMsg("op1", { 1: 1, 2: 2 }, { timeout: 100 })
-ipc.sendMsg("op1", { 1: 1, 2: 2 }, (data) => { console.log(data); })
-ipc.newMsg({ __op: "op1", name: "test" })</code></pre>
-
-
-
-
-
-        
-    
-
-    
-</article>
-
-</section>
+    <h1 class="page-title">api/passkey.js</h1>
+    
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/*
+ *  Author: Vlad Seryakov vseryakov@gmail.com
+ *  backendjs 2024
+ */
+
+const api = require(__dirname + '/../api');
+const lib = require(__dirname + '/../lib');
+const cache = require(__dirname + '/../cache');
+const logger = require(__dirname + '/../logger');
+
+/**
+  * @module middleware/passkey
+  */
+
+const mod = {
+    name: "api.passkey",
+    args: [
+        { name: "enable", type: "bool", descr: "Enable the middlware globally" },
+        { name: "err-(.+)", descr: "Error messages for various cases" },
+        { name: "cap-(.+)", type: "int", strip: "cap-", sametype: 1, descr: "Capability parameters" },
+        { name: "secret", descr: "Cookies secret" },
+        { name: "cache", descr: "Cache for challenges" },
+        { name: "cookie", descr: "Cookie name" },
+        { name: "domain", descr: "Explicit domain to use instead of host" },
+    ],
+    ttl: 30000,
+    max: 5,
+    cache: "local",
+
+    /**
+     * Cookie name
+     * @var {string}
+     * @default
+     */
+    cookie: "bk_passkey",
+
+    errPasskeyMax: "No more passkeys can be added to your profile",
+    errPasskeyChallenge: "Your passkey request has expired, please try again",
+    errPasskeyRegistration: "Passkey provided cannot be registered, please try again",
+    errPasskeyVerification: "Passkey provided cannot be verified, please try again",
+};
+
+/**
+ * Passkey management
+ *
+ * To allow login via passkey below is an example how to use the methods for registration and login
+ *
+ * ```js
+ *
+ *  api.app.get("/challenge", (context) => { context.json(api.passkey.createChallenge(context)) }).
+ *          post("/login", api.passkey.login).
+ *          post("/register", api.passkey.register));
+ *
+ * ```
+ */
+
+module.exports = mod;
+
+mod.register = function(context)
+{
+    const { err, query } = api.validate(context, {
+        username: { required: 1 },
+        credential: { type: "object", required: 1, max: 1024 },
+        authenticatorData: { required: 1, max: 1024 },
+        clientData: { required: 1, max: 1024 },
+    });
+    if (err) return context.reply(err);
+
+    lib.series([
+        function(next) {
+            mod.verifyChallenge(context, next);
+        },
+
+        function(next, challenge) {
+            mod.verifyRegistration(context, { query, challenge }, next);
+        },
+
+        function(next, passkey) {
+            mod.update({ user: context.user, passkey: passkey.credential }, next);
+        }
+    ], (err) => {
+        context.reply(err);
+    }, true);
+}
+
+mod.login = function(context)
+{
+    var query = api.validate(context, {
+        credentialId: { required: 1 },
+        authenticatorData: { required: 1, max: 1024 },
+        clientData: { required: 1, max: 1024 },
+        signature: { required: 1, max: 1024 },
+        userHandle: { required: 1, base64: 1 },
+    });
+    if (typeof query == "string") return context.reply({ status: 400, message: query });
+
+    lib.series([
+        function(next) {
+            mod.verifyChallenge(context, next);
+        },
+
+        function(next, challenge) {
+            mod.read(query.userHandle, query.credentialId, (err, user, passkey) => {
+                if (err || !passkey) return next(err || { status: 401, message: mod.errInvalidPasskey, code: "NOLOGIN" });
+
+                mod.verifyAuthentication(context, { query, challenge, passkey }, (err) => {
+                    if (err) return next(err, user);
+
+                    api.users.createSession(context, user, next);
+                });
+            });
+        },
+    ], (err) => {
+        if (err) return context.reply(err);
+        context.json(api.users.cleanup(context.user));
+    }, true);
+}
+
+mod.init = async function()
+{
+    if (mod.server) return;
+    try {
+        var w = await import(__dirname + "/../../web/js/webauthn.min.mjs");
+        mod.server = w.server;
+    } catch (e) {
+        logger.error("init:", "passkey", e);
+    }
+}
+
+mod.createChallenge = function(context)
+{
+    const uuid = lib.uuid();
+    const ttl = Date.now() + mod.ttl;
+    const uid = context.user?.id;
+
+    var cookie = `${ttl},${uuid},${uid?1:0}`;
+
+    context.setCookie(mod.cookie,
+        lib.jsonToBase64(cookie, mod.secret), {
+            path: mod.endpoint,
+            httpOnly: true,
+            sameSite: "strict",
+            maxAge: mod.ttl,
+        });
+
+    logger.debug("createChallenge:", "passkey", uid, cookie);
+    return {
+        challenge: uuid,
+        domain: mod.domain &amp;&amp; context?.domain || undefined,
+        id: uid,
+        ttl: ttl,
+    }
+}
+
+mod.getChallenge = function(context, callback)
+{
+    const cookie = context.cookie(mod.cookie);
+    const rc = lib.base64ToJson(cookie, mod.secret).split(",");
+    logger.debug("getChallenge:", "passkey", context.user?.id, "H:", rc);
+    return lib.toNumber(rc[0]) > Date.now() ? rc[1] : "";
+}
+
+mod.verifyChallenge = function(context, callback)
+{
+    var challenge = mod.getChallenge(context);
+    if (!challenge) {
+        return callback({ status: 429, message: mod.errPasskeyChallenge, code: "PSKC" });
+    }
+
+    cache.incr("PSK:" + challenge, 1, { ttl: mod.ttl, cacheName: mod.cache }, (err, rc) => {
+        logger.debug("verifyChallenge:", "passkey", context.user?.id, challenge, rc);
+        callback(rc !== 1 ? { status: 429, message: mod.errPasskeyChallenge, code: "PSKC" + rc } : null, challenge);
+    });
+}
+
+mod.verifyRegistration = async function(context, options, callback)
+{
+    const expected = {
+        challenge: options.challenge,
+        origin: `${context.proto}://${context.host}`,
+    }
+    try {
+        var passkey = await mod.server.verifyRegistration(options.query, expected);
+    } catch (e) {
+        logger.info("verifyRegistration:", "passkey", context.user?.id, options, "ERR:", e.stack);
+        return callback({ status: 403, message: mod.errPasskeyRegistration, code: "PSKR" })
+    }
+    // Keep device and date for each passkey
+    passkey.credential.mtime = Date.now();
+    passkey.credential.aname = passkey.authenticator.name;
+
+    logger.debug("verifyRegistration:", "passkey", context.user?.id, passkey);
+    callback(null, passkey);
+}
+
+mod.verifyAuthentication = async function(context, options, callback)
+{
+    const expected = {
+        challenge: options.challenge,
+        origin: `${context.proto}://${context.host}`,
+        domain: mod.domain &amp;&amp; context.domain || undefined,
+        userVerified: true,
+    }
+    try {
+       await mod.server.verifyAuthentication(options.query, options.passkey, expected);
+    } catch (e) {
+        logger.info("verifyAuthentication:", "passkey", context.user?.id, options, "ERR:", e.stack);
+        return callback({ status: 403, message: mod.errPasskeyVerification, code: "PSKA" })
+    }
+    logger.debug("verifyAuthentication:", "passkey", options.passkey);
+    callback();
+}
+
+// Return a list of all passkyes for the user
+mod.get = function(options)
+{
+    return lib.jsonParse(options?.passkey, { datatype: "list" });
+}
+
+// Read a user and passkey, user can be id/login or an user object
+mod.read = function(options, passkeyId, callback)
+{
+    api.users.get(options, (err, row) => {
+        callback(err, row, mod.get(row).filter((x) => (x.id == passkeyId)).pop());
+    });
+}
+
+/**
+ * Add/delete a passkey,
+ * - user - full user record
+ * - passkey - a registration credential object to add or just { id: id } to remove
+ * - query - optional additional fields to update
+ */
+mod.update = function(options, callback)
+{
+    var allkeys = mod.get(options.user);
+    var passkeys = allkeys.filter((x) => (x.id != options.passkey?.id));
+
+    if (options.passkey?.id &amp;&amp; options.passkey?.publicKey &amp;&amp; options.passkey?.algorithm) {
+        passkeys.push(options.passkey);
+    }
+
+    if (passkeys.length > mod.passkey.max) {
+        return lib.tryCall(callback, { status: 400, message: mod.errPasskeyMax });
+    }
+
+    if (allkeys.length == passkeys.length) {
+        return lib.tryCall(callback);
+    }
+
+    var query = Object.assign({ login: options.user?.login, passkey: lib.stringify(passkeys) }, options.query);
+
+    logger.info("update:", "passkey", query);
+
+    api.users.update(query, { isInternal: 1 }, callback);
+}
+
+</code></pre>
+        </article>
+    </section>
 
 
 

@@ -10,14 +10,13 @@ const mod =
 module.exports = {
     name: "ollama",
     args: [
-        { name: "err-(.+)", descr: "Error messages for various cases" },
-        { name: "cap-(.+)", type: "int", strip: "cap-", sametype: 1, descr: "Capability parameters" },
+        { name: "enable", type: "bool", descr: "Enable api" },
         { name: "host", descr: "Server host" },
         { name: "model", descr: "Default model" },
     ],
     model: "gemma4",
     host: "localhost:11434",
-    disabled: true,
+    enable: true,
 }
 
 mod.fetch = async function(options)
@@ -34,14 +33,11 @@ mod.fetch = async function(options)
     return lib.afetch(opts);
 }
  
-mod.configureWeb = function(options, callback)
+mod.configureMiddleware = function(options, callback)
 {
-    if (this.disabled) return callback();
+    if (!this.enable) return callback();
 
-
-    api.app.use("/ollama",
-            api.Router().
-                post("/chat", chat));
+    api.app.post("/ollama/chat", chat);
  
     callback();
 }
