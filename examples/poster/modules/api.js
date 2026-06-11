@@ -4,7 +4,7 @@
 //
 
 const { api, middleware } = require('backendjs');
-const image = require('backendjs/lib/util/image');
+const image = require('backendjs/dist/image');
 
 //
 // A demo module that implements a CRUD app to create social poster images
@@ -12,12 +12,9 @@ const image = require('backendjs/lib/util/image');
 module.exports = {
     name: "poster",
 
-    //
-    // Default hook to initialize our Express routes, called automatically durng API initialization
-    //
     configureMiddleware(options, callback)
     {
-        api.app.use("/api/render", middleware.multipart, render);
+        api.app.use("/api/render", middleware.body, middleware.multipart, render);
 
         callback();
     },

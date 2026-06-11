@@ -160,14 +160,14 @@
 
     <h5 class="h5-examples">Examples</h5>
     
-    <pre class="prettyprint"><code>// Enable dynamic routing, every request will be chercked against current config
+    <pre class="prettyprint"><code>// Enable dynamic routing, every request will be checked against current config
 middleware-routing-enable = true
 
 middleware-routing-/app/* = /index.html
 
 middleware-routing-/old/endpoint/ = /new/@PATH2@
 
-middleware-routing-/login/* = 302 /login.html?path=@PATH@
+middleware-routing-/login/* = 302/login.html?path=@PATH@
 
 // Enable fixed routing, only the above configured routes are checked
 middleware-routing-enable = fixed</code></pre>
@@ -375,7 +375,7 @@ const { routing } = middleware;
 
 api.app.post("*", routing)
 
-api.app.post("/acct/*", { route: "/account/@PATH2@", handle: routing.handle })</code></pre>
+api.app.post("/acct/*", { location: "/account/@PATH2@", handle: routing.handle })</code></pre>
 
 
 

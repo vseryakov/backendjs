@@ -7,9 +7,8 @@
  * @module image
  */
 
-const lib = require(__dirname + '/../lib');
-const logger = require(__dirname + '/../logger');
-const color = require(__dirname + '/color');
+const { lib, logger } = require("backendjs");
+const color = require('backendjs/dist//color');
 
 const image = {
     name: "image",

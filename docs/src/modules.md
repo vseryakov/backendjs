@@ -177,20 +177,6 @@ function configureWebsocketRequest(req, callback)
 Called before processing a request via WebSocket connection.
 
 ```js
-function configureStaticWeb(options, callback)
-```
-
-Called before configuring static Express paths after API routes.
-
-```js
-function shutdownWeb(options, callback)
-```
-
- Perform shutdown sequence when a Web process is about to exit.
-
- NOTE: **api.app** refers to the Express instance
-
-```js
 function configureServer(options, callback)
 ```
 

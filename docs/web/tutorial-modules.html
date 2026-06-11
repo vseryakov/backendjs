@@ -173,13 +173,6 @@ init steps that all processes require to have. All database pools and other conf
 <pre class="prettyprint source lang-js"><code>function configureWebsocketRequest(req, callback)
 </code></pre>
 <p>Called before processing a request via WebSocket connection.</p>
-<pre class="prettyprint source lang-js"><code>function configureStaticWeb(options, callback)
-</code></pre>
-<p>Called before configuring static Express paths after API routes.</p>
-<pre class="prettyprint source lang-js"><code>function shutdownWeb(options, callback)
-</code></pre>
-<p>Perform shutdown sequence when a Web process is about to exit.</p>
-<p>NOTE: <strong>api.app</strong> refers to the Express instance</p>
 <pre class="prettyprint source lang-js"><code>function configureServer(options, callback)
 </code></pre>
 <p>Called during the server process startup, this is the process that monitors the worker jobs and performs jobs scheduling.</p>

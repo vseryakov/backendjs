@@ -1110,7 +1110,7 @@ See {@link module:middleware/routing}
 #### Example:
 ```
 middleware-routing-/user/get = /user/details
-middleware-routing-/old/path = 302 /new/path?@SEARCH@
+middleware-routing-/old/path = 302/new/path?@SEARCH@
 ```
 
 ## middleware.static

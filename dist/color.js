@@ -7,7 +7,7 @@
  * @module color
  */
 
-const lib = require(__dirname + '/../lib');
+const { lib } = require("backendjs");
 
 const color = {
     name: "color",
