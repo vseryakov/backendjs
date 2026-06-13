@@ -71,7 +71,7 @@ function list(context)
     db.scan("bk_config", {}, { sync: 1 }, (rows) => {
         data.push(...rows);
     }, (err) => {
-        api.sendJSON(req, err, { count: data.length, data });
+        context.reply(err, { count: data.length, data });
     });
 }
 
@@ -79,15 +79,15 @@ function list(context)
 // implements POST /config/put
 function put(context)
 {
-    var query = api.validate(req, {
+    const { err, data } = api.validate(context, {
         name: { required: 1 },
         type: {},
         value: {},
     });
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    if (err) return context.reply(err);
 
-    db.put("bk_config", query, (err) => {
-        api.sendJSON(req, err);
+    db.put("bk_config", data, (err) => {
+        context.reply(err);
     });
 }
 
@@ -95,16 +95,16 @@ function put(context)
 // implements PUT /config/update
 function update(context)
 {
-    var query = api.validate(req, {
+    const { err, data } = api.validate(context, {
         ctime: { type: "int", required: 1 },
         name: { required: 1 },
         type: {},
         value: {},
     });
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    if (err) return context.reply(err);
 
-    db.update("bk_config", query, (err) => {
-        api.sendJSON(req, err);
+    db.update("bk_config", data, (err) => {
+        context.reply(err);
     });
 }
 
@@ -112,13 +112,13 @@ function update(context)
 // implements POST /config/del
 function del(context)
 {
-    var query = api.validate(req, {
+    const { err, data } = api.validate(context, {
         ctime: { type: "int", required: 1 },
         name: { required: 1 },
     });
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    if (err) return context.reply(err);
 
-    db.del("bk_config", query, (err) => {
-        api.sendJSON(req, err);
+    db.del("bk_config", data, (err) => {
+        context.reply(err);
     });
 }

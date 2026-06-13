@@ -3,7 +3,7 @@
 //  backendjs 2018
 //
 
-const { modules, api, ipc, core, lib, logger } = require('backendjs');
+const { modules, api, ipc, app, lib, logger } = require('backendjs');
 
 // System management
 const mod = {
@@ -12,21 +12,21 @@ const mod = {
 module.exports = mod;
 
 // Create API endpoints and routes
-mod.configureWeb = function(options, callback)
+mod.configureMiddleware = function(options, callback)
 {
-    api.app.post(/^\/system\/([^/]+)\/?(.+)?/, (req, res) => {
+    api.app.post("/system/:op/*", (context) => {
 
-        switch (req.params[0]) {
+        switch (context.params.op) {
         case "restart":
-            ipc.sendMsg(`${req.params[1] || "api"}:restart`);
-            res.json({});
+            ipc.sendMsg(`${context.params[0] || "api"}:restart`);
+            context.json({});
             break;
 
         case "init":
-            if (req.params[1]) {
-                ipc.broadcast(app.id + ":server", req.params[1] + ":" + req.params[0]);
+            if (context.params[1]) {
+                ipc.broadcast(app.id + ":server", context.params[1] + ":" + context.params[0]);
             }
-            res.json({});
+            context.json({});
             break;
 
         case "params":
@@ -34,9 +34,9 @@ mod.configureWeb = function(options, callback)
             Object.keys(modules).forEach((n) => {
                 if (modules[n].args) args.push([n, app.modules[n].args]);
             });
-            switch (req.params[1]) {
+            switch (context.params[1]) {
             case 'get':
-                res.json(args.reduce((data, x) => {
+                context.json(args.reduce((data, x) => {
                     x[1].forEach((y) => {
                         if (!y._name) return;
                         var val = lib.objGet(modules[x[0]], y._name);
@@ -48,7 +48,7 @@ mod.configureWeb = function(options, callback)
                 break;
 
             case "info":
-                res.json(args.reduce((data, x) => {
+                context.json(args.reduce((data, x) => {
                     x[1].forEach((y) => {
                         data[(x[0] ? x[0] + "-" : "") + y.name] = y;
                     });
@@ -56,12 +56,12 @@ mod.configureWeb = function(options, callback)
                 }, {}));
                 break;
             default:
-                api.sendReply(req, 400, "Invalid command");
+                context.reply({ status: 400, message: "Invalid command" });
             }
             break;
 
         default:
-            api.sendReply(req, 400, "Invalid command");
+            context.reply({ status: 400, message: "Invalid command" });
         }
     });
 }

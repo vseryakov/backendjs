@@ -16,6 +16,10 @@ module.exports = {
           outputSourceFiles: true
         }
     },
+    tags: {
+        allowUnknownTags: true,
+        dictionaries: ["closure","jsdoc"]
+    },
     opts: {
         template: "node_modules/docdash",
         destination: "./docs/web",

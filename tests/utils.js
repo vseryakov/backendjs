@@ -47,10 +47,6 @@ async function initServices(options)
         jobs.initWorker(options);
     }
 
-    if (api.users.users?.test) {
-        const { secret } = await lib.aprepareSecret(api.users.users?.test.secret);
-        api.users.users.test.secret = secret;
-    }
 }
 
 exports.init = function(options, callback)

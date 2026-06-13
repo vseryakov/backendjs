@@ -66,7 +66,7 @@ const mod = {
     getCounter(context)
     {
         db.incr("counter", { id: 1, value: 1 }, { returning: "*", first: 1 }, (err, row) => {
-            api.sendJSON(req, err, row);
+            context.reply(err, row);
         });
     }
 

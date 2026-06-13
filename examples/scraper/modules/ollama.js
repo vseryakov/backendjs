@@ -42,9 +42,9 @@ mod.configureMiddleware = function(options, callback)
     callback();
 }
 
-function chat(req, res)
+function chat(context)
 {
-    var query = api.validate(req, {
+    const { err, data } = api.validate(context, {
         prompt: { required: { messages: null }, max: 64000 },
         messages: { required: { prompt: null }, type: "list" },
         system: { max: 64000 },
@@ -54,12 +54,12 @@ function chat(req, res)
         raw: { type: "bool" },
         options: { type: "obj" },
     });
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    if (err) return context.reply(err);
 
-    logger.debug("chat:", mod.name, query);
+    logger.debug("chat:", mod.name, data);
 
-    mod.fetch({ path: `/api/${query.prompt ? "generate" : "chat"}`, postdata: query }, (err, data) => {
-        api.sendJSON(req, err, data)
+    mod.fetch({ path: `/api/${data.prompt ? "generate" : "chat"}`, postdata: data }, (err, data) => {
+        context.reply(err, data)
     });
 }
 

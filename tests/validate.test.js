@@ -1,7 +1,6 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const util = require("node:util")
 const { lib } = require("../");
 
 describe("Validate checks", function () {
@@ -47,100 +46,99 @@ describe("Validate checks", function () {
 
 
         var q = lib.validate({}, schema, opts);
-        assert.match(q, /email1 is required/);
+        assert.match(q?.err?.message, /email1 is required/);
 
         q = lib.validate({ email: "a@a" }, schema, opts);
-        assert.match(q, /email1 is required/);
+        assert.match(q?.err?.message, /email1 is required/);
 
         q = lib.validate({ email1: "a@a" }, schema, opts);
-        assert.match(q, /email1 is required/);
+        assert.match(q?.err?.message, /email1 is required/);
 
         q = lib.validate({ email1: "a@a.com" }, schema, opts);
-        assert.partialDeepStrictEqual(q, { page: 1, count: 1 });
+        assert.partialDeepStrictEqual(q?.data, { page: 1, count: 1 });
 
         schema.email1.required = 0;
         q = lib.validate({ page: 1000, count: 1000 }, schema, opts);
-        assert.partialDeepStrictEqual(q, { page: 10, count: 100 });
+        assert.partialDeepStrictEqual(q?.data, { page: 10, count: 100 });
 
         q = lib.validate({ name: "1234567890" }, schema, opts);
-        assert.strictEqual(q.name, "123456");
+        assert.strictEqual(q.data?.name, "123456");
 
         q = lib.validate({ descr: "1234567890" }, schema, opts);
-        assert.match(q, /descr is too long/);
+        assert.match(q?.err?.message, /descr is too long/);
 
         q = lib.validate({ descr: "<2345" }, schema, opts);
-        assert.strictEqual(q.descr, "!2345");
+        assert.strictEqual(q.data?.descr, "!2345");
 
         q = lib.validate({ name: "test", descr: "test" }, schema, opts);
-        assert.ok(!q.descr && q.name == "test");
+        assert.ok(!q.data?.descr && q.data?.name == "test");
 
         q = lib.validate({ pair: "a:1,b:2" }, schema, opts);
-        assert.partialDeepStrictEqual(q, { pair: { a: 1, b: 2 } });
+        assert.partialDeepStrictEqual(q.data, { pair: { a: 1, b: 2 } });
 
         q = lib.validate({ code: "12345" }, schema, opts);
-        assert.match(q, /Valid code is required/);
+        assert.match(q?.err?.message, /Valid code is required/);
 
         q = lib.validate({ code: "q-123" }, schema, opts);
-        assert.strictEqual(q.code, "q-123");
+        assert.strictEqual(q.data?.code, "q-123");
 
         q = lib.validate({ code1: "q.123" }, schema, opts);
-        assert.match(q, /Valid code1 is required/);
+        assert.match(q?.err?.message, /Valid code1 is required/);
 
         q = lib.validate({ start: "test" }, schema, opts);
-        assert.ok(!q.start);
+        assert.ok(!q.data?.start);
 
         q = lib.validate({ start: lib.jsonToBase64("test", "test") }, schema, opts);
-        assert.strictEqual(q.start,"test");
+        assert.strictEqual(q.data.start,"test");
 
         q = lib.validate({ tm: 1 }, schema, opts);
-        assert.ok(q.ready == "ready" && q.tm == '1970-01-01T00:00:01.000Z');
+        assert.ok(q.data?.ready == "ready" && q.data?.tm == '1970-01-01T00:00:01.000Z');
 
         q = lib.validate({ tm: Date.now() }, schema, opts);
-        assert.match(q, /is too late/);
+        assert.match(q?.err?.message, /is too late/);
 
         q = lib.validate({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
-        assert.match(q, /is too soon/);
+        assert.match(q?.err?.message, /is too soon/);
 
         schema.mtime.mindate = 0;
         q = lib.validate({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
-        assert.strictEqual(q.timestamp, 1000);
+        assert.strictEqual(q.data?.timestamp, 1000);
 
         q = lib.validate({ state: "ok,done,error", flag: false }, schema, opts);
-        assert.partialDeepStrictEqual(q.state, ["ok"]);
-        assert.strictEqual(q.flag, undefined);
+        assert.partialDeepStrictEqual(q.data?.state, ["ok"]);
+        assert.strictEqual(q.data?.flag, undefined);
 
         q = lib.validate({ obj: { id: "1", descr: "1", name: "1" } }, schema, opts);
-        assert.deepStrictEqual(q.obj, { id: 1, name: "1" });
+        assert.deepStrictEqual(q.data?.obj, { __proto__: null, id: 1, name: "1" });
 
         q = lib.validate({ object: { id: "1", descr: "1", name: "1" } }, schema, opts);
-        assert.deepStrictEqual(q.object, { id: "1", descr: "1", name: "1" });
+        assert.deepStrictEqual(q.data?.object, { id: "1", descr: "1", name: "1" });
 
         q = lib.validate({ json: lib.stringify({ id: "1", descr: "1", name: "1" }) }, schema, opts);
-        assert.deepStrictEqual(q.json, { id: "1", descr: "1", name: "1" });
+        assert.deepStrictEqual(q.data?.json, { id: "1", descr: "1", name: "1" });
 
         q = lib.validate({ json1: lib.stringify({ id: "1", descr: "1", name: "1" }) }, schema, opts);
-        assert.deepStrictEqual(q.json1, { id: 1, name: "1" });
+        assert.deepStrictEqual(q.data?.json1, { __proto__: null, id: 1, name: "1" });
 
         q = lib.validate({ empty: "." }, schema, opts);
-        assert.strictEqual(q.empty, "");
+        assert.strictEqual(q.data?.empty, "");
 
         schema.empty.setempty = null;
         q = lib.validate({ empty: "." }, schema, opts);
-        assert.strictEqual(q.empty, null);
+        assert.strictEqual(q.data?.empty, null);
 
         q = lib.validate({ nospecial: "a<b>c", special: "a<b>c" }, schema, opts);
-        assert.strictEqual(q.special, "<>");
-        assert.strictEqual(q.nospecial, "abc");
+        assert.strictEqual(q.data?.special, "<>");
+        assert.strictEqual(q.data?.nospecial, "abc");
 
         q = lib.validate({ minnum: 2 }, schema, opts);
-        assert.match(q, /too small/);
+        assert.match(q?.err?.message, /too small/);
 
         q = lib.validate({ minnum: 20 }, schema, opts);
-        assert.strictEqual(q.minnum, 20);
+        assert.strictEqual(q.data?.minnum, 20);
 
-        q = lib.validate({ minnum: 2 }, schema, { error: true });
-        assert.strictEqual(util.types.isNativeError(q), true);
-        assert.strictEqual(q.code, "validate");
+        q = lib.validate({ minnum: 2 }, schema);
+        assert.strictEqual(q.err?.code, "validate");
 
     });
 
@@ -151,16 +149,16 @@ describe("Validate checks", function () {
       b: { ignore: 1, type: "int" },
       c: { type: "int" },
     };
-    assert.deepStrictEqual(lib.validate(q, s), { c: 3 });
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, c: 3 });
   });
 
   it("supports options.prefix and options.existing", function () {
     const q = { "p.a": "5" };
     const s = { a: { type: "int" }, b: { type: "int" } };
 
-    assert.deepStrictEqual(lib.validate(q, s, { prefix: "p." }), { a: 5 });
-    assert.deepStrictEqual(lib.validate(q, s, { prefix: "p.", existing: 1 }), { a: 5 });
-    assert.deepStrictEqual(lib.validate(q, s, { prefix: "p.", existing: 1, defaults: { b: { dflt: 7 } } }), { a: 5 }); // b not in query => skipped
+    assert.deepStrictEqual(lib.validate(q, s, { prefix: "p." })?.data, { __proto__: null, a: 5 });
+    assert.deepStrictEqual(lib.validate(q, s, { prefix: "p.", existing: 1 })?.data, { __proto__: null, a: 5 });
+    assert.deepStrictEqual(lib.validate(q, s, { prefix: "p.", existing: 1, defaults: { b: { dflt: 7 } } })?.data, { __proto__: null, a: 5 }); // b not in query => skipped
   });
 
   it("supports setnull option (direct match and flag match)", function () {
@@ -168,12 +166,10 @@ describe("Validate checks", function () {
     const s = { a: { type: "string" }, b: { type: "int" } };
 
     // direct match
-    assert.deepStrictEqual(lib.validate(q, s, { setnull: "NULL" }), { a: null, b: 1 });
+    assert.deepStrictEqual(lib.validate(q, s, { setnull: "NULL" })?.data, { __proto__: null, a: null, b: 1 });
 
-    // flag match: if lib.isFlag exists, exercise it, otherwise just ensure no throw
-    if (typeof lib.isFlag === "function") {
-      assert.deepStrictEqual(lib.validate({ a: "null" }, s, { setnull: "null" }), { a: null });
-    }
+    // flag match
+      assert.deepStrictEqual(lib.validate({ a: "null" }, s, { setnull: "null" })?.data, { __proto__: null, a: null });
   });
 
   it("applies dflt when missing, and dfltempty when empty", function () {
@@ -182,7 +178,7 @@ describe("Validate checks", function () {
       a: { dfltempty: 1, dflt: "x" },
       b: { dflt: "y" },
     };
-    assert.deepStrictEqual(lib.validate(q, s), { a: "x", b: "y" });
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, a: "x", b: "y" });
   });
 
   it("type=bool", function () {
@@ -193,10 +189,10 @@ describe("Validate checks", function () {
       c: { type: "bool" },
     };
     const r = lib.validate(q, s);
-    assert.strictEqual(r.a, true);
-    assert.strictEqual(r.b, false);
+    assert.strictEqual(r.data?.a, true);
+    assert.strictEqual(r.data?.b, false);
     // c might be absent depending on toBool impl; just ensure it doesn't become true
-    assert.ok(r.c === undefined || r.c === false);
+    assert.ok(r.data?.c === undefined || r.data?.c === false);
   });
 
   it("numeric types call toNumber and enforce minnum/maxnum", function () {
@@ -206,11 +202,10 @@ describe("Validate checks", function () {
       b: { type: "int", maxnum: 10, errmsg: "too big" },
       c: { type: "int", minnum: 1, errmsg: "too small" },
     };
-    assert.deepStrictEqual(lib.validate(q, { a: s.a }), { a: 5 });
+    assert.deepStrictEqual(lib.validate(q, { a: s.a })?.data, { __proto__: null, a: 5 });
 
-    assert.strictEqual(lib.validate(q, { b: s.b }), "too big");
-    assert.strictEqual(lib.validate(q, { c: s.c }), "too small");
-    assert.strictEqual(lib.validate(q, { c: s.c }, { null: 1 }), null);
+    assert.strictEqual(lib.validate(q, { b: s.b })?.err?.message, "too big");
+    assert.strictEqual(lib.validate(q, { c: s.c })?.err?.message, "too small");
   });
 
   it("string max/min and trunc", function () {
@@ -220,9 +215,9 @@ describe("Validate checks", function () {
       b: { min: 3, errmsg: "too short" },
       c: { max: 3, errmsg: "too long" },
     };
-    assert.deepStrictEqual(lib.validate(q, { a: s.a }), { a: "abc" });
-    assert.strictEqual(lib.validate(q, { b: s.b }), "too short");
-    assert.strictEqual(lib.validate(q, { c: s.c }), "too long");
+    assert.deepStrictEqual(lib.validate(q, { a: s.a })?.data, { __proto__: null, a: "abc" });
+    assert.strictEqual(lib.validate(q, { b: s.b })?.err?.message, "too short");
+    assert.strictEqual(lib.validate(q, { c: s.c })?.err?.message, "too long");
   });
 
   it("regexp type with max and compilation", function () {
@@ -232,9 +227,9 @@ describe("Validate checks", function () {
       b: { type: "regexp", max: 5, errmsg: "rx too long" },
     };
     const r = lib.validate(q, { a: s.a });
-    assert.ok(r.a instanceof RegExp);
+    assert.ok(r.data?.a instanceof RegExp);
 
-    assert.strictEqual(lib.validate(q, { b: s.b }), "rx too long");
+    assert.strictEqual(lib.validate(q, { b: s.b })?.err?.message, "rx too long");
   });
 
   it("list type: split/filter/novalue/minlist/maxlist/trunc/flatten", function () {
@@ -246,16 +241,16 @@ describe("Validate checks", function () {
       d: { type: "list", keepempty: 0 },
       e: { type: "list", flatten: 1, empty: 1 },
     };
-    assert.deepStrictEqual(lib.validate(q, { a: s.a }).a, ["a", "b", "c"]);
-    assert.deepStrictEqual(lib.validate(q, { b: s.b }).b, ["a", "c"]);
-    assert.deepStrictEqual(lib.validate(q, { c: s.c }).c, ["a", "b", "c"]);
+    assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, ["a", "b", "c"]);
+    assert.deepStrictEqual(lib.validate(q, { b: s.b }).data?.b, ["a", "c"]);
+    assert.deepStrictEqual(lib.validate(q, { c: s.c }).data?.c, ["a", "b", "c"]);
 
     // depending on split impl, empty entries may be dropped; ensure a/b remain
-    const rd = lib.validate(q, { d: s.d }).d;
+    const rd = lib.validate(q, { d: s.d }).data?.d;
     assert.ok(Array.isArray(rd));
     assert.ok(rd.includes("a") && rd.includes("b"));
 
-    const re = lib.validate(q, { e: s.e }).e;
+    const re = lib.validate(q, { e: s.e }).data?.e;
     assert.ok(Array.isArray(re));
     assert.ok(re.includes("x") && re.includes("y"));
   });
@@ -266,9 +261,9 @@ describe("Validate checks", function () {
       a: { type: "map", maptype: "int" },
       b: { type: "map", maxlist: 2, trunc: 1 },
     };
-    assert.deepStrictEqual(lib.validate(q, { a: s.a }).a, { k1: 1, k2: 2 });
+    assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, { __proto__: null, k1: 1, k2: 2 });
 
-    const rb = lib.validate(q, { b: s.b }).b;
+    const rb = lib.validate(q, { b: s.b }).data?.b;
     assert.deepStrictEqual(Object.keys(rb).length, 2);
   });
 
@@ -283,7 +278,7 @@ describe("Validate checks", function () {
         },
       },
     };
-    assert.deepStrictEqual(lib.validate(q, s), { a: { x: 1, y: 2 } });
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, a: { __proto__: null, x: 1, y: 2 } });
   });
 
   it("object type: requires actual object and can apply params", function () {
@@ -292,7 +287,7 @@ describe("Validate checks", function () {
       a: { type: "object", params: { x: { type: "int" } } },
       b: { type: "object" },
     };
-    assert.deepStrictEqual(lib.validate(q, s), { a: { x: 1 } });
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, a: { __proto__: null, x: 1 } });
   });
 
   it("array type: supports params per element, minlist/maxlist/trunc", function () {
@@ -301,8 +296,8 @@ describe("Validate checks", function () {
       a: { type: "array", params: { x: { type: "int" } }, maxlist: 2, trunc: 1 },
       b: { type: "array", minlist: 1, errmsg: "need one" },
     };
-    assert.deepStrictEqual(lib.validate(q, { a: s.a }).a, [{ x: 1 }, { x: 2 }]);
-    assert.strictEqual(lib.validate(q, { b: s.b }), "need one");
+    assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, [{ __proto__: null, x: 1 }, { __proto__: null, x: 2 }]);
+    assert.strictEqual(lib.validate(q, { b: s.b }).err?.message, "need one");
   });
 
   it("json type: parses json, optional base64, and supports params", function () {
@@ -315,14 +310,14 @@ describe("Validate checks", function () {
       a: { type: "json", params: { x: { type: "int" }, y: { type: "int" } } },
       b: { type: "json", base64: 1, params: { x: { type: "int" } } },
     };
-    assert.deepStrictEqual(lib.validate(q, { a: s.a }).a, { x: 1, y: 2 });
-    assert.deepStrictEqual(lib.validate(q, { b: s.b }).b, { x: 1 });
+    assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, { __proto__: null, x: 1, y: 2 });
+    assert.deepStrictEqual(lib.validate(q, { b: s.b }).data?.b, { __proto__: null, x: 1 });
   });
 
   it("required: immediate required and delayed required (object condition)", function () {
     const q1 = {};
     const s1 = { a: { required: 1, errmsg: "a required" } };
-    assert.strictEqual(lib.validate(q1, s1), "a required");
+    assert.strictEqual(lib.validate(q1, s1).err?.message, "a required");
 
     // delayed required: if b is present then a required
     const q2 = { b: "1" };
@@ -331,7 +326,7 @@ describe("Validate checks", function () {
       b: { type: "int", errmsg: "a needed when b=1" },
     };
 
-    const r = lib.validate(q2, s2);
+    const r = lib.validate(q2, s2).err?.message;
     assert.strictEqual(r, "a needed when b=1");
   });
 
@@ -342,7 +337,7 @@ describe("Validate checks", function () {
       b: { novalue: "x" },                  // equals novalue => deleted
       c: { values_map: ["x", "z"] },        // remap
     };
-    assert.deepStrictEqual(lib.validate(q, s), { c: "z" });
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, c: "z" });
   });
 
   it("defaults: applies typed and wildcard defaults, dprefix and '**' overrides", function () {
@@ -365,7 +360,7 @@ describe("Validate checks", function () {
       },
     });
 
-    assert.deepStrictEqual(r, { a: 5, b: "S", c: "S" });
+    assert.deepStrictEqual(r.data, { __proto__: null, a: 5, b: "S", c: "S" });
   });
 
   it("noregexp/regexp validation behavior (drops field unless errmsg+!required)", function () {
@@ -375,17 +370,17 @@ describe("Validate checks", function () {
       b: { noregexp: /!/, errmsg: "bad chars" }, // should return error (since !required)
       c: { regexp: /^[a-z]+$/ },            // keep
     };
-    const ra = lib.validate(q, { a: s.a });
-    assert.deepStrictEqual(ra, {});
+    const ra = lib.validate(q, { a: s.a }).data;
+    assert.deepStrictEqual(ra, { __proto__: null, });
 
-    assert.strictEqual(lib.validate(q, { b: s.b }), "bad chars");
+    assert.strictEqual(lib.validate(q, { b: s.b })?.err.message, "bad chars");
 
-    assert.deepStrictEqual(lib.validate(q, { c: s.c }), { c: "good" });
+    assert.deepStrictEqual(lib.validate(q, { c: s.c }).data, { __proto__: null, c: "good" });
   });
 
   it("setempty: replaces empty result after processing", function () {
     const q = { a: "" };
     const s = { a: { setempty: "X" } };
-    assert.deepStrictEqual(lib.validate(q, s), { a: "X" });
+    assert.deepStrictEqual(lib.validate(q, s).data, { __proto__: null, a: "X" });
   });
 });

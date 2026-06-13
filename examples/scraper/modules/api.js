@@ -180,15 +180,15 @@ module.exports = {
  */
 function list(context)
 {
-    var query = api.validate(context, {
+    const { err, data } = api.validate(context, {
         start: { type: "int" },
         count: { type: "int", dflt: 10 },
     });
-    if (typeof query == "string") return context.reply({ status: 400, message: query });
+    if (err) return context.reply(err);
 
     const opts = {
-        start: query.start,
-        count: query.count,
+        start: data.start,
+        count: data.count,
         sort: "ctime",
         desc: true,
     };
@@ -255,18 +255,18 @@ function update(options, callback)
  */
 function submit(context)
 {
-    var query = api.validate(context, {
+    const { err, data } = api.validate(context, {
         url: { type: "url", required: 1 },
         status: { value: "pending" },
     })
-    if (typeof query == "string") return context.reply({ status: 400, message: query })
+    if (err) return context.reply(err);
 
-    query.id = query.url.replace(/^https?:\/\//, "").
+    data.id = data.url.replace(/^https?:\/\//, "").
                          replace(/[^a-z0-9-]/gi, "-").
                          replace(/-{2,}/g, "-").
                          replace(/^-+|-+$/g, "");
 
-    db.put("scraper", query, { result_query: 1, first: 1 }, (err, row) => {
+    db.put("scraper", data, { result_query: 1, first: 1 }, (err, row) => {
         if (err) return context.reply(err, row);
 
         api.ws.notify({}, { event: "scraper:status", data: row });

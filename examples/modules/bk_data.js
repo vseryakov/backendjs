@@ -8,39 +8,37 @@ const { db, api } = require('backendjs');
 // Data management
 const mod = {
     name: "bk_data",
-    args: [
-    ],
 };
 module.exports = mod;
 
 // Create API endpoints and routes
-mod.configureWeb = function(options, callback)
+mod.configureMiddleware = function(options, callback)
 {
     // Return table columns
-    api.app.get("/data/columns/{:table}", (req, res) => {
-        if (req.params.table) {
-            return res.json(db.getColumns(req.params.table));
+    api.app.get("/data/columns/*", (context) => {
+        if (context.params[0]) {
+            return context.json(db.getColumns(context.params[0]));
         }
-        res.json(db.tables);
+        context.json(db.tables);
     });
 
     // Return table keys
-    api.app.get("/data/keys/:table", (req, res) => {
-        res.json({ data: db.getKeys(req.params.table) });
+    api.app.get("/data/keys/:table", (context) => {
+        context.json({ data: db.getKeys(context.params.table) });
     });
 
     // Basic operations on a table
-    api.app.post("/data/:op/:table", (req, res) => {
+    api.app.post("/data/:op/:table", (context) => {
 
-        if (!["select", "search", "get", "add", "put", "update", "del", "incr"].includes(req.params.op)) {
-            return api.sendReply(req, 400, "invalid op");
+        if (!["select", "search", "get", "add", "put", "update", "del", "incr"].includes(context.params.op)) {
+            return context.reply({ status: 400, message: "invalid op" });
         }
-        if (!db.getColumns(req.params.table)) {
-            return api.sendReply(req, 404, "Unknown table");
+        if (!db.getColumns(context.params.table)) {
+            return context.reply({ status: 404, message: "Unknown table" });
         }
 
-        db[req.params.op](req.params.table, req.context.body, (err, rows, info) => {
-            api.sendJSON(req, err, api.getResultPage(req, rows, info));
+        db[context.params.op](context.params.table, context.context.body, (err, rows, info) => {
+            context.reply(err, db.paginateResult(rows, info));
         });
     });
 

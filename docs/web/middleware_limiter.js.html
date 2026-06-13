@@ -5,7 +5,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>api/acl.js - Backendjs Documentation</title>
+    <title>middleware/limiter.js - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,7 +41,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">api/acl.js</h1>
+    <h1 class="page-title">middleware/limiter.js</h1>
     
 
     
@@ -51,137 +51,192 @@
     
     <section>
         <article>
-            <pre class="prettyprint source linenums"><code>/*
+            <pre class="prettyprint source linenums"><code>
+/*
  *  Author: Vlad Seryakov vseryakov@gmail.com
  *  backendjs 2018
  */
 
 /**
-  * @module api/acl
+  * @module middleware/limiter
   */
 
-const lib = require(__dirname + '/../lib');
+const lib = require(__dirname + '/../api');
+const cache = require(__dirname + '/../cache');
 const logger = require(__dirname + '/../logger');
 
-const mod =
-
-/**
- * ACL for access authorization.
- *
- * Each ACL is a list of RegExps with a name.
- *
- * ACLs are grouped by a role, at least one must match in order to succeed.
- *
- * ### To define an ACL named **test** with endpoints and allow it for user but not intern roles:
- * ```
- * api-acl-add-test = /url1|/url2...
- *
- * api-acl-allow-user = test
- * api-acl-deny-intern = test
- * ```
- * The user and intern roles are defined in the {@link DbUser} table, see {@link module:api/users}
- *
- * @example &lt;caption>public endpoints&lt;/caption>
- * api-acl-add-public = ^/
- *
- * @example &lt;caption>all authenticated users can access /auth endpoint&lt;/caption>
- * api-acl-add-* = ^/auth
- *
- * @example &lt;caption>only admins can access /admin endpoint&lt;/caption>
- * api-acl-allow-admin = auth, admins
- * api-acl-add-admins = ^/admin
- *
- * @Example &lt;caption>users can access /users but not /users/billing&lt;/caption>
- * api-acl-allow-user = auth, users, -users_deny
- * api-acl-add-users = ^/user
- *
- * api-acl-add-users_deny = ^/user/billing
- *
- */
-
-module.exports = {
-    name: "api.acl",
+const mod = {
+    name: "middleware.limiter",
     args: [
-        { name: "add-([a-z0-9_*]+)", type: "regexpobj", obj: "acl", make: "$1", descr: "Add URLs to the named ACL which can be used in allow/deny rules per role", example: "-api-acl-add-admins ^/admin" },
-        { name: "deny-([a-z0-9_]+)", type: "list", obj: "deny", array: 1, sort: 1, descr: "Match all regexps from the specified acls to deny access for the specified role", example: "-api-acl-deny-user admins,billing" },
-        { name: "allow-([a-z0-9_]+)", type: "list", obj: "allow", array: 1, sort: 1, descr: "Match all regexps from the specified acls for allow access for the specified role", example: "-api-acl-allow-staff admins,support,-billing" },
-        { name: "reset", type: "callback", callback: function(v) { if (v) this.reset() }, descr: "Reset all acls" },
+        { name: "err-(.+)", descr: "Error messages for various cases" },
+        { name: "(rate|max|interval|ttl|delay|multiplier|queue)", autotype: 1, descr: "Default rate limiter parameters for Token Bucket algorithm. `queue` to use specific queue, ttl` is to expire cache entries", example: "middleware-limiter-queue = redis\nmiddleware-limiter-rate = 1\nmiddleware-limiter-ttl = 60000" },
+        { name: "map-(.+)", type: "map", obj: "map.$1", merge: 1, descr: "Rate limiter parameters for Token Bucket algorithm", example: "middleware-limiter-map-/url=rate:1,interval:2000\nmiddleware-limiter-map-GET/url=rate:10" },
     ],
+
+    ttl: 86400000,
+    cache: "local",
+
+    errLimitReached: "Access limit reached, please try again later in %s.",
 };
 
-/**
- * Reset all acls
- * @memberof module:api/acl
- * @method reset
- */
-mod.reset = function()
-{
-    this.acl = this.allow = this.deny = null;
-}
-
+module.exports = mod;
 
 /**
- * Check the path agains given list of ACL names, if a name starts with `-` it means negative match,
- * the check fails immediately and returns null
- * @param {string} path
- * @param {string|string[]} acls
- * @returns {undefined|null|string} - matched positive acl
- * @memberof module:api/acl
- * @method isMatched
+ * Check for rate limits by request IP and path
+ * @memberof module:middleware/limiter
+ * @method handle
  */
-mod.isMatched = function(path, acls)
+mod.handle = function(context, next)
 {
-    if (!path) return;
-    if (typeof acls == "string") acls = [acls];
-    if (!Array.isArray(acls)) return;
+    if (!this.map) return next();
 
-    for (const acl of acls) {
-        if (typeof acl != "string") continue;
-        if (lib.testRegexpObj(path, this.acl?.[acl[0] == "-" ? acl.substr(1) : acl])) {
-            return acl[0] == "-" ? null : acl;
+    mod.check({ path: context.path, ip: context.ip, type: ["ip", "path"] }, (err) => {
+        if (err) {
+            return context.send(err.status, err);
         }
-    }
+        next();
+    });
 }
 
 /**
- * Check the path and roles against allowed ACLs
- * return true if matched
- * @param {string} path
- * @param {string[]} roles
- * @returns {undefined|string} - matched role
- * @memberof module:api/acl
- * @method isAllowed
+ * Perform rate limiting by specified property, if not given no limiting is done.
+ * @param {object} options
+ * @param {string|string[]} options.type - determines by which property to perform rate limiting, when using user properties
+ *     the rate limiter should be called after the request signature has been parsed. Any other value is treated as
+ *     custom type and used as is. If it is an array all items will be checked sequentially.
+ *     **This property is required.**
+ *
+ *     The predefined types checked for every request:
+ *     - ip - limit by IP address only
+ *     - path - limit by path and IP address, * can be used at the end to match only the beginning,
+ *         method can be placed before the path to use different rates for the same path by request method
+ *
+ *         api-limiter-rate = 100
+ *         api-limiter-queue = redis
+ *         api-limiter-map-GET/api/path = rate:10,queue:local
+ *         api-limiter-map-/api/path/* = rate:1
+ *         api-limiter-map-/api/path/127.0.0.1 = rate:100
+ *         api-limiter-map-/api/* = rate:100,interval:1000
+ *
+ * @param {string} [options.method] - request method
+ * @param {string} [options.path] - request path
+ * @param {string} [options.ip] - to use the specified IP address
+ * @param {number} [options.max - max capacity to be used by default
+ * @param {number} [options.rate] - fill rate to be used by default
+ * @param {number} [options.interval] - interval in ms within which the rate is measured, default 1000 ms
+ * @param {string} [options.message] - more descriptive text to be used in the error message for the type, if not specified a generic error message is used
+ * @param {string} [options.queue] - which queue to use instead of the default, some limits are more useful with global queues like Redis instead of the default in-process cache
+ * @param {number} [options.delay] - time in ms to delay the response, slowing down request rate
+ * @param {number} [options.multiplier] - multiply the interval after it consumed all tokens, subsequent checks use the increased interval, fractions supported,
+ *    if the multiplier is positive then the interval will keep increasing indefinitely, if it is negative the interval will reset to the default
+ *    value on first successful consumption
+ * @param {function} callback as function(err, info) where info is from {@link module:cache.limiter}
+ * @example
+ *
+ *  middleware.limiter.limiter({ path: context.path, ip: context.ip, type: "ip", rate: 100, interval: 60000 }, (err, info) => {
+ *     if (err) return context.send(err.status, err);
+ *     ...
+ *  });
+ * @example &lt;caption>More endpoint config examples&lt;/caption>
+ * api-limiter-map-/pub/settings = rate:10,interval:1000,delay:250
+ * api-limiter-map-GET/passkey/login = rate:3,interval:1000,delay:250
+ * api-limiter-map-/login = rate:3,interval:30000,delay:1000,multiplier:1.5,queue:unique
+ * api-limiter-map-/checkin* = rate:5,interval:30000
+ * @memberof module:middleware/limiter
+ * @method limiter
  */
-mod.isAllowed = function(path, roles)
+mod.limiter = function(options, callback)
 {
-    if (!this.allow || !Array.isArray(roles)) return;
-    for (const role of roles) {
-        if (this.isMatched(path, this.allow?.[role])) {
-            logger.debug("isAllowed:", this.name, path, roles, "match", role, this.allow[role]);
-            return role;
+    if (!this.map || !options?.type) return callback();
+
+    const mapping = this.map;
+    const method = options.method;
+    const types = Array.isArray(options.type) ? options.type : [ options.type ];
+
+    lib.forEachSeries(types, (type, next) => {
+        var name, key = type;
+        switch (type) {
+        case "ip":
+            name = options.ip;
+            break;
+
+        case "path":
+            key = options.path;
+            if (!key) break;
+            if (!mapping[key] &amp;&amp; !(method &amp;&amp; mapping[method + key])) {
+                for (const p in mapping) {
+                    const item = mapping[p];
+                    if (item._key === undefined) {
+                        item._key = p.at(-1) == "*" ? p.slice(0, -1) : null;
+                    }
+                    if (item._key &amp;&amp; key.startsWith(item._key)) {
+                        key = p;
+                        break;
+                    }
+                }
+            }
+            name = key + "/" + options.ip;
+            break;
         }
-    }
+
+        const map = (name &amp;&amp; mapping[name]) || (method &amp;&amp; mapping[method + key]) || mapping[key];
+        const rate = options.rate || map?.rate;
+        logger.debug("check:", mod.name, type, key, name, "OPTS:", options, "MAP:", map);
+        if (!rate) return next();
+
+        const max = options.max || map?.max || rate;
+        const interval = options.interval || map?.interval || this.interval || 1000;
+        const multiplier = options.multiplier || map?.multiplier || this.multiplier || 0;
+        const ttl = options.ttl || map?.ttl || this.ttl;
+        const cacheName = options.cache || map?.cache || this.cache;
+
+        // Use process shared cache to eliminate race condition for the same cache item from multiple processes on the same instance,
+        // in server mode use direct access to the LRU cache
+        const limit = {
+            name: "API.RLIMIT:" + name,
+            rate,
+            max,
+            interval,
+            ttl,
+            multiplier,
+            cacheName,
+        };
+        cache.limiter(limit, (delay, info) => {
+            logger.debug("check:", mod.name, options, "L:", limit, "D:", delay, info);
+            if (!delay) return next();
+            var err = {
+                status: 429,
+                message: lib.__(options.message || map?.message || mod.errLimitReached, lib.toDuration(delay)),
+                retryAfter: delay
+            };
+            if (options.delay || map?.delay) {
+                return setTimeout(callback, options.delay || map?.delay, err, info);
+            }
+            callback(err, info);
+        });
+    }, callback, true);
 }
 
 /**
- * Check the path and roles against denied ACLs
- * return true if matched
- * @param {string} path
- * @param {string[]} roles
- * @returns {undefinded|string} - matched role
- * @memberof module:api/acl
- * @method isDenied
+ * Register access rate limit for a given name, all other rate limit properties will be applied as
+ * described in the {@link module:middleware/rlimits.check}
+ * @param {string} name - path or reserved rate type
+ * @param {object} options
+ * @param {number} options.rate - base rate limit
+ * @param {number} options.max - max rate limit
+ * @param {number} options.internal - rate interval
+ * @param {number} options.queue - which limiter queue to use
+ * @memberof module:middleware/limiter
+ * @method register
  */
-mod.isDenied = function(path, roles)
+mod.register = function(name, options)
 {
-    if (!this.deny || !Array.isArray(roles)) return;
-    for (const role of roles) {
-        if (this.isMatched(path, this.deny?.[role])) {
-            logger.debug("isDenied:", this.name, path, roles, "match", role, this.deny[role]);
-            return role;
-        }
-    }
+    if (!name) return false;
+    this.map[name] = options;
+    logger.debug("register:", mod.name, name, options);
+    return true;
 }
+
 </code></pre>
         </article>
     </section>

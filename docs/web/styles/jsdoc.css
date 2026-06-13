@@ -1,12 +1,12 @@
 :root {
   --color: #333;
-  --bg-color: #f0f0f0;
+  --bg-color: #f5f5f5;
   --bg-source: #0d152a;
   --color-source: #aeaeae;
   --bg-linenums: #084298;
   --signature: #2F3032;
   --attrs-color: #2F3032;
-  --h4-color: #000;
+  --h4-color: #2F3032;
   --h4-bg-color: #DCDDDE;
   --h4-a-hover: #fc83ff;
   --h4-shadow: #A2A2A2;
@@ -17,6 +17,7 @@
   --h5-param: #15407F;
   --important: #950B02;
   --table-border: #ddd;
+  --table-bg: #eee;
   --params-color: #333;
   --params-bg: #f0f0f0;
   --disabled-color: #454545;
@@ -29,9 +30,9 @@
       --color: #D9D9D9;
       --color-source: #C1C1C1;
       --bg-color: #333;
-      --signature: #ccd;
-      --attrs-color: #ccd;
-      --h4-color: #ccc;
+      --signature: #ddd;
+      --attrs-color: #ddd;
+      --h4-color: #DDD;
       --h4-bg-color: #414954;
       --h4-a-hover: #E6AEAF;
       --h4-shadow: #777CB1;
@@ -42,6 +43,7 @@
       --h5-param: #ABABAB;
       --important: #950B02;
       --table-border: #555;
+      --table-bg: #454545;
       --params-color: #ccc;
       --params-bg: #333333;
       --disabled-color: #454545;
@@ -110,7 +112,7 @@ p, ul, ol, blockquote {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: sans-serif;
-  font-weight: 400;
+  font-weight: 600 !important;
   margin: 0;
 }
 
@@ -126,6 +128,9 @@ h1.page-title {
 
 h2 {
     margin: 1.5em 0 .3em;
+    font-weight: 600 !important;
+    color: var(--a-color) !important;
+    font-size: 1.5em !important;
 }
 
 h3 {
@@ -272,9 +277,14 @@ nav #nav-search {
     background-color: var(--color);
     font-size: 1rem;
     line-height: 1.5;
-    border-radius: 3px;
+    border-radius: 0.5em;
     margin-right: 20px;
     margin-top: 20px;
+}
+
+input::placeholder {
+  color: var(--bg-color);
+  opacity: 0.7;
 }
 
 nav.wrap a {
@@ -386,9 +396,8 @@ footer {
 
 .details {
   margin-top: 6px;
-  border-left: 2px solid var(--table-border);
   line-height: 1.5rem;
-  font-size: 90%;
+  font-size: 95%;
 }
 
 .details dt {
@@ -422,7 +431,7 @@ footer {
 .description {
   margin-bottom: 1em;
   margin-top: 1em;
-  font-size: 90%;
+  font-size: 95%;
 }
 
 .code-caption {
@@ -503,13 +512,10 @@ footer {
 
 table {
   border-spacing: 0;
-  border: 1px solid var(--table-border);
   border-collapse: collapse;
-  border-radius: 3px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   width: 100%;
   margin: 1em 0;
-  font-size: 90%;
+  font-size: 95%;
 }
 
 td, th {
@@ -520,13 +526,31 @@ td, th {
    display: table-cell;
 }
 
-thead tr, thead tr {
+tr {
+    border-bottom: 1px solid var(--table-border);
+}
+
+tr:last-child {
+    border: 0px;
+}
+
+thead tr {
    font-weight: bold;
-   border-bottom: 1px solid var(--table-border);
+   background-color: var(--table-bg);
+   border: 0px;
+}
+
+th:first-child {
+  border-radius: 0.5em 0 0 0.5em;
+}
+
+th:last-child {
+  border-radius: 0 0.5em 0.5em 0;
 }
 
 .params .type {
   white-space: nowrap;
+  font-weight: bolder;
 }
 
 .params code {
@@ -535,13 +559,12 @@ thead tr, thead tr {
 
 .params td, .params .name, .props .name, .name code {
    color: var(--params-color);
-   background-color: var(--params-bg);
    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
    font-size: 100%;
 }
 
-.params td {
-   border-top: 1px solid var(--table-border)
+.params .name, .props .name {
+   font-weight: bold;
 }
 
 .params td.description > p:first-child, .props td.description > p:first-child {

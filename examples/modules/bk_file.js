@@ -11,31 +11,31 @@ const mod = {
 module.exports = mod;
 
 // Create API endpoints and routes
-mod.configureWeb = function(options, callback)
+mod.configureMiddleware = function(options, callback)
 {
-    api.app.all(/^\/file\/([a-z]+)$/, function(req, res) {
-        var query = api.validate(req, {
+    api.app.all("/file/:op", function(context) {
+        const { err, data } = api.validate(context, {
             name: { required: 1 },
             prefix: { required: 1 },
         }, { query: 1 });
-        if (typeof query == "string") return api.sendReply(req, 400, query);
+        if (err) return context.reply(err);
 
-        var file = query.prefix.replace("/", "") + "/" + query.name.replace("/", "");
+        var file = data.prefix.replace("/", "") + "/" + query.name.replace("/", "");
 
-        switch (req.params[0]) {
+        switch (req.params.op) {
         case "get":
             files.send(req, file);
             break;
 
         case "put":
-            files.upload(req, "file", query, (err) => {
-                api.sendReply(req, err);
+            files.upload(context, "file", data, (err) => {
+                context.reply(err);
             });
             break;
 
         case "del":
             files.del(file, (err) => {
-                api.sendReply(req, err);
+                context.reply(err);
             });
             break;
 

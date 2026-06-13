@@ -85,35 +85,33 @@ module.exports = {
 
     incr: 1,
 
-    configureWeb(options, callback)
+    configureMiddleware(options, callback)
     {
-        api.app.use("/api",
-            api.Router().
-                get("/value", getValue).
-                post("/value", incrValue).
-                delete("/value", delValue));
+        api.app.get("/api/value", getValue).
+                post("/api/value", incrValue).
+                delete("/api/value", delValue));
 
         callback();
     },
 
-    getValue(req, res)
+    getValue(context)
     {
         db.get("demo", { id: 1 }, (err, row) => {
-            api.sendJSON(req, err, row);
+            context.reply(err, row);
         });
     }
 
-    incrValue(req, res)
+    incrValue(context)
     {
         db.incr("demo", { id: 1, value: this.incr }, { returning: "*", first: 1 }, (err, row) => {
-            api.sendJSON(req, err, row);
+            context.reply(err, row);
         });
     }
 
-    delValue(req, res)
+    delValue(context)
     {
         db.del("demo", { id: 1 }, (err) => {
-            api.sendJSON(req, err);
+            context.reply(err);
         });
     }
 
@@ -127,10 +125,7 @@ app-log=info
 app-repl-port-web=2090
 
 # redirect /app endpoints to the main template
-api-routing-path-^/app=/index.html
-
-# no login required
-api-acl-add-public=^/api
+middleware-routing-/app=/index.html
 
 # default db pool
 db-sqlite-pool=demo

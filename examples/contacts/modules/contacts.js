@@ -36,25 +36,25 @@ module.exports = {
 
 function listContacts(context)
 {
-    var query = api.validate(req, {
+    const { err, data } = api.validate(context, {
         q: { max: 128 },
         start: { type: "int" },
         count: { type: "int", dflt: 10 },
     });
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    if (err) return context.reply(err);
 
     const q = {
         $or: {
-            first_name: query.q,
-            last_name: query.q,
-            email: query.q,
-            phone: query.q,
-            descr: query.q
+            first_name: data.q,
+            last_name: data.q,
+            email: data.q,
+            phone: data.q,
+            descr: data.q
         }
     };
     const opts = {
-        start: query.start,
-        count: query.count,
+        start: data.start,
+        count: data.count,
         ops: {
             first_name: "begins_with",
             last_name: "begins_with",
@@ -65,14 +65,14 @@ function listContacts(context)
     };
 
     db.select("contacts", q, opts, (err, rows, info) => {
-        api.sendJSON(req, err, api.getResultPage(req, rows, info));
+        context.reply(err, api.getResultPage(req, rows, info));
     });
 }
 
 function getContact(context)
 {
     db.get("contacts", { id: req.params.id }, (err, row) => {
-        api.sendJSON(req, err, row);
+        context.reply(err, row);
     });
 }
 
@@ -88,28 +88,28 @@ const schema = {
 
 function createContact(context)
 {
-    var query = api.validate(req, schema);
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    const { err, data } = api.validate(context, schema);
+    if (err) return context.reply(err);
 
-    db.add("contacts", query, { result_query: 1 }, (err, row) => {
-        api.sendJSON(req, err, row);
+    db.add("contacts", data, { result_query: 1 }, (err, row) => {
+        context.reply(err, row);
     });
 }
 
 function updateContact(context)
 {
-    var query = api.validate(req, schema);
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    const { err, data } = api.validate(context, schema);
+    if (err) return context.reply(err);
 
     query.id = req.params.id;
     db.update("contacts", query, (err) => {
-        api.sendJSON(req, err, query);
+        context.reply(err, query);
     });
 }
 
 function delContact(context)
 {
     db.del("contacts", { id: req.params.id }, (err) => {
-        api.sendJSON(req, err);
+        context.reply(err);
     });
 }

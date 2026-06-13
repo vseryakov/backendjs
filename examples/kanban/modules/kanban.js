@@ -60,75 +60,73 @@ module.exports = {
         },
     },
 
-    configureWeb(options, callback) {
+    configureMiddleware(options, callback) {
 
-        api.app.use("/api",
-            api.Router().
-                get("/boards", listBoards).
-                post("/boards", createBoard).
-                get("/board/:id", getBoard).
-                post("/board/:id", updateBoard).
-                delete("/board/:id", delBoard));
+        api.app.get("/api/boards", listBoards).
+                post("/api/boards", createBoard).
+                get("/api/board/:id", getBoard).
+                post("/api/board/:id", updateBoard).
+                delete("/api/board/:id", delBoard);
 
         callback();
     }
 };
 
-function listBoards(req, res)
+function listBoards(context)
 {
     var data = [];
     db.scan("boards", {}, { sync: 1 }, (rows) => {
         data.push(...rows);
     }, (err) => {
-        api.sendJSON(req, err, data);
+        context.reply(err, data);
     });
 }
 
-function getBoard(req, res)
+function getBoard(context)
 {
-    db.get("boards", { id: req.params.id }, (err, row) => {
+    db.get("boards", { id: context.params.id }, (err, row) => {
         if (!err && !row) err = { status: 404, message: "Board not found" };
-        api.sendJSON(req, err, row);
+        context.reply(err, row);
     });
 }
 
-function createBoard(req, res)
+function createBoard(context)
 {
-    var query = api.validate(req, {
+    const { err, data } = api.validate(context, {
         title: { required: 1, max: 128 },
         description: { required: 1, max: 256 },
         id: { value: lib.uuid() },
         created_at: { value: Date.now() },
     });
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    if (err) return context.reply(err);
 
-    db.put("boards", query, (err) => {
-        api.sendJSON(req, err, query);
+    db.put("boards", data, (err) => {
+        context.reply(err, data);
     });
 }
 
-function updateBoard(req, res)
+function updateBoard(context)
 {
-    var query = api.validate(req, {
-        id: { required: 1, value: req.params.id },
+    const { err, data } = api.validate(context, {
+        id: { required: 1, value: context.params.id },
         title: { required: 1, max: 128 },
         description: { required: 1, max: 256 },
     });
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    if (err) return context.reply(err);
 
-    db.update("boards", query, (err) => {
-        api.sendJSON(req, err, query);
+    db.update("boards", data, (err) => {
+        context.reply(err, data);
     });
 }
 
-function delBoard(req, res)
+function delBoard(context)
 {
-    var query = api.validate(req, {
-        id: { required: 1, value: req.params.id },
+    const { err, data } = api.validate(context, {
+        id: { required: 1, value: context.params.id },
     });
-    if (typeof query == "string") return api.sendReply(req, 400, query);
+    if (err) return context.reply(err);
 
-    db.del("boards", query, (err) => {
-        api.sendJSON(req, err);
+    db.del("boards", data, (err) => {
+        context.reply(err);
     });
 }
