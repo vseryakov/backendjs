@@ -459,6 +459,7 @@ footer {
     display: block;
     background-color: var(--bg-source);
     color: var(--color-source);
+    border-radius: 0.5em;
 }
 
 .prettyprint > code {
