@@ -91,7 +91,7 @@ exports.astop = async function(options)
 // - url - URL to be checked with POST
 // - get - URL to be check with GET
 // - method - explicit method for url
-// - data - query data for GET or postdata for POST
+// - body - query data for GET or postdata for POST
 // - form - formdata for requests that need urlformencoded data
 // - headers/cookies - extra headers and cookies to send
 // - user - a user record with login and secret, a signature is send
@@ -110,8 +110,8 @@ exports.checkAccess = function(options, callback)
         var q = {
             url: conf.get || conf.url || "/",
             method: conf.get ? "GET" : conf.method || "POST",
-            query: conf.get && conf.data,
-            postdata: !conf.get && conf.data,
+            query: conf.get && conf.body,
+            postdata: !conf.get && conf.body,
             formdata: conf.form,
             headers: conf.headers || {},
             cookies: conf.cookies || {},

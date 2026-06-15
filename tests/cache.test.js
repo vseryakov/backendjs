@@ -12,7 +12,7 @@ describe("Cache tests", () => {
     };
 
     before((t, done) => {
-        init({ cache: 1, roles: process.env.BKJKS_ROLES || "redis" }, done)
+        init({ cache: 1, roles: process.env.BKJS_ROLES || "redis" }, done)
     });
 
 
