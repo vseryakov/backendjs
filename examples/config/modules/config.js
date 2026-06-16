@@ -3,7 +3,7 @@
 //  backendjs 2025
 //
 
-const { db, api, lib } = require('../../../lib/index');
+const { db, api, lib } = require('backendjs');
 
 //
 // A demo module that implements a CRUD app to manage config table
@@ -13,10 +13,10 @@ module.exports = {
     name: "config",
 
     //
-    // Supported config parameters
+    // module config parameters
     //
     args: [
-        { name: "roles", type: "list", descr: "List of roles that can access this module, ex: -config-roles admin,user" },
+        { name: "roles", type: "list", descr: "List of roles that can access this module, ex: config-roles = admin,user" },
     ],
 
     //
@@ -39,12 +39,12 @@ module.exports = {
 
 
     //
-    // Default hook to initialize our Express routes
+    // Default hook to initialize our routes
     //
     configureMiddleware(options, callback)
     {
         api.app.
-            use(perms).
+            use("/config/*", perms).
             get("/config/list", list).
             post("/config/put", put).
             put("/config/update", update).
@@ -54,7 +54,7 @@ module.exports = {
     }
 };
 
-// Express middleware for checking user roles
+// Middleware for checking user roles
 function perms(context, next)
 {
     if (!lib.isFlag(module.exports.roles, context.user?.roles)) {

@@ -57,7 +57,7 @@ The following API endpoints are exposed by the app:
 
 Default endpoints implemented by the api.users module:
 
-  - POST /auth
+  - POST /profile
   - POST /login
   - POST /logout
 
@@ -79,7 +79,8 @@ src/
 │   └── index.html     # Home page
 ├── modules/
 │   └── config.js      # Config module with routes
-config.db              # Local SQLite database
+├── var/
+│   └── config.db      # Local SQLite database
 ```
 
 ## Features

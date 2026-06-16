@@ -19,11 +19,10 @@ const mod = {
         callback();
     },
 
-    getCounter(context)
+    async getCounter(context)
     {
-        db.incr("counter", { id: 1, value: 1 }, { returning: "*", first: 1 }, (err, row) => {
-            context.reply(err, row);
-        });
+        const { err, data } = await db.aincr("counter", { id: 1, value: 1 }, { returning: "*", first: 1 });
+        context.reply(err, data);
     }
 
 }

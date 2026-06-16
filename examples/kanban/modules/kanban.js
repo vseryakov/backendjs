@@ -6,6 +6,7 @@
 const { db, api, lib } = require('backendjs');
 
 module.exports = {
+    name: "kanban",
 
     tables: {
         users: {

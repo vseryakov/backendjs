@@ -5,7 +5,7 @@ app.$ready(async () => {
     app.user = Alpine.reactive({});
     Alpine.magic('user', (el) => app.user);
 
-    const { ok, data } = await app.fetch("/auth", { post: 1 });
+    const { ok, data } = await app.fetch("/profile");
     if (ok) Object.assign(app.user, data);
 
     app.start();

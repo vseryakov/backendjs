@@ -36,7 +36,6 @@ cat > web/index.html <<EOF
     <script src="/js/popper2.js"></script>
     <script src="/js/bootstrap.js"></script>
     <script src="/js/app-bootstrap.js"></script>
-    <script src="/js/bootpopup.js"></script>
     <script src="/js/alpinejs.js"></script>
 
     <script src="/index.js"></script>
@@ -44,7 +43,12 @@ cat > web/index.html <<EOF
 
 <template id=index>
     <div class="container">
-        <h1 class="mb-3">Demo</h1>
+        <h3 class="mb-3"><img src=/img/logo.png> Backendjs API demo</h3>
+
+        <h2 class="mb-3">
+            Value: <span x-text="value"></span>
+        </h2>
+        <button class="btn btn-primary" @click="refresh">Increment</button>
     </div>
 </template>
 EOF
@@ -54,8 +58,14 @@ cat > web/index.js <<EOF
 app.debug = 1
 
 app.components.index = class extends app.AlpineComponent {
+    value
     onCreate() {
+        this.refresh()
+    }
 
+    async refresh() {
+        const { err, data } = await app.fetch("/api/value", { post: 1  });
+        this.value = err?.message || data?.value;
     }
 };
 
@@ -87,33 +97,30 @@ module.exports = {
 
     configureMiddleware(options, callback)
     {
-        api.app.get("/api/value", getValue).
-                post("/api/value", incrValue).
-                delete("/api/value", delValue));
+        api.app.get("/api/value", this.getValue).
+                post("/api/value", this.incrValue.bind(this)).
+                delete("/api/value", this.delValue);
 
         callback();
     },
 
-    getValue(context)
+    async getValue(context)
     {
-        db.get("demo", { id: 1 }, (err, row) => {
-            context.reply(err, row);
-        });
-    }
+        const { err, data } = await db.aget("demo", { id: 1 })
+        context.reply(err, data);
+    },
 
-    incrValue(context)
+    async incrValue(context)
     {
-        db.incr("demo", { id: 1, value: this.incr }, { returning: "*", first: 1 }, (err, row) => {
-            context.reply(err, row);
-        });
-    }
+        const { err, data } = await db.aincr("demo", { id: 1, value: this.incr }, { returning: "*", first: 1 });
+        context.reply(err, data);
+    },
 
-    delValue(context)
+    async delValue(context)
     {
-        db.del("demo", { id: 1 }, (err) => {
-            context.reply(err);
-        });
-    }
+        const { err } =  await db.adel("demo", { id: 1 });
+        context.reply(err);
+    },
 
 }
 EOF
@@ -125,7 +132,10 @@ app-log=info
 app-repl-port-web=2090
 
 # redirect /app endpoints to the main template
-middleware-routing-/app=/index.html
+middleware-routing-enable = true
+middleware-routing-/app/*=/index.html
+
+middleware-static-enable = true
 
 # default db pool
 db-sqlite-pool=demo

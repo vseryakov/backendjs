@@ -62,9 +62,10 @@ src/
 ├── modules/
 │   ├── board.js       # Board API
 │   └── card.js        # Card API
-tools/
+├── tools/
 └── seed.js            # DB seed file
-kanban.db              # Local SQLite database
+├── var/
+└── kanban.db          # Local SQLite database
 ```
 
 ## Features

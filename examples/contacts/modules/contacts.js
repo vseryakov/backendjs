@@ -65,13 +65,13 @@ function listContacts(context)
     };
 
     db.select("contacts", q, opts, (err, rows, info) => {
-        context.reply(err, api.getResultPage(req, rows, info));
+        context.reply(err, db.paginateResult(rows, info));
     });
 }
 
 function getContact(context)
 {
-    db.get("contacts", { id: req.params.id }, (err, row) => {
+    db.get("contacts", { id: context.params.id }, (err, row) => {
         context.reply(err, row);
     });
 }
@@ -101,15 +101,15 @@ function updateContact(context)
     const { err, data } = api.validate(context, schema);
     if (err) return context.reply(err);
 
-    query.id = req.params.id;
-    db.update("contacts", query, (err) => {
-        context.reply(err, query);
+    data.id = context.params.id;
+    db.update("contacts", data, { returing: "*", first: 1 }, (err, row) => {
+        context.reply(err, row);
     });
 }
 
 function delContact(context)
 {
-    db.del("contacts", { id: req.params.id }, (err) => {
+    db.del("contacts", { id: context.params.id }, (err) => {
         context.reply(err);
     });
 }

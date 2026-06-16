@@ -115,7 +115,7 @@ Add URLs to the named ACL which can be used in allow/deny rules per role
 Type: regexpobj   
 Example:
 ```
--api-acl-add-admins ^/admin
+api-acl-add-admins = ^/admin
 ```
 
 ###  api-acl-deny-([a-z0-9_]+) 
@@ -124,7 +124,7 @@ Match all regexps from the specified acls to deny access for the specified role
 Type: list   
 Example:
 ```
--api-acl-deny-user admins,billing
+api-acl-deny-user = admins,billing
 ```
 
 ###  api-acl-allow-([a-z0-9_]+) 
@@ -133,7 +133,7 @@ Match all regexps from the specified acls for allow access for the specified rol
 Type: list   
 Example:
 ```
--api-acl-allow-staff admins,support,-billing
+api-acl-allow-staff = admins,support,-billing
 ```
 
 ###  api-acl-reset 
@@ -172,14 +172,24 @@ See {@link module:api/session}
 ###  api-session-cache 
 ---- 
 Cache name for session control   
+Example:
+```
+api-session-cache = redis
+```
+
 ###  api-session-age 
 ---- 
 Session age in milliseconds   
 Type: int   
 Default: 86400000   
+Example:
+```
+api-session-age = 86400000
+```
+
 ###  api-session-same-site 
 ---- 
-Session SameSite option   
+Session SameSite header   
 Default: "strict"   
 ###  api-session-secure 
 ---- 
@@ -192,7 +202,7 @@ Cookie settings for requests that match beginning of the path
 Type: map   
 Example:
 ```
--api-session-cookie-/testing secure:false,sameSite:None
+api-session-cookie-/testing = secure:false,sameSite:None
 ```
 
 ###  api-session-secret 
@@ -210,6 +220,11 @@ Error messages for various cases
 ###  api-users-table 
 ---- 
 Database table to create and use for users   
+###  api-users-max-length 
+---- 
+Max length for user name, login   
+Type: number   
+Default: 140   
 ## api.ws
 See {@link module:api/ws}
 ###  api-ws-port 

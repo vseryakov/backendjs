@@ -45,7 +45,7 @@ app.components.index = class extends app.AlpineComponent {
                 const opts = { method: "POST", body: d };
                 const { err } = await app.fetch("/api/contacts", opts);
                 if (err) return popup.showAlert(err);
-                this.unshift.push(this.prepare(d))
+                this.contacts.unshift(this.prepare(d))
             },
 
             Save: async (d) => {
