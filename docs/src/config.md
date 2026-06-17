@@ -107,6 +107,9 @@ Type: list
 ---- 
 On address in use error condition restart the specified servers, this assumes an external monitor like monit to handle restarts   
 Default: "server,web"   
+###  api-err-(.+) 
+---- 
+Error messages for various cases   
 ## api.acl
 See {@link module:api/acl}
 ###  api-acl-add-([a-z0-9_*]+) 
@@ -1042,29 +1045,40 @@ Type: callback
 Error messages for various cases   
 ## middleware.limiter
 See {@link module:middleware/limiter}
-###  middleware-limiter-err-(.+) 
+###  middleware-limiter-enable 
 ---- 
-Error messages for various cases   
-###  middleware-limiter-(rate|max|interval|ttl|delay|multiplier|queue) 
+Enable the middlware, 'true' means dynamicaly check all requests, 'fixed' means set routes from the config on start   
+###  middleware-limiter-ip-([a-z,*]+)-(/.+) 
 ---- 
-Default rate limiter parameters for Token Bucket algorithm. `queue` to use specific queue, ttl` is to expire cache entries   
-Example:
-```
-middleware-limiter-queue = redis
-middleware-limiter-rate = 1
-middleware-limiter-ttl = 60000
-```
-
-###  middleware-limiter-map-(.+) 
----- 
-Rate limiter parameters for Token Bucket algorithm   
+Endpoints/methods to limit by IP address for all users   
 Type: map   
 Example:
 ```
-middleware-limiter-map-/url=rate:1,interval:2000
-middleware-limiter-map-GET/url=rate:10
+middleware-limiter-*-ip-/account = rate:10,interval:30000
 ```
 
+###  middleware-limiter-path-([a-z,*]+)-(/.+) 
+---- 
+Endpoints/methods to limit by path for all users   
+Type: map   
+Example:
+```
+middleware-limiter-path-post-/webhook/* = rate:100,interval:30000
+```
+
+###  middleware-limiter-user-([a-z,*]+)-(/.+) 
+---- 
+Endpoints/methods to limit by path and authenticated user   
+Type: map   
+Example:
+```
+middleware-limiter-user-get,post,put-/admin/* = rate:10,interval:5000
+```
+
+###  middleware-limiter-reset 
+---- 
+Reset all rules   
+Type: callback   
 ## middleware.multipart
 See {@link module:middleware/multipart}
 ###  middleware-multipart-enable 

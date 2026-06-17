@@ -32,7 +32,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Event-based architecture for real-time processing.
 
 5. **API Layer**
-   - Trie router kind of similar to **Express/Hono** with middleware for authentication, rate limiting, and logging.
+   - Trie router kind of similar to **Express/Hono** with middleware for authentication, rate limiting, static and logging.
    - Includes **WebSocket support** for real-time communication.
    - Includes simple but powerful input validation
 

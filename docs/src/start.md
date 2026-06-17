@@ -30,7 +30,7 @@ console.log('Server running on http://%s:%s', api.bind, api.port);
 ```
 
 First, you require backendjs. Then you start the server with default settings and log that it's running, the **api** property
-tells to start Express web server, i.e. the api mode. There are more server modes available.
+tells to start the web server, i.e. the api mode. There are more server modes available.
 
 Run `node` and then paste the lines above into it.
 
