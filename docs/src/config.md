@@ -1161,6 +1161,17 @@ Default: true
 ---- 
 Name of index file to use for default directory requests   
 Default: "index.html"   
+###  middleware-static-precompressed 
+---- 
+Match request path to serve pre-compressed files with given encoding or default gzip   
+Type: regexp   
+###  middleware-static-encoding 
+---- 
+Compress encoding to use for precompressed files: gzip, br, zstd   
+###  middleware-static-etag 
+---- 
+Produce weak ETag header for static files   
+Type: bool   
 ## middleware.users
 See {@link module:middleware/users}
 ###  middleware-users-enable 
