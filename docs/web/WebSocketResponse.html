@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>api/ws - Backendjs Documentation</title>
+    <title>WebSocketResponse - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -39,7 +39,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">api/ws</h1>
+    <h1 class="page-title">WebSocketResponse</h1>
     
 
     
@@ -50,22 +50,16 @@
 <section>
 
 
-    <div class="toc">
-    
-    
-    
-        <h4><a href="#members">↓ Members.</a></h4>
-    
-    
-        <h4><a href="#methods">↓ Methods.</a></h4>
-    
-    </div>
-
 
 <header>
     
+        <h2>
         
-            
+            WebSocketResponse
+        
+        </h2>
+        
+            <div class="class-description usertext"><p>Wrap ServerResponse to send responses via web socket</p></div>
         
     
 </header>
@@ -76,12 +70,11 @@
         
             
 
-            
-                
-
+    
+    <h2 class="subsection-title">Constructor</h2>
     
 
-    <h4 class="name" id="module:api/ws"><span class="type-signature"></span>module:api/ws<span class="type-signature"></span></h4>
+    <h4 class="name" id="WebSocketResponse"><span class="type-signature"></span>new WebSocketResponse<span class="signature">(req, ws)</span><span class="type-signature"></span></h4>
 
     
 
@@ -90,56 +83,13 @@
 
 <dl class="details">
     
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><h1 id="websockets-requests-as-routes">Websockets requests as routes</h1>
-<p>The simplest way is to configure <strong>api-ws-port</strong> to the same value as the HTTP port.
-This will run WebSockets server along the regular Web server.</p>
-<h2 id="usage">Usage</h2>
-<pre class="prettyprint source lang-js"><code>var ws = new WebSocket(&quot;http://localhost:8000/ws&quot;);
-ws.onmessage = (msg) => { console.log(msg) }
-</code></pre>
-<p>There are two ways to send messages via Websockets to the server from a browser:</p>
-<h3 id="1.-as-urls">1. as Urls</h3>
-<pre class="prettyprint source lang-js"><code>ws.send('/project/update?id=1&name=Test2')
-</code></pre>
-<p>In this case the url will be parsed and checked for access and authorization before letting it pass via routes. This method allows to
-share the same route handlers between HTTP and Websockets requests, the handlers will use the same code and all responses will be sent back,
-only in the Websockets case the response will arrived in the message listener (see an example below)</p>
-<h3 id="2.-as-json-objects%2C-format-can-be-any">2. as JSON objects, format can be any</h3>
-<pre class="prettyprint source lang-js"><code>ws.send({ op: &quot;/project/update&quot;, project: { id: 1, name: &quot;Test2&quot; } })```
-</code></pre>
-<p>In this case the server still have to check for access so it treats all JSON messages as coming from the path which was used during the connect,
-i.e. the one used in the above <strong>/ws</strong>. The router handler for this path will receive all messages from Websocket clients,
-the response will be received in the event listener the same way as for the first use case.</p>
-<pre class="prettyprint source lang-js"><code>// Notify all clients who is using the project being updated
-api.app.all(&quot;/ws&quot;, (context) => {
-   switch (context.query.op) {
-   case &quot;/project/update&quot;:
-      //  some code ....
-      api.ws.notify({ query: { id: context.query.project.id } }, { op: &quot;/project/update&quot;, project: context.query.project });
-      break;
-   }
-   context.send(200);
-});
-</code></pre>
-<p>In any case all Websocket messages sent from the server will arrive in the event handler and must be formatted properly in order to distinguish what is what, this is the application logic. If the server needs to send a message to all or some specific clients for example due to some updates in the DB, it must use the
-<a href="module-api_ws.html#.notify">module:api/ws.notify</a> function.</p>
-<pre class="prettyprint source lang-js"><code>// Received a new message for a user from external API service, notify all websocket clients by user id
-api.app.post(&quot;/api/message&quot;, (context) => {
-   ....
-   ... processing logic
-   ....
-   api.ws.notify({ user: { id: context.user.id } }, { op: &quot;/message/new&quot;, msg: context.query.msg });
-});
-</code></pre></li></ul></dd>
-    
 
     
 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_ws.js.html">api/ws.js</a>, <a href="api_ws.js.html#line112">line 112</a>
+        <a href="api_ws.js.html">api/ws.js</a>, <a href="api_ws.js.html#line20">line 20</a>
     </li></ul></dd>
     
 
@@ -184,31 +134,107 @@ api.app.post(&quot;/api/message&quot;, (context) => {
 
 
 
+    <h5 class="h5-parameters">Parameters:</h5>
+    
 
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
 
+        <th>Type</th>
 
+        
 
+        
 
+        <th class="last">Description</th>
+    </tr>
+    </thead>
 
+    <tbody>
+    
 
+        <tr>
+            
+                <td class="name"><code>req</code></td>
+            
 
-
-
-
-
-
-
-
-
-
-
-
-
+            <td class="type">
+            
+                IncomingMessage
+            
+            </td>
 
             
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>ws</code></td>
+            
+
+            <td class="type">
+            
+                object
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>websocket connection</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         
         </div>
     
+
+    
+        <h3 class="subsection-title">Extends</h3>
+
+        
+
+
+    <ul>
+        <li>http.ServerResponse</li>
+    </ul>
+
 
     
 
@@ -225,74 +251,6 @@ api.app.post(&quot;/api/message&quot;, (context) => {
     
 
     
-        <a name="members">
-            <h2 class="subsection-title">Members</h2>
-        </a>
-
-        
-            
-<h4 class="name" id=".port"><span class="type-signature type-signature-static">(static) </span>port<span class="type-signature"> :int</span></h4>
-
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>port to listen for messsages, can be the same as the main HTTP port</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_ws.js.html">api/ws.js</a>, <a href="api_ws.js.html#line124">line 124</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-        
-
-    
 
 
     
@@ -305,7 +263,7 @@ api.app.post(&quot;/api/message&quot;, (context) => {
 
     
 
-    <h4 class="name" id=".broadcast"><span class="type-signature type-signature-static">(static) </span>broadcast<span class="signature">(options, msg)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id="end"><span class="type-signature"></span>end<span class="signature">(chunk, encoding<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
 
     
 
@@ -315,7 +273,7 @@ api.app.post(&quot;/api/message&quot;, (context) => {
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Send a message to all websockets inside an api process that match the criteria from the options</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Override end to send via web socket</p></li></ul></dd>
     
 
     
@@ -323,343 +281,7 @@ api.app.post(&quot;/api/message&quot;, (context) => {
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_ws.js.html">api/ws.js</a>, <a href="api_ws.js.html#line340">line 340</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                object
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">
-                <h6>Properties</h6>
-                
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>wsid</code></td>
-            
-
-            <td class="type">
-            
-                string | Array.&lt;string>
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>send to the specific websocket(s), can be a list</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>path</code></td>
-            
-
-            <td class="type">
-            
-                RegExp
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>a regexp to match initial Websocket connection url</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>user</code></td>
-            
-
-            <td class="type">
-            
-                object
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>an object to be used for condition against Websocket's user, <a href="module-lib.html#.isMatched">module:lib.isMatched</a> is used for comparison</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>query</code></td>
-            
-
-            <td class="type">
-            
-                object
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>an object to be used for condition against Websocket's query, <a href="module-lib.html#.isMatched">module:lib.isMatched</a> is used for comparison</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>preprocess</code></td>
-            
-
-            <td class="type">
-            
-                function()
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>a function(ws, options, msg) to be called before sending in order to possibly modify the message for this
-particular user, i.e. for permissions checks, if it needs to be modified return a copy otherwise the original will be used, returning
-null will skip this socket</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-            </td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>msg</code></td>
-            
-
-            <td class="type">
-            
-                object | string
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id=".notify"><span class="type-signature type-signature-static">(static) </span>notify<span class="signature">(options, msg, callback<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {boolean}</span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Broadcast a message according to the options, if no websocket queue is defined send
-directly using <a href="module-api_ws.html#.broadcast">module:api/ws.broadcast</a></p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="api_ws.js.html">api/ws.js</a>, <a href="api_ws.js.html#line314">line 314</a>
+        <a href="api_ws.js.html">api/ws.js</a>, <a href="api_ws.js.html#line32">line 32</a>
     </li></ul></dd>
     
 
@@ -731,12 +353,12 @@ directly using <a href="module-api_ws.html#.broadcast">module:api/ws.broadcast</
 
         <tr>
             
-                <td class="name"><code>options</code></td>
+                <td class="name"><code>chunk</code></td>
             
 
             <td class="type">
             
-                object
+                string | Buffer | Uint8Array
             
             </td>
 
@@ -759,40 +381,12 @@ directly using <a href="module-api_ws.html#.broadcast">module:api/ws.broadcast</
 
         <tr>
             
-                <td class="name"><code>msg</code></td>
+                <td class="name"><code>encoding</code></td>
             
 
             <td class="type">
             
-                object | string
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>callback</code></td>
-            
-
-            <td class="type">
-            
-                function()
+                string
             
             </td>
 
@@ -832,33 +426,6 @@ directly using <a href="module-api_ws.html#.broadcast">module:api/ws.broadcast</
 
 
 
-<h5 class="h5-returns">Returns:</h5>
-
-        <table class="params">
-    <thead>
-    <tr>
-        <th>Type</th>
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-        <tr>
-            <td class="type">
-                boolean
-            </td>
-            <td class="description last">
-                
-                <ul>
-<li>false if not sent</li>
-</ul>
-                
-            </td>
-        </tr>
-    </tbody>
-</table>
-
-    
 
 
 
