@@ -7,8 +7,9 @@ describe("ACL tests", () => {
 
     var argv = [
         "-api-acl-allow-admin", "auth, admin, manager, -userallow, -manageronly",
-        "-api-acl-allow-manager", "manager, user, -useronly",
+        "-api-acl-allow-manager", "manager, user, -useronly, -billing",
         "-api-acl-allow-user", "user, userallow",
+        "-api-acl-allow-billing", "billing, manager",
 
         "-api-acl-deny-manager", "useronly",
         "-api-acl-deny-user", "userdeny",
@@ -17,6 +18,7 @@ describe("ACL tests", () => {
 
         "-api-acl-add-admin", "^/admin",
         "-api-acl-add-manager", "^/manager",
+        "-api-acl-add-billing", "^/manager/billing",
         "-api-acl-add-user", "^/user",
         "-api-acl-add-userallow", "^/allow",
         "-api-acl-add-userdeny", "^/userdeny",
@@ -60,6 +62,10 @@ describe("ACL tests", () => {
         { status: 200, path: "/manageronly", roles: "manager" },
         { status: 403, path: "/manageronly", roles: "user" },
         { status: 403, path: "/manageronly", roles: "admin" },
+
+        { status: 200, path: "/manager/billing", roles: "billing" },
+        { status: 200, path: "/manager", roles: "billing" },
+        { status: 403, path: "/manager/billing", roles: "manager" },
 
     ];
 

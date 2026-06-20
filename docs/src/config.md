@@ -1176,7 +1176,11 @@ Type: bool
 See {@link module:middleware/users}
 ###  middleware-users-enable 
 ---- 
-Enable users middlware globally for the given list of endpoints   
+Enable user session middlware globally for the given list of endpoints   
+Type: list   
+###  middleware-users-enable-token 
+---- 
+Enable user API token middlware globally for the given list of endpoints   
 Type: list   
 ###  middleware-users-login-path 
 ---- 

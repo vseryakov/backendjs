@@ -4,5 +4,6 @@ bksh -db-create-tables -app-config tests/bkjs.conf -app-roles ${1:-sqlite},users
 
 bksh -app-config tests/bkjs.conf -app-roles ${1:-sqlite},users -user-add login test name test secret test
 bksh -app-config tests/bkjs.conf -app-roles ${1:-sqlite},users -user-add login admin name admin secret admin roles admin
+bksh -app-config tests/bkjs.conf -app-roles ${1:-sqlite},users -user-add-token type api name api roles api id 00000000000000000000000000000000
 
 nats stream add --subjects 'nats,nats.*' --defaults nats
