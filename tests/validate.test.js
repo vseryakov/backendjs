@@ -201,11 +201,18 @@ describe("Validate checks", function () {
       a: { type: "int", minnum: 1, maxnum: 10 },
       b: { type: "int", maxnum: 10, errmsg: "too big" },
       c: { type: "int", minnum: 1, errmsg: "too small" },
+      n: { type: "number" },
+      f: { type: "real" },
     };
     assert.deepStrictEqual(lib.validate(q, { a: s.a })?.data, { __proto__: null, a: 5 });
 
     assert.strictEqual(lib.validate(q, { b: s.b })?.err?.message, "too big");
     assert.strictEqual(lib.validate(q, { c: s.c })?.err?.message, "too small");
+
+    assert.deepStrictEqual(lib.validate({ a: "5.2" }, { a: s.a })?.data, { __proto__: null, a: 5 });
+    assert.deepStrictEqual(lib.validate({ n: "5.2" }, { n: s.n })?.data, { __proto__: null, n: 5.2 });
+    assert.deepStrictEqual(lib.validate({ f: "5.2" }, { f: s.f })?.data, { __proto__: null, f: 5.2 });
+
   });
 
   it("string max/min and trunc", function () {

@@ -1951,7 +1951,7 @@
             data2 += "?" + new URLSearchParams(data2.data).toString();
           }
         } else {
-          data2 = JSON.stringified(data2);
+          data2 = JSON.stringify(data2);
         }
       }
       this.ws.send(data2);

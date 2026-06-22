@@ -842,6 +842,24 @@ S3 bucket name where to store files uploaded with the File API
 ---- 
 Root directory where to keep files   
 Type: path   
+###  files-max-age 
+---- 
+Max age for files in ms, -1 to disable   
+Type: int   
+###  files-no-cache 
+---- 
+Serve files as non cacheable   
+Type: bool   
+###  files-last-modified 
+---- 
+Serve Last-Modified header to support conditional requests   
+Type: bool   
+Default: true   
+###  files-etag 
+---- 
+Produce weak ETag header for static files   
+Type: bool   
+Default: true   
 ## ipc
 See {@link module:ipc}
 ###  ipc-ping 

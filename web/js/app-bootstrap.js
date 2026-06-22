@@ -1951,7 +1951,7 @@
             data2 += "?" + new URLSearchParams(data2.data).toString();
           }
         } else {
-          data2 = JSON.stringified(data2);
+          data2 = JSON.stringify(data2);
         }
       }
       this.ws.send(data2);
@@ -2303,7 +2303,7 @@
    * button callback is named the same, for example
    *
    * ```javascript
-   *      bootpopup({
+   *      app.bootpopup({
    *        ...
    *        buttons: ["cancel", "Order"],
    *        Order: (data) => {
@@ -2317,7 +2317,7 @@
    * Customizing default button labels can be done via `text_NAME` properties, for example
    *
    * ```javascript
-   * bootpopup({
+   * app.bootpopup({
    *   buttons:["ok","cancel"],
    *   text_ok: "Submit",
    * })
@@ -2436,13 +2436,13 @@
    * ### Alert:
    *
    *   ```javascript
-   *   bootpopup.alert("Hi there");
+   *   app.bootpopup.alert("Hi there");
    *   ```
    *
    * ### Confirm:
    *
    *   ```javascript
-   *   bootpopup.confirm("Do you confirm this message?", (yes) => {
+   *   app.bootpopup.confirm("Do you confirm this message?", (yes) => {
    *     alert(yes);
    *   });
    *   ```
@@ -2450,7 +2450,7 @@
    * ### Prompt:
    *
    * ```javascript
-   *  bootpopup.prompt("Name", (value) => {
+   *  app.bootpopup.prompt("Name", (value) => {
    *    alert(value);
    *  });
    * ```
@@ -2458,7 +2458,7 @@
    * ### Customized prompt:
    *
    * ```javascript
-   *   bootpopup({
+   *   app.bootpopup({
    *      title: "Add image",
    *       content: [
    *           '<p class="lead">Add an image</p>',
@@ -2475,7 +2475,7 @@
    * ### Validation:
    *
    * ```javascript
-   * var popup = bootpopup({
+   * var popup = app.bootpopup({
    *     title: "Add details",
    *     alert: 1,
    *     content: [
@@ -2508,7 +2508,10 @@
     return new Bootpopup(...args);
   }
   /**
-   * Bootpopup class
+   * Bootpopup class, used by global bootpopup function but can be used standalone as well.
+   *
+   * See {@link bootpopup} for examples
+   *
    * @param {BootpopupOptions} ..args
    * @class
    */

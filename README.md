@@ -7,14 +7,24 @@ like api routing, database management, caching, job queues, event processing, an
 Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-start.html) or
 [all docs](https://vseryakov.github.io/backendjs/docs/web/index.html).
 
-
 ---
 
-## **Core Features**
+```js
+const { app, api } = require('backendjs');
+
+app.start({ api: 1 });
+
+api.app.get("/", (context) => { context.send(200, "Hello, World!") });
+
+console.log('Server running on http://%s:%s', api.bind, api.port);
+```
+
+## **Features**
 
 1. **Modular Architecture**
    - The framework is built around a modular design, where each module can be configured via command-line arguments or configuration files.
-   - Essential modules like `redis`, `pg`, `ws`, `croner`, `nodemailer` are bundled in the package inside the dist/ folder to minimize dependency on npm install.
+   - Minimum external dependencies, extensive library of useful utilities, functions and algorithms included like text conversions, crypto wrappers, process management and more
+   - Essential dependencies like `redis`, `pg`, `ws`, `croner`, `nodemailer` are bundled in the package inside the dist/ folder to minimize dependency on npm install.
 
 2. **Database Abstraction**
    - Supports multiple databases: **SQLite, Rqlite, PostgreSQL-wire compatible (PostgreSQL, DSQL, CockroachDB), DynamoDB, Elasticsearch**.
