@@ -10,6 +10,9 @@
  * tracks last processed positions in a DB table, and sends notifications via configured
  * transports (email/http/logger/console/...).
  *
+ * This is optional module not loaded by default, to use must be loaded as `require("backendjs/dist/logwatcher")`
+ *
+ *
  * @module logwatcher
  */
 

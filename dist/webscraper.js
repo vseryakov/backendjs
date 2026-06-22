@@ -13,6 +13,9 @@ const mod =
 /**
  * Scrape the url and extract details using Puppeteer
  *
+ * This is optional module not loaded by default, to use must be loaded as `require("backendjs/dist/webscraper")`
+ *
+ *
  * @module webscraper
  */
 

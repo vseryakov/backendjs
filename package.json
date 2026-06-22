@@ -49,6 +49,7 @@
   "files": [
     "LICENSE",
     "bin",
+    "dist/",
     "lib/",
     "web/",
     "tools/"

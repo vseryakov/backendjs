@@ -15,6 +15,9 @@ const color = {
 
 /**
  * RGB color convertions
+ *
+ * This is optional module not loaded by default, to use must be loaded as `require("backendjs/dist/color")`
+ *
  */
 
 module.exports = color;

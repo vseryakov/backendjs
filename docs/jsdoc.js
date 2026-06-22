@@ -6,7 +6,7 @@ BigInt.prototype.toJSON = function() {
 module.exports = {
     plugins: ['plugins/markdown'],
     source: {
-        include: [ "lib" ],
+        include: [ "lib", "dist/image.js", "dist/color.js", "dist/webscraper.js", "dist/logwatcher.js" ],
         includePattern: ".+\\.js(doc|x)?$",
         excludePattern: "(^|\\/|\\\\)_"
     },

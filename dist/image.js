@@ -28,6 +28,8 @@ const image = {
 
 /**
  * Scaling and composing images with Sharp.js
+ *
+ * This is optional module not loaded by default, to use must be loaded as `require("backendjs/dist/image")`
  */
 
 module.exports = image;
