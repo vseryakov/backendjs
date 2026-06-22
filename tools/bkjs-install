@@ -8,11 +8,11 @@ case "$BKJS_CMD" in
 
   help|install-help)
     echo ""
-    echo "  install-node [-path PATH] [-version V] [-force] [-clean] [-tgz TGZ] - install binary release of the node into ./nodejs or specified path"
+    echo "  install-node [-path PATH] [-version V] [-force] [-clean] [-tgz TGZ] - install binary release of the node into ~/.bkjs or specified path"
     ;;
 
   install-node)
-    path=$(get_arg -path nodejs)
+    path=$(get_arg -path $HOME/.bkjs)
     if [ -n "$(get_flag -force)" -a -f $path/bin/node ]; then
         echo "Uninstalling node from $path ..."
         rm -rf $path/bin/node $path/bin/npm $path/bin/npx $path/lib/node_modules/npm $path/include/node
@@ -47,6 +47,19 @@ case "$BKJS_CMD" in
     ln -sf $BKJS_DIR backendjs
     ln -sf $BKJS_DIR/bin/bkjs .bin/bkjs
     ln -sf $BKJS_DIR/bin/bksh .bin/bksh
+    exit
+    ;;
+
+  install-dist)
+    path=$(get_arg -path $HOME/.bkjs)
+    mods=$path/lib/node_modules
+    cp $mods/croner/dist/croner.cjs dist
+    esbuild --platform=node --bundle --outfile=dist/nodemailer.js $mods/nodemailer/lib/nodemailer.js
+    esbuild --platform=node --bundle --outfile=dist/formidable.js $mods/formidable/dist/index.cjs
+    esbuild --platform=node --bundle --outfile=dist/redis.js $mods/redis/index.js
+    esbuild --platform=node --bundle --outfile=dist/pg.js $mods/pg/lib/index.js
+    esbuild --platform=node --bundle --outfile=dist/ws.js $mods/ws/index.js
+    esbuild --platform=node --bundle --outfile=dist/nats.js $mods/nats/index.js
     exit
     ;;
 

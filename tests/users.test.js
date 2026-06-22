@@ -46,7 +46,9 @@ describe('Users middleware tests', async () => {
         await acheckAccess({ config, tmp });
     });
 
-    it("admin access", async () => {
+    await it("admin access", async () => {
+
+        await api.users.aupdate({ login: "admin", totp_secret: null, mfa_code: null });
 
         const config = [
             { url: "/none", status: 404 },
@@ -75,6 +77,42 @@ describe('Users middleware tests', async () => {
             { get: "/profile", status: 401, noredirects: 1, headers: { authorization } },
             { get: "/admin/1", status: 302, noredirects: 1, headers: { authorization } },
             { get: "/staff/1", status: 302, noredirects: 1, headers: { authorization } },
+        ];
+        const tmp = {};
+
+        await acheckAccess({ config, tmp });
+    });
+
+    await it("TOTP access", async () => {
+
+       const user = api.users.prepareTOTP({ login: "admin" });
+       await api.users.aupdate(user);
+
+        const config = [
+            { url: "/login", status: 401, match: { code: "MFA" }, body: { login: "admin", secret: "admin" } },
+            { url: "/login", status: 200, body: { login: "admin", secret: "admin" },
+              preprocess: (conf, query, next) => {
+                query.body.code = lib.totp(user.totp_secret);
+                next();
+            } },
+        ];
+        const tmp = {};
+
+        await acheckAccess({ config, tmp });
+    });
+
+    await it("MFA access", async () => {
+
+       const user = { login: "admin", totp_secret: null, mfa_code: "1" };
+       await api.users.aupdate(user);
+
+        const config = [
+            { url: "/login", status: 401, match: { code: "MFA" }, body: { login: "admin", secret: "admin" } },
+            { url: "/login", status: 200, body: { login: "admin", secret: "admin" },
+              preprocess: (conf, query, next) => {
+                query.body.code = api.users.prepareMFA(user);
+                api.users.update(user, next);
+            } },
         ];
         const tmp = {};
 

@@ -15,21 +15,14 @@ it is possible to install all optional dependencies for development purposes.
 
 Here is the list of modules for each peer feature:
 
-- pg - PostgreSQL database access
-- redis - for Redis queue and cache driver
 - unix-dgram - for Linux to use local syslog via Unix domain
 - web-push - for Web push notifications
 - sharp - scaling images in uploads using VPS imaging
-- nats - NATS driver for queue and events
-- croner - to support jobs via a cronfile or DB
-- nodemailer - to support sending emails
-- ws - to enable WebSockets routes in the server
-- formidable - to enable multi-part uploads
 
-For example if Redis and croner will be used run inside your project
+For example if Redis will be used run inside your project
 
 ```shell
-npm install --save croner redis
+npm install --save sharp
 ```
 
 ## Configuration

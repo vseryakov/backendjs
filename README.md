@@ -15,6 +15,7 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
 1. **Modular Architecture**
    - The framework is built around a modular design, where each module (e.g., `db`, `cache`, `queue`, `api`) can be loaded independently.
    - Modules can be configured via command-line arguments or configuration files.
+   - Essential modules like redis, pg, ws, croner, nodemailer are bundled in the package inside the dist/ folder to minimize dependency on npm install.
 
 2. **Database Abstraction**
    - Supports multiple databases: **SQLite, Rqlite, PostgreSQL-wire compatible (PostgreSQL, DSQL, CockroachDB), DynamoDB, Elasticsearch**.
@@ -37,7 +38,8 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Includes simple but powerful input validation
 
 6. **AWS Integration**
-   - Supports **AWS services** like **S3, SQS, SNS, DynamoDB, and EC2**.
+   - Supports **AWS services** like **S3, SQS, SNS, DynamoDB, and EC2**, the AWS signatire V4 is implemented internally and the
+   rest of AWS API is used directly, no aws-sdk involved.
    - Automated instance metadata retrieval and configuration.
 
 7. **Logging & Monitoring**
@@ -49,11 +51,11 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
    - Supports **WebPush, FCM (Firebase Cloud Messaging), and APNs (Apple Push Notification Service)**.
 
 9. **Configuration Management**
-   - Supports **remote configuration** via databases or files.
+   - Supports **remote configuration** via databases, AWS Secrets manager  or files.
    - Dynamic reloading of configurations without restarting the server.
 
 10. **Security**
-    - **CSRF protection**, **sessions**, and **rate limiting**.
+    - **CSRF protection**, **cookie sessions**, **API tokens** and **rate limiting**.
     - **JWT (JSON Web Tokens)** support for authentication.
 
 ## **Optional Modules**

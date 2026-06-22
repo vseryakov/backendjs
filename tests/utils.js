@@ -98,7 +98,7 @@ exports.astop = async function(options)
 // - status - status to expect, 200 is default
 // - match - an object to checked against the response, uses lib.isMatched OR it is a function to be called
 //    as match(rc, conf), must return true to pass
-// - preprocess - function(conf, cb) to be called before making request
+// - preprocess - function(conf, query, cb) to be called before making request
 // - postprocess - function(conf, rc, cb) to be called after the request, rc is the response object from the request
 // - noredirects - disable auto redirecting on 302
 // - delay - wait before making next request
@@ -110,8 +110,7 @@ exports.checkAccess = function(options, callback)
         var q = {
             url: conf.get || conf.url || "/",
             method: conf.get ? "GET" : conf.method || "POST",
-            query: conf.get && conf.body,
-            postdata: !conf.get && conf.body,
+            body: conf.body,
             formdata: conf.form,
             headers: conf.headers || {},
             cookies: conf.cookies || {},
@@ -128,7 +127,7 @@ exports.checkAccess = function(options, callback)
         lib.everySeries([
             function(next2) {
                 if (typeof conf.preprocess != "function") return next2();
-                conf.preprocess(conf, next2);
+                conf.preprocess(conf, q, next2);
             },
             function(next2) {
                 logger.debug("checkAccess:", q, "tmp:", tmp);

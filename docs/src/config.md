@@ -228,6 +228,11 @@ Database table to create and use for users
 Max length for user name, login   
 Type: number   
 Default: 140   
+###  api-users-mfa-age 
+---- 
+Age in ms of a MFA code   
+Type: int   
+Default: 600000   
 ## api.ws
 See {@link module:api/ws}
 ###  api-ws-port 
@@ -240,20 +245,20 @@ Bind to this address only for WebSocket, if not specified listen on all interfac
 Default: "0.0.0.0"   
 ###  api-ws-ping 
 ---- 
-How often to ping Websocket connections   
+How often to ping WebSocket connections   
 Type: number   
 Default: 30000   
 ###  api-ws-path 
 ---- 
-Websockets will be accepted only if request matches this pattern   
+WebSockets will be accepted only if request matches this pattern   
 Type: regexp   
 ###  api-ws-origin 
 ---- 
-Websockets will be accepted only if request Origin: header maches the pattern   
+WebSockets will be accepted only if request Origin: header maches the pattern   
 Type: regexp   
 ###  api-ws-queue 
 ---- 
-A queue where to publish messages for websockets, API process will listen for messages and proxy it to all macthing connected websockets    
+A queue where to publish messages for WebSockets, API process will listen for messages and proxy it to all macthing connected WebSockets    
 ## app
 See {@link module:app}
 ###  app-cap-(.+) 

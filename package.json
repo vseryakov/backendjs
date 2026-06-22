@@ -11,29 +11,15 @@
     "url": "https://github.com/vseryakov/backendjs.git"
   },
   "peerDependencies": {
-    "croner": "10.0.1",
-    "formidable": "3.5.4",
-    "nodemailer": "8.0.11",
-    "nats": "2.29.3",
-    "pg": "8.21.0",
-    "redis": "3.1.2",
     "sharp": "0.35.1",
     "unix-dgram": "2.0.7",
     "web-push": "3.6.7",
-    "ws": "8.21.0",
     "@parse/node-apn": "8.1.0"
   },
   "peerDependenciesMeta": {
-    "croner": { "optional": true },
-    "formidable": { "optional": true },
-    "nodemailer": { "optional": true },
-    "nats": { "optional": true },
-    "pg": { "optional": true },
-    "redis": { "optional": true },
     "sharp": { "optional": true },
     "unix-dgram": { "optional": true },
     "web-push": { "optional": true },
-    "ws": { "optional": true },
     "@parse/node-apn": { "optional": true }
   },
   "keywords": [
@@ -71,8 +57,8 @@
     "build": "npm run docs",
     "devbuild": "npm run build",
     "node": "./bkjs install-node",
-    "deps": "PATH=$(pwd)/nodejs/bin:$PATH npm install",
     "test": "node --test tests/**/*.test.js tests/**/*-test.js",
+    "testsh": "bksh -app-config tests/bkjs.conf",
     "docs": "rm -rf docs/web && bksh -help-config > docs/src/config.md && jsdoc -c docs/jsdoc.js"
   }
 }
