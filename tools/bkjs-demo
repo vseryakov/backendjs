@@ -136,6 +136,7 @@ middleware-routing-enable = true
 middleware-routing-/app/*=/index.html
 
 middleware-static-enable = true
+middleware-static-etag = true
 
 # default db pool
 db-sqlite-pool=demo
@@ -184,8 +185,8 @@ cat > README.md <<EOF
 
 6. Run with PostgreSQL
 
-    npm run initdb -- -roles pg
-    npm run start -- -roles pg
+    npm run initdb -- -app-roles pg
+    npm run start -- -app-roles pg
 
 # Authors
 $(whoami)

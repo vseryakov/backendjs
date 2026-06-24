@@ -1195,6 +1195,7 @@ Compress encoding to use for precompressed files: gzip, br, zstd
 ---- 
 Produce weak ETag header for static files   
 Type: bool   
+Default: true   
 ## middleware.users
 See {@link module:middleware/users}
 ###  middleware-users-enable 
