@@ -57,6 +57,8 @@
     "build": "npm run docs",
     "devbuild": "npm run build",
     "node": "./bkjs install-node",
+    "biome": "biome lint --colors=off --max-diagnostics=1000",
+    "eslint": "eslint lib/*",
     "test": "node --test --test-concurrency 1 tests/**/*.test.js tests/**/*-test.js",
     "testsh": "bksh -app-config tests/bkjs.conf",
     "docs": "rm -rf docs/web && bksh -help-config > docs/src/config.md && jsdoc -c docs/jsdoc.js"

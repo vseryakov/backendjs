@@ -12,31 +12,90 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-            "preset": "recommended",
+            "preset": "all",
 			"complexity": {
+                "noUselessReturn": "off",
+                "noUselessSwitchCase": "off",
+                "noImplicitCoercions": "off",
+                "noExcessiveLinesPerFunction": "off",
+                "noExcessiveCognitiveComplexity": "off",
+                "noUselessCatchBinding": "off",
+                "useSimplifiedLogicExpression": "off",
+                "noArguments": "off",
+                "useMaxParams": "off",
+                "noForEach": "off",
                 "noCommaOperator": "off",
                 "useArrowFunction": "off"
 			},
 			"performance": {
-                "noAwaitInLoops": "off"
+                "noAwaitInLoops": "off",
+
+                "useTopLevelRegex": "off"
             },
 			"security": {
+                "noSecrets": "off",
                 "noGlobalEval": "error",
                 "noScriptUrl": "error"
             },
 			"style": {
+                "noUselessElse": "off",
+                "noExcessiveClassesPerFile": "off",
+                "noExcessiveLinesPerFile": "off",
+                "useSpreadOverApply": "off",
+                "useAtIndex": "off",
+                "useForOf": "off",
+                "useShorthandAssign": "off",
+                "noProcessEnv": "off",
+                "useCollapsedElseIf": "off",
+                "noMultiAssign": "off",
+                "noNegationElse": "off",
+                "useObjectSpread": "off",
+                "useFilenamingConvention": "off",
+                "noTernary": "off",
+                "noNestedTernary": "off",
+                "noSubstr": "off",
+                "useCollapsedIf": "off",
+                "useDestructuring": "off",
+                "useNumericSeparators": "off",
+                "noIncrementDecrement": "off",
+                "useExplicitLengthCheck": "off",
+                "useNamingConvention": "off",
+                "useSingleVarDeclarator": "off",
+                "noMagicNumbers": "off",
+                "useDefaultSwitchClause": "off",
+                "noParameterAssign": "off",
+                "useBlockStatements": "off",
+                "noCommonJs": "off",
 				"noContinue": "off",
 				"useTemplate": "off"
 			},
             "correctness": {
-                "noSwitchDeclarations": "off"
+                "noUnresolvedImports": "off",
+                "noProcessGlobal": "off",
+                "useSingleJsDocAsterisk": "off",
+                "useQwikValidLexicalScope": "off",
+                "noGlobalDirnameFilename": "off",
+                "noNodejsModules": "off",
+                "noUndeclaredDependencies": "off",
+                "useImportExtensions": "off",
+                "noSwitchDeclarations": "off",
+                "useParseIntRadix": "off"
             },
 			"suspicious": {
+                "noEmptyBlockStatements": "off",
+                "noBitwiseOperators": "off",
+                "noUnusedExpressions": "off",
+                "noUnnecessaryConditions": "off",
+                "useGuardForIn": "off",
+                "noForIn": "off",
+                "noVar": "off",
                 "noRedundantUseStrict": "off",
                 "noAssignInExpressions": "off",
 				"noConsole": "off",
                 "noControlCharactersInRegex": "off",
-				"noFallthroughSwitchClause": "off"
+				"noFallthroughSwitchClause": "off",
+
+                "noShadow": "off"
 			}
 		}
 	},

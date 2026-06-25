@@ -6,7 +6,7 @@ const DbPool = require('../lib/db/pool');
 describe("Pool tests", async (t) => {
 
     var options = {
-        min: 1, max: 5, idle: 50,
+        min: 1, max: 5, idle: 50, timeout: 100,
         create: function(cb) { cb(null,{ id: Date.now() }) }
     }
     var list = [], pool;
@@ -17,6 +17,11 @@ describe("Pool tests", async (t) => {
             pool.use((err, obj) => { list.push(obj) });
         }
         assert.strictEqual(list.length, 5);
+    });
+
+    await it("try one more to timeout", async () => {
+        const { err } = await pool.ause();
+        assert.ok(err);
     });
 
     await it("release all", async () => {

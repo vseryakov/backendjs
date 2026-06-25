@@ -62,7 +62,6 @@ describe("Logwatcher tests", () => {
         fs.writeFileSync(app.logFile, lines.join("\n"));
 
         logwatcher.run((err, rc) => {
-            console.log(err, rc)
             assert.ifError(err);
             assert.equal(lib.objKeys(rc?.errors).length, 5);
             callback(err);
