@@ -2,6 +2,8 @@
 //  Author: Vlad Seryakov vseryakov@gmail.com
 //  backendjs 2018
 //
+'use strict';
+
 
 const { db, api } = require('backendjs');
 

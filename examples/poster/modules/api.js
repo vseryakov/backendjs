@@ -2,6 +2,8 @@
 //  Author: Vlad Seryakov vseryakov@gmail.com
 //  backendjs 2025
 //
+'use strict';
+
 
 const { api, middleware } = require('backendjs');
 const image = require('backendjs/dist/image');

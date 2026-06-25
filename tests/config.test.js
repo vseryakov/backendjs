@@ -1,7 +1,7 @@
 
 const { describe, it, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { app, logger, db, lib, cache, logwatcher, api } = require("../");
+const { app, logger, db, lib, cache, api } = require("../");
 
 describe("Config tests", async () => {
 
@@ -54,10 +54,6 @@ line2=line2
 
         var argv = [
             "-api-redirect-url", '{ "^a/$": "a", "^b": "b" }',
-            "-logwatcher-send-error", "a",
-            "-logwatcher-files-error", "a",
-            "-logwatcher-files", "b",
-            "-logwatcher-matches-error", "a",
             "-db-sqlite-pool-max", "10",
             "-db-sqlite1-pool", "a",
             "-db-sqlite1-pool-max", "10",
@@ -70,9 +66,9 @@ line2=line2
             "-cache-q", "local://queue?bk-test=10",
             "-cache-q-options", "count:10,interval:100",
             "-cache-q-options-visibilityTimeout", "1000",
-            "-api-cleanup-rules-aaa", "one:1,two:2",
-            "-api-cleanup-rules-aaa", "three:3",
-            "-app-log-inspect-map", "length:222,b:true,s:s%20%3a%2c,ignore:^/test/$",
+            "-db-cleanup-rules-aaa", "one:1,two:2",
+            "-db-cleanup-rules-aaa", "three:3",
+            "-app-log-inspect-options", "length:222,b:true,s:s%20%3a%2c,ignore:^/test/$",
         ];
 
         cache._config = {};
@@ -113,12 +109,7 @@ line2=line2
         app.parseArgs(["-cache-q-options-visibilityTimeout", "99", "-cache-q-options", "count:99"]);
         assert.partialDeepStrictEqual(q.options, { visibilityTimeout: 99, count: 99 })
 
-        assert.strictEqual(logwatcher.send.error, "a")
-        assert.partialDeepStrictEqual(logwatcher.matches.error, ["a"]);
-        assert.partialDeepStrictEqual(logwatcher.files, [{ file: "a", type: "error" }]);
-        assert.partialDeepStrictEqual(logwatcher.files, [{ file: "b" }]);
-
-        assert.partialDeepStrictEqual(api.cleanup.rules.aaa, { one: 1, two: 2, three: 3 })
+        assert.partialDeepStrictEqual(db.cleanup.rules.aaa, { one: 1, two: 2, three: 3 })
 
         assert.partialDeepStrictEqual(app.logInspect, { length: 222, b: true, s: ["s :"], ignore: /test/ })
     })

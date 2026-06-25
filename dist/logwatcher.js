@@ -2,6 +2,7 @@
  *  Author: Vlad Seryakov vseryakov@gmail.com
  *  backendjs 2018
  */
+'use strict';
 
 /**
  * Log files watcher for errors
@@ -209,7 +210,7 @@ logwatcher.prepare = function(options, callback)
     var qopts = { ops: { name: 'begins_with' }, fullscan: 1, count: 100, pool: this.pool };
     db.select(this.table, { name: 'logwatcher:' }, qopts, (err, rows) => {
         if (options?.dryrun) rows = [];
-        for (var i = 0; i < rows.length; i++) {
+        for (let i = 0; i < rows.length; i++) {
             opts.last_pos[rows[i].name.substr(11)] = rows[i].value;
         }
         logger.debug('prepare:', this.name, err, opts);
@@ -237,7 +238,7 @@ logwatcher.match = function(options, lines, log)
     }
 
     lines = lib.isArray(lines, []);
-    for (var i = 0; i < lines.length; i++) {
+    for (let i = 0; i < lines.length; i++) {
         // Skip local or global ignore list first
         if (log && lib.testRegexp(lines[i], log.ignore) || matchObj(options.ignore, lines[i])) {
             if (!options.errors.ignore) options.errors.ignore = "";
@@ -252,11 +253,11 @@ logwatcher.match = function(options, lines, log)
         }
 
         // Match both global or local filters
-        var chan = log && lib.testRegexp(lines[i], log.match) ? (log.type || "all") : "";
+        let chan = log && lib.testRegexp(lines[i], log.match) ? (log.type || "all") : "";
         if (!chan) chan = matchObj(options.match, lines[i]);
         if (chan) {
             // Skip if already in the log
-            var tag = matchObj(options.once, lines[i]);
+            const tag = matchObj(options.once, lines[i]);
             if (tag && lib.objIncr(options.seen, tag) > 1) chan = null;
         }
         logger.debug("match:", this.name, chan || "none", log, "LINE:", lines[i]);

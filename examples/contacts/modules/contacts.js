@@ -1,3 +1,5 @@
+'use strict';
+
 
 const { db, api } = require('backendjs');
 

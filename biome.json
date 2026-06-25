@@ -1,10 +1,9 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
 	"files": {
         "includes": [
             "lib/**",
-            "!!**/node_modules/**",
-            "!!**/dist/**"
+            "!!**/node_modules/",
+            "!!**/dist/"
         ]
     },
 	"formatter": {

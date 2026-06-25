@@ -29,7 +29,7 @@ describe('Access tests', async () => {
                 next();
             } },
             { get: "/", status: 304, headers: {},
-              preprocess: (conf, next) => {
+              preprocess: (conf, rc, next) => {
                 conf.headers["if-none-match"] = etag;
                 next();
             } },

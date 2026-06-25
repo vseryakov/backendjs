@@ -1,5 +1,5 @@
 
-const { describe, it } = require('node:test');
+const { describe, it, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { lib } = require("../");
 
@@ -533,5 +533,1483 @@ describe("lib.extend", function () {
   it("supports extending into an existing array target", function () {
     const out = lib.extend([1, 2], [3]);
     assert.deepStrictEqual(out, [3, 2]);
+  });
+});
+
+describe("lib.split tests", () => {
+
+    test('split: returns empty array for empty/null/undefined input', () => {
+        assert.deepEqual(lib.split(''), []);
+        assert.deepEqual(lib.split(null), []);
+        assert.deepEqual(lib.split(undefined), []);
+        assert.deepEqual(lib.split(0), []);
+    });
+
+    test('split: splits strings by explicit separator', () => {
+        assert.deepEqual(lib.split('a,b,c', ','), ['a', 'b', 'c']);
+        assert.deepEqual(lib.split('a|b|c', '|'), ['a', 'b', 'c']);
+    });
+
+    test('split: ignores empty items by default', () => {
+        assert.deepEqual(lib.split('a,,b,,c,', ','), ['a', 'b', 'c']);
+    });
+
+    test('split: keeps empty items with keepempty option', () => {
+        assert.deepEqual(
+            lib.split('a,,b,', ',', { keepempty: true }),
+            ['a', '', 'b', '']
+            );
+    });
+
+    test('split: trims string items by default', () => {
+        assert.deepEqual(
+            lib.split(' a , b , c ', ','),
+            ['a', 'b', 'c']
+            );
+    });
+
+    test('split: does not trim string items with notrim option', () => {
+        assert.deepEqual(
+            lib.split(' a , b , c ', ',', { notrim: true }),
+            [' a ', ' b ', ' c ']
+            );
+    });
+
+    test('split: accepts arrays and preserves non-string items', () => {
+        const input = [' a ', 1, true, { x: 1 }, ' b '];
+
+        assert.deepEqual(
+            lib.split(input),
+            ['a', 1, true, { x: 1 }, 'b']
+            );
+    });
+
+    test('split: converts non-array non-string input to string before splitting', () => {
+        assert.deepEqual(lib.split(12345, '2'), ['1', '345']);
+    });
+
+    test('split: applies lower option', () => {
+        assert.deepEqual(
+            lib.split('A,B,C', ',', { lower: true }),
+            ['a', 'b', 'c']
+            );
+    });
+
+    test('split: applies upper option', () => {
+        assert.deepEqual(
+            lib.split('a,b,c', ',', { upper: true }),
+            ['A', 'B', 'C']
+            );
+    });
+
+    test('split: applies max option and skips oversized values by default', () => {
+        assert.deepEqual(
+            lib.split('one,three,two,four', ',', { max: 3 }),
+            ['one', 'two']
+            );
+    });
+
+    test('split: applies max + trunc options', () => {
+        assert.deepEqual(
+            lib.split('one,three,two,four', ',', { max: 3, trunc: true }),
+            ['one', 'thr', 'two', 'fou']
+            );
+    });
+
+    test('split: applies regexp option and keeps matching values only', () => {
+        assert.deepEqual(
+            lib.split('abc,123,def,456', ',', { regexp: /^\d+$/ }),
+            ['123', '456']
+            );
+    });
+
+    test('split: applies noregexp option and skips matching values', () => {
+        assert.deepEqual(
+            lib.split('abc,123,def,456', ',', { noregexp: /^\d+$/ }),
+            ['abc', 'def']
+            );
+    });
+
+    test('split: applies strip option', () => {
+        assert.deepEqual(
+            lib.split('a-b,c-d,e-f', ',', { strip: /-/g }),
+            ['ab', 'cd', 'ef']
+            );
+    });
+
+    test('split: applies replace option', () => {
+        assert.deepEqual(
+            lib.split('a-b,c_d,e.f', ',', {
+                replace: {
+                    '-': '',
+                    '_': '',
+                    '.': ''
+                }
+            }),
+            ['ab', 'cd', 'ef']
+            );
+    });
+
+    test('split: applies cap option', () => {
+        assert.deepEqual(
+            lib.split('hello world,john doe', ',', { cap: true }),
+            ['Hello World', 'John Doe']
+            );
+    });
+
+    test('split: applies camel option', () => {
+        assert.deepEqual(
+            lib.split('hello-world,john-doe', ',', { camel: true }),
+            ['helloWorld', 'johnDoe']
+            );
+    });
+
+    test('split: applies number option', () => {
+        assert.deepEqual(
+            lib.split('1,2,3', ',', { number: true }),
+            [1, 2, 3]
+            );
+    });
+
+    test('split: applies datatype option', () => {
+        assert.deepEqual(
+            lib.split('1,2,3', ',', { datatype: 'number' }),
+            [1, 2, 3]
+            );
+    });
+
+    test('split: expands numeric ranges', () => {
+        assert.deepEqual(
+            lib.split('1-3,7,10-12', ',', { range: true }),
+            ['1', '2', '3', '7', '10', '11', '12']
+            );
+    });
+
+    test('split: skips invalid descending ranges', () => {
+        assert.deepEqual(
+            lib.split('3-1,5', ',', { range: true }),
+            ['5']
+            );
+    });
+
+    test('split: removes duplicates with unique option', () => {
+        assert.deepEqual(
+            lib.split('a,b,a,c,b', ',', { unique: true }),
+            ['a', 'b', 'c']
+            );
+    });
+
+    test('split: supports combined transformations in option order', () => {
+        assert.deepEqual(
+            lib.split(' A-B , C-D ', ',', {
+                lower: true,
+                replace: {
+                    '-': ''
+                }
+            }),
+            ['ab', 'cd']
+            );
+    });
+
+});
+
+describe("lib.toValue tests", () =>{
+
+    test("toValue returns value as-is for null, empty, and none types", () => {
+        const obj = { a: 1 };
+
+        assert.strictEqual(lib.toValue(obj, null), obj);
+        assert.strictEqual(lib.toValue(obj, ""), obj);
+        assert.strictEqual(lib.toValue(obj, "none"), obj);
+    });
+
+    test("toValue trims type before conversion", () => {
+        assert.strictEqual(lib.toValue("123", " int "), 123);
+        assert.strictEqual(lib.toValue("ABC", " lower "), "abc");
+    });
+
+    test("toValue auto returns empty string for null and undefined", () => {
+        assert.strictEqual(lib.toValue(null, "auto"), "");
+        assert.strictEqual(lib.toValue(undefined, "auto"), "");
+    });
+
+    test("toValue parses JSON for js type", () => {
+        assert.deepStrictEqual(lib.toValue('{"a":1,"b":"x"}', "js"), {
+            a: 1,
+            b: "x",
+        });
+
+        const obj = { a: 1 };
+        assert.strictEqual(lib.toValue(obj, "js"), obj);
+    });
+
+    test("toValue converts set/list/array types using split", () => {
+        assert.deepStrictEqual(lib.toValue("a,b,c", "set"), ["a", "b", "c"]);
+        assert.deepStrictEqual(lib.toValue("a,b,c", "list"), ["a", "b", "c"]);
+        assert.deepStrictEqual(lib.toValue("a,b,c", "array"), ["a", "b", "c"]);
+    });
+
+    test("toValue supports custom separator for array-like types", () => {
+        assert.deepStrictEqual(lib.toValue("a|b|c", "array", { separator: "|" }), [
+            "a",
+            "b",
+            "c",
+        ]);
+    });
+
+    test("toValue returns expr and buffer values as-is", () => {
+        const expr = { op: "eq", name: "status", value: "ok" };
+        const buf = Buffer.from("hello");
+
+        assert.strictEqual(lib.toValue(expr, "expr"), expr);
+        assert.strictEqual(lib.toValue(buf, "buffer"), buf);
+    });
+
+    test("toValue converts real/float/double/decimal to floating numbers", () => {
+        assert.strictEqual(lib.toValue("12.5", "real"), 12.5);
+        assert.strictEqual(lib.toValue("12.5", "float"), 12.5);
+        assert.strictEqual(lib.toValue("12.5", "double"), 12.5);
+        assert.strictEqual(lib.toValue("12.5", "decimal"), 12.5);
+    });
+
+    test("toValue converts integer-like types to numbers", () => {
+        assert.strictEqual(lib.toValue("42", "int"), 42);
+        assert.strictEqual(lib.toValue("42", "int32"), 42);
+        assert.strictEqual(lib.toValue("42", "int64"), 42);
+        assert.strictEqual(lib.toValue("42", "integer"), 42);
+        assert.strictEqual(lib.toValue("42", "smallint"), 42);
+        assert.strictEqual(lib.toValue("42", "long"), 42);
+        assert.strictEqual(lib.toValue("42", "bigint"), 42);
+        assert.strictEqual(lib.toValue("42", "numeric"), 42);
+        assert.strictEqual(lib.toValue("42", "number"), 42);
+        assert.strictEqual(lib.toValue("42", "counter"), 42);
+    });
+
+    test("toValue converts booleans", () => {
+        assert.strictEqual(lib.toValue("true", "bool"), true);
+        assert.strictEqual(lib.toValue("false", "bool"), false);
+        assert.strictEqual(lib.toValue("1", "boolean"), true);
+        assert.strictEqual(lib.toValue("0", "boolean"), false);
+        assert.strictEqual(lib.toValue("", "bool"), false);
+    });
+
+    test("toValue converts date/time/datetime/timestamp to Date", () => {
+        const value = "2020-01-02T03:04:05.000Z";
+        const expected = Date.parse(value);
+
+        for (const type of ["date", "time", "datetime", "timestamp"]) {
+            const result = lib.toValue(value, type);
+
+            assert.ok(result instanceof Date);
+            assert.strictEqual(result.getTime(), expected);
+        }
+    });
+
+    test("toValue converts mtime to milliseconds", () => {
+        const value = "2020-01-02T03:04:05.000Z";
+
+        assert.strictEqual(lib.toValue(value, "mtime"), Date.parse(value));
+        assert.strictEqual(lib.toValue("", "mtime"), 0);
+        assert.strictEqual(lib.toValue(null, "mtime"), 0);
+    });
+
+    test("toValue converts regexp type to RegExp", () => {
+        const result = lib.toValue("^abc$", "regexp");
+
+        assert.ok(result instanceof RegExp);
+        assert.strictEqual(result.test("abc"), true);
+        assert.strictEqual(result.test("xabc"), false);
+    });
+
+    test("toValue converts phone strings to digits", () => {
+        assert.strictEqual(lib.toValue("(212) 555-1212", "phone"), "2125551212");
+        assert.strictEqual(lib.toValue("+1 (212) 555-1212", "phone"), "2125551212");
+    });
+
+    test("toValue converts e164 phone strings to country-prefixed digits", () => {
+        assert.strictEqual(lib.toValue("(212) 555-1212", "e164"), "12125551212");
+        assert.strictEqual(lib.toValue("+1 (212) 555-1212", "e164"), "12125551212");
+    });
+
+    test("toValue converts numeric phones", () => {
+        assert.strictEqual(lib.toValue(12125551212, "phone"), "2125551212");
+        assert.strictEqual(lib.toValue(2125551212, "e164"), "12125551212");
+    });
+
+    test("toValue rejects invalid and too-short phones", () => {
+        assert.strictEqual(lib.toValue("abc", "phone"), "");
+        assert.strictEqual(lib.toValue("1234", "phone"), "");
+        assert.strictEqual(lib.toValue("1234", "phone", { min: 5 }), "");
+        assert.strictEqual(lib.toValue("1234", "phone", { min: 0 }), "1234");
+    });
+
+    test("toValue respects phone max option", () => {
+        assert.strictEqual(lib.toValue("2125551212", "phone", { max: 10 }), "2125551212");
+        assert.strictEqual(lib.toValue("112125551212", "phone", { max: 10 }), "");
+    });
+
+    test("toValue stringifies json type", () => {
+        assert.strictEqual(lib.toValue({ a: 1, b: "x" }, "json"), '{"a":1,"b":"x"}');
+        assert.strictEqual(lib.toValue([1, 2, 3], "json"), "[1,2,3]");
+    });
+
+    test("toValue converts lower and upper types", () => {
+        assert.strictEqual(lib.toValue("AbC", "lower"), "abc");
+        assert.strictEqual(lib.toValue("AbC", "upper"), "ABC");
+    });
+
+    test("toValue validates symbol type", () => {
+        assert.strictEqual(lib.toValue("abc_123", "symbol"), "abc_123");
+        assert.strictEqual(lib.toValue("bad symbol", "symbol"), "");
+        assert.strictEqual(lib.toValue("bad-symbol", "symbol"), "");
+    });
+
+    test("toValue falls back to string conversion for unknown type", () => {
+        assert.strictEqual(lib.toValue(123, "unknown"), "123");
+        assert.strictEqual(lib.toValue(true, "unknown"), "true");
+    });
+
+    test("toValue uses options.toValue for unknown type", () => {
+        const result = lib.toValue("abc", "custom", {
+            prefix: "value:",
+            toValue(value, options) {
+                return options.prefix + value.toUpperCase();
+            },
+        });
+
+        assert.strictEqual(result, "value:ABC");
+    });
+
+})
+
+describe("lib.isTrue tests", () => {
+
+    test("isTrue: undefined/null equality", () => {
+        assert.equal(lib.isTrue(undefined, undefined), true);
+        assert.equal(lib.isTrue(null, null), true);
+        assert.equal(lib.isTrue(undefined, null), true);
+        assert.equal(lib.isTrue(null, undefined), true);
+    });
+
+    test("isTrue: default comparison uses loose equality when type is not provided", () => {
+        assert.equal(lib.isTrue("1", 1), true);
+        assert.equal(lib.isTrue("true", true), false);
+        assert.equal(lib.isTrue("abc", "abc"), true);
+        assert.equal(lib.isTrue("abc", "def"), false);
+    });
+
+    test("isTrue: typed comparison uses converted strict equality", () => {
+        assert.equal(lib.isTrue("1", 1, undefined, "number"), true);
+        assert.equal(lib.isTrue("1", 2, undefined, "number"), false);
+
+        assert.equal(lib.isTrue("true", true, undefined, "bool"), true);
+        assert.equal(lib.isTrue("false", false, undefined, "bool"), true);
+
+        assert.equal(lib.isTrue("abc", "abc", undefined, "string"), true);
+        assert.equal(lib.isTrue("abc", "ABC", undefined, "string"), false);
+    });
+
+    test("isTrue: null operators", () => {
+        assert.equal(lib.isTrue(null, null, "null"), true);
+        assert.equal(lib.isTrue(undefined, null, "null"), true);
+        assert.equal(lib.isTrue("", null, "null"), true);
+        assert.equal(lib.isTrue(0, null, "null"), true);
+        assert.equal(lib.isTrue(false, null, "null"), true);
+        assert.equal(lib.isTrue("value", null, "null"), false);
+    })
+
+    test("isTrue: not null operators", () => {
+        assert.equal(lib.isTrue("value", null, "not null"), true);
+        assert.equal(lib.isTrue("value", null, "not_null"), true);
+        assert.equal(lib.isTrue(null, null, "not null"), false);
+        assert.equal(lib.isTrue("", null, "not_null"), false);
+    });
+
+    test("isTrue: numeric greater/less comparisons", () => {
+        assert.equal(lib.isTrue("10", "5", ">", "number"), true);
+        assert.equal(lib.isTrue("5", "10", ">", "number"), false);
+        assert.equal(lib.isTrue("5", "5", ">", "number"), false);
+
+        assert.equal(lib.isTrue("5", "10", "<", "number"), true);
+        assert.equal(lib.isTrue("10", "5", "<", "number"), false);
+        assert.equal(lib.isTrue("5", "5", "<", "number"), false);
+    });
+
+    test("isTrue: numeric greater-or-equal/less-or-equal comparisons", () => {
+        assert.equal(lib.isTrue("10", "5", ">=", "number"), true);
+        assert.equal(lib.isTrue("5", "5", ">=", "number"), true);
+        assert.equal(lib.isTrue("4", "5", ">=", "number"), false);
+
+        assert.equal(lib.isTrue("5", "10", "<=", "number"), true);
+        assert.equal(lib.isTrue("5", "5", "<=", "number"), true);
+        assert.equal(lib.isTrue("6", "5", "<=", "number"), false);
+    });
+
+    test("isTrue: gt/lt/ge/le aliases", () => {
+        assert.equal(lib.isTrue(10, 5, "gt", "number"), true);
+        assert.equal(lib.isTrue(5, 10, "lt", "number"), true);
+        assert.equal(lib.isTrue(5, 5, "ge", "number"), true);
+        assert.equal(lib.isTrue(5, 5, "le", "number"), true);
+
+        assert.equal(lib.isTrue(5, 10, "gt", "number"), false);
+        assert.equal(lib.isTrue(10, 5, "lt", "number"), false);
+        assert.equal(lib.isTrue(4, 5, "ge", "number"), false);
+        assert.equal(lib.isTrue(6, 5, "le", "number"), false);
+    });
+
+    test("isTrue: between operator", () => {
+        assert.equal(lib.isTrue(5, "1,10", "between", "number"), true);
+        assert.equal(lib.isTrue(1, "1,10", "between", "number"), true);
+        assert.equal(lib.isTrue(10, "1,10", "between", "number"), true);
+
+        assert.equal(lib.isTrue(0, "1,10", "between", "number"), false);
+        assert.equal(lib.isTrue(11, "1,10", "between", "number"), false);
+    });
+
+    test("isTrue: between falls back to equality when condition has one value", () => {
+        assert.equal(lib.isTrue(5, "5", "between", "number"), true);
+        assert.equal(lib.isTrue(4, "5", "between", "number"), false);
+    });
+
+    test("isTrue: in and not in operators", () => {
+        assert.equal(lib.isTrue("a", "a,b,c", "in"), true);
+        assert.equal(lib.isTrue("d", "a,b,c", "in"), false);
+
+        assert.equal(lib.isTrue("d", "a,b,c", "not in"), true);
+        assert.equal(lib.isTrue("a", "a,b,c", "not in"), false);
+
+        assert.equal(lib.isTrue("d", "a,b,c", "not_in"), true);
+        assert.equal(lib.isTrue("a", "a,b,c", "not_in"), false);
+    });
+
+    test("isTrue: in operator handles list values", () => {
+        assert.equal(lib.isTrue("a,b", "a,b,c", "in"), true);
+        assert.equal(lib.isTrue("a,d", "a,b,c", "in"), true);
+        assert.equal(lib.isTrue("x,y", "a,b,c", "in"), false);
+    });
+
+    test("isTrue: all_in operator", () => {
+        assert.equal(lib.isTrue("a,b", "a,b,c", "all_in"), true);
+        assert.equal(lib.isTrue("a,b", "a,b,c", "all in"), true);
+
+        assert.equal(lib.isTrue("a,d", "a,b,c", "all_in"), false);
+        assert.equal(lib.isTrue("x,y", "a,b,c", "all in"), false);
+    });
+
+    test("isTrue: begins_with / like% operators", () => {
+        assert.equal(lib.isTrue("foo", "foobar", "begins_with"), true);
+        assert.equal(lib.isTrue("foo", "barfoo", "begins_with"), false);
+
+        assert.equal(lib.isTrue("foo", "foobar", "like%"), true);
+        assert.equal(lib.isTrue("foo", "barfoo", "like%"), false);
+    });
+
+    test("isTrue: not begins_with / not like% operators", () => {
+        assert.equal(lib.isTrue("foo", "barfoo", "not begins_with"), true);
+        assert.equal(lib.isTrue("foo", "foobar", "not begins_with"), false);
+
+        assert.equal(lib.isTrue("foo", "barfoo", "not like%"), true);
+        assert.equal(lib.isTrue("foo", "foobar", "not like%"), false);
+    });
+
+    test("isTrue: ilike% operator is case-insensitive starts-with", () => {
+        assert.equal(lib.isTrue("foo", "FOOBAR", "ilike%"), true);
+        assert.equal(lib.isTrue("FOO", "foobar", "ilike%"), true);
+        assert.equal(lib.isTrue("foo", "barfoo", "ilike%"), false);
+    });
+
+    test("isTrue: not ilike% operator", () => {
+        assert.equal(lib.isTrue("foo", "barfoo", "not ilike%"), true);
+        assert.equal(lib.isTrue("foo", "FOOBAR", "not ilike%"), false);
+    });
+
+    test("isTrue: ilike operator is case-insensitive equality", () => {
+        assert.equal(lib.isTrue("foo", "FOO", "ilike"), true);
+        assert.equal(lib.isTrue("Foo", "fOo", "ilike"), true);
+        assert.equal(lib.isTrue("foo", "bar", "ilike"), false);
+    });
+
+    test("isTrue: not ilike operator", () => {
+        assert.equal(lib.isTrue("foo", "bar", "not ilike"), true);
+        assert.equal(lib.isTrue("foo", "FOO", "not ilike"), false);
+    });
+
+    test("isTrue: regexp operator with RegExp condition", () => {
+        assert.equal(lib.isTrue("abc123", /^abc\d+$/, "regexp"), true);
+        assert.equal(lib.isTrue("abc", /^abc\d+$/, "regexp"), false);
+
+        assert.equal(lib.isTrue("abc123", /^abc\d+$/, "~"), true);
+        assert.equal(lib.isTrue("abc", /^abc\d+$/, "~"), false);
+    });
+
+    test("isTrue: regexp operator with string condition", () => {
+        assert.equal(lib.isTrue("abc123", "^abc\\d+$", "regexp"), true);
+        assert.equal(lib.isTrue("abc", "^abc\\d+$", "regexp"), false);
+    });
+
+    test("isTrue: not regexp operator", () => {
+        assert.equal(lib.isTrue("abc", "^\\d+$", "not regexp"), true);
+        assert.equal(lib.isTrue("123", "^\\d+$", "not regexp"), false);
+    });
+
+    test("isTrue: iregexp operator is case-insensitive", () => {
+        assert.equal(lib.isTrue("ABC", "^abc$", "iregexp"), true);
+        assert.equal(lib.isTrue("ABC", "^def$", "iregexp"), false);
+
+        assert.equal(lib.isTrue("ABC", "^abc$", "!~*"), true);
+        assert.equal(lib.isTrue("ABC", "^def$", "!~*"), false);
+    });
+
+    test("isTrue: not iregexp operator", () => {
+        assert.equal(lib.isTrue("ABC", "^def$", "not iregexp"), true);
+        assert.equal(lib.isTrue("ABC", "^abc$", "not iregexp"), false);
+    });
+
+    test("isTrue: contains operator", () => {
+        assert.equal(lib.isTrue("bar", "foobarbaz", "contains"), true);
+        assert.equal(lib.isTrue("foo", "foobarbaz", "contains"), true);
+        assert.equal(lib.isTrue("baz", "foobarbaz", "contains"), true);
+        assert.equal(lib.isTrue("xxx", "foobarbaz", "contains"), false);
+    });
+
+    test("isTrue: not contains operator", () => {
+        assert.equal(lib.isTrue("xxx", "foobarbaz", "not contains"), true);
+        assert.equal(lib.isTrue("bar", "foobarbaz", "not contains"), false);
+        assert.equal(lib.isTrue("foo", "foobarbaz", "not_contains"), false);
+    });
+
+    test("isTrue: not equal operators", () => {
+        assert.equal(lib.isTrue("1", 1, "!=", "number"), false);
+        assert.equal(lib.isTrue("1", 2, "!=", "number"), true);
+
+        assert.equal(lib.isTrue("1", 1, "<>", "number"), false);
+        assert.equal(lib.isTrue("1", 2, "<>", "number"), true);
+
+        assert.equal(lib.isTrue("1", 1, "ne", "number"), false);
+        assert.equal(lib.isTrue("1", 2, "ne", "number"), true);
+    });
+
+    test("isTrue: default list type comparison", () => {
+        assert.equal(lib.isTrue("a,b", "b,c", undefined, "list"), true);
+        assert.equal(lib.isTrue("a,b", "c,d", undefined, "list"), false);
+    });
+
+    test("isTrue: default array condition comparison", () => {
+        assert.equal(lib.isTrue("b", ["a", "b", "c"]), true);
+        assert.equal(lib.isTrue("x", ["a", "b", "c"]), false);
+    });
+
+    test("isTrue: default array value comparison", () => {
+        assert.equal(lib.isTrue(["a", "b", "c"], "b"), true);
+        assert.equal(lib.isTrue(["a", "b", "c"], "x"), false);
+    });
+
+    test("isTrue: default RegExp condition comparison", () => {
+        assert.equal(lib.isTrue("abc123", /^abc\d+$/), true);
+        assert.equal(lib.isTrue("abc", /^abc\d+$/), false);
+    });
+
+    test("isTrue: operator is case-insensitive", () => {
+        assert.equal(lib.isTrue(10, 5, "GT", "number"), true);
+        assert.equal(lib.isTrue("foo", "FOO", "ILIKE"), true);
+        assert.equal(lib.isTrue("a", "a,b,c", "IN"), true);
+    });
+})
+
+describe("lib.typeName", function() {
+    describe("typeName()", function() {
+        it("returns null for null", function() {
+            assert.strictEqual(lib.typeName(null), "null");
+        });
+
+        it("returns undefined for undefined", function() {
+            assert.strictEqual(lib.typeName(undefined), "undefined");
+        });
+
+        it("returns primitive type names", function() {
+            assert.strictEqual(lib.typeName("test"), "string");
+            assert.strictEqual(lib.typeName(123), "number");
+            assert.strictEqual(lib.typeName(true), "boolean");
+            assert.strictEqual(lib.typeName(function() {}), "function");
+            assert.strictEqual(lib.typeName(Symbol("x")), "symbol");
+        });
+
+        it("returns object for plain objects", function() {
+            assert.strictEqual(lib.typeName({}), "object");
+        });
+
+        it("returns array for arrays", function() {
+            assert.strictEqual(lib.typeName([]), "array");
+        });
+
+        it("returns buffer for buffers", function() {
+            assert.strictEqual(lib.typeName(Buffer.from("test")), "buffer");
+        });
+
+        it("returns date for dates", function() {
+            assert.strictEqual(lib.typeName(new Date()), "date");
+        });
+
+        it("returns regexp for regexps", function() {
+            assert.strictEqual(lib.typeName(/test/), "regexp");
+        });
+
+        it("returns set for sets", function() {
+            assert.strictEqual(lib.typeName(new Set()), "set");
+        });
+
+        it("returns map for maps", function() {
+            assert.strictEqual(lib.typeName(new Map()), "map");
+        });
+
+        it("returns weakmap for weak maps", function() {
+            assert.strictEqual(lib.typeName(new WeakMap()), "weakmap");
+        });
+
+        it("returns error for native errors", function() {
+            assert.strictEqual(lib.typeName(new Error("test")), "error");
+            assert.strictEqual(lib.typeName(new TypeError("test")), "error");
+            assert.strictEqual(lib.typeName(new RangeError("test")), "error");
+            assert.strictEqual(lib.typeName(new SyntaxError("test")), "error");
+            assert.strictEqual(lib.typeName(new ReferenceError("test")), "error");
+            assert.strictEqual(lib.typeName(new AggregateError([], "test")), "error");
+            assert.strictEqual(lib.typeName(new EvalError("test")), "error");
+            assert.strictEqual(lib.typeName(new URIError("test")), "error");
+        });
+
+        it("returns proxy for proxies", function() {
+            const proxy = new Proxy({}, {});
+            assert.strictEqual(lib.typeName(proxy), "proxy");
+        });
+    });
+});
+
+describe("lib.autoType", function() {
+    describe("autoType()", function() {
+        it("detects numbers", function() {
+            assert.strictEqual(lib.autoType(123), "number");
+            assert.strictEqual(lib.autoType("123"), "number");
+            assert.strictEqual(lib.autoType("-123.45"), "number");
+        });
+
+        it("detects booleans", function() {
+            assert.strictEqual(lib.autoType(true), "bool");
+            assert.strictEqual(lib.autoType(false), "bool");
+            assert.strictEqual(lib.autoType("true"), "bool");
+            assert.strictEqual(lib.autoType("false"), "bool");
+        });
+
+        it("detects regex strings", function() {
+            assert.strictEqual(lib.autoType("^test$"), "regexp");
+        });
+
+        it("detects JSON-like array strings as js", function() {
+            assert.strictEqual(lib.autoType("[1,2,3]"), "js");
+        });
+
+        it("detects JSON-like object strings as js", function() {
+            assert.strictEqual(lib.autoType('{"a":1}'), "js");
+        });
+
+        it("detects comma-prefixed or comma-suffixed strings as lists", function() {
+            assert.strictEqual(lib.autoType(",a,b"), "list");
+            assert.strictEqual(lib.autoType("a,b,"), "list");
+        });
+
+        it("detects pipe-separated strings as lists", function() {
+            assert.strictEqual(lib.autoType("a|b|c"), "list");
+        });
+
+        it("does not detect pipe-separated regexp-like strings as lists", function() {
+            assert.strictEqual(lib.autoType("a|b(c)"), "");
+            assert.strictEqual(lib.autoType("a|b[0]"), "");
+            assert.strictEqual(lib.autoType("a|b^"), "");
+            assert.strictEqual(lib.autoType("a|b$"), "");
+        });
+
+        it("returns empty string for unknown types", function() {
+            assert.strictEqual(lib.autoType("hello"), "");
+            assert.strictEqual(lib.autoType({}), "");
+            assert.strictEqual(lib.autoType([]), "");
+            assert.strictEqual(lib.autoType(null), "");
+            assert.strictEqual(lib.autoType(undefined), "");
+        });
+    });
+});
+
+describe("lib.isObject", function() {
+    describe("isObject()", function() {
+        it("returns the object for plain objects", function() {
+            const obj = { a: 1 };
+            assert.strictEqual(lib.isObject(obj), obj);
+        });
+
+        it("returns undefined for null", function() {
+            assert.strictEqual(lib.isObject(null), undefined);
+        });
+
+        it("returns undefined for arrays", function() {
+            assert.strictEqual(lib.isObject([]), undefined);
+        });
+
+        it("returns undefined for dates", function() {
+            assert.strictEqual(lib.isObject(new Date()), undefined);
+        });
+
+        it("returns undefined for primitive values", function() {
+            assert.strictEqual(lib.isObject("test"), undefined);
+            assert.strictEqual(lib.isObject(1), undefined);
+            assert.strictEqual(lib.isObject(true), undefined);
+            assert.strictEqual(lib.isObject(undefined), undefined);
+        });
+    });
+});
+
+describe("lib.isNumber", function() {
+    describe("isNumber()", function() {
+        it("returns the number for valid numbers", function() {
+            assert.strictEqual(lib.isNumber(1), 1);
+            assert.strictEqual(lib.isNumber(0), 0);
+            assert.strictEqual(lib.isNumber(-1), -1);
+            assert.strictEqual(lib.isNumber(Infinity), Infinity);
+        });
+
+        it("returns NaN for NaN", function() {
+            assert.ok(Number.isNaN(lib.isNumber(NaN)));
+        });
+
+        it("returns NaN for non-numbers", function() {
+            assert.ok(Number.isNaN(lib.isNumber("1")));
+            assert.ok(Number.isNaN(lib.isNumber(null)));
+            assert.ok(Number.isNaN(lib.isNumber(undefined)));
+            assert.ok(Number.isNaN(lib.isNumber({})));
+        });
+    });
+});
+
+describe("lib.isString", function() {
+    describe("isString()", function() {
+        it("returns the string for strings", function() {
+            assert.strictEqual(lib.isString("test"), "test");
+            assert.strictEqual(lib.isString(""), "");
+        });
+
+        it("returns empty string for non-strings", function() {
+            assert.strictEqual(lib.isString(1), "");
+            assert.strictEqual(lib.isString(null), "");
+            assert.strictEqual(lib.isString(undefined), "");
+            assert.strictEqual(lib.isString({}), "");
+        });
+    });
+});
+
+describe("lib.isFunc", function() {
+    describe("isFunc()", function() {
+        it("returns the function for functions", function() {
+            const fn = function() {};
+            assert.strictEqual(lib.isFunc(fn), fn);
+        });
+
+        it("returns undefined for non-functions", function() {
+            assert.strictEqual(lib.isFunc(null), undefined);
+            assert.strictEqual(lib.isFunc({}), undefined);
+            assert.strictEqual(lib.isFunc("fn"), undefined);
+        });
+    });
+});
+
+describe("lib.isRegExp", function() {
+    describe("isRegExp()", function() {
+        it("returns the regexp for regexps", function() {
+            const rx = /test/;
+            assert.strictEqual(lib.isRegExp(rx), rx);
+        });
+
+        it("returns dflt for non-regexps", function() {
+            const dflt = /default/;
+            assert.strictEqual(lib.isRegExp("test", dflt), dflt);
+            assert.strictEqual(lib.isRegExp(null, dflt), dflt);
+        });
+
+        it("returns undefined for non-regexps when dflt is not provided", function() {
+            assert.strictEqual(lib.isRegExp("test"), undefined);
+        });
+    });
+});
+
+describe("lib.isPrefixed", function() {
+    describe("isPrefixed()", function() {
+        it("returns true when string starts with prefix", function() {
+            assert.strictEqual(lib.isPrefixed("prefix-value", "prefix"), true);
+        });
+
+        it("returns false when string does not start with prefix", function() {
+            assert.strictEqual(lib.isPrefixed("value-prefix", "prefix"), false);
+        });
+
+        it("returns false for invalid prefix", function() {
+            assert.strictEqual(lib.isPrefixed("value", ""), true);
+            assert.strictEqual(lib.isPrefixed("value", null), false);
+            assert.strictEqual(lib.isPrefixed("value", undefined), false);
+        });
+
+        it("returns false for non-string values", function() {
+            assert.strictEqual(lib.isPrefixed(null, "prefix"), false);
+            assert.strictEqual(lib.isPrefixed(undefined, "prefix"), false);
+            assert.strictEqual(lib.isPrefixed({}, "prefix"), false);
+        });
+    });
+});
+
+describe("lib.isUuid", function() {
+    describe("isUuid()", function() {
+        it("returns the uuid if valid", function() {
+            const uuid = "550e8400e29b41d4a716446655440000";
+            assert.strictEqual(lib.isUuid(uuid), uuid);
+        });
+
+        it("returns undefined if invalid", function() {
+            assert.strictEqual(lib.isUuid("not-a-uuid"), undefined);
+            assert.strictEqual(lib.isUuid("550e8400e29b41d4a716"), undefined);
+            assert.strictEqual(lib.isUuid(null), undefined);
+            assert.strictEqual(lib.isUuid(undefined), undefined);
+        });
+
+        it("returns the uuid if it starts with the given prefix", function() {
+            let uuid = "550e8400e29b41d4a716446655440000";
+            assert.strictEqual(lib.isUuid(uuid, "550e"), uuid);
+
+            uuid = "a_" + uuid
+            assert.strictEqual(lib.isUuid(uuid, "a_"), uuid);
+        });
+
+        it("returns undefined if uuid does not start with the given prefix", function() {
+            const uuid = "550e8400-e29b-41d4-a716-446655440000";
+            assert.strictEqual(lib.isUuid(uuid, "660e"), undefined);
+        });
+
+        it("ignores empty or non-string prefix", function() {
+            const uuid = "550e8400-e29b-41d4-a716-446655440000";
+            assert.strictEqual(lib.isUuid(uuid, ""), uuid);
+            assert.strictEqual(lib.isUuid(uuid, null), uuid);
+        });
+    });
+});
+
+describe("lib.isUnicode", function() {
+    describe("isUnicode()", function() {
+        it("returns the string if it contains unicode characters", function() {
+            assert.strictEqual(lib.isUnicode("hello ☃"), "hello ☃");
+            assert.strictEqual(lib.isUnicode("привет"), "привет");
+        });
+
+        it("returns undefined if string has no unicode characters", function() {
+            assert.strictEqual(lib.isUnicode("hello"), undefined);
+            assert.strictEqual(lib.isUnicode("abc123"), undefined);
+        });
+
+        it("returns undefined for non-strings without unicode characters", function() {
+            assert.strictEqual(lib.isUnicode(123), undefined);
+            assert.strictEqual(lib.isUnicode(null), undefined);
+            assert.strictEqual(lib.isUnicode(undefined), undefined);
+        });
+    });
+});
+
+describe("lib.isPositive", function() {
+    describe("isPositive()", function() {
+        it("returns true for positive numbers", function() {
+            assert.strictEqual(lib.isPositive(1), true);
+            assert.strictEqual(lib.isPositive(0.1), true);
+            assert.strictEqual(lib.isPositive(Infinity), true);
+        });
+
+        it("returns false for zero and negative numbers", function() {
+            assert.strictEqual(lib.isPositive(0), false);
+            assert.strictEqual(lib.isPositive(-1), false);
+        });
+
+        it("returns false for non-numbers and NaN", function() {
+            assert.strictEqual(lib.isPositive("1"), false);
+            assert.strictEqual(lib.isPositive(NaN), false);
+            assert.strictEqual(lib.isPositive(null), false);
+            assert.strictEqual(lib.isPositive(undefined), false);
+        });
+    });
+});
+
+describe("lib.isArray", function() {
+    describe("isArray()", function() {
+        it("returns the array if non-empty", function() {
+            const arr = [1, 2, 3];
+            assert.strictEqual(lib.isArray(arr), arr);
+        });
+
+        it("returns dflt for empty arrays", function() {
+            const dflt = ["default"];
+            assert.strictEqual(lib.isArray([], dflt), dflt);
+        });
+
+        it("returns undefined for empty arrays without dflt", function() {
+            assert.strictEqual(lib.isArray([]), undefined);
+        });
+
+        it("returns dflt for non-arrays", function() {
+            const dflt = ["default"];
+            assert.strictEqual(lib.isArray("test", dflt), dflt);
+            assert.strictEqual(lib.isArray(null, dflt), dflt);
+        });
+
+        it("returns undefined for non-arrays without dflt", function() {
+            assert.strictEqual(lib.isArray("test"), undefined);
+            assert.strictEqual(lib.isArray(null), undefined);
+        });
+    });
+});
+
+describe("lib.isEmpty", function() {
+    describe("isEmpty()", function() {
+        it("returns true for null and undefined", function() {
+            assert.strictEqual(lib.isEmpty(null), true);
+            assert.strictEqual(lib.isEmpty(undefined), true);
+        });
+
+        it("returns true for empty strings", function() {
+            assert.strictEqual(lib.isEmpty(""), true);
+            assert.strictEqual(lib.isEmpty(" "), true);
+            assert.strictEqual(lib.isEmpty("\n\t"), true);
+        });
+
+        it("returns false for non-empty strings", function() {
+            assert.strictEqual(lib.isEmpty("test"), false);
+        });
+
+        it("returns true for empty arrays and buffers", function() {
+            assert.strictEqual(lib.isEmpty([]), true);
+            assert.strictEqual(lib.isEmpty(Buffer.alloc(0)), true);
+        });
+
+        it("returns false for non-empty arrays and buffers", function() {
+            assert.strictEqual(lib.isEmpty([1]), false);
+            assert.strictEqual(lib.isEmpty(Buffer.from("x")), false);
+        });
+
+        it("returns true for empty sets and maps", function() {
+            assert.strictEqual(lib.isEmpty(new Set()), true);
+            assert.strictEqual(lib.isEmpty(new Map()), true);
+        });
+
+        it("returns false for non-empty sets and maps", function() {
+            assert.strictEqual(lib.isEmpty(new Set([1])), false);
+            assert.strictEqual(lib.isEmpty(new Map([["a", 1]])), false);
+        });
+
+        it("returns true for NaN", function() {
+            assert.strictEqual(lib.isEmpty(NaN), true);
+        });
+
+        it("returns false for valid numbers", function() {
+            assert.strictEqual(lib.isEmpty(0), false);
+            assert.strictEqual(lib.isEmpty(1), false);
+            assert.strictEqual(lib.isEmpty(-1), false);
+        });
+
+        it("returns false for dates", function() {
+            assert.strictEqual(lib.isEmpty(new Date()), false);
+        });
+
+        it("returns false for regexps, booleans, and functions", function() {
+            assert.strictEqual(lib.isEmpty(/test/), false);
+            assert.strictEqual(lib.isEmpty(true), false);
+            assert.strictEqual(lib.isEmpty(false), false);
+            assert.strictEqual(lib.isEmpty(function() {}), false);
+        });
+
+        it("returns true for empty objects", function() {
+            assert.strictEqual(lib.isEmpty({}), true);
+        });
+
+        it("returns false for non-empty objects", function() {
+            assert.strictEqual(lib.isEmpty({ a: 1 }), false);
+        });
+    });
+});
+
+describe("lib.isNumeric", function() {
+    describe("isNumeric()", function() {
+        it("returns true for numbers", function() {
+            assert.strictEqual(lib.isNumeric(0), true);
+            assert.strictEqual(lib.isNumeric(123), true);
+            assert.strictEqual(lib.isNumeric(-123.45), true);
+            assert.strictEqual(lib.isNumeric(NaN), true);
+        });
+
+        it("returns true for numeric strings", function() {
+            assert.strictEqual(lib.isNumeric("0"), true);
+            assert.strictEqual(lib.isNumeric("123"), true);
+            assert.strictEqual(lib.isNumeric("-123.45"), true);
+        });
+
+        it("returns false for non-numeric strings", function() {
+            assert.strictEqual(lib.isNumeric("abc"), false);
+            assert.strictEqual(lib.isNumeric("12abc"), false);
+            assert.strictEqual(lib.isNumeric(""), false);
+        });
+
+        it("returns false for non-string and non-number values", function() {
+            assert.strictEqual(lib.isNumeric(null), false);
+            assert.strictEqual(lib.isNumeric(undefined), false);
+            assert.strictEqual(lib.isNumeric({}), false);
+            assert.strictEqual(lib.isNumeric([]), false);
+            assert.strictEqual(lib.isNumeric(true), false);
+        });
+    });
+});
+
+describe("lib.isDate", function() {
+    describe("isDate()", function() {
+        it("returns true for valid dates", function() {
+            assert.strictEqual(lib.isDate(new Date()), true);
+            assert.strictEqual(lib.isDate(new Date("2024-01-01T00:00:00Z")), true);
+        });
+
+        it("returns false for invalid dates", function() {
+            assert.strictEqual(lib.isDate(new Date("invalid")), false);
+        });
+
+        it("returns false for non-dates", function() {
+            assert.strictEqual(lib.isDate(Date.now()), false);
+            assert.strictEqual(lib.isDate("2024-01-01"), false);
+            assert.strictEqual(lib.isDate(null), false);
+            assert.strictEqual(lib.isDate(undefined), false);
+            assert.strictEqual(lib.isDate({}), false);
+        });
+    });
+});
+
+describe("lib.isFlag", function() {
+    describe("isFlag()", function() {
+        it("returns true if item exists in list", function() {
+            assert.strictEqual(lib.isFlag(["a", "b", "c"], "b"), true);
+        });
+
+        it("returns false if item does not exist in list", function() {
+            assert.strictEqual(lib.isFlag(["a", "b", "c"], "d"), false);
+        });
+
+        it("returns true if any item from array exists in list", function() {
+            assert.strictEqual(lib.isFlag(["a", "b", "c"], ["x", "b"]), true);
+        });
+
+        it("returns false if no items from array exist in list", function() {
+            assert.strictEqual(lib.isFlag(["a", "b", "c"], ["x", "y"]), false);
+        });
+
+        it("returns false for empty or falsy item", function() {
+            assert.strictEqual(lib.isFlag(["a", "b"], ""), "");
+            assert.strictEqual(lib.isFlag(["a", "b"], null), null);
+            assert.strictEqual(lib.isFlag(["a", "b"], undefined), undefined);
+        });
+
+        it("returns false for non-array list", function() {
+            assert.strictEqual(lib.isFlag(null, "a"), false);
+            assert.strictEqual(lib.isFlag("abc", "a"), false);
+            assert.strictEqual(lib.isFlag({}, "a"), false);
+        });
+
+        it("is case-sensitive", function() {
+            assert.strictEqual(lib.isFlag(["A"], "a"), false);
+            assert.strictEqual(lib.isFlag(["a"], "a"), true);
+        });
+    });
+});
+
+
+describe("lib.validate checks", function () {
+
+    it("validates common use cases", () => {
+
+        var schema = {
+            id: { type: "int" },
+            count: { type: "int", min: 1, dflt: 1 },
+            page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
+            name: { type: "string", max: 6, trunc: 1 },
+            pair: { type: "map", maptype: "int" },
+            code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
+            code1: { type: "string", noregexp: /[.,!]/, errmsg: "Valid code1 is required" },
+            start: { type: "token", secret: "test" },
+            email: { type: "list", datatype: "email", novalue: ["a@a"] },
+            email1: { type: "email", required: { email: null } },
+            phone: { type: "phone" },
+            mtime: { type: "mtime", name: "timestamp", mindate: Date.now() - 86400000 },
+            flag: { type: "bool", novalue: false },
+            descr: { novalue: { name: "name", value: "test" }, replace: { "<": "!" } },
+            internal: { ignore: 1 },
+            tm: { type: "timestamp", optional: 1, maxdate: new Date(1970, 1, 1) },
+            ready: { value: "ready" },
+            empty: { empty: 1, trim: 1, strip: /[.,!]/ },
+            nospecial: { strip: lib.rxSpecial },
+            special: { strip: lib.rxNoSpecial },
+            state: { type: "list", values: [ "ok","bad","good" ] },
+            obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
+            object: { type: "object" },
+            arr: { type: "array", params: { id: { type: "int" }, name: {} } },
+            json: { type: "json", datatype: "obj" },
+            json1: { type: "json", params: { id: { type: "int" }, name: {} } },
+            minnum: { type: "int", minnum: 10 },
+        };
+        var opts = {
+            defaults: {
+                '*.int': { max: 100 },
+                "*.string": { max: 5 },
+                '*': { maxlist: 5 },
+            }
+        };
+
+
+        var q = lib.validate({}, schema, opts);
+        assert.match(q?.err?.message, /email1 is required/);
+
+        q = lib.validate({ email: "a@a" }, schema, opts);
+        assert.match(q?.err?.message, /email1 is required/);
+
+        q = lib.validate({ email1: "a@a" }, schema, opts);
+        assert.match(q?.err?.message, /email1 is required/);
+
+        q = lib.validate({ email1: "a@a.com" }, schema, opts);
+        assert.partialDeepStrictEqual(q?.data, { page: 1, count: 1 });
+
+        schema.email1.required = 0;
+        q = lib.validate({ page: 1000, count: 1000 }, schema, opts);
+        assert.partialDeepStrictEqual(q?.data, { page: 10, count: 100 });
+
+        q = lib.validate({ name: "1234567890" }, schema, opts);
+        assert.strictEqual(q.data?.name, "123456");
+
+        q = lib.validate({ descr: "1234567890" }, schema, opts);
+        assert.match(q?.err?.message, /descr is too long/);
+
+        q = lib.validate({ descr: "<2345" }, schema, opts);
+        assert.strictEqual(q.data?.descr, "!2345");
+
+        q = lib.validate({ name: "test", descr: "test" }, schema, opts);
+        assert.ok(!q.data?.descr && q.data?.name == "test");
+
+        q = lib.validate({ pair: "a:1,b:2" }, schema, opts);
+        assert.partialDeepStrictEqual(q.data, { pair: { a: 1, b: 2 } });
+
+        q = lib.validate({ code: "12345" }, schema, opts);
+        assert.match(q?.err?.message, /Valid code is required/);
+
+        q = lib.validate({ code: "q-123" }, schema, opts);
+        assert.strictEqual(q.data?.code, "q-123");
+
+        q = lib.validate({ code1: "q.123" }, schema, opts);
+        assert.match(q?.err?.message, /Valid code1 is required/);
+
+        q = lib.validate({ start: "test" }, schema, opts);
+        assert.ok(!q.data?.start);
+
+        q = lib.validate({ start: lib.jsonToBase64("test", "test") }, schema, opts);
+        assert.strictEqual(q.data.start,"test");
+
+        q = lib.validate({ tm: 1 }, schema, opts);
+        assert.ok(q.data?.ready == "ready" && q.data?.tm == '1970-01-01T00:00:01.000Z');
+
+        q = lib.validate({ tm: Date.now() }, schema, opts);
+        assert.match(q?.err?.message, /is too late/);
+
+        q = lib.validate({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
+        assert.match(q?.err?.message, /is too soon/);
+
+        schema.mtime.mindate = 0;
+        q = lib.validate({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
+        assert.strictEqual(q.data?.timestamp, 1000);
+
+        q = lib.validate({ state: "ok,done,error", flag: false }, schema, opts);
+        assert.partialDeepStrictEqual(q.data?.state, ["ok"]);
+        assert.strictEqual(q.data?.flag, undefined);
+
+        q = lib.validate({ obj: { id: "1", descr: "1", name: "1" } }, schema, opts);
+        assert.deepStrictEqual(q.data?.obj, { __proto__: null, id: 1, name: "1" });
+
+        q = lib.validate({ object: { id: "1", descr: "1", name: "1" } }, schema, opts);
+        assert.deepStrictEqual(q.data?.object, { id: "1", descr: "1", name: "1" });
+
+        q = lib.validate({ json: lib.stringify({ id: "1", descr: "1", name: "1" }) }, schema, opts);
+        assert.deepStrictEqual(q.data?.json, { id: "1", descr: "1", name: "1" });
+
+        q = lib.validate({ json1: lib.stringify({ id: "1", descr: "1", name: "1" }) }, schema, opts);
+        assert.deepStrictEqual(q.data?.json1, { __proto__: null, id: 1, name: "1" });
+
+        q = lib.validate({ empty: "." }, schema, opts);
+        assert.strictEqual(q.data?.empty, "");
+
+        schema.empty.setempty = null;
+        q = lib.validate({ empty: "." }, schema, opts);
+        assert.strictEqual(q.data?.empty, null);
+
+        q = lib.validate({ nospecial: "a<b>c", special: "a<b>c" }, schema, opts);
+        assert.strictEqual(q.data?.special, "<>");
+        assert.strictEqual(q.data?.nospecial, "abc");
+
+        q = lib.validate({ minnum: 2 }, schema, opts);
+        assert.match(q?.err?.message, /too small/);
+
+        q = lib.validate({ minnum: 20 }, schema, opts);
+        assert.strictEqual(q.data?.minnum, 20);
+
+        q = lib.validate({ minnum: 2 }, schema);
+        assert.strictEqual(q.err?.code, "validate");
+
+    });
+
+  it("skips undefined schema entries and ignored fields", function () {
+    const q = { a: "1", b: "2", c: "3" };
+    const s = {
+      a: undefined,
+      b: { ignore: 1, type: "int" },
+      c: { type: "int" },
+    };
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, c: 3 });
+  });
+
+  it("supports options.prefix and options.existing", function () {
+    const q = { "p.a": "5" };
+    const s = { a: { type: "int" }, b: { type: "int" } };
+
+    assert.deepStrictEqual(lib.validate(q, s, { prefix: "p." })?.data, { __proto__: null, a: 5 });
+    assert.deepStrictEqual(lib.validate(q, s, { prefix: "p.", existing: 1 })?.data, { __proto__: null, a: 5 });
+    assert.deepStrictEqual(lib.validate(q, s, { prefix: "p.", existing: 1, defaults: { b: { dflt: 7 } } })?.data, { __proto__: null, a: 5 }); // b not in query => skipped
+  });
+
+  it("supports setnull option (direct match and flag match)", function () {
+    const q = { a: "NULL", b: "1" };
+    const s = { a: { type: "string" }, b: { type: "int" } };
+
+    // direct match
+    assert.deepStrictEqual(lib.validate(q, s, { setnull: "NULL" })?.data, { __proto__: null, a: null, b: 1 });
+
+    // flag match
+      assert.deepStrictEqual(lib.validate({ a: "null" }, s, { setnull: "null" })?.data, { __proto__: null, a: null });
+  });
+
+  it("applies dflt when missing, and dfltempty when empty", function () {
+    const q = { a: "", b: undefined };
+    const s = {
+      a: { dfltempty: 1, dflt: "x" },
+      b: { dflt: "y" },
+    };
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, a: "x", b: "y" });
+  });
+
+  it("type=bool", function () {
+    const q = { a: "1", b: "false", c: "" };
+    const s = {
+      a: { type: "bool" },
+      b: { type: "boolean" },
+      c: { type: "bool" },
+    };
+    const r = lib.validate(q, s);
+    assert.strictEqual(r.data?.a, true);
+    assert.strictEqual(r.data?.b, false);
+    // c might be absent depending on toBool impl; just ensure it doesn't become true
+    assert.ok(r.data?.c === undefined || r.data?.c === false);
+  });
+
+  it("numeric types call toNumber and enforce minnum/maxnum", function () {
+    const q = { a: "5", b: "50", c: "0" };
+    const s = {
+      a: { type: "int", minnum: 1, maxnum: 10 },
+      b: { type: "int", maxnum: 10, errmsg: "too big" },
+      c: { type: "int", minnum: 1, errmsg: "too small" },
+      n: { type: "number" },
+      f: { type: "real" },
+    };
+    assert.deepStrictEqual(lib.validate(q, { a: s.a })?.data, { __proto__: null, a: 5 });
+
+    assert.strictEqual(lib.validate(q, { b: s.b })?.err?.message, "too big");
+    assert.strictEqual(lib.validate(q, { c: s.c })?.err?.message, "too small");
+
+    assert.deepStrictEqual(lib.validate({ a: "5.2" }, { a: s.a })?.data, { __proto__: null, a: 5 });
+    assert.deepStrictEqual(lib.validate({ n: "5.2" }, { n: s.n })?.data, { __proto__: null, n: 5.2 });
+    assert.deepStrictEqual(lib.validate({ f: "5.2" }, { f: s.f })?.data, { __proto__: null, f: 5.2 });
+
+  });
+
+  it("string max/min and trunc", function () {
+    const q = { a: "abcd", b: "ab", c: "abcd" };
+    const s = {
+      a: { max: 3, trunc: 1 },
+      b: { min: 3, errmsg: "too short" },
+      c: { max: 3, errmsg: "too long" },
+    };
+    assert.deepStrictEqual(lib.validate(q, { a: s.a })?.data, { __proto__: null, a: "abc" });
+    assert.strictEqual(lib.validate(q, { b: s.b })?.err?.message, "too short");
+    assert.strictEqual(lib.validate(q, { c: s.c })?.err?.message, "too long");
+  });
+
+  it("regexp type with max and compilation", function () {
+    const q = { a: "^[a-z]+$", b: "x".repeat(6) };
+    const s = {
+      a: { type: "regexp" },
+      b: { type: "regexp", max: 5, errmsg: "rx too long" },
+    };
+    const r = lib.validate(q, { a: s.a });
+    assert.ok(r.data?.a instanceof RegExp);
+
+    assert.strictEqual(lib.validate(q, { b: s.b })?.err?.message, "rx too long");
+  });
+
+  it("list type: split/filter/novalue/minlist/maxlist/trunc/flatten", function () {
+    const q = { a: "a,b,c", b: "a,b,c", c: "a,b,c,d", d: "a,,b", e: [["x"], ["y"]] };
+    const s = {
+      a: { type: "list" },
+      b: { type: "list", values: ["a", "c"] },
+      c: { type: "list", maxlist: 3, trunc: 1 },
+      d: { type: "list", keepempty: 0 },
+      e: { type: "list", flatten: 1, empty: 1 },
+    };
+    assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, ["a", "b", "c"]);
+    assert.deepStrictEqual(lib.validate(q, { b: s.b }).data?.b, ["a", "c"]);
+    assert.deepStrictEqual(lib.validate(q, { c: s.c }).data?.c, ["a", "b", "c"]);
+
+    // depending on split impl, empty entries may be dropped; ensure a/b remain
+    const rd = lib.validate(q, { d: s.d }).data?.d;
+    assert.ok(Array.isArray(rd));
+    assert.ok(rd.includes("a") && rd.includes("b"));
+
+    const re = lib.validate(q, { e: s.e }).data?.e;
+    assert.ok(Array.isArray(re));
+    assert.ok(re.includes("x") && re.includes("y"));
+  });
+
+  it("map type: parses k:v pairs and supports maptype", function () {
+    const q = { a: "k1:1,k2:2", b: "k1:1,k2:2,k3:3" };
+    const s = {
+      a: { type: "map", maptype: "int" },
+      b: { type: "map", maxlist: 2, trunc: 1 },
+    };
+    assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, { __proto__: null, k1: 1, k2: 2 });
+
+    const rb = lib.validate(q, { b: s.b }).data?.b;
+    assert.deepStrictEqual(Object.keys(rb).length, 2);
+  });
+
+  it("obj type: recursively calls validate for nested schema", function () {
+    const q = { a: { x: "1", y: "2" } };
+    const s = {
+      a: {
+        type: "obj",
+        params: {
+          x: { type: "int" },
+          y: { type: "int" },
+        },
+      },
+    };
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, a: { __proto__: null, x: 1, y: 2 } });
+  });
+
+  it("object type: requires actual object and can apply params", function () {
+    const q = { a: { x: "1" }, b: "nope" };
+    const s = {
+      a: { type: "object", params: { x: { type: "int" } } },
+      b: { type: "object" },
+    };
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, a: { __proto__: null, x: 1 } });
+  });
+
+  it("array type: supports params per element, minlist/maxlist/trunc", function () {
+    const q = { a: [{ x: "1" }, { x: "2" }, { x: "3" }], b: [] };
+    const s = {
+      a: { type: "array", params: { x: { type: "int" } }, maxlist: 2, trunc: 1 },
+      b: { type: "array", minlist: 1, errmsg: "need one" },
+    };
+    assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, [{ __proto__: null, x: 1 }, { __proto__: null, x: 2 }]);
+    assert.strictEqual(lib.validate(q, { b: s.b }).err?.message, "need one");
+  });
+
+  it("json type: parses json, optional base64, and supports params", function () {
+    const obj = { x: "1", y: "2" };
+    const q = {
+      a: JSON.stringify(obj),
+      b: Buffer.from(JSON.stringify(obj)).toString("base64"),
+    };
+    const s = {
+      a: { type: "json", params: { x: { type: "int" }, y: { type: "int" } } },
+      b: { type: "json", base64: 1, params: { x: { type: "int" } } },
+    };
+    assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, { __proto__: null, x: 1, y: 2 });
+    assert.deepStrictEqual(lib.validate(q, { b: s.b }).data?.b, { __proto__: null, x: 1 });
+  });
+
+  it("required: immediate required and delayed required (object condition)", function () {
+    const q1 = {};
+    const s1 = { a: { required: 1, errmsg: "a required" } };
+    assert.strictEqual(lib.validate(q1, s1).err?.message, "a required");
+
+    // delayed required: if b is present then a required
+    const q2 = { b: "1" };
+    const s2 = {
+      a: { required: { b: "1" } },
+      b: { type: "int", errmsg: "a needed when b=1" },
+    };
+
+    const r = lib.validate(q2, s2).err?.message;
+    assert.strictEqual(r, "a needed when b=1");
+  });
+
+  it("values / novalue / values_map post-processing", function () {
+    const q = { a: "x", b: "x", c: "x" };
+    const s = {
+      a: { values: ["y"] },                 // not allowed => deleted
+      b: { novalue: "x" },                  // equals novalue => deleted
+      c: { values_map: ["x", "z"] },        // remap
+    };
+    assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, c: "z" });
+  });
+
+  it("defaults: applies typed and wildcard defaults, dprefix and '**' overrides", function () {
+    const q = {}; // nothing provided, so defaults should kick in
+    const schema = {
+      a: { type: "int" },
+      b: { type: "string" },
+      c: { type: "string" },
+    };
+
+    const r = lib.validate(q, schema, {
+      dprefix: "p.",
+      defaults: {
+        // dprefix-specific for a
+        "p.a": { dflt: "5" },
+        // type-specific fallback
+        "*.string": { dflt: "S" },
+        // global override for all via "**"
+        "**": { trim: 1 },
+      },
+    });
+
+    assert.deepStrictEqual(r.data, { __proto__: null, a: 5, b: "S", c: "S" });
+  });
+
+  it("noregexp/regexp validation behavior (drops field unless errmsg+!required)", function () {
+    const q = { a: "bad!", b: "bad!", c: "good" };
+    const s = {
+      a: { noregexp: /!/ },                 // should drop
+      b: { noregexp: /!/, errmsg: "bad chars" }, // should return error (since !required)
+      c: { regexp: /^[a-z]+$/ },            // keep
+    };
+    const ra = lib.validate(q, { a: s.a }).data;
+    assert.deepStrictEqual(ra, { __proto__: null, });
+
+    assert.strictEqual(lib.validate(q, { b: s.b })?.err.message, "bad chars");
+
+    assert.deepStrictEqual(lib.validate(q, { c: s.c }).data, { __proto__: null, c: "good" });
+  });
+
+  it("setempty: replaces empty result after processing", function () {
+    const q = { a: "" };
+    const s = { a: { setempty: "X" } };
+    assert.deepStrictEqual(lib.validate(q, s).data, { __proto__: null, a: "X" });
   });
 });

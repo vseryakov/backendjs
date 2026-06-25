@@ -2,7 +2,8 @@
 const fs = require("fs");
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { app, lib, logwatcher } = require("../");
+const { app, lib } = require("../");
+const logwatcher = require("../dist/logwatcher")
 const { init } = require("./utils");
 
 describe("Logwatcher tests", () => {
@@ -54,12 +55,14 @@ describe("Logwatcher tests", () => {
             ];
 
         logwatcher.files = logwatcher.files?.filter((x) => (x.name));
+        app.addModule(logwatcher);
 
         app.parseArgs(argv);
         fs.writeFileSync(app.errFile, lines.join("\n"));
         fs.writeFileSync(app.logFile, lines.join("\n"));
 
         logwatcher.run((err, rc) => {
+            console.log(err, rc)
             assert.ifError(err);
             assert.equal(lib.objKeys(rc?.errors).length, 5);
             callback(err);

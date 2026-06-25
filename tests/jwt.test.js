@@ -31,13 +31,14 @@ it('Token Expired', async () => {
 
 it('HS512 sign & verify & decode', async () => {
     var payload = { message: 'hello world' }
-    const tok = await JWT.sign(payload, secret, "HS512")
+    const alg = 'HS512'
+    const tok = await JWT.sign(payload, secret, alg)
     const expected =
       'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJtZXNzYWdlIjoiaGVsbG8gd29ybGQifQ.RqVLgExB_GXF1-9T-k4V4HjFmiuQKTEjVSiZd-YL0WERIlywZ7PfzAuTZSJU4gg8cscGamQa030cieEWrYcywg'
 
     assert.strictEqual(tok.token, expected)
 
-    const rc = await JWT.verify(tok.token, secret)
+    const rc = await JWT.verify(tok.token, secret, { alg })
 
     assert.partialDeepStrictEqual(rc, {
         header: {
@@ -58,10 +59,10 @@ it('EdDSA sign & verify w/ CryptoKey', async () => {
 
     const tok = await JWT.sign(payload, keyPair.privateKey, alg)
 
-    const rc1 = await JWT.verify(tok.token, keyPair.privateKey, alg)
+    const rc1 = await JWT.verify(tok.token, keyPair.privateKey, { alg })
     assert.partialDeepStrictEqual(rc1, { payload })
 
-    const rc2 = await JWT.verify(tok.token, keyPair.publicKey, alg)
+    const rc2 = await JWT.verify(tok.token, keyPair.publicKey, { alg })
     assert.partialDeepStrictEqual(rc2, { payload })
 })
 
@@ -86,13 +87,13 @@ it(`PS384 sign & verify`, async () => {
 
     const tok = await JWT.sign(payload, pemPrivateKey, alg)
 
-    const rc1 = await JWT.verify(tok.token, pemPublicKey, alg)
+    const rc1 = await JWT.verify(tok.token, pemPublicKey, { alg })
     assert.partialDeepStrictEqual(rc1, { payload })
 
-    const rc2 = await JWT.verify(tok.token, pemPrivateKey, alg)
+    const rc2 = await JWT.verify(tok.token, pemPrivateKey, { alg })
     assert.partialDeepStrictEqual(rc2, { payload })
 
-    const rc3 = await JWT.verify(tok.token, jwkPublicKey, alg)
+    const rc3 = await JWT.verify(tok.token, jwkPublicKey, { alg })
     assert.partialDeepStrictEqual(rc3, { payload })
 
 })
