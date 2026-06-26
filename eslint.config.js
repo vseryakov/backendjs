@@ -187,7 +187,7 @@ module.exports = defineConfig([
             "no-unneeded-ternary": "off",
             "no-unused-expressions": "off",
 
-            "no-unused-vars": ["error", { "args": "after-used", "caughtErrors": "none" }],
+            "no-unused-vars": ["error", { "args": "none", "caughtErrors": "none" }],
 
             "no-use-before-define": "off",
             "no-useless-call": "off",

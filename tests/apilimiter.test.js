@@ -28,7 +28,8 @@ describe('API limiter tests', async () => {
             { url: "/api/6" },
             { url: "/api/7", status: 429, delay: 100 },
             { get: "/api/8" },
-            { get: "/api/9", status: 429 },
+            { get: "/api/9", status: 429, delay: 100 },
+            { url: "/api/10", status: 429, streaming: 1, postdata: { timeout: 1 } },
         ];
 
         await acheckAccess({ config });

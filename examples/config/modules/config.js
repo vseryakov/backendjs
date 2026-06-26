@@ -59,7 +59,7 @@ module.exports = {
 // Middleware for checking user roles
 function perms(context, next)
 {
-    if (!lib.isFlag(module.exports.roles, context.user?.roles)) {
+    if (!lib.includes(module.exports.roles, context.user?.roles)) {
         return context.send(403, "access denied");
     }
     next();

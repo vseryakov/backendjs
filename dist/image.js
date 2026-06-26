@@ -1279,7 +1279,7 @@ image.composite = async function(items, defaults)
 
         await image.create(item, bgitem);
 
-        if (lib.isFlag(lib.split(item.gradient), ["1", "true", item.type, item.id])) {
+        if (lib.includes(lib.split(item.gradient), ["1", "true", item.type, item.id])) {
             await image.createGradient(item, bgitem);
         }
 

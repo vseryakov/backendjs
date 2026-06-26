@@ -1587,49 +1587,47 @@ describe("lib.isDate", function() {
     });
 });
 
-describe("lib.isFlag", function() {
-    describe("isFlag()", function() {
-        it("returns true if item exists in list", function() {
-            assert.strictEqual(lib.isFlag(["a", "b", "c"], "b"), true);
-        });
+describe("lib.includes", function() {
+    it("returns true if item exists in list", function() {
+        assert.strictEqual(lib.includes(["a", "b", "c"], "b"), true);
+    });
 
-        it("returns false if item does not exist in list", function() {
-            assert.strictEqual(lib.isFlag(["a", "b", "c"], "d"), false);
-        });
+    it("returns false if item does not exist in list", function() {
+        assert.strictEqual(lib.includes(["a", "b", "c"], "d"), false);
+    });
 
-        it("returns true if any item from array exists in list", function() {
-            assert.strictEqual(lib.isFlag(["a", "b", "c"], ["x", "b"]), true);
-        });
+    it("returns true if any item from array exists in list", function() {
+        assert.strictEqual(lib.includes(["a", "b", "c"], ["x", "b"]), true);
+    });
 
-        it("returns false if no items from array exist in list", function() {
-            assert.strictEqual(lib.isFlag(["a", "b", "c"], ["x", "y"]), false);
-        });
+    it("returns false if no items from array exist in list", function() {
+        assert.strictEqual(lib.includes(["a", "b", "c"], ["x", "y"]), false);
+    });
 
-        it("returns false for empty or falsy item", function() {
-            assert.strictEqual(lib.isFlag(["a", "b"], ""), "");
-            assert.strictEqual(lib.isFlag(["a", "b"], null), null);
-            assert.strictEqual(lib.isFlag(["a", "b"], undefined), undefined);
-        });
+    it("returns false for empty or falsy item", function() {
+        assert.strictEqual(lib.includes(["a", "b"], ""), "");
+        assert.strictEqual(lib.includes(["a", "b"], null), null);
+        assert.strictEqual(lib.includes(["a", "b"], undefined), undefined);
+    });
 
-        it("returns false for non-array list", function() {
-            assert.strictEqual(lib.isFlag(null, "a"), false);
-            assert.strictEqual(lib.isFlag("abc", "a"), false);
-            assert.strictEqual(lib.isFlag({}, "a"), false);
-        });
+    it("returns false for non-array list", function() {
+        assert.strictEqual(lib.includes(null, "a"), false);
+        assert.strictEqual(lib.includes("abc", "a"), false);
+        assert.strictEqual(lib.includes({}, "a"), false);
+    });
 
-        it("is case-sensitive", function() {
-            assert.strictEqual(lib.isFlag(["A"], "a"), false);
-            assert.strictEqual(lib.isFlag(["a"], "a"), true);
-        });
+    it("is case-sensitive", function() {
+        assert.strictEqual(lib.includes(["A"], "a"), false);
+        assert.strictEqual(lib.includes(["a"], "a"), true);
     });
 });
 
-describe("lib.toFlags", () => {
+describe("lib.arrayUpdate", () => {
     describe("add", () => {
         it("adds a string flag to the same list", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("add", list, "b");
+            const result = lib.arrayUpdate("add", list, "b");
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "b"]);
@@ -1638,7 +1636,7 @@ describe("lib.toFlags", () => {
         it("does not add duplicate string flags", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("add", list, "a");
+            const result = lib.arrayUpdate("add", list, "a");
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a"]);
@@ -1647,7 +1645,7 @@ describe("lib.toFlags", () => {
         it("adds array flags without duplicates", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("add", list, ["a", "b", "c"]);
+            const result = lib.arrayUpdate("add", list, ["a", "b", "c"]);
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "b", "c"]);
@@ -1656,14 +1654,14 @@ describe("lib.toFlags", () => {
         it("ignores empty values", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("add", list, ["", null, undefined, "b"]);
+            const result = lib.arrayUpdate("add", list, ["", null, undefined, "b"]);
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "b"]);
         });
 
         it("creates a new list when list is not an array", () => {
-            const result = lib.toFlags("add", null, "a");
+            const result = lib.arrayUpdate("add", null, "a");
 
             assert.deepEqual(result, ["a"]);
         });
@@ -1673,7 +1671,7 @@ describe("lib.toFlags", () => {
         it("returns a new list", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("concat", list, "b");
+            const result = lib.arrayUpdate("concat", list, "b");
 
             assert.notEqual(result, list);
             assert.deepEqual(result, ["a", "b"]);
@@ -1683,7 +1681,7 @@ describe("lib.toFlags", () => {
         it("does not add duplicate flags", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("concat", list, ["a", "b"]);
+            const result = lib.arrayUpdate("concat", list, ["a", "b"]);
 
             assert.notEqual(result, list);
             assert.deepEqual(result, ["a", "b"]);
@@ -1691,7 +1689,7 @@ describe("lib.toFlags", () => {
         });
 
         it("creates a new list when list is not an array", () => {
-            const result = lib.toFlags("concat", null, "a");
+            const result = lib.arrayUpdate("concat", null, "a");
 
             assert.deepEqual(result, ["a"]);
         });
@@ -1701,7 +1699,7 @@ describe("lib.toFlags", () => {
         it("adds new flags to the same list", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("update", list, ["b", "c"]);
+            const result = lib.arrayUpdate("update", list, ["b", "c"]);
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "b", "c"]);
@@ -1710,7 +1708,7 @@ describe("lib.toFlags", () => {
         it("removes flags prefixed with dash", () => {
             const list = ["a", "b", "c"];
 
-            const result = lib.toFlags("update", list, ["-b"]);
+            const result = lib.arrayUpdate("update", list, ["-b"]);
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "c"]);
@@ -1719,7 +1717,7 @@ describe("lib.toFlags", () => {
         it("adds and removes flags in order", () => {
             const list = ["a", "b"];
 
-            const result = lib.toFlags("update", list, ["-a", "c", "-b", "d"]);
+            const result = lib.arrayUpdate("update", list, ["-a", "c", "-b", "d"]);
 
             assert.equal(result, list);
             assert.deepEqual(result, ["c", "d"]);
@@ -1728,14 +1726,14 @@ describe("lib.toFlags", () => {
         it("does not add duplicates", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("update", list, ["a", "b"]);
+            const result = lib.arrayUpdate("update", list, ["a", "b"]);
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "b"]);
         });
 
         it("creates a new list when list is not an array", () => {
-            const result = lib.toFlags("update", null, ["a", "b"]);
+            const result = lib.arrayUpdate("update", null, ["a", "b"]);
 
             assert.deepEqual(result, ["a", "b"]);
         });
@@ -1745,7 +1743,7 @@ describe("lib.toFlags", () => {
         it("removes a string flag from the same list", () => {
             const list = ["a", "b", "c"];
 
-            const result = lib.toFlags("del", list, "b");
+            const result = lib.arrayUpdate("del", list, "b");
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "c"]);
@@ -1754,7 +1752,7 @@ describe("lib.toFlags", () => {
         it("removes array flags from the same list", () => {
             const list = ["a", "b", "c", "d"];
 
-            const result = lib.toFlags("del", list, ["b", "d"]);
+            const result = lib.arrayUpdate("del", list, ["b", "d"]);
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "c"]);
@@ -1763,14 +1761,14 @@ describe("lib.toFlags", () => {
         it("ignores missing flags", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("del", list, ["b"]);
+            const result = lib.arrayUpdate("del", list, ["b"]);
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a"]);
         });
 
         it("returns an empty list when list is not an array", () => {
-            const result = lib.toFlags("del", null, "a");
+            const result = lib.arrayUpdate("del", null, "a");
 
             assert.deepEqual(result, []);
         });
@@ -1780,7 +1778,7 @@ describe("lib.toFlags", () => {
         it("returns only flags present in name list", () => {
             const list = ["a", "b", "c"];
 
-            const result = lib.toFlags("present", list, ["a", "c"]);
+            const result = lib.arrayUpdate("present", list, ["a", "c"]);
 
             assert.deepEqual(result, ["a", "c"]);
             assert.deepEqual(list, ["a", "b", "c"]);
@@ -1789,14 +1787,14 @@ describe("lib.toFlags", () => {
         it("returns original list when name is not an array", () => {
             const list = ["a", "b"];
 
-            const result = lib.toFlags("present", list, "a");
+            const result = lib.arrayUpdate("present", list, "a");
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "b"]);
         });
 
         it("returns an empty list when list is not an array", () => {
-            const result = lib.toFlags("present", null, ["a"]);
+            const result = lib.arrayUpdate("present", null, ["a"]);
 
             assert.deepEqual(result, []);
         });
@@ -1806,7 +1804,7 @@ describe("lib.toFlags", () => {
         it("returns only flags absent from name list", () => {
             const list = ["a", "b", "c"];
 
-            const result = lib.toFlags("absent", list, ["a", "c"]);
+            const result = lib.arrayUpdate("absent", list, ["a", "c"]);
 
             assert.deepEqual(result, ["b"]);
             assert.deepEqual(list, ["a", "b", "c"]);
@@ -1815,14 +1813,14 @@ describe("lib.toFlags", () => {
         it("returns original list when name is not an array", () => {
             const list = ["a", "b"];
 
-            const result = lib.toFlags("absent", list, "a");
+            const result = lib.arrayUpdate("absent", list, "a");
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a", "b"]);
         });
 
         it("returns an empty list when list is not an array", () => {
-            const result = lib.toFlags("absent", null, ["a"]);
+            const result = lib.arrayUpdate("absent", null, ["a"]);
 
             assert.deepEqual(result, []);
         });
@@ -1832,7 +1830,7 @@ describe("lib.toFlags", () => {
         it("returns the original list unchanged", () => {
             const list = ["a"];
 
-            const result = lib.toFlags("unknown", list, "b");
+            const result = lib.arrayUpdate("unknown", list, "b");
 
             assert.equal(result, list);
             assert.deepEqual(result, ["a"]);

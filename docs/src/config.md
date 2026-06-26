@@ -1002,6 +1002,11 @@ middleware-body-content-type = text/xml, image/png
 Max size for body in bytes   
 Type: number   
 Default: 64000   
+###  middleware-body-timeout 
+---- 
+Max time in ms to read the body   
+Type: number   
+Default: 30000   
 ###  middleware-body-err-(.+) 
 ---- 
 Error messages for various cases   
@@ -1116,6 +1121,10 @@ Default: 25000000
 ###  middleware-multipart-max-(files|fields) 
 ---- 
 Max number of files or fields in uploads   
+Type: number   
+###  middleware-multipart-timeout 
+---- 
+Max time in ms to read the body   
 Type: number   
 ###  middleware-multipart-err-(.+) 
 ---- 

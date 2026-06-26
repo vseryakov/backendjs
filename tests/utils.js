@@ -117,6 +117,7 @@ exports.checkAccess = function(options, callback)
             login: conf.user?.login,
             secret: conf.user?.secret,
             noredirects: conf.noredirects,
+            streaming: conf.streaming,
             _rc: conf.status || 200,
         };
         if (q.url[0] == "/") q.url = "http://127.0.0.1:" + api.port + q.url;

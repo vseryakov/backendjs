@@ -59,7 +59,7 @@ describe('Files tests', async () => {
         rc = await files.adel('files2.txt');
         assert.ok(!rc.err);
 
-        if (lib.isFlag(app.env.roles, "multipart")) {
+        if (lib.includes(app.env.roles, "multipart")) {
             rc = await lib.afetch("http://127.0.0.1:" + api.port + "/upload", {
                 method: "POST",
                 multipart: [ { name: "file", file: "files2.txt", data: buf } ]
