@@ -195,6 +195,215 @@ the worker processes if they die and restart them automatically.</p>
 
         
             
+<h4 class="name" id=".defaults"><span class="type-signature type-signature-static">(static) </span>defaults<span class="type-signature"> :object</span></h4>
+
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>used by <a href="module-api.html#.validate">module:api.validate</a> global defaults</p></li></ul></dd>
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="lib_api.js.html">lib/api.js</a>, <a href="lib_api.js.html#line123">line 123</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+    <h5 class="subsection-title">Properties:</h5>
+
+    
+
+<table class="props">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>".*"</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>matches all fields of all types, maxlist: 512</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>"*.json"</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>matches all json fields, max: 4000</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>"*.string"</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>matches all string fields, max: 512</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>"*.text"</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>matches all text fields, max: 512</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>"*.object"</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>matches all object fields, max: 32000</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>"*.array"</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>matches all array objects, max: 32000</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+        
+            
 <h4 class="name" id="~args"><span class="type-signature type-signature-inner">(inner) </span>args<span class="type-signature"> :Array.&lt;<a href="global.html#ConfigOptions">ConfigOptions</a>></span></h4>
 
 
@@ -319,67 +528,6 @@ the worker processes if they die and restart them automatically.</p>
 
         
             
-<h4 class="name" id="~defaults"><span class="type-signature type-signature-inner">(inner) </span>defaults<span class="type-signature"> :object</span></h4>
-
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>used by <a href="module-api.html#.validate">module:api.validate</a> global defaults, passed as data</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api.js.html">lib/api.js</a>, <a href="lib_api.js.html#line115">line 115</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-        
-            
 <h4 class="name" id="~port"><span class="type-signature type-signature-inner">(inner) </span>port<span class="type-signature"> :int</span></h4>
 
 
@@ -477,7 +625,7 @@ the worker processes if they die and restart them automatically.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line157">line 157</a>
+        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line174">line 174</a>
     </li></ul></dd>
     
 
@@ -1103,7 +1251,7 @@ rearely need to called directly, only for new server implementation or if using 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api.js.html">lib/api.js</a>, <a href="lib_api.js.html#line146">line 146</a>
+        <a href="lib_api.js.html">lib/api.js</a>, <a href="lib_api.js.html#line153">line 153</a>
     </li></ul></dd>
     
 
@@ -1192,7 +1340,7 @@ rearely need to called directly, only for new server implementation or if using 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line93">line 93</a>
+        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line110">line 110</a>
     </li></ul></dd>
     
 
@@ -1755,7 +1903,7 @@ api.limiter([context.userId,context.path], { rate: 10, interval: 3600000 }, lib.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api.js.html">lib/api.js</a>, <a href="lib_api.js.html#line250">line 250</a>
+        <a href="lib_api.js.html">lib/api.js</a>, <a href="lib_api.js.html#line257">line 257</a>
     </li></ul></dd>
     
 
@@ -1837,7 +1985,9 @@ api.limiter([context.userId,context.path], { rate: 10, interval: 3600000 }, lib.
     
     <dt class="tag-description">Description:</dt>
     <dd class="tag-description"><ul class="dummy"><li><p>Validate body/query parameters according to the <code>schema</code> by using <a href="module-lib.html#.validate">module:lib.validate</a>,
-uses the context.body if parsed or context.query</p></li></ul></dd>
+uses the context.body if parsed or context.query.</p>
+<p>This method uses `module:api~defaults to always limit incoming data and adjust if needed,
+text fields are limited to 512 chars, object to 32k, json to 4k, arrays to 512 items.</p></li></ul></dd>
     
 
     
@@ -2137,10 +2287,24 @@ uses the context.body if parsed or context.query</p></li></ul></dd>
 
 
 
-    <h5 class="h5-examples">Example</h5>
+    <h5 class="h5-examples">Examples</h5>
     
     <pre class="prettyprint"><code>const { err, data } = api.validate(context, { q: { required: 1 } });
  if (err) return context.reply(err)</code></pre>
+
+        <p class="code-caption">Overriding defaults, allow longer text fields</p>
+    
+    <pre class="prettyprint"><code>const opts = {
+    defaults: {
+        "*.string": { max: 1024 },
+}
+
+const schema = {
+    q: { required: 1 },
+    name: {},
+    amount: { type: "number", minnum: 1 }
+}
+const { err, data } = api.validate(context, schema, opts);</code></pre>
 
 
 
@@ -2169,7 +2333,7 @@ uses the context.body if parsed or context.query</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line38">line 38</a>
+        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line55">line 55</a>
     </li></ul></dd>
     
 

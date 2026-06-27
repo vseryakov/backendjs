@@ -227,11 +227,12 @@ lib.validVersion = function(version, condition)
  * @param {boolean} [options.setnull] - if the value is equal this or any value if an array then set property to null, useful to reset lists, maps...
  * @param {boolean} [options.existing] - skip properties if not present in the query
  * @param {string} [options.prefix] - prefix to be used when searching for the parameters in the query, only properties with this prefix will be processed. The resulting
- *     object will not have this prefix in the properties.
+ *  object will not have this prefix in the properties.
  * @param {string} [options.dprefix] - prefix to use when checking for defaults, defaults are checks in this order: dprefix+name, name, *.type, *
  * @param {object} [options.defaults] - to pass realtime or other custom options for the validation or convertion utilities as the first argument if not defined in the definition,
- *     this is the place to customize/add/override global parameter conditions without changing it. Exact parameter name is used or a wildcard in the format
- *     `*.type` where type id any valid type supported or just `*` for all parameters. Special default '**' is always applied to all parameters.
+ *  this is the place to customize/add/override global parameter conditions without changing it.
+ *  Exact parameter name is used or a wildcard in the format
+ *   `*.type` where type is any valid type supported or just `*` for all parameters. Special default '**' is always applied to all parameters.
  * @return {{err:object, data:object}} an object with properties:
  * - `err` - on error it is an object { status, message, name, code },
  * - `data` - validated object if no error

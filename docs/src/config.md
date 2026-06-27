@@ -90,7 +90,7 @@ Type: bool
 Default: true   
 ###  api-defaults-([a-z0-9_]+)-(.+) 
 ---- 
-Global body limits for api.validate, format is: api-defaults-LIMIT-NAME, where LIMIT is an property that performs limiting like max, maxlist, min, required.., NAME is a schema property, it can be path specific   
+Global body limits for `api.validate`, format is: api-defaults-LIMIT-NAME, where LIMIT is an property that performs limiting like max, maxlist, min, required.., NAME is a schema property, it can be path specific   
 Example:
 ```
 # Limit all names length up to 128 chars

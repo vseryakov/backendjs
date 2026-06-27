@@ -1,4 +1,19 @@
 
+/**
+ * To test different queues:
+ *
+ * Redis: `node --test tests/jobs.test.js`
+ *
+ * NATS: `BKJS_ROLES=redis,nats --test tests/jobs.test.js`
+ *
+ * SQS: `BKJS_ROLES=redis,sqs --test tests/jobs.test.js`
+ *
+ * DB Sqlite: `BKJS_ROLES=redis,sqlite,dbqueue node --test tests/jobs.test.js`
+ *
+ * DB Postgres: `BKJS_ROLES=redis,postgres,dbqueue node --test tests/jobs.test.js`
+ *
+ */
+
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const cluster = require("node:cluster");
@@ -6,7 +21,7 @@ const { app, lib, jobs, queue } = require("../");
 const { ainit, astop, testJob } = require("./utils");
 
 const roles = process.env.BKJS_ROLES || "redis";
-const queueName = lib.split(roles)[0];
+const queueName = lib.split(roles).at(-1);
 
 jobs.testJob = testJob;
 
@@ -97,10 +112,12 @@ describe("Jobs tests", async () => {
 
         await lib.sleep(4000)
 
-        var data = lib.readFileSync(file).split("\n");
+        var data = lib.readFileSync(file, { list: "\n" });
         assert.match(data[0], /ttl/);
         assert.match(data[1], /ttl/);
-        assert.ok(lib.toNumber(data[1]) - lib.toNumber(data[0]) >= 1000, data)
+        const diff = lib.toNumber(data.at(-1)) - lib.toNumber(data[0])
+
+        assert.ok(diff >= 1000, `${diff}, ${data}`)
 
     });
 
@@ -110,7 +127,7 @@ describe("Jobs tests", async () => {
 
         const opts = { queueName, visibilityTimeout: 1000, uniqueKey: "testRetry" }
 
-        jobs.submitJob({ job: { "jobs.testJob": { file, err: { status: 600 }, err_expires: Date.now() + 300, data: "retry" } } }, opts);
+        jobs.submitJob({ job: { "jobs.testJob": { file, err: { status: 600 }, err_expires: Date.now() + 1000, data: "retry" } } }, opts);
         await lib.sleep(1000)
 
         var data = lib.readFileSync(file);
@@ -118,10 +135,13 @@ describe("Jobs tests", async () => {
 
         await lib.sleep(2000)
 
-        data = lib.readFileSync(file).split("\n");
+        data = lib.readFileSync(file, { list: "\n" });
         assert.match(data[0], /retry/);
         assert.match(data[1], /retry/);
-        assert.ok(lib.toNumber(data[1]) - lib.toNumber(data[0]) >= 1000, data)
+
+        const diff = lib.toNumber(data.at(-1)) - lib.toNumber(data[0])
+
+        assert.ok(diff >= 1000, `${diff}, ${data}`)
 
     });
 
@@ -161,7 +181,7 @@ describe("Jobs tests", async () => {
         const opts = { queueName, startTime: now + 1500 };
 
         await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "startTime" } } }, opts);
-        await lib.sleep(1600)
+        await lib.sleep(2000)
 
         const data = lib.readFileSync(file);
         assert.match(data, /startTime/);

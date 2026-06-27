@@ -139,7 +139,7 @@ lib.fetch = function(url, options, callback)
             });
             res.on("close", () => {
                 if (!res.complete) options.onEnd(res, callback);
-                if (!req.complete) req.destroy();
+                if (!req.complete &amp;&amp; options.streaming) req.destroy();
             });
         });
         req.on('error', (err) => {

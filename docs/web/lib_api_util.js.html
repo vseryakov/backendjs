@@ -63,7 +63,11 @@ const cache = require(__dirname + '/../cache');
 
 /**
  * Validate body/query parameters according to the `schema` by using {@link module:lib.validate},
- * uses the context.body if parsed or context.query
+ * uses the context.body if parsed or context.query.
+ *
+ * This method uses `{@link module:api~defaults} to always limit incoming data and adjust if needed,
+ * text fields are limited to 512 chars, object to 32k, json to 4k, arrays to 512 items.
+ *
  * @param {RequestContext} context
  * @param {module:lib.ValidateOptions} schema - schema object
  * @param {object} [options]
@@ -73,6 +77,19 @@ const cache = require(__dirname + '/../cache');
  * @example
  *  const { err, data } = api.validate(context, { q: { required: 1 } });
  *  if (err) return context.reply(err)
+ *
+ * @example &lt;caption>Overriding defaults, allow longer text fields&lt;/caption>
+ * const opts = {
+ *     defaults: {
+ *         "*.string": { max: 1024 },
+ * }
+ *
+ * const schema = {
+ *     q: { required: 1 },
+ *     name: {},
+ *     amount: { type: "number", minnum: 1 }
+ * }
+ * const { err, data } = api.validate(context, schema, opts);
  * @memberof module:api
  * @method validate
  */
@@ -84,7 +101,7 @@ api.validate = function(context, schema, options)
     });
     logger.debug("validate:", "api", context, "S:", schema, "O:", opts);
 
-    var query = options?.query ? context.query : context.body || context.query;
+    const query = options?.query ? context.query : context.body || context.query;
     return lib.validate(query, schema, opts);
 }
 
