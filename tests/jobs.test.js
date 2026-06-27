@@ -181,11 +181,14 @@ describe("Jobs tests", async () => {
         const opts = { queueName, startTime: now + 1500 };
 
         await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "startTime" } } }, opts);
-        await lib.sleep(2000)
+        await lib.sleep(2500)
 
         const data = lib.readFileSync(file);
         assert.match(data, /startTime/);
-        assert.ok(lib.toNumber(data) - now >= 1500, data)
+
+        const diff = lib.toNumber(data) - now;
+
+        assert.ok(diff >= 1500, `${diff}, ${data}`)
 
     });
 
