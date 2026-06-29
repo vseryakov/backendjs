@@ -37,7 +37,7 @@ describe('Access tests', async () => {
             { get: "/old/render", regexp: /Render.html/ },
             { get: "/redirect", noredirects: 1, resheaders: { location: /^\/render.html$/ }, status: 302 },
             { get: "/index.js", regexp: /index.js/ },
-            { get: "/index.js", headers: { "accept-encoding": "gzip" }, regexp: /index.js.gz/ },
+            { get: "/index.js.gz", headers: { "accept-encoding": "gzip" }, regexp: /index.js.gz/ },
         ];
 
         await acheckAccess({ config });

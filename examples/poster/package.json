@@ -6,7 +6,6 @@
  "repository": { "type": "git", "url": "http://github.com/vseryakov/backendjs.git" },
  "dependencies": {
     "backendjs": "github:vseryakov/backendjs",
-    "formidable": "latest",
     "sharp": "latest"
  },
  "engines": { "node": ">= 24.0" },

@@ -1322,7 +1322,7 @@
   __export(lib_exports, {
     forEach: () => forEach,
     forEachSeries: () => forEachSeries,
-    isFlag: () => isFlag,
+    includes: () => includes,
     loadResources: () => loadResources,
     parallel: () => parallel,
     sanitizer: () => sanitizer,
@@ -1341,7 +1341,7 @@
    * @return {boolean} true if `item` exists in the array `list`, search is case sensitive. if `item` is an array it will return true if
    * any element in the array exists in the `list`.
    */
-  function isFlag(list, item) {
+  function includes(list, item) {
     return Array.isArray(list) && (Array.isArray(item) ? item.some((x) => list.includes(x)) : list.includes(item));
   }
   /**
