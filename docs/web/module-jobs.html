@@ -117,11 +117,15 @@ but jobs sent to worker queue will be run in a worker.</p>
 }
 </code></pre>
 <p>Any task in string format &quot;module.method&quot; will be converted into { &quot;module.method: {} } automatically</p>
-<p>Once configured, then all calls to <a href="module-jobs.html#.submitJob">module:jobs.submitJob</a> will push jobs to be executed to the provided or default queue.</p>
+<p>Once configured, all calls to <a href="module-jobs.html#.submitJob">module:jobs.submitJob</a> will push jobs to be executed to the provided or default queue.</p>
 <p>If somewhere a backend server running with <strong>-jobs-workers</strong> greater than 0 and connected to the same queue
 it will pull jobs from the queue and execute.</p>
 <p>The naming convention is that any function defined as <strong>function(options, callback)</strong> can be used as a job to
 be executed in one of the worker processes assuming the module is available in the <a href="module-modules.html">module:modules</a></p>
+<h2 id="security-note">Security note</h2>
+<p>While this convention is flexible and simple it relies that submitting jobs is secure to avoid remote code execution by someone unaauthorized
+to do it. This requires to know whihc modules and methods are available of course which means access to the source code.</p>
+<p>The basic principle is submitting jobs better be hardcoded and not dynamic based on input.</p>
 <h2 id="example%3A">Example:</h2>
 <h3 id="this-sqs-queue-is-shared-via-bkjs.conf-between-all-processes">This SQS queue is shared via bkjs.conf between all processes</h3>
 <pre class="prettyprint source"><code>queue-users = sqs://users
@@ -181,7 +185,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line133">line 133</a>
+        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line141">line 141</a>
     </li></ul></dd>
     
 
@@ -290,7 +294,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line164">line 164</a>
+        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line172">line 172</a>
     </li></ul></dd>
     
 
@@ -365,7 +369,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line613">line 613</a>
+        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line621">line 621</a>
     </li></ul></dd>
     
 
@@ -545,7 +549,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line736">line 736</a>
+        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line744">line 744</a>
     </li></ul></dd>
     
 
@@ -720,7 +724,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line377">line 377</a>
+        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line385">line 385</a>
     </li></ul></dd>
     
 
@@ -855,7 +859,7 @@ app.start({ server: true });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line450">line 450</a>
+        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line458">line 458</a>
     </li></ul></dd>
     
 
@@ -1128,7 +1132,7 @@ time another job with the same arguments can be submitted.</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line361">line 361</a>
+        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line369">line 369</a>
     </li></ul></dd>
     
 
@@ -1636,7 +1640,7 @@ the format of the job objects.</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line489">line 489</a>
+        <a href="lib_jobs.js.html">lib/jobs.js</a>, <a href="lib_jobs.js.html#line497">line 497</a>
     </li></ul></dd>
     
 

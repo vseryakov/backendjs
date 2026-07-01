@@ -205,7 +205,7 @@ db.paginateResult = function(data, info)
  * @param {string|string[]} tables - can be a single table name or a list of table names which combined public columns need to
  * be kept in the rows.
  * @param {object|object[]} data - row(s) to be cleaned up
- * @param {object} [options]
+ * @param {object|RequestContext} [options]
  * @param {object} [options.user] - current user record to check for roles, this can be {@link RequestContext} if no other properies atre needed
  * @param {object} [options.cleanup] can be an object similar to the cleanup object in the table, these rules take precedence
  * @return {object|object[]} cleaned records, a new object/array if any field must be excluded

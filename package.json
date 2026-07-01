@@ -10,10 +10,10 @@
     "url": "https://github.com/vseryakov/backendjs.git"
   },
   "peerDependencies": {
-    "sharp": "0.35.1",
+    "sharp": "0.35.2",
     "unix-dgram": "2.0.7",
     "web-push": "3.6.7",
-    "@parse/node-apn": "8.1.0"
+    "@parse/node-apn": "7.1.0"
   },
   "peerDependenciesMeta": {
     "sharp": { "optional": true },

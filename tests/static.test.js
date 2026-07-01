@@ -2,7 +2,7 @@
 
 const { describe, it, before, after } = require('node:test');
 const { acheckAccess, ainit } = require("./utils");
-const { app, files, logger } = require("../");
+const { app, files } = require("../");
 
 describe('Access tests', async () => {
 
@@ -44,8 +44,7 @@ describe('Access tests', async () => {
     });
 
     after(async () => {
-        logger.setLevel("dev")
-        await app.astop()
+        await app.astop({ force: 1 })
     })
 })
 

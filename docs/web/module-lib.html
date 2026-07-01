@@ -194,7 +194,7 @@
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>An object to be used with <a href="module-lib.html#.validate">module:lib.validate</a> for object validation against a schema</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>An object to be used with <a href="module-lib.html#.validate">module:lib.validate</a> for object validation against a schema and converting to a desired type</p></li></ul></dd>
     
 
     
@@ -326,7 +326,7 @@
             <td class="description last"><p>convert the input to the type format, default text
 Supported types:</p>
 <ul>
-<li>string types: string, text,</li>
+<li>string types: string, text, uuid</li>
 <li>boolean types: bool, boolean,</li>
 <li>numeric types: int, bigint, long, number, float, real, double, counter, clock, now, random</li>
 <li>object types: list, map, obj, object, array, json,</li>
@@ -650,34 +650,6 @@ processed by <a href="module-lib.html#.toTemplate">module:lib.toTemplate</a>. An
 
         <tr>
             
-                <td class="name"><code>datatype</code></td>
-            
-
-            <td class="type">
-            
-                boolean
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>convert each value or item into this type, used by string/list types</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
                 <td class="name"><code>maptype</code></td>
             
 
@@ -786,6 +758,34 @@ For lists this is a number of items in the list, if less or equal the list is ig
             
 
             <td class="description last"><p>for date types, if true do not assign the current time for empty values</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>base64</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>decode from base64 for json and text values</p></td>
         </tr>
 
     
@@ -1184,6 +1184,34 @@ For lists this is a number of items in the list, if less or equal the list is ig
 
         <tr>
             
+                <td class="name"><code>datatype</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>convert each value or item into this type, used by string/list types</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
                 <td class="name"><code>strip</code></td>
             
 
@@ -1318,34 +1346,6 @@ For lists this is a number of items in the list, if less or equal the list is ig
             
 
             <td class="description last"><p>an object map with characters to be replaced with other values</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>base64</code></td>
-            
-
-            <td class="type">
-            
-                boolean
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>decode from base64</p></td>
         </tr>
 
     
@@ -6922,7 +6922,7 @@ that data is not changed and was signed with the same secret</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1404">line 1404</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1408">line 1408</a>
     </li></ul></dd>
     
 
@@ -8675,7 +8675,7 @@ so checking an item in an array will work as well.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2023">line 2023</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2027">line 2027</a>
     </li></ul></dd>
     
 
@@ -10143,7 +10143,7 @@ lib.doWhilst(
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1971">line 1971</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1975">line 1975</a>
     </li></ul></dd>
     
 
@@ -10877,7 +10877,7 @@ const encryptedCustom = lib.encrypt(key, data, { algorithm: 'aes-128-gcm', tag_l
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2172">line 2172</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2176">line 2176</a>
     </li></ul></dd>
     
 
@@ -11043,7 +11043,7 @@ lib.entityToText("&amp;#65;&amp;#x42;")
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2046">line 2046</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2050">line 2050</a>
     </li></ul></dd>
     
 
@@ -15508,7 +15508,7 @@ item with optional additional data argument.</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2231">line 2231</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2235">line 2235</a>
     </li></ul></dd>
     
 
@@ -18054,7 +18054,7 @@ lib.includes([0, false, ""], [0]);
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1713">line 1713</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1717">line 1717</a>
     </li></ul></dd>
     
 
@@ -22707,7 +22707,7 @@ lib.isWord("foo_bar", 4, 6, "_");
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1501">line 1501</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1505">line 1505</a>
     </li></ul></dd>
     
 
@@ -23587,7 +23587,7 @@ lib.jsonFormat({ password: "secret" }, { hide: /password/ })
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1485">line 1485</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1489">line 1489</a>
     </li></ul></dd>
     
 
@@ -24090,7 +24090,7 @@ lib.jsonFormat({ password: "secret" }, { hide: /password/ })
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1381">line 1381</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1385">line 1385</a>
     </li></ul></dd>
     
 
@@ -35194,7 +35194,7 @@ mdate is a Date object with last modified time</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1685">line 1685</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1689">line 1689</a>
     </li></ul></dd>
     
 
@@ -35992,7 +35992,7 @@ const customId = lib.suuid("msg_", {
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2150">line 2150</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2154">line 2154</a>
     </li></ul></dd>
     
 
@@ -36158,7 +36158,7 @@ lib.textToEntity("plain")
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2124">line 2124</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2128">line 2128</a>
     </li></ul></dd>
     
 
@@ -36502,7 +36502,7 @@ lib.textToXml("Bob's")
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2193">line 2193</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2197">line 2197</a>
     </li></ul></dd>
     
 
@@ -37565,7 +37565,7 @@ parameters according to https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1311">line 1311</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1315">line 1315</a>
     </li></ul></dd>
     
 
@@ -38210,7 +38210,7 @@ lib.toDigits("abc123def")
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line812">line 812</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line816">line 816</a>
     </li></ul></dd>
     
 
@@ -38832,7 +38832,7 @@ lib.toEmail("bad..email@example.com")
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line915">line 915</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line919">line 919</a>
     </li></ul></dd>
     
 
@@ -39666,7 +39666,7 @@ lib.toFormat("jsontext", [{ id: 1 }])
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line765">line 765</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line769">line 769</a>
     </li></ul></dd>
     
 
@@ -40660,7 +40660,7 @@ lib.toNumber("1.23", {float: false })
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1998">line 1998</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2002">line 2002</a>
     </li></ul></dd>
     
 
@@ -41295,7 +41295,7 @@ lib.toPrice(12.5, { currency: "EUR", locale: "de-DE" })
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1283">line 1283</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1287">line 1287</a>
     </li></ul></dd>
     
 
@@ -41474,7 +41474,7 @@ flags or an object with the following properties:</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line654">line 654</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line658">line 658</a>
     </li></ul></dd>
     
 
@@ -41895,7 +41895,7 @@ lib.toRegexp("[")
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line705">line 705</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line709">line 709</a>
     </li></ul></dd>
     
 
@@ -42343,7 +42343,7 @@ lib.toRegexpObj(obj, "!admin")
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line897">line 897</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line901">line 901</a>
     </li></ul></dd>
     
 
@@ -42746,7 +42746,7 @@ null|undefined will return &quot;&quot;</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line641">line 641</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line645">line 645</a>
     </li></ul></dd>
     
 
@@ -42918,7 +42918,7 @@ null|undefined will return &quot;&quot;</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1006">line 1006</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line1010">line 1010</a>
     </li></ul></dd>
     
 
@@ -44155,6 +44155,7 @@ options is passed to all lib.toXXX functions as is, so type specific properties 
 <li>date|time|datetime|timestamp - a Date object</li>
 <li>mtime - convert date into milliseconds</li>
 <li>url - use module.lib.toUrl</li>
+<li>uuid - empty string if not UUIDv4 according to module:lib.isUuid()</li>
 <li>email - use module.lib.toEmail</li>
 <li>phone|e164 - validate and convert into a valid phone number with only digits</li>
 <li>json - stringify a value</li>
@@ -46244,7 +46245,7 @@ lib.typeName({ id: 1 });
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2095">line 2095</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2099">line 2099</a>
     </li></ul></dd>
     
 
@@ -46411,7 +46412,7 @@ replace, default is: opqs, for quotes,other,punctuations,spaces</p></li></ul></d
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2065">line 2065</a>
+        <a href="lib_lib_conv.js.html">lib/lib/conv.js</a>, <a href="lib_lib_conv.js.html#line2069">line 2069</a>
     </li></ul></dd>
     
 
@@ -48453,8 +48454,9 @@ lib.uuid().length;
 validate incoming data. It is an object with property names and definitoons that at least must specify the type, all other options are type specific.</p>
 <p>This validation serves 2 purposes:</p>
 <ul>
-<li>convert incoming user data into desired types, means the schema is not strict in the sense that all incoming data must be of desired type</li>
 <li>verify error conditions for the converted fields</li>
+<li>convert incoming user data into desired types, means the schema is not strict in the sense that all incoming data must be of desired type,
+all transformations like strip/replace.... are run in the order as defined in the schema object to control order of changes</li>
 </ul>
 <p>For example if we need a numeric code from a user sent, it is ok to receive it as string and convert, if there are no more conditions check we
 we work with the number. If there are range checks then in case of error we will notify the user or service about it.</p></li></ul></dd>
@@ -48872,6 +48874,7 @@ Exact parameter name is used or a wildcard in the format
     
     <pre class="prettyprint"><code>const { err, data } = lib.validate(context.context.body, {
        id: { type: "int" },
+       uid: { type: "uuid" },
        count: { type: "int", min: 1, max: 10, dflt: 5 },
        age: { type: "int", minnum: 10, maxnum: 99 },
        name: { type: "string", max: 32, trunc: 1 },

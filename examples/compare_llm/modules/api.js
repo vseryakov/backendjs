@@ -25,6 +25,7 @@ module.exports = {
 
         jobs: {
             id: { type: "uuid" },
+            status: {},
             model: {},
             prompt: {},
             results: { type: "object" },
@@ -39,12 +40,12 @@ module.exports = {
     configureMiddleware(options, callback)
     {
         api.app.
-            get("/api/model", listModels).
+            get("/api/models", listModels).
             post("/api/model", saveModel).
             delete("/api/model/:id", deleteModel).
-            get("/api/list", listJobs).
-            post("/api/submit", submitJob).
-            delete("/api/del/:id", deleteJob);
+            get("/api/jobs", listJobs).
+            post("/api/job", submitJob).
+            delete("/api/job/:id", deleteJob);
 
         callback();
     },
@@ -70,7 +71,7 @@ function listModels(context)
 function saveModel(context)
 {
     const { err, data } = api.validate(context, {
-        id: { required: true },
+        id: { required: true, regexp: lib.rxPrintable },
         type: { required: true },
         url: {},
         token: {},
@@ -120,6 +121,7 @@ function submitJob(context)
     const { err, data } = api.validate(context, {
         id: { required: true },
         prompt: { required: true, max: 1024 },
+        status: { value: "running" },
     })
     if (err) return context.reply(err);
 
@@ -139,12 +141,7 @@ function submitJob(context)
  */
 function deleteJob(context)
 {
-    const { err, data } = api.validate(context, {
-        id: { type: "uuid", required: true },
-    });
-    if (err) return context.reply(err);
-
-    db.del("jobs", { id: data.id }, (err) => {
+    db.del("jobs", { id: context.params.id }, (err) => {
         context.reply(err);
     });
 }

@@ -314,12 +314,12 @@ api.init = function(options, callback)
  */
 let _exiting;
 
-api.shutdown = function(_options, callback)
+api.shutdown = function(options, callback)
 {
     if (_exiting) return lib.tryCall(callback);
 
     _exiting = true;
-    logger.debug("shutdown:", app.name, app.role);
+    logger.debug("shutdown:", app.name, app.role, options);
 
     clearInterval(api._restartInterval);
     api._restartInterval = undefined;
@@ -328,7 +328,7 @@ api.shutdown = function(_options, callback)
     // Make workers not ready during the shutdown
     ipc.sendMsg("api:shutdown", { id: app.workerId || process.pid, pid: process.pid, port: api.port });
 
-    app.runMethods("shutdownServer", {}, { direct: 1, parallel: 1 }, () => {
+    app.runMethods("shutdownServer", options, { direct: 1, parallel: 1 }, () => {
         api.app = undefined;
         _exiting = false;
         lib.tryCall(callback);
@@ -352,7 +352,7 @@ api.shutdownServer = function(options, callback)
         } catch (e) {
             err = e
         }
-        logger.log("shutdownServer:", api.name, app.role, name, "closed", err);
+        logger.log("shutdownServer:", api.name, app.role, name, "closed", options, err);
         next();
     }, callback, true);
 }

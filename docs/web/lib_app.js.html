@@ -206,7 +206,10 @@ module.exports = {
 
     /**
      * @var {object} - Current ruintime env properties and instance/container attributes gathered by other modules
+     * @property {string} type - **aws** if running in AWS
+     * @property {string} id - localhost or EC2 instance id
      * @property {string} image - EC2 image id
+     * @property {string} instance_type - EC2 instance type
      * @property {string} container - ECS container name
      * @property {string} container_id - ECS container id
      * @property {string} task_id - ECS container task id
