@@ -1,0 +1,19 @@
+{
+ "version": "0.1.0",
+ "author": "vlad",
+ "name": "app",
+ "description": "The backend",
+ "repository": { "type": "git", "url": "http://github.com/vseryakov/backendjs.git" },
+ "main": "app.js",
+ "dependencies": {
+    "backendjs": "github:vseryakov/backendjs"
+ },
+ "engines": { "node": ">= 24.0" },
+ "scripts": {
+    "symlink": "../../bin/bkjs install-symlink",
+    "setup": "npm run symlink && bksh -db-create-tables",
+    "start": "bkjs run -api -watch",
+    "bksh": "bksh"
+ },
+ "license": "BSD-3-Clause"
+}

@@ -552,7 +552,7 @@ var require_package = __commonJS({
   "../../.bkjs/lib/node_modules/nodemailer/package.json"(exports2, module2) {
     module2.exports = {
       name: "nodemailer",
-      version: "9.0.1",
+      version: "9.0.3",
       description: "Easy as cake e-mail sending from your Node.js applications",
       main: "lib/nodemailer.js",
       scripts: {
@@ -4434,6 +4434,7 @@ var require_addressparser = __commonJS({
         this.operatorExpecting = "";
         this.node = null;
         this.escaped = false;
+        this.inDomainLiteral = false;
         this.list = [];
         this.operators = {
           '"': '"',
@@ -4476,6 +4477,13 @@ var require_addressparser = __commonJS({
        * @param {String} chr Character from the address field
        */
       checkChar(chr, nextChr) {
+        if (!this.escaped && !this.operatorExpecting) {
+          if (!this.inDomainLiteral && chr === "[") {
+            this.inDomainLiteral = true;
+          } else if (this.inDomainLiteral && (chr === "]" || chr === "," || chr === ";")) {
+            this.inDomainLiteral = false;
+          }
+        }
         if (this.escaped) {
         } else if (chr === this.operatorExpecting) {
           this.node = {
@@ -4490,7 +4498,7 @@ var require_addressparser = __commonJS({
           this.operatorExpecting = "";
           this.escaped = false;
           return;
-        } else if (!this.operatorExpecting && chr in this.operators) {
+        } else if (!this.operatorExpecting && !this.inDomainLiteral && chr in this.operators) {
           this.node = {
             type: "operator",
             value: chr
@@ -6308,7 +6316,7 @@ var require_relaxed_body = __commonJS({
         options = options || {};
         this.chunkBuffer = [];
         this.chunkBufferLen = 0;
-        this.bodyHash = crypto.createHash(options.hashAlgo || "sha1");
+        this.bodyHash = crypto.createHash(options.hashAlgo || "sha256");
         this.remainder = "";
         this.byteLength = 0;
         this.debug = options.debug;
@@ -6681,12 +6689,19 @@ var require_http_proxy_client = __commonJS({
     var tls = require("tls");
     var urllib = require_url();
     var errors2 = require_errors();
+    var MAX_RESPONSE_HEADER_BYTES = 64 * 1024;
     function httpProxyClient(proxyUrl, destinationPort, destinationHost, tlsOptions, callback) {
       if (typeof tlsOptions === "function") {
         callback = tlsOptions;
         tlsOptions = {};
       }
       tlsOptions = tlsOptions || {};
+      destinationPort = Number(destinationPort) || 0;
+      if (!destinationPort || /[\r\n]/.test(destinationHost)) {
+        const err = new Error("Invalid proxy destination");
+        err.code = errors2.EPROXY;
+        return setImmediate(() => callback(err));
+      }
       const proxy = urllib.parse(proxyUrl);
       const connectOptions = {
         host: proxy.hostname,
@@ -6764,6 +6779,12 @@ var require_http_proxy_client = __commonJS({
             socket.removeListener("timeout", timeoutErr);
             socket.setTimeout(0);
             return callback(null, socket);
+          }
+          if (headers.length > MAX_RESPONSE_HEADER_BYTES) {
+            socket.removeListener("data", onSocketData);
+            const err = new Error("Proxy response headers too large");
+            err.code = errors2.EPROXY;
+            return tempSocketErr(err);
           }
         };
         socket.on("data", onSocketData);
@@ -7651,6 +7672,15 @@ var require_smtp_connection = __commonJS({
             try {
               this._socket.connect(this.port, this.host, () => {
                 this._socket.setKeepAlive(true);
+                if (this.secureConnection && !this.alreadySecured) {
+                  return this._upgradeConnection((err) => {
+                    if (err) {
+                      this._onError(new Error("Error initiating TLS - " + (err.message || err)), "ETLS", false, "CONN");
+                      return;
+                    }
+                    this._onConnect();
+                  });
+                }
                 this._onConnect();
               });
               this._setupConnectionHandlers();
@@ -7711,6 +7741,9 @@ var require_smtp_connection = __commonJS({
        * @param {Boolean} secure Whether to use TLS
        */
       _connectToHost(opts, secure) {
+        if (this._destroyed || this._closing) {
+          return;
+        }
         this._connectionAttemptId++;
         const currentAttemptId = this._connectionAttemptId;
         const connectFn = secure ? tls.connect : net.connect;
@@ -7764,6 +7797,7 @@ var require_smtp_connection = __commonJS({
         if (this._socket) {
           try {
             this._socket.removeListener("error", this._onConnectionSocketError);
+            this._socket.on("error", TEARDOWN_NOOP);
             this._socket.destroy();
           } catch (_E) {
           }
@@ -8027,6 +8061,10 @@ var require_smtp_connection = __commonJS({
        * @param {Function} callback Callback to return once connection is reset
        */
       reset(callback) {
+        const isDestroyedMessage = this._isDestroyedMessage("reset");
+        if (isDestroyedMessage) {
+          return callback(this._formatError(isDestroyedMessage, "ECONNECTION", false, "API"));
+        }
         this._sendCommand("RSET");
         this._responseActions.push((str) => {
           if (str.charAt(0) !== "2") {
@@ -8067,6 +8105,7 @@ var require_smtp_connection = __commonJS({
         this._socket.removeListener("close", this._onSocketClose);
         this._socket.removeListener("end", this._onSocketEnd);
         this._socket.removeListener("error", this._onConnectionSocketError);
+        this._socket.removeListener("error", this._onSocketError);
         this._socket.on("error", this._onSocketError);
         this._socket.on("data", this._onSocketData);
         this._socket.once("close", this._onSocketClose);
@@ -8218,6 +8257,7 @@ var require_smtp_connection = __commonJS({
           return;
         }
         this._destroyed = true;
+        this.destroyed = true;
         this.emit("end");
       }
       /**
@@ -8227,6 +8267,8 @@ var require_smtp_connection = __commonJS({
        *        has been secured
        */
       _upgradeConnection(callback) {
+        this._remainder = "";
+        this._responseQueue = [];
         this._socket.removeListener("data", this._onSocketData);
         this._socket.removeListener("timeout", this._onSocketTimeout);
         const socketPlain = this._socket;
@@ -8244,6 +8286,7 @@ var require_smtp_connection = __commonJS({
           socketPlain.removeListener("close", this._onSocketClose);
           socketPlain.removeListener("end", this._onSocketEnd);
           socketPlain.removeListener("error", this._onSocketError);
+          socketPlain.removeListener("error", this._onConnectionSocketError);
         };
         this.upgrading = true;
         try {
@@ -8267,15 +8310,19 @@ var require_smtp_connection = __commonJS({
       }
       /**
        * Processes queued responses from the server
-       *
-       * @param {Boolean} force If true, ignores _processing flag
        */
       _processResponse() {
         if (!this._responseQueue.length) {
           return false;
         }
-        let str = this.lastServerResponse = decodeServerResponse((this._responseQueue.shift() || "").toString());
+        const raw = (this._responseQueue.shift() || "").toString();
+        if (!raw.trim()) {
+          setImmediate(() => this._processResponse());
+          return;
+        }
+        let str = this.lastServerResponse = decodeServerResponse(raw);
         if (/^\d+-/.test(str.split("\n").pop())) {
+          this._responseQueue.unshift(raw);
           return;
         }
         if (this.options.debug || this.options.transactionLog) {
@@ -8285,9 +8332,6 @@ var require_smtp_connection = __commonJS({
             },
             str.replace(/\r?\n$/, "")
           );
-        }
-        if (!str.trim()) {
-          setImmediate(() => this._processResponse());
         }
         const action = this._responseActions.shift();
         if (typeof action === "function") {
@@ -8363,6 +8407,18 @@ var require_smtp_connection = __commonJS({
             return callback(this._formatError("Invalid DSN " + err.message, "EENVELOPE", false, "API"));
           }
         }
+        if (this._envelope.requireTLSExtensionEnabled) {
+          if (!this.secure) {
+            return callback(
+              this._formatError("REQUIRETLS can only be used over TLS connections (RFC 8689)", "EREQUIRETLS", false, "MAIL FROM")
+            );
+          }
+          if (!this._supportedExtensions.includes("REQUIRETLS")) {
+            return callback(
+              this._formatError("Server does not support REQUIRETLS extension (RFC 8689)", "EREQUIRETLS", false, "MAIL FROM")
+            );
+          }
+        }
         this._responseActions.push((str) => {
           this._actionMAIL(str, callback);
         });
@@ -8389,16 +8445,6 @@ var require_smtp_connection = __commonJS({
           }
         }
         if (this._envelope.requireTLSExtensionEnabled) {
-          if (!this.secure) {
-            return callback(
-              this._formatError("REQUIRETLS can only be used over TLS connections (RFC 8689)", "EREQUIRETLS", false, "MAIL FROM")
-            );
-          }
-          if (!this._supportedExtensions.includes("REQUIRETLS")) {
-            return callback(
-              this._formatError("Server does not support REQUIRETLS extension (RFC 8689)", "EREQUIRETLS", false, "MAIL FROM")
-            );
-          }
           args.push("REQUIRETLS");
         }
         this._sendCommand("MAIL FROM:<" + this._envelope.from + ">" + (args.length ? " " + args.join(" ") : ""));
@@ -11455,7 +11501,10 @@ var require_ses_transport = __commonJS({
       }
       getRegion(cb) {
         if (this.ses.sesClient.config && typeof this.ses.sesClient.config.region === "function") {
-          return this.ses.sesClient.config.region().then((region) => cb(null, region)).catch((err) => cb(err));
+          return this.ses.sesClient.config.region().then(
+            (region) => cb(null, region),
+            (err) => cb(err)
+          );
         }
         return cb(null, false);
       }
@@ -11545,13 +11594,29 @@ var require_ses_transport = __commonJS({
               if (err2 || !region) {
                 region = "us-east-1";
               }
-              const command = new this.ses.SendEmailCommand(sesMessage);
-              const sendPromise = this.ses.sesClient.send(command);
+              let sendPromise;
+              try {
+                const command = new this.ses.SendEmailCommand(sesMessage);
+                sendPromise = this.ses.sesClient.send(command);
+              } catch (err3) {
+                tagSesError(err3);
+                this.logger.error(
+                  {
+                    err: err3,
+                    tnx: "send"
+                  },
+                  "Send error for %s: %s",
+                  messageId,
+                  err3.message
+                );
+                setImmediate(() => callback(err3));
+                return;
+              }
               sendPromise.then((data) => {
                 if (region === "us-east-1") {
                   region = "email";
                 }
-                callback(null, {
+                const info = {
                   envelope: {
                     from: envelope.from,
                     to: envelope.to
@@ -11559,7 +11624,8 @@ var require_ses_transport = __commonJS({
                   messageId: "<" + data.MessageId + (!/@/.test(data.MessageId) ? "@" + region + ".amazonses.com" : "") + ">",
                   response: data.MessageId,
                   raw
-                });
+                };
+                setImmediate(() => callback(null, info));
               }).catch((err3) => {
                 tagSesError(err3);
                 this.logger.error(
@@ -11571,7 +11637,7 @@ var require_ses_transport = __commonJS({
                   messageId,
                   err3.message
                 );
-                callback(err3);
+                setImmediate(() => callback(err3));
               });
             });
           })
@@ -11607,9 +11673,15 @@ var require_ses_transport = __commonJS({
           }
         };
         this.getRegion(() => {
-          const command = new this.ses.SendEmailCommand(sesMessage);
-          const sendPromise = this.ses.sesClient.send(command);
-          sendPromise.then(() => cb(null)).catch((err) => cb(err));
+          let sendPromise;
+          try {
+            const command = new this.ses.SendEmailCommand(sesMessage);
+            sendPromise = this.ses.sesClient.send(command);
+          } catch (err) {
+            setImmediate(() => cb(err));
+            return;
+          }
+          sendPromise.then(() => setImmediate(() => cb(null))).catch((err) => setImmediate(() => cb(err)));
         });
         return promise;
       }

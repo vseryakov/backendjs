@@ -258,7 +258,7 @@ WebSockets will be accepted only if request Origin: header maches the pattern
 Type: regexp   
 ###  api-ws-queue 
 ---- 
-A queue where to publish messages for WebSockets, API process will listen for messages and proxy it to all macthing connected WebSockets    
+A queue where to publish messages for WebSockets, API process will listen for messages and proxy it to all matching connected WebSockets    
 ## app
 See {@link module:app}
 ###  app-cap-(.+) 
@@ -700,19 +700,15 @@ Example:
 -db-custom-column-users-^stats=counter
 ```
 
-###  db-cleanup-rules-(.+) 
+###  db-cleanup-(.+) 
 ---- 
-Rules for the db.cleanupResult per table   
+Rules for the db.cleanupResult per table, only allows on/off condition for columns   
 Type: map   
 Example:
 ```
-db-cleanup-rules-bk_user = email:0,phone:1
+db-cleanup-bk_user = email:0,phone:1
 ```
 
-###  db-cleanup-strict 
----- 
-Default strict mode for cleanup results   
-Type: bool   
 ###  db-([a-z0-9]+)-pool 
 ---- 
 A database pool name, depending on the driver it can be an URL, name or pathname   
@@ -1205,6 +1201,11 @@ Compress encoding to use for precompressed files: gzip, br, zstd
 Produce weak ETag header for static files   
 Type: bool   
 Default: true   
+###  middleware-static-sorting-id 
+---- 
+Add routes with this sorting number, for config mode only   
+Type: int   
+Default: 9999   
 ## middleware.users
 See {@link module:middleware/users}
 ###  middleware-users-enable 

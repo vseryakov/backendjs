@@ -1,0 +1,195 @@
+<style>
+.modal-dialog.modal-xxl {
+    width: 95% !important;
+    min-width: 95% !important;
+}
+
+.modal-xxl .modal-content {
+    height: 95vh !important;
+    min-height: 95vh !important;
+}
+</style>
+
+<div class="p-2">
+
+    <div class="d-flex justify-content-between align-items-center m-2">
+        <h4 class="my-2">Sites</h4>
+
+        <div class="d-flex align-items-center">
+            <button class="btn btn-primary text-nowrap me-3" @click="submit()">
+                <i class="bi bi-plus-lg"></i> Submit URL
+            </button>
+
+            <button class="btn btn-primary text-nowrap me-3" @click="refresh(1)">
+                <i class="bi bi-refersh-lg"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="p-2">
+        <template x-for="row in list" :key="row.id">
+            <div class="border rounded my-3 p-2" x-template="'site'"></div>
+        </template>
+
+        <template x-if="!list.length">
+            <tr>
+                <td colspan="4" class="text-center text-muted py-4">
+                    No screenshots found
+                </td>
+            </tr>
+        </template>
+
+        <template x-if="next_token">
+            <tr>
+                <td colspan="4" role=button class="text-center text-muted py-4" @click="refresh">
+                    Load more
+                </td>
+            </tr>
+        </template>
+    </div>
+</div>
+
+<template id=site>
+    <div class="row">
+        <div class="col-2">
+            <img :src="['pending','scraping'].includes(row.status)?'/img/loading.gif':'/api/asset/'+row.id+'/page.png'" style="width:100%">
+        </div>
+
+        <div class="col-9">
+            <div>
+                <div class="py-2" x-text="row.url"></div>
+                <h5 class="py-2" x-text="row.title"></h5>
+
+                <ul class="nav nav-tabs" x-template="'tabbar'"></ul>
+                <div class="tab-content pt-3" x-template="'tabcontent'"></div>
+
+            </div>
+        </div>
+
+        <div class="col-1 text-muted text-center" x-template="'sidebar'"></div>
+    </div>
+
+    <div x-template="row.profiles&&row._show?'profiles':''"></div>
+
+</template>
+
+<template id=tabbar>
+    <li class="nav-item">
+        <a class="nav-link active" :id="'t1'+row.id" data-bs-toggle="tab" :href="'#p1'+row.id" role="tab" :aria-controls="'t1'+row.id" aria-selected="true">
+            Meta
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.describe?.name">
+        <a class="nav-link" id="'t2'+row.id" data-bs-toggle="tab" :href="'#p2'+row.id" role="tab" :aria-controls="'t2'+row.id" aria-selected="true">
+            AI
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.event?.name">
+        <a class="nav-link" id="'t3'+row.id" data-bs-toggle="tab" :href="'#p3'+row.id" role="tab" :aria-controls="'t3'+row.id" aria-selected="true">
+            Event
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.ical?.name">
+        <a class="nav-link" id="'t4'+row.id" data-bs-toggle="tab" :href="'#p4'+row.id" role="tab" :aria-controls="'t4'+row.id" aria-selected="true">
+            iCal
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.company?.name">
+        <a class="nav-link" :id="'t5'+row.id" data-bs-toggle="tab" :href="'#p5'+row.id" role="tab" :aria-controls="'t5'+row.id" aria-selected="true">
+            Company
+        </a>
+    </li>
+
+    <li class="nav-item" x-show="row.webpage?.name">
+        <a class="nav-link" :id="'t6'+row.id" data-bs-toggle="tab" :href="'#p6'+row.id" role="tab" :aria-controls="'t6'+row.id" aria-selected="true">
+            WebPage
+        </a>
+    </li>
+</template>
+
+<template id="tabcontent">
+
+    <div class="tab-pane active show fade" :id="'p1'+row.id" role="tabpanel" :aria-labelledby="'t1'+row.id">
+        <h6 x-text="row.meta?.name"></h6>
+        <div class="text-muted" x-text="row.meta?.description"></div>
+        <div class="py-1">
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'page.html')">HTML file</button>
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'page.txt')">Text file</button>
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'full.png')">Full screenshot</button>
+            <button class="btn btn-sm btn-outline-dark" x-show="row.logos?.length" @click="show(row, 'logos')">Other logos</button>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" :id="'p2'+row.id" role="tabpanel" :aria-labelledby="'t2'+row.id">
+        <h6 x-text="row.describe?.name"></h6>
+        <div class="text-muted" x-text="row.describe?.descr"></div>
+        <div class="py-1">Date: <small class="text-muted" x-text="row.describe?.date"></small></div>
+        <div class="py-1">Venue: <small class="text-muted" x-text="row.describe?.venue"></small></div>
+        <div class="py-1">Location: <small class="text-muted" x-text="row.describe?.location"></small></div>
+        <div class="py-1">Font: <small class="text-muted" x-text="row.describe?.font"></small></div>
+        <div class="py-1">Color: <small class="text-muted" x-text="row.describe?.color"></small></div>
+        <div class="py-1">Place: <small class="text-muted" x-text="row.describe?.place"></small></div>
+    </div>
+
+    <div class="tab-pane fade" :id="'p3'+row.id" role="tabpanel" :aria-labelledby="'t3'+row.id">
+        <h6 x-text="row.event?.name"></h6>
+        <div class="text-muted" x-text="row.event?.description"></div>
+        <div class="py-1">Date: <small class="text-muted" x-text="row.event?.date"></small></div>
+        <div class="py-1">Venue: <small class="text-muted" x-text="row.event?.venue"></small></div>
+        <div class="py-1">Location: <small class="text-muted" x-text="row.event?.location"></small></div>
+        <div class="py-1">
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'ld.json')">LD+JSON file</button>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" :id="'p4'+row.id" role="tabpanel" :aria-labelledby="'t4'+row.id">
+        <h6 x-text="row.ical?.name"></h6>
+        <div class="text-muted" x-text="row.ical?.descrition"></div>
+        <div class="py-1">Date: <small class="text-muted" x-text="row.ical?.date"></small></div>
+        <div class="py-1">Venue: <small class="text-muted" x-text="row.ical?.venue"></small></div>
+        <div class="py-1">Location: <small class="text-muted" x-text="row.ical?.location"></small></div>
+        <div class="py-1">
+            <button class="btn btn-sm btn-outline-dark" @click="show(row, 'ld.ical')">iCal file</button>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" :id="'p5'+row.id" role="tabpanel" :aria-labelledby="'t5'+row.id">
+        <h6 x-text="row.company?.name"></h6>
+        <div class="text-muted" x-text="row.company?.url"></div>
+        <img class="my-3" :src="row.company?.logo||'/img/1.png'" height=100>
+    </div>
+
+    <div class="tab-pane fade" :id="'p6'+row.id" role="tabpanel" :aria-labelledby="'t6'+row.id">
+        <h6 x-text="row.webpage?.name"></h6>
+        <div class="text-muted" x-text="row.webpage?.description"></div>
+        <div class="text-muted" x-text="row.webpage?.url"></div>
+        <img class="my-3" :src="row.webpage?.logo||'/img/1.png'" height=100>
+    </div>
+
+</template>
+
+<template id="sidebar">
+    <img class="p-3" :src="row.logo?'/api/asset/'+row.id+'/logo.png':'/img/1.png'" width="100%">
+
+    <div class="m-2 badge rounded-pill" :class="row.error ? 'text-bg-danger' : 'text-bg-primary'" x-text="row.status" :title="row.error"></div>
+
+    <div class="m-3" role="button" @click="row._show=!row._show" title="Show/hide images"><i class="bi bi-image"></i></div>
+    <div class="m-3" role="button" @click="resubmit(row)" title="Resubmit"><i class="bi bi-arrow-clockwise"></i></div>
+    <div class="m-3" role="button" @click="del(row)" title="Delete"><i class="bi bi-trash"></i></div>
+</template>
+
+
+<template id=profiles>
+    <div class="d-flex flex-wrap">
+        <template x-for="profile in row.profiles">
+            <div class="p-3 m-2" @click="edit(row, profile)">
+                <img :src="'/api/asset/'+row.id+'/profile-'+profile.name+'.png?'+Date.now()" :title="profile.name" style="width:300px">
+            </div>
+        </template>
+    </div>
+</template>
+

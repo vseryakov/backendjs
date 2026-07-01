@@ -1,0 +1,29 @@
+<head>
+    <title>Scraper</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <link rel="shortcut icon" href="/img/logo.png" type="image/png" />
+    <link rel="icon" href="/img/logo.png" type="image/png" />
+
+    <link href="/css/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/bootstrap.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="h-100 w-100">
+        <div class="alerts"></div>
+        <div id="app-main"></div>
+    </div>
+
+    <script src="/js/popper2.js"></script>
+    <script src="/js/bootstrap.js"></script>
+    <script src="/js/app-bootstrap.js"></script>
+    <script src="/js/alpinejs.js"></script>
+
+    <script src="/scraper.js"></script>
+    <script src="/render.js"></script>
+</body>
+
+<template id=index>
+    <div x-template="'/scraper.html'"></div>
+</template>
