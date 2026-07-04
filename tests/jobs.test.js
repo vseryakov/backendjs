@@ -4,13 +4,17 @@
  *
  * Redis: `node --test tests/jobs.test.js`
  *
- * NATS: `BKJS_ROLES=redis,nats --test tests/jobs.test.js`
+ * Redis with worker locking: `BKJS_ROLES=redis,worker-uniq,redis-jobs --test tests/jobs.test.js`
  *
- * SQS: `BKJS_ROLES=redis,sqs --test tests/jobs.test.js`
+ * Redis with worker queue: `BKJS_ROLES=worker-sys,worker-uniq,redis-jobs --test tests/jobs.test.js`
  *
- * DB Sqlite: `BKJS_ROLES=redis,sqlite,dbqueue node --test tests/jobs.test.js`
+ * NATS: `BKJS_ROLES=redis,nats-jobs --test tests/jobs.test.js`
  *
- * DB Postgres: `BKJS_ROLES=redis,postgres,dbqueue node --test tests/jobs.test.js`
+ * SQS: `BKJS_ROLES=redis,sqs-jobs --test tests/jobs.test.js`
+ *
+ * DB Sqlite: `BKJS_ROLES=redis,sqlite,db-jobs node --test tests/jobs.test.js`
+ *
+ * DB Postgres: `BKJS_ROLES=redis,postgres,db-jobs node --test tests/jobs.test.js`
  *
  */
 
@@ -20,8 +24,9 @@ const cluster = require("node:cluster");
 const { app, lib, jobs, queue } = require("../");
 const { ainit, astop, testJob } = require("./utils");
 
-const roles = process.env.BKJS_ROLES || "redis";
-const queueName = lib.split(roles).at(-1);
+const roles = process.env.BKJS_ROLES || "redis,redis-jobs";
+
+const queueName = lib.split(roles).at(-1).replace("-jobs", "");
 
 jobs.testJob = testJob;
 

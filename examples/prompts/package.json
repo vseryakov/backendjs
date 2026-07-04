@@ -1,8 +1,8 @@
 {
  "version": "0.1.0",
  "author": "vlad",
- "name": "app",
- "description": "The backend",
+ "name": "prompts",
+ "description": "A backend example about LLM prompts",
  "repository": { "type": "git", "url": "http://github.com/vseryakov/backendjs.git" },
  "main": "app.js",
  "dependencies": {

@@ -3,22 +3,34 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { app, lib, cache } = require("../");
 const { ainit } = require("./utils");
+const cluster = require("node:cluster");
+
+const roles = process.env.BKJS_ROLES || "local";
+const cacheName = lib.split(roles).at(-1);
+
+app.noRestart = app.exitOnEmpty = true;
+
+if (cluster.isPrimary && cacheName === "worker") {
+    return app.start({ server: 1, roles, config: __dirname + "/bkjs.conf" }, () => {
+        process.exit();
+    });
+}
 
 describe("Limiter tests", async () => {
 
 var opts = {
-    name: "test",
+    name: `test${cacheName == "worker" ? process.pid : ""}`,
     rate: 1,
     max: 1,
     interval: 100,
-    cacheName: process.env.BKJS_ROLES || "local",
+    cacheName,
     pace: 5,
     count: 5,
     delays: 4,
 };
 
     before(async () => {
-        await ainit({ nodb: 1, cache: 1, roles: process.env.BKJS_ROLES });
+        await ainit({ nodb: 1, ipc: 1, cache: 1, roles: process.env.BKJS_ROLES });
     });
 
     it("should delay the pace", async () => (
@@ -26,25 +38,25 @@ var opts = {
             var list = [], delays = 0;
             for (let i = 0; i < opts.count; i++) list.push(i);
 
-                lib.forEachSeries(list, (i, next2) => {
-                    lib.doWhilst(
-                      function(next3) {
-                          cache.limiter(opts, (delay) => {
-                              opts.delay = delay;
-                              setTimeout(next3, delay);
-                          });
-                      },
-                      function() {
-                          if (opts.delay) delays++;
-                          return opts.delay;
-                      },
-                      function() {
-                          setTimeout(next2, opts.pace);
+            lib.forEachSeries(list, (i, next2) => {
+                lib.doWhilst(
+                  function(next3) {
+                      cache.limiter(opts, (delay) => {
+                          opts.delay = delay;
+                          setTimeout(next3, delay);
                       });
-                }, () => {
-                    assert.strictEqual(delays, opts.delays);
-                    resolve();
-                });
+                  },
+                  function() {
+                      if (opts.delay) delays++;
+                      return opts.delay;
+                  },
+                  function() {
+                      setTimeout(next2, opts.pace);
+                  });
+            }, () => {
+                assert.strictEqual(delays, opts.delays);
+                resolve();
+            });
         })
     ));
 
@@ -70,6 +82,10 @@ var opts = {
 
     after(async () => {
         await app.astop();
+
+        if (cluster.isWorker) {
+            process.exit();
+        }
     });
 
 });

@@ -1172,6 +1172,7 @@ Type: bool
 ###  middleware-static-root 
 ---- 
 Root path for files   
+Type: path   
 ###  middleware-static-max-age 
 ---- 
 Max age for files in ms, -1 to disable   

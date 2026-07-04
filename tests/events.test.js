@@ -1,11 +1,26 @@
 
+/**
+ * To test different queues:
+ *
+ * Redis: `node --test tests/events.test.js`
+ *
+ * NATS: `BKJS_ROLES=redis,nats-events --test tests/events.test.js`
+ *
+ * SQS: `BKJS_ROLES=redis,sqs-events --test tests/events.test.js`
+ *
+ * DB Sqlite: `BKJS_ROLES=redis,sqlite,db-events node --test tests/events.test.js`
+ *
+ * DB Postgres: `BKJS_ROLES=redis,postgres,db-events node --test tests/events.test.js`
+ *
+ */
+
 const cluster = require("node:cluster");
 const { app, lib, events, queue } = require("../");
 const { ainit, astop, testEvent } = require("./utils");
 
-const roles = process.env.BKJS_ROLES || "redisevent";
+const roles = process.env.BKJS_ROLES || "redis-events";
 
-const queueName = lib.split(roles)[0].replace("event", "")
+const queueName = lib.split(roles).at(-1).replace("-event", "")
 
 events.testEvent = testEvent;
 
