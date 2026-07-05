@@ -32,10 +32,21 @@ describe('Files tests', async () => {
         assert.strictEqual(result, '/image.png');
 
         result = lib.sanitizePath('/.././image.png');
-        assert.strictEqual(result, '/image.png');
+        assert.strictEqual(result, 'image.png');
 
         result = lib.sanitizePath("/usr/www/root", "../%2e%2e//../etc/......./\r\necho/./pas\1swd\00.0\x00.exe")
-        assert.strictEqual(result, '/usr/www/root/2e2e/etc/echo/passwd.0.exe');
+        assert.strictEqual(result, '/usr/www/root/2e2e/etc/......./echo/passwd.0.exe');
+
+
+        result = lib.validatePath('/image.png');
+        assert.strictEqual(result, '/image.png');
+
+        result = lib.validatePath('/.././image.png');
+        assert.strictEqual(result, undefined);
+
+        result = lib.validatePath("/usr/www/root", "../%2e%2e//../etc/......./\r\necho/./pas\1swd\00.0\x00.exe")
+        assert.strictEqual(result, undefined);
+
     });
 
     await it('files tests', async () => {
