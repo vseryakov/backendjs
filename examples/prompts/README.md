@@ -6,8 +6,8 @@
 
 ### First Time Setup
 
-1. This is example inside the backendjs repository, so first you need to clone it if it does not exist yet,
-skip to the next item if you have it
+1. This is an example inside the backendjs repository, so first you need to clone backendjs
+   it if it does not exist yet, skip to the next item if you have it
 
   ```
   git clone --depth 1 https://github.com/vseryakov/backendjs.git
@@ -16,10 +16,10 @@ skip to the next item if you have it
 2. Navigate to the example:
 
   ```
-  cd backendjs/examples/llm-compare
+  cd backendjs/examples/prompts
   ```
 
-3.. Prepare and start the example, no external depencies are needed
+3.. Prepare and start the example, no external dependencies are needed
 
   ```
   npm run setup
@@ -41,12 +41,14 @@ skip to the next item if you have it
 ```
 src/
 ├── web/
-│   ├── config.js      # Config component
-│   ├── config.html    # Config HTML template
-|   ├── index.js       # app startup code
+│   ├── propmts.js     # Main component
+│   ├── prompts.html   # Main HTML template
+|   ├── models.html    # Models popup
 │   └── index.html     # Home page
 ├── modules/
-│   └── api.js         # Config module with routes
+│   ├── llm.js         # LLM access
+│   ├── models.js      # Models API
+│   └── prompts.js     # Prompts API
 ├── var/
     └── llms.db        # Local SQLite database
 ```

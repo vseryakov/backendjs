@@ -7,59 +7,70 @@
 
 const { db, api, lib } = require('backendjs');
 
+const llm = require(__dirname + "/llm");
+
 module.exports = {
     name: "models",
 
+    // Database tables
     tables: {
-
-        /**
-         * Database tables
-         */
 
         models: {
             id: { primary: 1 },
             type: {},
-            url: {},
+            url: { type: "url" },
             token: {},
             mtime: { type: "now" },
         },
 
     },
 
-    /**
-     * Setup routes
-     */
+    // Setup our routes
     configureMiddleware(options, callback)
     {
         api.app.
             get("/api/models", list).
             post("/api/model", save).
-            delete("/api/model/:id", del).
+            delete("/api/model/:id", del);
 
         callback();
     }
 
 }
 
+// Return all models without pagination
 function list(context)
 {
     var data = [];
-    db.scan("models", {}, { sync: 1 }, (rows) => {
+    db.scan("models", {}, { sync: 1, select: ["id", "type", "url"] }, (rows) => {
         data.push(...rows);
     }, (err) => {
         context.reply(err, { count: data.length, data });
     });
 }
 
+// Validate model properties to be valid characters and existing llm type
+const _saveSchema = {
+    id: {
+        required: true,
+        noregexp: lib.rxSpecial
+    },
+    type: {
+        required: true,
+        regexp: lib.rxSymbol,
+        errmsg: "invalid model type",
+        values: Object.keys(llm).filter(x => lib.isFunc(llm[x])),
+    },
+    token: {
+        regexp: lib.rxPrintable
+    },
+    url: { type: "url" },
+}
 
+// Add/replace a model by ID, guard against non-existing llms
 function save(context)
 {
-    const { err, data } = api.validate(context, {
-        id: { required: true, strip: lib.rxNoSpecial },
-        type: { required: true, regexp: lib.rxSymbol },
-        token: { regexp: lib.rxPrintable },
-        url: { type: "url" },
-    });
+    const { err, data } = api.validate(context, _saveSchema);
     if (err) return context.reply(err);
 
     db.put("models", data, (err) => {
@@ -67,15 +78,20 @@ function save(context)
     });
 }
 
+// Delete a model by id
 function del(context)
 {
     const { id } = context.params;
 
-    if (!lib.rxSpecial.test(id)) {
-        return context.reply({ status: 400, message: "invalid model" })
+    if (lib.rxSpecial.test(id)) {
+        return context.reply({ status: 400, message: "invalid model id" })
     }
 
-    db.del("models", { id }, (err) => {
+    // report an error if not deleted
+    db.del("models", { id }, (err, _, info) => {
+        if (!err && !info?.affected_rows) {
+            err = { status: 404, message: "invalid model" };
+        }
         context.reply(err);
     });
 }

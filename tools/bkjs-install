@@ -45,7 +45,7 @@ case "$BKJS_CMD" in
     set -e
     mkdir -p node_modules/.bin
     cd node_modules
-    ln -sf $BKJS_DIR backendjs
+    ln -sF $BKJS_DIR backendjs
     cd .bin
     ln -sf ../backendjs/bin/bkjs
     ln -sf ../backendjs/bin/bksh

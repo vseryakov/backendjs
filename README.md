@@ -10,13 +10,13 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
 ---
 
 ```js
-const { app, api } = require('backendjs');
+const { app, api, logger } = require('backendjs');
 
-app.start({ api: 1 });
+app.start({ api: true });
 
 api.app.get("/", (context) => { context.send(200, "Hello, World!") });
 
-console.log('Server running on http://%s:%s', api.bind, api.port);
+logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 ```
 
 ## **Features**

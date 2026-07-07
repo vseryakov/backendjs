@@ -12,7 +12,7 @@
  "scripts": {
     "symlink": "../../bin/bkjs install-symlink",
     "setup": "npm run symlink && bksh -db-create-tables",
-    "start": "bkjs run -api -watch",
+    "start": "bkjs run -server -watch",
     "bksh": "bksh"
  },
  "license": "BSD-3-Clause"

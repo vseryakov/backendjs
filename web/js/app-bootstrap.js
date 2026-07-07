@@ -144,50 +144,56 @@
   /**
    * Returns the array if the value is non empty array or dflt value if given or undefined
    * @param {any} val
-   * @returns {any|any[]}
+   * @param {any} [dflt]
+   * @returns {any|any[]|undefined}
    */
   function isArray(val, dflt) {
     return Array.isArray(val) && val.length ? val : dflt;
   }
   /**
-   * Returns the num itself if it is a number
+   * Returns the num itself if it is a number or default
    * @param {any} num
+   * @param {any} [dflt]
    * @returns {number|undefined}
    */
-  function isNumber(num) {
+  function isNumber(num, dflt) {
     return typeof num == "number" ? num : void 0;
   }
   /**
    * Returns the str itself if it is not empty or ""
    * @param {any} str
+   * @param {any} [dflt=""]
    * @returns {string}
    */
-  function isString(str) {
-    return typeof str == "string" && str;
+  function isString(str, dflt = "") {
+    return typeof str == "string" ? str : dflt;
   }
   /**
    * Returns the callback is it is a function
    * @param {any} callback
+   * @param {any} [dflt]
    * @returns {function|undefined}
    */
-  function isFunction(callback) {
-    return typeof callback == "function" && callback;
+  function isFunction(callback, dflt) {
+    return typeof callback == "function" ? callback : dflt;
   }
   /**
    * Returns the obj itself if it is a not null object
    * @param {any} obj
+   * @param {any} [dflt]
    * @returns {object|undefined}
    */
-  function isObject(obj) {
-    return typeof obj == "object" && obj;
+  function isObject(obj, dflt) {
+    return typeof obj == "object" && obj || dflt;
   }
   /**
    * Returns the element itself if it is a HTMLElement
    * @param {any} element
+   * @param {any} [dflt]
    * @returns {HTMLElement|undefined}
    */
-  function isElement(element) {
-    return element instanceof HTMLElement && element;
+  function isElement(element, dflt) {
+    return element instanceof HTMLElement && element || dflt;
   }
   /**
    * Convert a string into camelized format
@@ -220,7 +226,7 @@
    * 1.23
    */
   function toNumber(val, options) {
-    var n = 0;
+    var n;
     if (typeof val == "number") {
       n = val;
     } else if (typeof val == "boolean") {
@@ -229,7 +235,7 @@
       if (typeof val != "string") {
         n = options?.dflt || 0;
       } else {
-        var f = typeof options?.float == "undefined" || options?.float == null ? /^(-|\+)?([0-9]+)?\.[0-9]+$/.test(val) : options?.float;
+        const f = typeof options?.float == "undefined" || options?.float == null ? /^(-|\+)?([0-9]+)?\.[0-9]+$/.test(val) : options?.float;
         n = val[0] == "t" ? 1 : val[0] == "f" ? 0 : val == "infinity" ? Infinity : f ? parseFloat(val, options?.base || 10) : parseInt(val, options?.base || 10);
       }
     }
@@ -1323,17 +1329,21 @@
     forEach: () => forEach,
     forEachSeries: () => forEachSeries,
     includes: () => includes,
+    isDST: () => isDST,
     loadResources: () => loadResources,
     parallel: () => parallel,
     sanitizer: () => sanitizer,
     sendFile: () => sendFile,
     series: () => series,
     split: () => split,
+    strftime: () => strftime,
     toDate: () => toDate,
     toDuration: () => toDuration,
     toPrice: () => toPrice,
     toSize: () => toSize,
-    toTitle: () => toTitle
+    toTitle: () => toTitle,
+    tzMap: () => tzMap,
+    weekOfYear: () => weekOfYear
   });
   /**
    * @param {any[]} list
@@ -1819,6 +1829,185 @@
     u: [],
     ul: []
   };
+  /**
+   * Return an ISO week number for given date, from https://www.epochconverter.com/weeknumbers
+   * @param {string|Date} date
+   * @param {boolean} [utc]
+   * @return {int}
+   */
+  function weekOfYear(date, utc) {
+    date = toDate(date, null);
+    if (!date) return 0;
+    utc = utc ? "UTC" : "";
+    var target = new Date(date.valueOf());
+    target[`set${utc}Date`](target[`get${utc}Date`]() - (date[`get${utc}Day`]() + 6) % 7 + 3);
+    var firstThursday = target.valueOf();
+    target[`set${utc}Month`](0, 1);
+    var day = target[`get${utc}Day`]();
+    if (day !== 4) target[`set${utc}Month`](0, 1 + (4 - day + 7) % 7);
+    return 1 + Math.ceil((firstThursday - target) / 6048e5);
+  }
+  /**
+   * Returns true if the given date is in DST timezone
+   * @param {Date} date
+   * @return {boolean}
+   */
+  function isDST(date) {
+    var jan = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+    var jul = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+    return Math.max(jan, jul) !== date.getTimezoneOffset();
+  }
+  function zeropad(n) {
+    return n > 9 ? n : "0" + n;
+  }
+  function spacepad(n) {
+    return n > 9 ? n : " " + n;
+  }
+  var strftimeFormat = "%Y-%m-%d %H:%M:%S %Z";
+  var weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var weekDaysFull = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var monthsFull = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var tzMap = [
+    // name, GMT offset, daylight
+    ["WET", "GMT", false],
+    ["WED", "GMT+0100", true],
+    ["CET", "GMT+0100", false],
+    ["CED", "GMT+0200", true],
+    ["EET", "GMT+0200", false],
+    ["EED", "GMT+0300", true],
+    ["EDT", "GMT-0400", true],
+    ["EST", "GMT-0500", false],
+    ["PDT", "GMT-0700", true],
+    ["PST", "GMT-0800", false],
+    ["CDT", "GMT-0500", true],
+    ["CST", "GMT-0600", false],
+    ["MDT", "GMT-0600", true],
+    ["MST", "GMT-0700", false],
+    ["HADT", "GMT-0900", true],
+    ["HAST", "GMT-1000", false],
+    ["AKDT", "GMT-0800", true],
+    ["AKST", "GMT-0900", false],
+    ["ADT", "GMT-0300", true],
+    ["AST", "GMT-0400", false]
+  ];
+  var _strftime = {
+    a(t, utc, _tz) {
+      return __(weekDays[utc ? t.getUTCDay() : t.getDay()]);
+    },
+    A(t, utc, _tz) {
+      return __(weekDaysFull[utc ? t.getUTCDay() : t.getDay()]);
+    },
+    b(t, utc, _tz) {
+      return __(months[utc ? t.getUTCMonth() : t.getMonth()]);
+    },
+    B(t, utc, _tz) {
+      return __(monthsFull[utc ? t.getUTCMonth() : t.getMonth()]);
+    },
+    c(t, utc, __tz) {
+      return utc ? t.toUTCString() : t.toString();
+    },
+    d(t, utc, __tz) {
+      return zeropad(utc ? t.getUTCDate() : t.getDate());
+    },
+    e(t, utc, __tz) {
+      return spacepad(utc ? t.getUTCDate() : t.getDate());
+    },
+    H(t, utc, __tz) {
+      return zeropad(utc ? t.getUTCHours() : t.getHours());
+    },
+    I(t, utc, __tz) {
+      return zeropad(((utc ? t.getUTCHours() : t.getHours()) + 12) % 12 || 12);
+    },
+    k(t, utc, __tz) {
+      return spacepad(utc ? t.getUTCHours() : t.getHours());
+    },
+    l(t, utc, __tz) {
+      return spacepad(((utc ? t.getUTCHours() : t.getHours()) + 12) % 12 || 12);
+    },
+    L(t, utc, __tz) {
+      return zeropad(utc ? t.getUTCMilliseconds() : t.getMilliseconds());
+    },
+    m(t, utc, __tz) {
+      return zeropad((utc ? t.getUTCMonth() : t.getMonth()) + 1);
+    },
+    // month-1
+    M(t, utc, __tz) {
+      return zeropad(utc ? t.getUTCMinutes() : t.getMinutes());
+    },
+    p(t, utc, __tz) {
+      return (utc ? t.getUTCHours() : t.getHours()) < 12 ? "am" : "pm";
+    },
+    P(t, utc, __tz) {
+      return (utc ? t.getUTCHours() : t.getHours()) < 12 ? "AM" : "PM";
+    },
+    S(t, utc, __tz) {
+      return zeropad(utc ? t.getUTCSeconds() : t.getSeconds());
+    },
+    w(t, utc, __tz) {
+      return utc ? t.getUTCDay() : t.getDay();
+    },
+    // 0..6 == sun..sat
+    W(t, utc, __tz) {
+      return zeropad(weekOfYear(t, utc));
+    },
+    y(t, _utc, __tz) {
+      return zeropad(t.getYear() % 100);
+    },
+    Y(t, utc, __tz) {
+      return utc ? t.getUTCFullYear() : t.getFullYear();
+    },
+    t(t, _utc, __tz) {
+      return t.getTime();
+    },
+    u(t, _utc, __tz) {
+      return Math.floor(t.getTime() / 1e3);
+    },
+    Z(t, _utc, _lang, tz) {
+      tz = tz ? tz / 6e4 : t.getTimezoneOffset();
+      return "GMT" + (tz < 0 ? "+" : "-") + zeropad(Math.abs(-tz / 60)) + "00";
+    },
+    zz(t, utc, lang, tz) {
+      return _strftime.z(t, utc, lang, tz, 1);
+    },
+    z(t, _utc, _lang, tz, zz) {
+      tz = tz ? tz / 6e4 : t.getTimezoneOffset();
+      tz = "GMT" + (tz < 0 ? "+" : "-") + zeropad(Math.abs(-tz / 60)) + "00";
+      const dst = isDST(t);
+      for (const i in tzMap) {
+        if (tz === tzMap[i][1] && dst === tzMap[i][2]) {
+          return zz ? tz + " " + __(tzMap[i][0]) : __(tzMap[i][0]);
+        }
+      }
+      return tz;
+    },
+    Q(t, utc, _tz) {
+      var h = utc ? t.getUTCHours() : t.getHours();
+      return h < 12 ? __("Morning") : h < 17 ? __("Afternoon") : __("Evening");
+    },
+    "%"() {
+      return "%";
+    }
+  };
+  /**
+   * Format date object according to Unix strftime function
+   * @param {string|number|Date} date
+   * @param {string} fmt
+   * @param {object} [options]
+   * @return {string}
+   */
+  function strftime(date, fmt, options) {
+    date = toDate(date, null);
+    if (!date) return "";
+    const utc = options?.utc;
+    const tz = typeof options?.tz === "number" ? options.tz : 0;
+    if (tz) date = new Date(date.getTime() - tz);
+    fmt = fmt || strftimeFormat;
+    for (const p in _strftime) {
+      fmt = fmt.replace("%" + p, _strftime[p](date, utc, tz));
+    }
+    return fmt;
+  }
   on("alpine:init", (Alpine2) => {
     Alpine2.directive("shtml", (el, { expression }, { effect, evaluateLater }) => {
       const evaluate = evaluateLater(expression);

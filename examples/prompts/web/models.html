@@ -1,0 +1,43 @@
+
+<div class="row">
+    <div class="col-6">
+        <template x-for="model in models" :key="model.id">
+            <div class="row border-bottom my-3 p-2">
+                <div class="col-8">
+                    <span x-text="model.id"></span>
+                    <span x-text="model.type"></span>
+                </div>
+
+                <div class="col-4 text-end text-nowrap">
+                    <i class="m-3" @click="edit(model)" title="Edit"><i class="bi bi-pen"></i></i>
+                    <i class="m-3" @click="del(model)" title="Delete"><i class="bi bi-trash"></i></i>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <div class="col-1"></div>
+
+    <div class="col-4 p-4 rounded bg-light">
+        <form>
+            <div class="mb-3">
+                <label for="mtype" class="form-label">Type*</label>
+                <select class="form-control" name="type" id="mtype" x-model="type">
+                    <option>ollama</option>
+                    <option>openai</option>
+                    <option>gemeni</option>
+                    <option>anthropic</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="mid" class="form-label">Model*</label>
+                <input type="text" class="form-control" name="id" id="mid" x-model="id">
+            </div>
+            <div class="mb-3">
+                <label for="mtoken" class="form-label">Token</label>
+                <input type="text" class="form-control" name="token" id="mtoken" x-model="token">
+            </div>
+        </form>
+    </div>
+</div>
+

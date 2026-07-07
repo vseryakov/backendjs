@@ -898,7 +898,7 @@ Type: int
 Default: 50   
 ###  jobs-worker-queue 
 ---- 
-Queue(s) to subscribe for workers, multiple queues can be processes at the same time, i.e. more than one job can run from different queues   
+Queue(s) to subscribe for workers, multiple queues can be processed at the same time, i.e. more than one job can run from different queues   
 Type: list   
 Default: []   
 ###  jobs-worker-options-(.+) 
