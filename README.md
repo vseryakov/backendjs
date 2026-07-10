@@ -2,7 +2,7 @@
 # ![logo](https://vseryakov.github.io/backendjs/web/img/logo.png) Backend library for Node.js
 
 The `backendjs` provides a set of modules and utilities for building scalable, distributed applications with features
-like api routing, database management, caching, job queues, event processing, and more.
+like API routing, database management, caching, job queues, event processing, and more.
 
 Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-start.html) or
 [all docs](https://vseryakov.github.io/backendjs/docs/web/index.html).
@@ -28,7 +28,7 @@ logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 
 2. **Database Abstraction**
    - Supports multiple databases: **SQLite, Rqlite, PostgreSQL-wire compatible (PostgreSQL, DSQL, CockroachDB), DynamoDB, Elasticsearch**.
-   - Provides a unified API for CRUD operations, caching, and transactions, access to native engine allows to send raw SQL or JSON directy.
+   - Provides a simple unified API for CRUD operations for all databases, caching, and transactions, access to native engine allows to send raw SQL or JSON directy.
    - Supports **primary keys, indexes, and schema migrations**.
 
 3. **Caching**
@@ -41,7 +41,7 @@ logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
    - Event-based architecture for real-time processing.
 
 5. **API Layer**
-   - Trie router kind of similar to **Express/Hono** with middleware for authentication, rate limiting, static, logging and basic user management.
+   - Trie router similar to **Express/Hono** with middleware for sessions, CSRF, rate limiting, static serving, logging and basic user management, authentication and ACL based roles authorization
    - Includes **WebSocket support** for real-time communication using the same API routes and authentication.
    - Includes simple but powerful input validation via declarative schemas.
 

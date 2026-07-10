@@ -5,7 +5,7 @@
 'use strict';
 
 
-const { db, api, lib } = require('backendjs');
+const { db, api, lib, logger } = require('backendjs');
 
 const llm = require(__dirname + "/llm");
 
@@ -34,7 +34,9 @@ module.exports = {
             delete("/api/model/:id", del);
 
         callback();
-    }
+    },
+
+    seed,
 
 }
 
@@ -96,4 +98,32 @@ function del(context)
     });
 }
 
+// Create some models without tokens
+async function seed()
+{
+    logger.log("seed:", "models");
+
+    const rows = [
+        ['ornith:9b','ollama'],
+        ['gemma4:e4b-mlx','ollama'],
+        ['gemma4:12b-mlx','ollama'],
+        ['gemma4:26b-mlx','ollama'],
+        ['qwen3.6:27b-mlx','ollama'],
+        ['gemma4:31b-cloud','ollama'],
+        ['qwen3.5:9b','ollama'],
+        ['minimax-m3:cloud','ollama'],
+        ['granite4.1:30b','ollama'],
+        ['mistral-small3.2:24b','ollama'],
+        ['ministral-3:14b','ollama'],
+        ['gpt-5.5','openaichat'],
+        ['gpt-5.4','openai'],
+        ['gemini-3.5-flash','gemeni'],
+        ['claude-opus-4-8','anthropic'],
+        ['claude-sonnet-5','anthropic'],
+    ].map(x => ({ table: "models", op: "add", query: { id: x[0], type: x[1] } }));
+
+    await db.abulk(rows);
+
+    process.exit(0);
+}
 

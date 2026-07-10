@@ -75,9 +75,19 @@
                 <button class="btn m-2 p-2" data-bs-toggle="button" x-text="result.model" @click="show(prompt,result)" :class="result.error?'btn-outline-danger':'btn-outline-success'"></button>
 
                 <div class="text-bg-dark p-2 overflow-auto round border" x-show="result.width" :style="{maxWidth:result.width}" style="max-height:70vh">
-                    <div class="mb-3 small border-bottom opacity-75">
-                        <div x-text='"Stats: " + JSON.stringify(result.stats||"").replace(/[{}"]/g, "").replace(/([:,])/g, "$1 ")'></div>
-                        <div x-text='"Similarity: " + JSON.stringify(result.similarity||"").replace(/[{}"]/g, "").replace(/([:,])/g, "$1 ")'></div>
+                    <div class="mb-3 small opacity-75">
+
+                        <div class="py-1 border-bottom text-danger" x-show="result.error">
+                            <b>Error:</b> <span x-text="JSON.stringify(result.error)"></span>
+                        </div>
+
+                        <div class="py-1 border-bottom" >
+                            <b>Stats:</b> <span x-text='JSON.stringify(result.stats||"").replace(/[{}"]/g, "").replace(/([:,])/g, "$1 ")'></span>
+                        </div>
+
+                        <div class="py-1 border-bottom" >
+                            <b>Similarity:</b> <span x-text='JSON.stringify(result.similarity||"").replace(/[{}"]/g, "").replace(/([:,])/g, "$1 ")'></span>
+                        </div>
                     </div>
 
                     <pre class="wrap md" x-shtml="result.width ? result.text: ''"></pre>

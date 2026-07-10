@@ -1,8 +1,10 @@
 
-# Backend.js sample showing how to compare output from different LLMs
+# Backend.js example showing how to compare output from different LLMs side by side
 
 
-![Screenshot](screenshot.jpg)
+![Screenshot1](screenshot1.jpg)
+
+![Screenshot2](screenshot2.jpg)
 
 ### First Time Setup
 
@@ -50,7 +52,7 @@ src/
 │   ├── models.js      # Models API
 │   └── prompts.js     # Prompts API
 ├── var/
-    └── llms.db        # Local SQLite database
+    └── prompt.db      # Local SQLite database
 ```
 
 ## Learn More

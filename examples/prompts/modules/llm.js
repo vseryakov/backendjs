@@ -5,16 +5,24 @@
 'use strict';
 
 /**
- * LLM API access
+ * LLM API unified access
  *
- * input is options:
- * - model - Model name
- * - prompt - prompt text
+ * input:
+ * @param {object} options
+ * @param {string} options.model - Model name
+ * @param {string} options.prompt - prompt text
+ * @param {string} [options.token] - API token
+ * @param {string} [options.url] - custom url
+ * @param {string} [options.system] - system prompt
+ * @param {number} [options.max_tokens] - max token limit
+ * @param {number} [options.temperature] - randomness level
+ * @param {string} [options.reasoning] - reasoning effort
+ * @param {function} [callback] - to run on finish
  *
- * output is the raw response from eich model with unified shape for convenience:
+ * output is the raw response from each model with additional unified object `response` for convenience:
  * - model - model id
  * - text - text with whole response combined
- * - stats - token stats { in, out }
+ * - stats - token stats { duration, in, out, cached }
  * - error - error message or object
  */
 
@@ -38,7 +46,7 @@ module.exports = {
 
         const rc = await lib.afetch({
             method: "POST",
-            url: "https://api.openai.com/v1/responses",
+            url: options.url || "https://api.openai.com/v1/responses",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${options.token}`,
@@ -83,7 +91,7 @@ module.exports = {
 
         const rc = await lib.afetch({
             method: "POST",
-            url: "https://api.openai.com/v1/chat/completions",
+            url: options.url || "https://api.openai.com/v1/chat/completions",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${options.token}`,
@@ -130,7 +138,7 @@ module.exports = {
 
         const rc = await lib.afetch({
             method: "POST",
-            url: "http://localhost:11434/api/generate",
+            url: options.url || "http://localhost:11434/api/generate",
             headers: {
                 "Content-Type": "application/json",
             },
@@ -150,8 +158,8 @@ module.exports = {
             error: rc.obj?.error || rc.err || (!rc.ok && rc.data),
             stats: {
                 duration: rc.request.elapsed,
-                load_duration: rc.obj?.load_duration,
-                eval_duration: rc.obj?.eval_duration,
+                load_duration: Math.round(rc.obj?.load_duration/1000),
+                eval_duration: Math.round(rc.obj?.eval_duration/1000),
                 in: rc.obj?.prompt_eval_count || 0,
                 out: rc.obj?.eval_count || 0
             },
@@ -165,7 +173,7 @@ module.exports = {
 
         const rc = await lib.afetch({
             method: "POST",
-            url: `https://generativelanguage.googleapis.com/v1beta/interactions`,
+            url: options.url || "https://generativelanguage.googleapis.com/v1beta/interactions",
             headers: {
                 "x-goog-api-key": options.token,
                 "Content-Type": "application/json",
@@ -214,7 +222,7 @@ module.exports = {
 
         const rc = await lib.afetch({
             method: "POST",
-            url: "https://api.anthropic.com/v1/messages",
+            url: options.url || "https://api.anthropic.com/v1/messages",
             headers: {
                 "Content-Type": "application/json",
                 "anthropic-version": "2023-06-01",

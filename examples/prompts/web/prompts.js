@@ -90,7 +90,7 @@ app.components.prompts = class extends app.AlpineComponent {
     show(row, result) {
         result.width = !result.width;
 
-        if (result.width && !result._md && !result.error) {
+        if (result.width && !result._md) {
             result._md = 1;
             marked.setOptions({ gfm: true, breaks: false });
 
@@ -106,8 +106,7 @@ app.components.prompts = class extends app.AlpineComponent {
                     code.textContent = raw;
                 }
             });
-            result.text = result.error ? JSON.stringify(result.error) + "<hr>" : "";
-            result.text += template.innerHTML;
+            result.text = template.innerHTML;
         }
 
         let show;
@@ -116,9 +115,11 @@ app.components.prompts = class extends app.AlpineComponent {
             return res.width;
         });
 
+        row.results.splice(show, 1);
         if (result.width) {
-            row.results.splice(show, 1);
             row.results.unshift(result);
+        } else {
+            row.results.push(result);
         }
 
         const w = 90/(open.length);

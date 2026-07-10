@@ -36,6 +36,7 @@ module.exports = {
     },
 
     job,
+    similarity,
 }
 
 // Schema for pagination, make sure all are valid numbers
@@ -138,14 +139,17 @@ function submitJob(context, data)
 function similarity(results)
 {
     for (const res1 of results) {
-        if (res1.error) continue;
-        const similarity = [];
+        res1.similarity = [];
+        if (!res1.text) continue;
         for (const res2 of results) {
-            if (res1 === res2 || res2.error) continue;
-            similarity.push([res2.model, lib.isSimilar(res1.text, res2.text)]);
+            if (res1 === res2 || !res2.text) continue;
+            res1.similarity.push([res2.model, lib.toNumber(lib.isSimilar(res1.text, res2.text), { digits: 5 })]);
         }
-        res1.similarity = similarity.sort((a, b) => (b[1] - a[1])).reduce((a, b) => { a[b[0]] = b[1]; return a }, {});
+        res1.similarity.sort((a, b) => (b[1] - a[1]));
     }
+    results.sort((a, b) => ((b.similarity[0] || 0) - (a.similarity[0] || 0))).forEach(x => {
+        x.similarity = x.similarity.reduce((a, b) => { a[b[0]] = b[1]; return a }, {});
+    });
 }
 
 // Update existing prompt record with status and results and notify web via websocket
