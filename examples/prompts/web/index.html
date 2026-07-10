@@ -7,6 +7,30 @@
 
     <link href="/css/bootstrap-icons.css" rel="stylesheet">
     <link href="/css/bootstrap.css" rel="stylesheet">
+    <link href="/github-dark.css" rel="stylesheet">
+    <style>
+    .md { overflow-wrap: anywhere; }
+    .md > :first-child { margin-top: 0; }
+    .md > :last-child { margin-bottom: 0; }
+    .md h1, .md h2, .md h3 { margin: .45rem 0 .65rem; line-height: 1.2; }
+    .md h1 { font-size: 1.2rem; border-bottom: 1px solid var(--bs-border-color); padding-bottom: .35rem; }
+    .md h2 { font-size: 1.1rem; }
+    .md h3 { font-size: 1rem; }
+    .md p, .md ul, .md ol, .md table, .md pre { margin-bottom: .75rem; }
+    .md ul, .md ol { padding-left: 1.4rem; }
+    .md li + li { margin-top: .2rem; }
+    .md table { width: 100%; border-collapse: collapse; display: block; overflow-x: auto; color: var(--bs-color) }
+    .md th, .md td { border: 1px solid var(--bs-border-color); padding: .35rem .5rem; vertical-align: top; }
+    .md th { background: var(--bs-secondary-bg); font-weight: 600; }
+    .md code { color: #c9d1d9; background: #0d1117; border-radius: .25rem; padding: .1rem .25rem; }
+    .md pre { background: #0d1117; color: #c9d1d9; border-radius: .45rem; padding: .75rem; overflow: auto; white-space: pre; }
+    .md pre code { background: transparent; color: inherit; padding: 0; border-radius: 0; }
+    .md svg { max-width: 100%; height: auto; }
+    .md blockquote { border-left: 3px solid var(--bs-border-color); color: var(--bs-secondary-color); padding-left: .75rem; margin: .75rem 0; }
+
+    .dragover { outline: 2px dashed var(--bs-border-color) }
+    .dragging { outline: 2px dotted var(--bs-border-color) }
+    </style>
 </head>
 
 <body>
@@ -15,6 +39,8 @@
         <div id="app-main"></div>
     </div>
 
+    <script src="/js/marked.js"></script>
+    <script src="/highlight.min.js"></script>
     <script src="/js/popper2.js"></script>
     <script src="/js/bootstrap.js"></script>
     <script src="/js/app-bootstrap.js"></script>

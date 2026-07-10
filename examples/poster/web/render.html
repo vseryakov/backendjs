@@ -517,7 +517,7 @@
 </template>
 
 <template id="image-input">
-    <div class="form-control border-dashed p-2 d-flex align-content-center " x-file-drop="item" :class="{ 'border-primary': item._dragging }" >
+    <div class="form-control border-dashed p-2 d-flex align-content-center " x-file-drop="item" :class="{ 'border-primary': item._dragover }" >
         <small x-text="item.file ? item.gravity || 'center': 'Click or drag image here'"></small>
         <input type="file" :id="item.id" accept="image/*" class="d-none" @change="onFileDropped($event,item)" >
     </div>

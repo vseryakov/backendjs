@@ -37,6 +37,7 @@ app.components.render = class extends app.AlpineComponent {
     }
 
     onFileDropped(event, item) {
+        app.trace("onFileDropped:", event, item)
         const reader = new FileReader();
         reader.addEventListener("load", () => { item.data = reader.result });
 
@@ -59,7 +60,7 @@ app.components.render = class extends app.AlpineComponent {
         item.file = item.file || "";
         item.data = item.data || "";
         item.filters = item.filters || [];
-        item._dragging = false;
+        item._dragover = false;
         return item;
     }
 

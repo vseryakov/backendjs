@@ -27,9 +27,10 @@ module.exports = {
     configureMiddleware(options, callback)
     {
         api.app.
-            get("/api/prompts", list).
-            post("/api/prompt", submit).
-            delete("/api/prompt/:id", del);
+            get("/api/prompts", listRoute).
+            post("/api/prompt", submitRoute).
+            put("/api/prompt", resubmitRoute).
+            delete("/api/prompt/:id", deleteRoute);
 
         callback();
     },
@@ -46,7 +47,7 @@ const _listSchema = {
 }
 
 // List one page at a time
-function list(context)
+function listRoute(context)
 {
     const { err, data } = api.validate(context, _listSchema);
     if (err) return context.reply(err);
@@ -63,35 +64,62 @@ const _submitSchema = {
         strip: lib.rxXss,
         max: 100000,
     },
-    id: { type: "uuid" },
-    models: { type: "list" },
+    models: {
+        type: "list",
+        required: true,
+    },
     status: { value: "pending" },
     results: { value: null },
 }
 
-// Create/replace a prompt record and submit for execution
-async function submit(context)
+// Create a new prompt
+async function submitRoute(context)
 {
     const { err, data } = api.validate(context, _submitSchema);
     if (err) return context.reply(err);
 
-    // Make sure existing record is valid
-    if (data.id) {
-        const { data: row } = await db.aget("prompts", { id: data.id });
-        if (!row) data.id = undefined;
+    // Not storing models so we check here, results will contain all models anyway
+    const { data: models } = await db.alist("models", data.models);
+    if (models?.length != data.models.length) {
+        return context.reply({ status: 400, message: "invalid model:" + data.models.filter(x => !models.includes(x)) })
     }
 
+    submitJob(context, data);
+}
+
+// Replace existing prompt, keep the results
+async function resubmitRoute(context)
+{
+    const { err, data } = api.validate(context, Object.assign({ id: { type: "uuid", required: true } }, _submitSchema));
+    if (err) return context.reply(err);
+
+    const { data: prompt } = await db.aget("prompts", { id: data.id });
+    if (!prompt) return context.reply({ status: 404, message: "invalid prompt" })
+
+    data.results = prompt.results;
+
+    submitJob(context, data);
+}
+
+async function deleteRoute(context)
+{
+    const { id } = context.params;
+
+    if (!lib.isUuid(id)) {
+        return context.reply({ status: 400, message: "invalid id" });
+    }
+
+    db.del("prompts", { id }, (err) => {
+        context.reply(err);
+    });
+}
+
+// Replace complete prompt record and start a job, used by submit and resubmit
+function submitJob(context, data)
+{
     db.put("prompts", data, { result_query: 1, first: 1 }, async (err, prompt) => {
         if (err) {
             return context.reply(err);
-        }
-
-        // Not storing models so we check here, results will contain all models used anyway
-        if (data.models?.length) {
-            const { data: models } = await db.alist("models", data.models);
-            if (models?.length != data.models.length) {
-                return context.reply({ status: 400, message: "invalid model:" + data.models.filter(x => !models.includes(x)) })
-            }
         }
 
         // Notify connected web clients about new prompt job
@@ -106,18 +134,32 @@ async function submit(context)
     });
 }
 
-// for simplicity ignore if does not exist
-async function del(context)
+// Create similarity scores against each other and store in the stats
+function similarity(results)
 {
-    const { id } = context.params;
-
-    if (!lib.isUuid(id)) {
-        return context.reply({ status: 400, message: "invalid id" });
+    for (const res1 of results) {
+        if (res1.error) continue;
+        const similarity = [];
+        for (const res2 of results) {
+            if (res1 === res2 || res2.error) continue;
+            similarity.push([res2.model, lib.isSimilar(res1.text, res2.text)]);
+        }
+        res1.similarity = similarity.sort((a, b) => (b[1] - a[1])).reduce((a, b) => { a[b[0]] = b[1]; return a }, {});
     }
+}
 
-    db.del("prompts", { id }, (err) => {
-        context.reply(err);
-    });
+// Update existing prompt record with status and results and notify web via websocket
+function update(prompt, status, callback)
+{
+    const row = {
+        id: prompt.id,
+        status: status ? prompt.status = status : prompt.status,
+        results: prompt.results
+    };
+
+    db.update("prompts", row, callback);
+
+    api.ws.notify({}, { event: "prompts:status", prompt });
 }
 
 /**
@@ -133,70 +175,47 @@ async function job(options, callback)
         return callback({ status: 404, message: "no prompt" });
     }
 
-    let models;
-
-    if (options.models?.length) {
-        const { data } = await db.alist("models", options.models);
-        models = data;
-    } else {
-        // Select all existing models, assume we have less than 100 for now
-        const { data } = await db.aselect("models", {}, { count: 100 });
-        models = data;
+    const { data: models } = await db.alist("models", options.models);
+    if (!models?.length) {
+        return callback({ status: 404, message: "no models" });
     }
 
-    models = models.filter(x => lib.isFunc(modules.llm[x.type]));
+    prompt.results ??= [];
 
-    // Notify about job running
+    update(prompt, "running");
 
-    db.update("prompts", { id: prompt.id, status: prompt.status = "running" });
-    api.ws.notify({}, { event: "prompts:status", prompt });
-
-
-    // Collect all results here
-    prompt.results = [];
-
-    // Notify after each run
     const finish = (rc) => {
-        logger.info("job:", "prompts", "finish", rc.model, rc.status, rc.error);
-        prompt.results.push(rc.response);
-        db.update("prompts", { id: prompt.id, results: prompt.results });
-        api.ws.notify({}, { event: "prompts:status", prompt });
+        logger.info("job:", "prompts", "finish", rc.response?.model, rc.status, rc.error);
+
+        const i = prompt.results.findIndex(x => x.model == rc.response?.model);
+        prompt.results.splice(i > -1 ? i : 0, i > -1 ? 1 : 0, rc.response);
+        update(prompt);
     };
 
-    // Run a single task asynchroniously
-    const run = (task) => {
+    const runTask = (task) => {
         logger.info("job:", "prompts", "run", task.type, task.id, prompt.prompt.substr(0, 32));
+
         return modules.llm[task.type]({ model: task.id, prompt: prompt.prompt, token: task.token }, finish);
     }
 
-    // Run all tasks one after another
-    const series = async (tasks) => {
-        for (const task of tasks) await run(task);
-    }
-
-    // Group by model type to avoid overloading or throttling so each model type runs in parallel but
+    // Group by model type to avoid overloading or throttling so different types runs in parallel but
     // within the same type all run sequentially
-    const tasks = Object.values(Object.groupBy(models, model => model.type)).
-                  map(group => (group.length == 1 ?
-                                      run(group[0]) :
-                                      new Promise(resolve => resolve(series(group)))));
 
-    // Wait for all to finish
+    const tasks = Object.values(Object.groupBy(models, model => model.type)).
+                  map(group => (group.length == 1 ? runTask(group[0]) :
+                                new Promise(resolve => resolve(async () => {
+                                    for (const task of group) {
+                                        await runTask(task);
+                                    }
+                                }))));
+
     await Promise.allSettled(tasks);
 
-    // Create similarity scores against each other and store in the stats
-    for (const res1 of prompt.results) {
-        if (res1.error) continue;
-        res1.similarity = {};
-        for (const res2 of prompt.results) {
-            if (res1 === res2 || res2.error) continue;
-            res1.similarity[res2.model] = lib.isSimilar(res1.text, res2.text);
-        }
-    }
     logger.info("job:", "prompts", "stop", options);
 
-    db.update("prompts", { id: prompt.id, status: prompt.status = "done", results: prompt.results }, callback);
+    // Produce similarity score matrix for all results to see which result is closer to which
+    similarity(prompt.results);
 
-    api.ws.notify({}, { event: "prompts:status", prompt });
+    update(prompt, "done", callback);
 }
 

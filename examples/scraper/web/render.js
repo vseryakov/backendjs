@@ -59,7 +59,7 @@ app.components.render = class extends app.AlpineComponent {
         item.file = item.file || "";
         item.data = item.data || "";
         item.filters = item.filters || [];
-        item._dragging = false;
+        item._dragover = false;
         return item;
     }
 

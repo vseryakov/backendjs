@@ -468,6 +468,9 @@ function prepareForUpdate(req)
         }
 
         if (col) {
+            // Restrictions
+            if ((col.readonly &amp;&amp; !insert) || (col.writeonly &amp;&amp; insert)) continue;
+
             // Convert into native data type
             if (value !== null) {
                 // Handle json separately in sync with convertRows
@@ -542,11 +545,10 @@ function prepareForUpdate(req)
 
     for (const name in req.columns) {
         col = req.columns[name];
+
         // Restrictions
-        if ((col.readonly &amp;&amp; !insert &amp;&amp; !col.primary) || (col.writeonly &amp;&amp; insert)) {
-            delete req.query[name];
-            continue;
-        }
+        if ((col.readonly &amp;&amp; !insert) || (col.writeonly &amp;&amp; insert)) continue;
+
         value = req.query[name];
 
         if (insert) {

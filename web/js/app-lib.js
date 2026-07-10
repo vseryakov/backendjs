@@ -1171,6 +1171,8 @@
     });
   }
   register(_alpine, { render: _render, Component: AlpineComponent, data, init, default: 1 });
+  var _dragging_el;
+  var _dragging_target;
   function AlpinePlugin(Alpine2) {
     _Alpine = Alpine2;
     emit("alpine:init", Alpine2);
@@ -1226,7 +1228,6 @@
     });
     Alpine2.directive("file-drop", (el, { expression }, { evaluate, cleanup }) => {
       const target = evaluate(expression);
-      var current = null;
       $on(el, "click", click);
       $on(el, "drop", drop);
       $on(el, "dragdrop", drop);
@@ -1246,27 +1247,22 @@
       }
       function drop(event) {
         event.preventDefault();
-        var file = event.dataTransfer.files?.[0];
+        const file = event.dataTransfer.files?.[0];
         $event(el, "file:dropped", { file, event });
         emit(app.event, "file:dropped", { file, event, target, element: el });
-        target._dragging = false;
-        current = null;
+        target._dragover = false;
       }
       function dragenter(event) {
         event.preventDefault();
-        current = event.target;
-        target._dragging = true;
+        target._dragover = true;
       }
       function dragleave(event) {
         event.preventDefault();
-        if (event.target === current) {
-          target._dragging = false;
-        }
+        target._dragover = false;
       }
     });
     Alpine2.directive("draggable", (el, { expression }, { evaluate, cleanup }) => {
       const target = evaluate(expression);
-      var current = null;
       $on(el, "drop", drop);
       $on(el, "dragdrop", drop);
       $on(el, "dragstart", dragstart);
@@ -1285,29 +1281,33 @@
       });
       function dragenter(event) {
         event.preventDefault();
-        if (el === current) return;
-        target._dragging = true;
+        if (el === _dragging_el) return;
+        event.dataTransfer.dropEffect = "move";
+        target._dragover = true;
       }
       function dragleave(event) {
         event.preventDefault();
-        if (el === current) return;
-        target._dragging = false;
+        if (el === _dragging_el) return;
+        target._dragover = false;
       }
       function dragstart(event) {
-        current = el;
         event.dataTransfer.effectAllowed = "move";
+        target._dragging = true;
+        _dragging_el = el;
+        _dragging_target = target;
       }
       function dragend() {
-        target._dragging = false;
-        current = null;
+        target._dragging = target._dragover = false;
+        _dragging_el = _dragging_target = void 0;
       }
       function drop(event) {
         event.preventDefault();
-        target._dragging = false;
-        if (el === current || !current) return;
-        current = null;
-        $event(el, "item:dropped", { item: current });
-        emit(app.event, "item:dropped", { event, item: current, element: el });
+        target._dragover = false;
+        if (!_dragging_el || el === _dragging_el) return;
+        const scope = Alpine2.closestDataStack(el);
+        $event(el, "item:dropped", { target, item: _dragging_target, item_element: _dragging_el, scope });
+        emit(app.event, "item:dropped", { event, target, element: el, item: _dragging_target, item_element: _dragging_el, scope });
+        _dragging_el = _dragging_target = void 0;
       }
     });
   }
@@ -2033,9 +2033,35 @@
     WS: () => WS,
     default: () => ws_default
   });
+  /**
+   * Websockets client
+   * @param {object} [options] - config params
+   * @param {string} [options.path=/] - connect url path name
+   * @param {object} [options.query] - query parameters to send on connect in the url
+   * @param {number} [options.retry_timeout=250] - ms between retries to connect
+   * @param {number} [options.retry_factor] - multiplier for retry timeout
+   * @param {number} [options.max_timeout=30000] - ms for max timeout on retries, once reached restart with retry_timeout
+   * @param {number} [options.max_retries] - how many retries to perform until connected
+   * @param {number} [options.max_pending=10] - how many request to keep in pending queue until connected
+   * @param {number} [options.ping_interval=300000] - ms between pings
+   * @class
+   *
+   * @example
+   * app.$ready(async () => {
+   *
+   *   app.ws = new app.WS({ path: "/ws" });
+   *   app.ws.connect();
+   *   app.ws.on("ws:message", (data) => { ...});
+   *
+   * });
+   * ....
+   *
+   * app.ws.send("/route/action")
+   * app.ws.send({ path: "/some/path", data: { ...} })
+   */
   var WS = class {
     path = "/";
-    query = null;
+    query = {};
     retry_timeout = 500;
     retry_factor = 2;
     max_timeout = 3e4;
@@ -2046,18 +2072,22 @@
     _pending = [];
     constructor(options) {
       for (const p in options) {
-        if (p[0] != "_" && this[p] !== void 0) this[p] = options[p];
+        if (p[0] != "_" && this[p] !== void 0 && typeof this[p] === typeof options[p]) {
+          this[p] = options[p];
+        }
       }
       $on(window, "online", this.online.bind(this));
     }
-    // Open a new websocket connection
+    /**
+     * Open a new websocket connection
+     */
     connect() {
       if (this._timer) {
         clearTimeout(this._timer);
         delete this._timer;
       }
       if (this.disabled) return;
-      var host = this.host || window.location.hostname;
+      const host = this.host || window.location.hostname;
       if (navigator.onLine === false && !/^(localhost|127.0.0.1)$/.test(host)) {
         return this.timer(0);
       }
@@ -2065,10 +2095,10 @@
       for (const p in this.headers) {
         if (this.query[p] === void 0) this.query[p] = this.headers[p];
       }
-      var port = this.port || window.location.port;
-      var proto = this.protocol || window.location.protocol.replace("http", "ws");
-      var url = `${proto}//${host}:${port}${this.path}?${this.query ? new URLSearchParams(this.query).toString() : ""}`;
-      var ws = this.ws = new WebSocket(url);
+      const port = this.port || window.location.port;
+      const proto = this.protocol || window.location.protocol.replace("http", "ws");
+      const url = `${proto}//${host}:${port}${this.path}?${this.query ? new URLSearchParams(this.query).toString() : ""}`;
+      const ws = this.ws = new WebSocket(url);
       ws.onopen = () => {
         trace("ws.open:", url);
         emit("ws:open", url);
@@ -2100,7 +2130,10 @@
         trace("ws.error:", url, err);
       };
     }
-    // Restart websocket reconnect timer, increase timeout according to reconnect policy (retry_factor, max_timeout)
+    /**
+     * Restart websocket reconnect timer, increase timeout according to reconnect policy (retry_factor, max_timeout)
+     * @param {number} timeout
+     */
     timer(timeout) {
       clearTimeout(this._timer);
       if (this.disabled) return;
@@ -2109,7 +2142,9 @@
       this._timeout *= this._timeout == this.max_timeout ? 0 : toNumber(this.retry_factor);
       this._timeout = toNumber(this._timeout, { min: this.retry_timeout, max: this.max_timeout });
     }
-    // Send a ping and shcedule next one
+    /**
+     * Send a ping and shcedule next one
+     */
     ping() {
       clearTimeout(this._ping);
       if (this.disabled || !this.ping_interval) return;
@@ -2118,14 +2153,20 @@
       }
       this._ping = setTimeout(this.ping.bind(this), this.ping_interval);
     }
-    // Closes and possibly disables WS connection, to reconnect again must delete .disabled property
+    /**
+     * Closes and possibly disables WS connection, to reconnect again must delete .disabled property
+     * @param {boolean} [disable]
+     */
     close(disable) {
       this.disabled = disable;
       if (!this.ws) return;
       this.ws.close();
       delete this.ws;
     }
-    // Send a string data or an object
+    /**
+     * Send a string data or an object
+     * @param {object|string} data
+     */
     send(data2) {
       if (this.ws?.readyState != WebSocket.OPEN) {
         if (!this.max_pending || this._pending.length < this.max_pending) {
@@ -2145,7 +2186,9 @@
       }
       this.ws.send(data2);
     }
-    // Check the status of websocket connection, reconnect if needed
+    /**
+     * Check the status of websocket connection, reconnect if needed
+     */
     online() {
       trace("ws.online:", navigator.onLine, this.ws?.readyState, this.path, this._ctime);
       if (this.ws?.readyState !== WebSocket.OPEN && this._ctime) {

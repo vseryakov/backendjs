@@ -1,4 +1,4 @@
-/* global app */
+/* global app marked hljs */
 
 app.components.prompts = class extends app.AlpineComponent {
     prompts = [];
@@ -21,10 +21,22 @@ app.components.prompts = class extends app.AlpineComponent {
         this.prompts.push(...data.data);
     }
 
-    // This is websocket event sent by the backend jobs
+    // This is websocket event sent from backend jobs
     onPromptsStatus(event) {
         const row = this.prompts.find(x => x.id == event.prompt.id);
-        if (row) Object.assign(row, event.prompt);
+        if (row) {
+            Object.assign(row, event.prompt);
+        } else {
+            this.prompts.unshift(event.prompt);
+        }
+    }
+
+    onItemDropped(event) {
+        const results = event.scope[1].prompt.results;
+        const item = results.findIndex(x => x.model == event.item.model)
+        const target = results.findIndex(x => x.model == event.target.model)
+        results.splice(item, 1);
+        results.splice(target, 0, event.item);
     }
 
     submit(row) {
@@ -38,9 +50,8 @@ app.components.prompts = class extends app.AlpineComponent {
             content: [
                 { textarea: { name: "prompt", label: "Prompt*", rows: 15, value: row?.prompt } },
                 { hr: {} },
-                { checkboxes: { label: "Models", inline: true,
+                { checkboxes: { label: "Models*", inline: true,
                                 options: this.models.map(x => ({ name: x.id, label: `${x.id}: ${x.type}`, value: x.id })),
-                                text_suffix: "optional, subset of models, if empty all will be used"
                 } },
             ],
             buttons: ["cancel", "Submit"],
@@ -48,12 +59,12 @@ app.components.prompts = class extends app.AlpineComponent {
                 if (!d.prompt) return popup.showAlert("prompt is required")
 
                 const models = Object.keys(d).filter(x => x !== "prompt" && d[x] == x);
+                if (!models.length) return popup.showAlert("models are required");
+
                 const body = { id: row?.id, prompt: d.prompt, models };
 
-                const { err, data } = await app.fetch("/api/prompt", { post: true, body });
+                const { err } = await app.fetch("/api/prompt", { method: row?.id ? "PUT" : "POST", body });
                 if (err) return popup.showAlert(err);
-
-                this.prompts.unshift(data);
             }
         })
     }
@@ -70,14 +81,50 @@ app.components.prompts = class extends app.AlpineComponent {
         });
     }
 
+    toggle(row, collapse) {
+        row.results.filter(x => (collapse ? x.width : !x.width)).forEach(x => {
+            this.show(row, x);
+        });
+    }
+
     show(row, result) {
-        if (result.show) {
-            return result.show = 0;
+        result.width = !result.width;
+
+        if (result.width && !result._md && !result.error) {
+            result._md = 1;
+            marked.setOptions({ gfm: true, breaks: false });
+
+            const template = document.createElement('template');
+            template.innerHTML = marked.parse(result.text);
+            template.content.querySelectorAll('pre code').forEach(code => {
+                const raw = code.textContent || '';
+                try {
+                    const highlighted = hljs.highlightAuto(raw).value;
+                    code.innerHTML = highlighted;
+                    code.classList.add('hljs');
+                } catch (_) {
+                    code.textContent = raw;
+                }
+            });
+            result.text = result.error ? JSON.stringify(result.error) + "<hr>" : "";
+            result.text += template.innerHTML;
         }
-        var i = row.results.findIndex(x => x.model == result.model);
-        row.results.splice(i, 1);
-        row.results.unshift(result);
-        result.show = 1;
+
+        let show;
+        const open = row.results.filter((res, i) => {
+            if (res.model == result.model) show = i;
+            return res.width;
+        });
+
+        if (result.width) {
+            row.results.splice(show, 1);
+            row.results.unshift(result);
+        }
+
+        const w = 90/(open.length);
+        open.forEach(res => {
+            res.width = w + 'vw';
+        });
     }
 
     getModels() {
@@ -120,7 +167,7 @@ app.components.prompts = class extends app.AlpineComponent {
             content: [
                 { div: { "x-template": "'/models.html'" } },
             ],
-            buttons: ["cancel", "Save"],
+            buttons: ["Save","cancel"],
             Save: async (body) => {
                 if (!body.id || !body.type) return popup.showAlert("id and type are required")
                 if (!body.token && !/ollama/.test(body.type)) return popup.showAlert("token is required")
