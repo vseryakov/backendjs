@@ -4,7 +4,8 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "initdb": "node index.js -shell -db-create-tables",
+    "symlink": "../../bin/bkjs install-symlink",
+    "setup": "npm run symlink && node index.js -shell -db-create-tables",
     "start": "node index.js",
     "bksh": "bksh"
   },

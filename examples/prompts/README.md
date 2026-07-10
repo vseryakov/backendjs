@@ -1,10 +1,21 @@
 
-# Backend.js example showing how to compare output from different LLMs side by side
+# Backendjs example showing how to compare output from different LLMs side by side
 
+
+![Screenshot](screenshot.jpg)
 
 ![Screenshot1](screenshot1.jpg)
 
-![Screenshot2](screenshot2.jpg)
+## Summary
+
+This is a demonstration of backendjs modules `api`, `db`, `jobs`, `ws`:
+
+- database tables to store models and results
+- API routes to handle requests, validation of input
+- a backgrouind job prompting all modesl at the same time and storing results as they come
+- calculate cosine similarity for every result against all other results, sort by most similar
+- notifying web clients via Websockets about progress and results
+
 
 ### First Time Setup
 

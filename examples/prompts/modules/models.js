@@ -104,23 +104,25 @@ async function seed()
     logger.log("seed:", "models");
 
     const rows = [
-        ['ornith:9b','ollama'],
-        ['gemma4:e4b-mlx','ollama'],
-        ['gemma4:12b-mlx','ollama'],
-        ['gemma4:26b-mlx','ollama'],
-        ['qwen3.6:27b-mlx','ollama'],
-        ['gemma4:31b-cloud','ollama'],
-        ['qwen3.5:9b','ollama'],
-        ['minimax-m3:cloud','ollama'],
-        ['granite4.1:30b','ollama'],
-        ['mistral-small3.2:24b','ollama'],
-        ['ministral-3:14b','ollama'],
-        ['gpt-5.5','openaichat'],
-        ['gpt-5.4','openai'],
-        ['gemini-3.5-flash','gemeni'],
-        ['claude-opus-4-8','anthropic'],
-        ['claude-sonnet-5','anthropic'],
-    ].map(x => ({ table: "models", op: "add", query: { id: x[0], type: x[1] } }));
+        { id: 'ornith:9b', type: 'ollama' },
+        { id: 'gemma4:e4b-mlx', type: 'ollama' },
+        { id: 'gemma4:12b-mlx', type: 'ollama' },
+        { id: 'gemma4:26b-mlx', type: 'ollama' },
+        { id: 'qwen3.6:27b-mlx', type: 'ollama' },
+        { id: 'gemma4:31b-cloud', type: 'ollama' },
+        { id: 'qwen3.5:9b', type: 'ollama' },
+        { id: 'minimax-m3:cloud', type: 'ollama' },
+        { id: 'granite4.1:30b', type: 'ollama' },
+        { id: 'mistral-small3.2:24b', type: 'ollama' },
+        { id: 'ministral-3:14b', type: 'ollama' },
+        { id: 'gpt-5.5', type: 'openai' },
+        { id: 'gpt-5.4', type: 'openaichat' },
+        { id: 'gpt-5.6-terra', type: 'openai' },
+        { id: 'gemini-3.5-flash', type: 'gemeni' },
+        { id: 'claude-opus-4-8', type: 'anthropic' },
+        { id: 'claude-sonnet-5', type: 'openaichat' },
+        { id: 'grok-4.5', type: 'openai', url: 'https://api.x.ai/v1/responses' },
+    ].map(x => ({ table: "models", op: "add", query: x }));
 
     await db.abulk(rows);
 

@@ -12,15 +12,29 @@
 
 ### First Time Setup
 
-```bash
-npm install
-npm run initdb -- secret PASSWORD
-npm run start
-```
+1. This is an example inside the backendjs repository, so first you need to clone backendjs
+   it if it does not exist yet, skip to the next item if you have it
 
-Visit [http://localhost:8000](http://localhost:8000)
+  ```
+  git clone --depth 1 https://github.com/vseryakov/backendjs.git
+  ```
 
-Login as user "admin" with password you provided above
+2. Navigate to the example:
+
+  ```
+  cd backendjs/examples/config
+  ```
+
+3.. Prepare and start the example
+
+  ```
+  npm run setup -- secret PASSWORD
+  npm run start
+  ```
+
+4. Visit [http://localhost:8000](http://localhost:8000)
+
+5. Login as user "admin" with password you provided above
 
 
 ### Subsequent Runs

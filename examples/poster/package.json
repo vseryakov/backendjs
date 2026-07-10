@@ -23,6 +23,8 @@
     }
  },
  "scripts": {
+    "symlink": "../../bin/bkjs install-symlink",
+    "setup": "npm run symlink",
     "start": "bkjs run -api -watch",
     "bksh": "bksh"
  },

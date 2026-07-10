@@ -23,7 +23,8 @@
     }
  },
  "scripts": {
-    "initdb": "rm -f kanban.db && bksh -db-create-tables && bksh -run-file tools/seed",
+    "symlink": "../../bin/bkjs install-symlink",
+    "setup": "npm run symlink && rm -f var/kanban.db && bksh -db-create-tables && bksh -run-file tools/seed",
     "start": "bkjs run -api -watch",
     "bksh": "bksh"
  },

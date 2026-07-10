@@ -13,14 +13,31 @@ Small Backend.js sample that renders social poster images server-side with `shar
 
 **Run**
 
-1. Install dependencies:
-   - `npm install`
+### First Time Setup
 
-2. Start the server:
-   - `npm run start`
+1. This is an example inside the backendjs repository, so first you need to clone backendjs
+   it if it does not exist yet, skip to the next item if you have it
 
-3. Open in a browser:
-   - `http://localhost:8000`
+  ```
+  git clone --depth 1 https://github.com/vseryakov/backendjs.git
+  ```
+
+2. Navigate to the example:
+
+  ```
+  cd backendjs/examples/poster
+  ```
+
+3.. Prepare and start the example
+
+  ```
+  npm install -g sharp
+  npm run setup
+  npm run start
+  ```
+
+4. Visit [http://localhost:8000](http://localhost:8000)
+
 
 **API**
 

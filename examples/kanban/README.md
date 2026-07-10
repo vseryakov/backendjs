@@ -22,13 +22,27 @@ The app uses a dual-database setup:
 
 ### First Time Setup
 
-```bash
-npm install
-npm run initdb
-npm run start
-```
+1. This is an example inside the backendjs repository, so first you need to clone backendjs
+   it if it does not exist yet, skip to the next item if you have it
 
-Visit [http://localhost:8000](http://localhost:8000)
+  ```
+  git clone --depth 1 https://github.com/vseryakov/backendjs.git
+  ```
+
+2. Navigate to the example:
+
+  ```
+  cd backendjs/examples/kanban
+  ```
+
+3.. Prepare and start the example
+
+  ```
+  npm run setup
+  npm run start
+  ```
+
+4. Visit [http://localhost:8000](http://localhost:8000)
 
 > **Note**: Migration files are included in the repo, so you don't need to generate them.
 
@@ -47,8 +61,7 @@ The app uses a dual-database setup:
 ### Re-create local Database (SQLite)
 
 ```bash
-rm kanban.db
-npm run initdb
+npm run setup
 ```
 
 ## Project Structure

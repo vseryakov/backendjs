@@ -85,50 +85,56 @@ function __(...args) {
 /**
  * Returns the array if the value is non empty array or dflt value if given or undefined
  * @param {any} val
- * @returns {any|any[]}
+ * @param {any} [dflt]
+ * @returns {any|any[]|undefined}
  */
 function isArray(val, dflt) {
   return Array.isArray(val) && val.length ? val : dflt;
 }
 /**
- * Returns the num itself if it is a number
+ * Returns the num itself if it is a number or default
  * @param {any} num
+ * @param {any} [dflt]
  * @returns {number|undefined}
  */
-function isNumber(num) {
+function isNumber(num, dflt) {
   return typeof num == "number" ? num : void 0;
 }
 /**
  * Returns the str itself if it is not empty or ""
  * @param {any} str
+ * @param {any} [dflt=""]
  * @returns {string}
  */
-function isString(str) {
-  return typeof str == "string" && str;
+function isString(str, dflt = "") {
+  return typeof str == "string" ? str : dflt;
 }
 /**
  * Returns the callback is it is a function
  * @param {any} callback
+ * @param {any} [dflt]
  * @returns {function|undefined}
  */
-function isFunction(callback) {
-  return typeof callback == "function" && callback;
+function isFunction(callback, dflt) {
+  return typeof callback == "function" ? callback : dflt;
 }
 /**
  * Returns the obj itself if it is a not null object
  * @param {any} obj
+ * @param {any} [dflt]
  * @returns {object|undefined}
  */
-function isObject(obj) {
-  return typeof obj == "object" && obj;
+function isObject(obj, dflt) {
+  return typeof obj == "object" && obj || dflt;
 }
 /**
  * Returns the element itself if it is a HTMLElement
  * @param {any} element
+ * @param {any} [dflt]
  * @returns {HTMLElement|undefined}
  */
-function isElement(element) {
-  return element instanceof HTMLElement && element;
+function isElement(element, dflt) {
+  return element instanceof HTMLElement && element || dflt;
 }
 /**
  * Convert a string into camelized format
@@ -161,7 +167,7 @@ function toCamel(str) {
  * 1.23
  */
 function toNumber(val, options) {
-  var n = 0;
+  var n;
   if (typeof val == "number") {
     n = val;
   } else if (typeof val == "boolean") {
@@ -170,7 +176,7 @@ function toNumber(val, options) {
     if (typeof val != "string") {
       n = options?.dflt || 0;
     } else {
-      var f = typeof options?.float == "undefined" || options?.float == null ? /^(-|\+)?([0-9]+)?\.[0-9]+$/.test(val) : options?.float;
+      const f = typeof options?.float == "undefined" || options?.float == null ? /^(-|\+)?([0-9]+)?\.[0-9]+$/.test(val) : options?.float;
       n = val[0] == "t" ? 1 : val[0] == "f" ? 0 : val == "infinity" ? Infinity : f ? parseFloat(val, options?.base || 10) : parseInt(val, options?.base || 10);
     }
   }
@@ -1106,6 +1112,8 @@ function $template(el, value, modifiers) {
   });
 }
 register(_alpine, { render: _render, Component: AlpineComponent, data, init, default: 1 });
+var _dragging_el;
+var _dragging_target;
 function AlpinePlugin(Alpine) {
   _Alpine = Alpine;
   emit("alpine:init", Alpine);
@@ -1159,15 +1167,19 @@ function AlpinePlugin(Alpine) {
     const scope = Alpine.closestDataStack(el);
     el._x_dataStack = scope.slice(0, parseInt(evaluate(expression || "")) || 0);
   });
-  Alpine.directive("file-drop", (el, { expression }, { evaluate, cleanup }) => {
-    const target = evaluate(expression);
-    var current = null;
-    $on(el, "click", click);
-    $on(el, "drop", drop);
-    $on(el, "dragdrop", drop);
-    $on(el, "dragenter", dragenter);
-    $on(el, "dragover", dragenter);
-    $on(el, "dragleave", dragleave);
+  Alpine.directive("file-drop", (el, { expression }, { effect, cleanup }) => {
+    var target;
+    const evaluate = Alpine.evaluateLater(el, expression);
+    effect(() => evaluate((value) => {
+      if (!value || value === target) return;
+      target = value;
+      $on(el, "click", click);
+      $on(el, "drop", drop);
+      $on(el, "dragdrop", drop);
+      $on(el, "dragenter", dragenter);
+      $on(el, "dragover", dragenter);
+      $on(el, "dragleave", dragleave);
+    }));
     cleanup(() => {
       $off(el, "click", click);
       $off(el, "drop", drop);
@@ -1181,34 +1193,34 @@ function AlpinePlugin(Alpine) {
     }
     function drop(event) {
       event.preventDefault();
-      var file = event.dataTransfer.files?.[0];
+      const file = event.dataTransfer.files?.[0];
       $event(el, "file:dropped", { file, event });
       emit(app.event, "file:dropped", { file, event, target, element: el });
-      target._dragging = false;
-      current = null;
+      target._dragover = false;
     }
     function dragenter(event) {
       event.preventDefault();
-      current = event.target;
-      target._dragging = true;
+      target._dragover = true;
     }
     function dragleave(event) {
       event.preventDefault();
-      if (event.target === current) {
-        target._dragging = false;
-      }
+      target._dragover = false;
     }
   });
-  Alpine.directive("draggable", (el, { expression }, { evaluate, cleanup }) => {
-    const target = evaluate(expression);
-    var current = null;
-    $on(el, "drop", drop);
-    $on(el, "dragdrop", drop);
-    $on(el, "dragstart", dragstart);
-    $on(el, "dragend", dragend);
-    $on(el, "dragenter", dragenter);
-    $on(el, "dragover", dragenter);
-    $on(el, "dragleave", dragleave);
+  Alpine.directive("draggable", (el, { expression }, { effect, cleanup }) => {
+    var target;
+    const evaluate = Alpine.evaluateLater(el, expression);
+    effect(() => evaluate((value) => {
+      if (!value || value === target) return;
+      target = value;
+      $on(el, "drop", drop);
+      $on(el, "dragdrop", drop);
+      $on(el, "dragstart", dragstart);
+      $on(el, "dragend", dragend);
+      $on(el, "dragenter", dragenter);
+      $on(el, "dragover", dragenter);
+      $on(el, "dragleave", dragleave);
+    }));
     cleanup(() => {
       $off(el, "drop", drop);
       $off(el, "dragdrop", drop);
@@ -1220,29 +1232,33 @@ function AlpinePlugin(Alpine) {
     });
     function dragenter(event) {
       event.preventDefault();
-      if (el === current) return;
-      target._dragging = true;
+      if (el === _dragging_el) return;
+      event.dataTransfer.dropEffect = "move";
+      target._dragover = true;
     }
     function dragleave(event) {
       event.preventDefault();
-      if (el === current) return;
-      target._dragging = false;
+      if (el === _dragging_el) return;
+      target._dragover = false;
     }
     function dragstart(event) {
-      current = el;
       event.dataTransfer.effectAllowed = "move";
+      target._dragging = true;
+      _dragging_el = el;
+      _dragging_target = target;
     }
     function dragend() {
-      target._dragging = false;
-      current = null;
+      target._dragging = target._dragover = false;
+      _dragging_el = _dragging_target = void 0;
     }
     function drop(event) {
       event.preventDefault();
-      target._dragging = false;
-      if (el === current || !current) return;
-      current = null;
-      $event(el, "item:dropped", { item: current });
-      emit(app.event, "item:dropped", { event, item: current, element: el });
+      target._dragover = false;
+      if (!_dragging_el || el === _dragging_el) return;
+      const scope = Alpine.closestDataStack(el);
+      $event(el, "item:dropped", { target, item: _dragging_target, item_element: _dragging_el, scope });
+      emit(app.event, "item:dropped", { event, target, element: el, item: _dragging_target, item_element: _dragging_el, scope });
+      _dragging_el = _dragging_target = void 0;
     }
   });
 }

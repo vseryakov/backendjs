@@ -73,30 +73,41 @@ bkjs.conf            # Runtime, queue, db, files config
 
 ## Run Locally
 
-1. Install dependencies:
+### First Time Setup
 
-   ```bash
-   npm install
-   puppeteer browsers install chrome
-   ```
+1. This is an example inside the backendjs repository, so first you need to clone backendjs
+   it if it does not exist yet, skip to the next item if you have it
 
-2. Create DB tables:
+  ```
+  git clone --depth 1 https://github.com/vseryakov/backendjs.git
+  ```
 
-   ```bash
-   npm run initdb
-   ```
+2. Navigate to the example:
 
-3. Create a config file $HOME/.bkjs.conf with Gemeni key
+  ```
+  cd backendjs/examples/scraper
+  ```
+
+3. Prepare the example
+
+  ```
+  npm install -g puppeteer
+  puppeteer browsers install chrome
+
+  npm run setup
+  ```
+
+4. Create a config file $HOME/.bkjs.conf with Gemeni key
 
    gemeni-apikey=A........
 
-3. Start server + worker:
+5. Start server + worker:
 
    ```bash
    npm run start
    ```
 
-4. Open:
+6. Open:
 
    - App: `http://localhost:8000/`
 

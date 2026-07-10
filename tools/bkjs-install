@@ -52,7 +52,7 @@ case "$BKJS_CMD" in
     exit
     ;;
 
-  install-dist)
+  install-deps)
     path=$(get_arg -path $HOME/.bkjs)
     mods=$path/lib/node_modules
     cp $mods/croner/dist/croner.cjs dist
@@ -62,6 +62,15 @@ case "$BKJS_CMD" in
     esbuild --platform=node --bundle --outfile=dist/pg.js $mods/pg/lib/index.js
     esbuild --platform=node --bundle --outfile=dist/ws.js $mods/ws/index.js
     esbuild --platform=node --bundle --outfile=dist/nats.js $mods/nats/index.js
+    cp $mods/alpinejs-app/dist/{app,alpinejs}.{js,mjs} $mods/alpinejs-app/dist/{app,app-lib,app-bootstrap}.js web/js/
+
+    cp $mods/marked/lib/marked.esm.js web/js/marked.mjs
+    cp $mods/marked/lib/marked.umd.js web/js/marked.js
+    cp $mods/bootstrap/dist/css/bootstrap.css web/css/
+    cp $mods/bootstrap/dist/js/bootstrap.js web/js/
+    cp $mods/bootstrap/dist/js/bootstrap.esm.js web/js/bootstrap.mjs
+    cp $mods/bootstrap/node_modules/@popperjs/core/dist/umd/popper.js web/js/popper2.js
+    esbuild --platform=neutral --bundle --outfile=web/js/popper2.mjs $mods/bootstrap/node_modules/@popperjs/core/dist/esm/index.js
     exit
     ;;
 

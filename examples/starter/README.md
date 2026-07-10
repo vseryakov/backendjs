@@ -1,19 +1,28 @@
 # Backend.js getting started
 
-1. Setup env
+### First Time Setup
 
-    npm install
+1. This is an example inside the backendjs repository, so first you need to clone backendjs
+   it if it does not exist yet, skip to the next item if you have it
 
-2. Create tables
+  ```
+  git clone --depth 1 https://github.com/vseryakov/backendjs.git
+  ```
 
-    npm run initdb
+2. Navigate to the example:
 
-3. Run the app
+  ```
+  cd backendjs/examples/starter
+  ```
 
-    npm run start
+3.. Prepare and start the example, no external dependencies are needed
 
-4. Point browser to http://localhost:8000
+  ```
+  npm run setup
+  npm run start
+  ```
 
+4. Visit [http://localhost:8000](http://localhost:8000)
 
 # Authors
 vlad
