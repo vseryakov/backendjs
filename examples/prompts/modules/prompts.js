@@ -206,12 +206,8 @@ async function job(options, callback)
     // within the same type all run sequentially
 
     const tasks = Object.values(Object.groupBy(models, model => model.type)).
-                  map(group => (group.length == 1 ? runTask(group[0]) :
-                                new Promise(resolve => resolve(async () => {
-                                    for (const task of group) {
-                                        await runTask(task);
-                                    }
-                                }))));
+                         map(group => (group.length == 1 ? runTask(group[0]):
+                                      (async () => { for (const task of group) await runTask(task) })()));
 
     await Promise.allSettled(tasks);
 
