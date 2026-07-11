@@ -17,6 +17,7 @@
  * @param {number} [options.max_tokens] - max token limit
  * @param {number} [options.temperature] - randomness level
  * @param {string} [options.reasoning] - reasoning effort
+ * @param {AbortSignal} [options.signal] - abort signal to cancel request
  * @param {function} [callback] - to run on finish
  *
  * output is the raw response from each model with additional unified object `response` for convenience:
@@ -52,6 +53,7 @@ module.exports = {
                 "Authorization": `Bearer ${options.token}`,
             },
             httpTimeout: this.httpTimeout,
+            signal: options.signal,
             postdata: {
                 model: options.model,
                 max_output_tokens: options.max_tokens || this.maxTokens,
@@ -97,6 +99,7 @@ module.exports = {
                 "Authorization": `Bearer ${options.token}`,
             },
             httpTimeout: this.httpTimeout,
+            signal: options.signal,
             postdata: {
                 model: options.model,
                 max_completion_tokens: options.max_tokens || this.maxTokens,
@@ -143,6 +146,7 @@ module.exports = {
                 "Content-Type": "application/json",
             },
             httpTimeout: this.httpTimeout,
+            signal: options.signal,
             postdata: {
                 prompt: options.prompt,
                 model: options.model,
@@ -158,8 +162,8 @@ module.exports = {
             error: rc.obj?.error || rc.err || (!rc.ok && rc.data),
             stats: {
                 duration: rc.request.elapsed,
-                load_duration: Math.round(rc.obj?.load_duration/1000),
-                eval_duration: Math.round(rc.obj?.eval_duration/1000),
+                load_duration: Math.round(rc.obj?.load_duration/1000000),
+                eval_duration: Math.round(rc.obj?.eval_duration/1000000),
                 in: rc.obj?.prompt_eval_count || 0,
                 out: rc.obj?.eval_count || 0
             },
@@ -179,6 +183,7 @@ module.exports = {
                 "Content-Type": "application/json",
             },
             httpTimeout: this.httpTimeout,
+            signal: options.signal,
             postdata: {
                 store: false,
                 model: options.model,
@@ -229,6 +234,7 @@ module.exports = {
                 "x-api-key": options.token,
             },
             httpTimeout: this.httpTimeout,
+            signal: options.signal,
             postdata: {
                 model: options.model,
                 max_tokens: options.max_tokens || this.maxTokens,

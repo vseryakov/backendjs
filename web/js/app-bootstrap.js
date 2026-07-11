@@ -2389,14 +2389,16 @@
    * @property {("close"|"ok"|"cancel"|"yes"|"no")} [onsubmit="close"] Default action when form is submitted (overridden by `submit` callback).
    * @property {Array<"close"|"ok"|"cancel"|"yes"|"no">} [buttons=["close"]] Buttons shown in the dialog footer.
    * @property {Function} [before=function(){}] Called before the window is shown, after being created. `(popup)`.
-   * @property {Function} [dismiss=function(){}] Called when the window is dismissed. `(data)`.
-   * @property {Function} [submit=function(){}] Called when the form is submitted. Return `false` to cancel. `(data)`.
-   * @property {Function} [close=function(){}] Called when Close button is selected. `(data)`.
-   * @property {Function} [ok=function(){}] Called when OK button is selected. `(data)`.
-   * @property {Function} [cancel=function(){}] Called when Cancel button is selected. `(data)`.
-   * @property {Function} [yes=function(){}] Called when Yes button is selected. `(data)`.
-   * @property {Function} [no=function(){}] Called when No button is selected. `(data)`.
-   * @property {Function} [complete=function(){}] Always called when the dialog box has completed. `(data)`.
+   * @property {Function} [show=function(){}] Called before the window is shown, after being created. `(popup)`.
+   * @property {Function} [shown=function(){}] Called before the window is shown, after being created. `(popup)`.
+   * @property {Function} [dismiss=function(){}] Called when the window is dismissed. `(event, popup)`.
+   * @property {Function} [submit=function(){}] Called when the form is submitted. Return `false` to cancel. `(data, list, event, popup)`.
+   * @property {Function} [close=function(){}] Called when Close button is selected. `(data, list, event, popup)`.
+   * @property {Function} [ok=function(){}] Called when OK button is selected. `(data, list, event, popup)`.
+   * @property {Function} [cancel=function(){}] Called when Cancel button is selected. `(data, list, event, popup)`.
+   * @property {Function} [yes=function(){}] Called when Yes button is selected. `(data, list, event, popup)`.
+   * @property {Function} [no=function(){}] Called when No button is selected. `(data, list, event, popup)`.
+   * @property {Function} [complete=function(){}] Always called when the dialog box has completed. `(event, popup)`.
    * @property {boolean} [alert=false] If true, adds an alert element to be shown by `showAlert`.
    * @property {boolean} [info=false] If true, adds an info element to be shown by `showAlert(..., {type:"info"})`.
    * @property {boolean} [autofocus=true] If true, focus the first input element when shown.
@@ -2688,6 +2690,8 @@
    *   app.bootpopup.confirm("Do you confirm this message?", (yes) => {
    *     alert(yes);
    *   });
+   *
+   *   const ok = await app.bootpopup.aconfirm("Do you confirm?");
    *   ```
    *
    * ### Prompt:
@@ -2696,6 +2700,8 @@
    *  app.bootpopup.prompt("Name", (value) => {
    *    alert(value);
    *  });
+   *
+   * const name = await app.bootpopup.aprompt("Your name");
    * ```
    *
    * ### Customized prompt:
@@ -2991,7 +2997,7 @@
         }
       }
       for (const i in this.options.buttons) {
-        var name = this.options.buttons[i];
+        const name = this.options.buttons[i];
         if (!name) continue;
         const btn = $elem("button", {
           type: "button",
@@ -3015,7 +3021,7 @@
       }, this.eventOptions);
       $on(this.modal, "shown.bs.modal", (e) => {
         if (this.options.autofocus) {
-          var focus = this.autofocus || Array.from($all("input,select,textarea", this.form)).find((el) => !(el.readOnly || el.disabled || el.type == "hidden"));
+          const focus = this.autofocus || Array.from($all("input,select,textarea", this.form)).find((el) => !(el.readOnly || el.disabled || el.type == "hidden"));
           if (focus) focus.focus();
         }
         this.options.shown.call(this.options.self || this, e, this);
@@ -3043,7 +3049,7 @@
     show() {
       this.options.before.call(this, this);
       if (isObject(this.options.data)) {
-        var xdata = this.xdata = Alpine.reactive(this.options.data);
+        const xdata = this.xdata = Alpine.reactive(this.options.data);
         Alpine.addScopeToNode(this.modal, xdata);
         Alpine.initTree(this.modal);
         Alpine.onElRemoved(this.modal, () => {
@@ -3131,11 +3137,11 @@
     */
     callback(name, event) {
       if (this.options.debug) console.log("bootpopup:", name, event);
-      var func = isFunction(this.options[name]);
+      const func = isFunction(this.options[name]);
       if (!func) return;
       this._callback = name;
-      var a = this.data();
-      var result = func.call(this.options.self || this, a.obj, a.list, event);
+      const a = this.data();
+      const result = func.call(this.options.self || this, a.obj, a.list, event, this);
       if (result instanceof Promise) {
         result.then((resolved) => {
           if (resolved !== null) {
@@ -3188,7 +3194,7 @@
   /**
    * Shows an alert dialog box.
    * @Returns: instance of Bootpopup window
-   * @param {string} message - message of the alert
+   * @param {string} text - message of the alert
    * @param {function} callback - `(function)()` callback when the alert is dismissed
    */
   bootpopup.alert = function(text, callback) {
@@ -3200,10 +3206,20 @@
     });
   };
   /**
+   * Async version of alert
+   * @param {string} text - message of the alert
+   * @return {Promise}
+   */
+  bootpopup.aalert = function(text) {
+    return new Promise((resolve2, _reject) => {
+      bootpopup.alert(text, () => resolve2());
+    });
+  };
+  /**
    * Shows a confirm dialog box.
    * @Returns: instance of Bootpopup window
    *
-   * @param {string} message - message to confirm
+   * @param {string} text - message to confirm
    * @param {function} callback - `(function)(answer)` callback when the confirm is answered. `answer` will be `true`
    * if the answer was yes and `false` if it was no. If dismissed, the default answer is no
    */
@@ -3220,6 +3236,16 @@
       dismiss: isFunction(callback) ? () => {
         if (!ok) callback(false);
       } : null
+    });
+  };
+  /**
+   * Async version of confirm
+   * @param {string} text - message of the alert
+   * @return {Promise<boolean>} - resolves to true or false
+   */
+  bootpopup.aconfirm = function(text) {
+    return new Promise((resolve2, _reject) => {
+      bootpopup.confirm(text, (rc) => resolve2(rc));
     });
   };
   /**
@@ -3241,6 +3267,16 @@
       dismiss: isFunction(callback) ? () => {
         if (ok === void 0) callback();
       } : null
+    });
+  };
+  /**
+   * Async version of alert
+   * @param {string} label - label of the value being asked
+   * @return {Promise<string|undefined>} - returns resolved value or undefined
+   */
+  bootpopup.aprompt = function(text) {
+    return new Promise((resolve2, _reject) => {
+      bootpopup.prompt(text, (rc) => resolve2(rc));
     });
   };
   function addElement(self, entry) {
@@ -3268,13 +3304,13 @@
         text: opts.text_input_button
       });
       elem.append(button);
-      var menu = $elem("div", {
+      const menu = $elem("div", {
         class: opts.class_input_menu || self.options.class_input_menu,
         "-overflowY": "auto",
         "-maxHeight": opts.list_input_mh || self.options.list_input_mh
       });
       elem.append(menu);
-      var list = opts.list_input_button || opts.list_input_tags || [];
+      const list = opts.list_input_button || opts.list_input_tags || [];
       for (const l of list) {
         let n = l, v = self.escape(n);
         if (typeof n == "object") v = self.escape(n.value), n = self.escape(n.name);
@@ -3292,7 +3328,7 @@
               if (!el.value) {
                 el.value = v2;
               } else {
-                var l2 = el.value.split(/[,|]/).map((x) => x.trim()).filter((x) => x);
+                const l2 = el.value.split(/[,|]/).map((x) => x.trim()).filter((x) => x);
                 if (!l2.includes(v2)) l2.push(v2);
                 el.value = l2.join(", ");
               }
@@ -3329,9 +3365,9 @@
       elem.append(button);
     }
     for (const k in children) elem.append(children[k]);
-    var class_group = opts.class_group || self.options.class_group;
-    var class_label = (opts.class_label || self.options.class_label) + " " + (attrs.value ? "active" : "");
-    var gopts = { class: class_group, title: attrs.title };
+    const class_group = opts.class_group || self.options.class_group;
+    let class_label = (opts.class_label || self.options.class_label) + " " + (attrs.value ? "active" : "");
+    const gopts = { class: class_group, title: attrs.title };
     for (const p in opts.attrs_group) gopts[p] = opts.attrs_group[p];
     group = $elem("div", gopts);
     parent.append(group);
@@ -3511,7 +3547,7 @@
         parent.append(elem);
         break;
       case "row":
-        var row = $elem("div", { class: opts.class_row || self.options.class_row || "row" });
+        const row = $elem("div", { class: opts.class_row || self.options.class_row || "row" });
         parent.append(row);
         for (const subEntry of children) {
           const col = $elem("div", { class: subEntry.class_col || self.options.class_col || "col-auto" });

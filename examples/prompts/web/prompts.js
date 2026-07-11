@@ -39,46 +39,58 @@ app.components.prompts = class extends app.AlpineComponent {
         results.splice(target, 0, event.item);
     }
 
-    submit(row) {
-        var popup = app.bootpopup({
+    submit(data) {
+        app.bootpopup({
             title: "Submit Prompt",
             alert: true,
             debug: true,
             size: "xl",
             size_label: "col-sm-2",
             size_input: "col-sm-10",
+            data,
             content: [
-                { textarea: { name: "prompt", label: "Prompt*", rows: 15, value: row?.prompt } },
+                { textarea: { name: "prompt", label: "Prompt*", rows: 15, value: data?.prompt } },
                 { hr: {} },
                 { checkboxes: { label: "Models*", inline: true,
                                 options: this.models.map(x => ({ name: x.id, label: `${x.id}: ${x.type}`, value: x.id })),
                 } },
+                data ? { checkbox: { name: "force", label: "Start over with these models", value: 1 } } : null,
             ],
             buttons: ["cancel", "Submit"],
-            Submit: async (d) => {
-                if (!d.prompt) return popup.showAlert("prompt is required")
-
-                const models = Object.keys(d).filter(x => x !== "prompt" && d[x] == x);
-                if (!models.length) return popup.showAlert("models are required");
-
-                const body = { id: row?.id, prompt: d.prompt, models };
-
-                const { err } = await app.fetch("/api/prompt", { method: row?.id ? "PUT" : "POST", body });
-                if (err) return popup.showAlert(err);
-            }
+            Submit: this._submit
         })
     }
 
-    del(row) {
-        app.bootpopup.confirm("Delete this prompt?", async (ok) => {
-            if (!ok) return;
+    async _submit(data, list, event, popup) {
+        if (!data.prompt) return popup.showAlert("prompt is required")
 
-            const { err } = await app.fetch("/api/prompt/" + row.id, { method: "DELETE" });
-            if (err) return app.showToast("error", err);
+        const models = Object.keys(data).filter(x => x !== "prompt" && data[x] == x);
+        if (!models.length) return popup.showAlert("models are required");
 
-            const i = this.prompts.findIndex(x => x.id === row.id);
-            if (i > -1) this.prompts.splice(i, 1);
-        });
+        const id = popup.xdata?.id;
+        const body = { id, prompt: data.prompt, force: data.force, models };
+
+        const { err } = await app.fetch("/api/prompt", { method: id ? "PUT" : "POST", body });
+        if (err) return popup.showAlert(err);
+    }
+
+    async cancel(row) {
+        const ok = await app.bootpopup.aconfirm("Cancel this prompt?");
+        if (!ok) return;
+
+        const { err } = await app.fetch("/api/prompt/" + row.id, { method: "PATCH" });
+        if (err) return app.showToast("error", err);
+    }
+
+    async del(row) {
+        const ok = await app.bootpopup.aconfirm("Delete this prompt?");
+        if (!ok) return;
+
+        const { err } = await app.fetch("/api/prompt/" + row.id, { method: "DELETE" });
+        if (err) return app.showToast("error", err);
+
+        const i = this.prompts.findIndex(x => x.id === row.id);
+        if (i > -1) this.prompts.splice(i, 1);
     }
 
     toggle(row, collapse) {
@@ -90,10 +102,9 @@ app.components.prompts = class extends app.AlpineComponent {
     show(row, result) {
         result.width = !result.width;
 
-        if (result.width && !result._md) {
+        if (result.width && !result._md && result.text) {
             result._md = 1;
             marked.setOptions({ gfm: true, breaks: false });
-
             const template = document.createElement('template');
             template.innerHTML = marked.parse(result.text);
             template.content.querySelectorAll('pre code').forEach(code => {
@@ -135,7 +146,7 @@ app.components.prompts = class extends app.AlpineComponent {
     }
 
     editModels(data) {
-        var popup = app.bootpopup({
+        app.bootpopup({
             title: "Manage Models",
             alert: true,
             debug: true,
@@ -169,16 +180,18 @@ app.components.prompts = class extends app.AlpineComponent {
                 { div: { "x-template": "'/models.html'" } },
             ],
             buttons: ["Save","cancel"],
-            Save: async (body) => {
-                if (!body.id || !body.type) return popup.showAlert("id and type are required")
-                if (!body.token && !/ollama/.test(body.type)) return popup.showAlert("token is required")
-
-                const { err } = await app.fetch("/api/model/", { post: true, body });
-                if (err) return app.showToast("error", err);
-
-                this.getModels();
-            },
+            Save: this._save,
         })
+    }
+
+    async _save(body, list, event, popup) {
+        if (!body.id || !body.type) return popup.showAlert("id and type are required")
+        if (!body.token && !/ollama/.test(body.type)) return popup.showAlert("token is required")
+
+        const { err } = await app.fetch("/api/model/", { post: true, body });
+        if (err) return app.showToast("error", err);
+
+        this.getModels();
     }
 
 };

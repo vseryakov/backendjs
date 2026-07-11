@@ -66,7 +66,7 @@
     <section class="readme usertext">
         <article><h1 id="backend-library-for-node.js"><img src="https://vseryakov.github.io/backendjs/web/img/logo.png" alt="logo"> Backend library for Node.js</h1>
 <p>The <code>backendjs</code> provides a set of modules and utilities for building scalable, distributed applications with features
-like api routing, database management, caching, job queues, event processing, and more.</p>
+like API routing, database management, caching, job queues, event processing, and more.</p>
 <p>Visit the <a href="https://vseryakov.github.io/backendjs/docs/web/tutorial-start.html">tutorial</a> or
 <a href="https://vseryakov.github.io/backendjs/docs/web/index.html">all docs</a>.</p>
 <hr>
@@ -92,7 +92,7 @@ logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 <p><strong>Database Abstraction</strong></p>
 <ul>
 <li>Supports multiple databases: <strong>SQLite, Rqlite, PostgreSQL-wire compatible (PostgreSQL, DSQL, CockroachDB), DynamoDB, Elasticsearch</strong>.</li>
-<li>Provides a unified API for CRUD operations, caching, and transactions, access to native engine allows to send raw SQL or JSON directy.</li>
+<li>Provides a simple unified API for CRUD operations for all databases, caching, and transactions, access to native engine allows to send raw SQL or JSON directy.</li>
 <li>Supports <strong>primary keys, indexes, and schema migrations</strong>.</li>
 </ul>
 </li>
@@ -114,7 +114,7 @@ logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 <li>
 <p><strong>API Layer</strong></p>
 <ul>
-<li>Trie router kind of similar to <strong>Express/Hono</strong> with middleware for authentication, rate limiting, static, logging and basic user management.</li>
+<li>Trie router similar to <strong>Express/Hono</strong> with middleware for sessions, CSRF, rate limiting, static serving, logging and basic user management, authentication and ACL based roles authorization</li>
 <li>Includes <strong>WebSocket support</strong> for real-time communication using the same API routes and authentication.</li>
 <li>Includes simple but powerful input validation via declarative schemas.</li>
 </ul>

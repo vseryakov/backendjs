@@ -30,6 +30,7 @@ module.exports = {
             get("/api/prompts", listRoute).
             post("/api/prompt", submitRoute).
             put("/api/prompt", resubmitRoute).
+            patch("/api/prompt/:id", cancelRoute).
             delete("/api/prompt/:id", deleteRoute);
 
         callback();
@@ -62,7 +63,6 @@ function listRoute(context)
 const _submitSchema = {
     prompt: {
         required: true,
-        strip: lib.rxXss,
         max: 100000,
     },
     models: {
@@ -88,16 +88,24 @@ async function submitRoute(context)
     submitJob(context, data);
 }
 
+
+const _resubmitSchema = {
+    id: { type: "uuid", required: true },
+    force: { type: "bool" }
+};
+
 // Replace existing prompt, keep the results
 async function resubmitRoute(context)
 {
-    const { err, data } = api.validate(context, Object.assign({ id: { type: "uuid", required: true } }, _submitSchema));
+    const { err, data } = api.validate(context, Object.assign(_resubmitSchema, _submitSchema));
     if (err) return context.reply(err);
 
     const { data: prompt } = await db.aget("prompts", { id: data.id });
     if (!prompt) return context.reply({ status: 404, message: "invalid prompt" })
 
-    data.results = prompt.results;
+    if (!data.force) {
+        data.results = prompt.results;
+    }
 
     submitJob(context, data);
 }
@@ -113,6 +121,12 @@ async function deleteRoute(context)
     db.del("prompts", { id }, (err) => {
         context.reply(err);
     });
+}
+
+async function cancelRoute(context)
+{
+    jobs.cancelJob(context.params.id);
+    context.reply();
 }
 
 // Replace complete prompt record and start a job, used by submit and resubmit
@@ -184,13 +198,23 @@ async function job(options, callback)
         return callback({ status: 404, message: "no models" });
     }
 
-    prompt.results ??= [];
-
     update(prompt, "running");
+
+    // Poll for cancellation signal, abort all requests
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const timer = setInterval(() => {
+        if (jobs.isCancelled(options.id)) {
+            clearInterval(timer);
+            controller.abort();
+        }
+    }, 1000);
 
     const finish = (rc) => {
         logger.info("job:", "prompts", "finish", rc.response?.model, rc.status, rc.error);
 
+        prompt.results ??= [];
         const i = prompt.results.findIndex(x => x.model == rc.response?.model);
         prompt.results.splice(i > -1 ? i : 0, i > -1 ? 1 : 0, rc.response);
         update(prompt);
@@ -199,7 +223,7 @@ async function job(options, callback)
     const runTask = (task) => {
         logger.info("job:", "prompts", "run", task.type, task.id, prompt.prompt.substr(0, 32));
 
-        return modules.llm[task.type]({ model: task.id, prompt: prompt.prompt, token: task.token }, finish);
+        return modules.llm[task.type]({ model: task.id, prompt: prompt.prompt, token: task.token, signal }, finish);
     }
 
     // Group by model type to avoid overloading or throttling so different types runs in parallel but
@@ -207,7 +231,12 @@ async function job(options, callback)
 
     const tasks = Object.values(Object.groupBy(models, model => model.type)).
                          map(group => (group.length == 1 ? runTask(group[0]):
-                                      (async () => { for (const task of group) await runTask(task) })()));
+                                      (async () => {
+                                        for (const task of group) {
+                                            if (signal.aborted) return;
+                                            await runTask(task);
+                                        }
+                                    })()));
 
     await Promise.allSettled(tasks);
 

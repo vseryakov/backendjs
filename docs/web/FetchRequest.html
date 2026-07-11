@@ -89,7 +89,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_fetch.js.html">lib/lib/fetch.js</a>, <a href="lib_lib_fetch.js.html#line183">line 183</a>
+        <a href="lib_lib_fetch.js.html">lib/lib/fetch.js</a>, <a href="lib_lib_fetch.js.html#line191">line 191</a>
     </li></ul></dd>
     
 
@@ -1022,6 +1022,198 @@ retry will use: <code>origUrl</code>, <code>retryTimeout</code>, <code>retryMult
 
         <tr>
             
+                <td class="name"><code>signal</code></td>
+            
+
+            <td class="type">
+            
+                AbortSignal
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>An AbortSignal that may be used to abort an ongoing request.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>maxHeaderSize</code></td>
+            
+
+            <td class="type">
+            
+                number
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>Optionally overrides the value of --max-http-header-size (the maximum length of response headers in bytes) for responses received from the server. Default: 16384 (16 KiB).</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>setDefaultHeaders</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>Specifies whether or not to automatically add default headers such as Connection, Content-Length, Transfer-Encoding, and Host. If set to false then all necessary headers must be added manually. Defaults to true.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>setHost</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>Specifies whether or not to automatically add the Host header. If provided, this overrides setDefaultHeaders. Defaults to true.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>uniqueHeaders</code></td>
+            
+
+            <td class="type">
+            
+                Array
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>A list of request headers that should be sent only once. If the header's value is an array, the items will be joined using ; .</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>joinDuplicateHeaders</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>It joins the field line values of multiple headers in a request with ,  instead of discarding the duplicates. See message.headers for more information. Default: false.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>localAddress</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>Local interface to bind for network connections.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>localPort</code></td>
+            
+
+            <td class="type">
+            
+                number
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>Local port to connect from.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
                 <td class="name"><code>data</code></td>
             
 
@@ -1365,7 +1557,7 @@ retry will use: <code>origUrl</code>, <code>retryTimeout</code>, <code>retryMult
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_fetch.js.html">lib/lib/fetch.js</a>, <a href="lib_lib_fetch.js.html#line653">line 653</a>
+        <a href="lib_lib_fetch.js.html">lib/lib/fetch.js</a>, <a href="lib_lib_fetch.js.html#line669">line 669</a>
     </li></ul></dd>
     
 

@@ -50,19 +50,17 @@
 
 <template id=prompt>
     <div class="row mb-3">
-        <div class="col-7">
-            <pre class="text-bg-light rounded p-2" x-text="prompt.prompt" role="button" :class="prompt._show?'wrap':'text-truncate'" @click="prompt._show=!prompt._show"></pre>
-        </div>
-
-        <div class="col-2">
-            <small class="" x-text="app.strftime(prompt.mtime)"></small>
+        <div class="col-9">
+            <pre class="small text-bg-light rounded p-2" x-text="prompt.prompt" role="button" :class="prompt._show?'wrap':'text-truncate'" @click="prompt._show=!prompt._show"></pre>
         </div>
 
         <div class="col-3 text-end">
+            <div class="small mb-3" x-text="app.strftime(prompt.mtime)"></div>
             <span class="text-muted mx-2" x-text="prompt.status"></span>
             <i class="bi bi-arrow-clockwise mx-2" @click=submit(prompt) title="Resubmit"></i>
             <i class="bi bi-arrows-expand mx-2" @click=toggle(prompt)></i>
             <i class="bi bi-arrows-collapse mx-2" @click=toggle(prompt,1)></i>
+            <i class="bi bi-sign-stop mx-2" @click="cancel(prompt)"></i>
             <i class="bi bi-trash mx-2" @click=del(prompt)></i>
         </div>
     </div>

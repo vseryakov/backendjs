@@ -240,7 +240,7 @@ shell.commands.myCommand = function(options) {
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_shell_shell.js.html">lib/shell/shell.js</a>, <a href="lib_shell_shell.js.html#line228">line 228</a>
+        <a href="lib_shell_shell.js.html">lib/shell/shell.js</a>, <a href="lib_shell_shell.js.html#line230">line 230</a>
     </li></ul></dd>
     
 
@@ -370,19 +370,13 @@ CSRF token bootstrap, custom headers/cookies, and response shaping/formatting.</
 </ul>
 <p>Signing behavior:</p>
 <ul>
-<li>When a user is loaded (<code>-user</code>) and has <code>login/secret</code>, a <code>signer</code> hook is provided to <code>lib.fetch</code>:
-<ul>
-<li>Sets <code>contentType</code> from outgoing <code>content-type</code> header</li>
-<li>Calls <code>api.signature.create(login, secret, request)</code> and adds the signature header to the request</li>
-</ul>
-</li>
+<li>When a user is loaded (<code>-user</code>) and has <code>login/secret</code>, a <code>signer</code> hook is provided to <code>lib.fetch</code> to create a session cookie</li>
 </ul>
 <p>Control flow:</p>
 <ul>
 <li>Runs as a 3-step async series:
 <ol>
 <li>Optional user lookup</li>
-<li>Optional CSRF bootstrap fetch</li>
 <li>Main request fetch + output formatting</li>
 </ol>
 </li>
@@ -395,7 +389,7 @@ CSRF token bootstrap, custom headers/cookies, and response shaping/formatting.</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_shell_shell.js.html">lib/shell/shell.js</a>, <a href="lib_shell_shell.js.html#line321">line 321</a>
+        <a href="lib_shell_shell.js.html">lib/shell/shell.js</a>, <a href="lib_shell_shell.js.html#line338">line 338</a>
     </li></ul></dd>
     
 
@@ -564,7 +558,7 @@ using <code>lib.toDuration(..., { age: 1, short: 1, round: 2 })</code>.</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_shell_shell.js.html">lib/shell/shell.js</a>, <a href="lib_shell_shell.js.html#line423">line 423</a>
+        <a href="lib_shell_shell.js.html">lib/shell/shell.js</a>, <a href="lib_shell_shell.js.html#line436">line 436</a>
     </li></ul></dd>
     
 
