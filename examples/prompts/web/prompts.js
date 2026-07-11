@@ -99,6 +99,10 @@ app.components.prompts = class extends app.AlpineComponent {
         });
     }
 
+    scale(row) {
+        row.height = parseInt(row.height || 70) + 1 + 'vh';
+    }
+
     show(row, result) {
         result.width = !result.width;
 
@@ -158,10 +162,12 @@ app.components.prompts = class extends app.AlpineComponent {
                 id: "",
                 type: "",
                 token: "",
+                url: "",
 
                 edit(row) {
                     this.id = row.id
                     this.type = row.type
+                    this.url = row.url
                 },
 
                 del(row) {
@@ -180,13 +186,12 @@ app.components.prompts = class extends app.AlpineComponent {
                 { div: { "x-template": "'/models.html'" } },
             ],
             buttons: ["Save","cancel"],
-            Save: this._save,
+            Save: this._save.bind(this),
         })
     }
 
     async _save(body, list, event, popup) {
         if (!body.id || !body.type) return popup.showAlert("id and type are required")
-        if (!body.token && !/ollama/.test(body.type)) return popup.showAlert("token is required")
 
         const { err } = await app.fetch("/api/model/", { post: true, body });
         if (err) return app.showToast("error", err);

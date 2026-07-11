@@ -2405,7 +2405,6 @@
    * @property {boolean} [empty=false] If true, return all input values even if empty; default returns only non-empty values.
    * @property {function(string):HTMLElement[]|null} [sanitizer=null] Called when rendering HTML content/labels; must return a list of HTMLElements to append.
    * @property {Object<string,string>|null} [tabs=null] Map of `{tabId: label, ...}` to show `nav-tabs`; content items can set `tab_id`.
-   * @property {Object} [self] Context for callback functions; default is the popup object.
    * @property {boolean} [debug=false] Log input values in the console.
    * @property {string} [class_modal="modal fade"] Modal root class.
    * @property {string} [class_dialog="modal-dialog"] Modal dialog class.
@@ -2724,7 +2723,7 @@
    * ### Validation:
    *
    * ```javascript
-   * var popup = app.bootpopup({
+   * app.bootpopup({
    *     title: "Add details",
    *     alert: 1,
    *     content: [
@@ -2732,7 +2731,7 @@
    *         { number: { label: "Age", name: "age", placeholder: "your age"}}],
    *     buttons: ["ok", "cancel"],
    *     text_ok: "Verify",
-   *     ok: (data) => {
+   *     ok: (data, list, event, popup) => {
    *         if (!data.name) return popup.showAlert("name is required")
    *     },
    * });
@@ -2770,7 +2769,6 @@
     controller = new AbortController();
     /** @property {Object} options Options used to create the window. */
     options = {
-      self: null,
       id: "",
       title: document.title,
       debug: false,
@@ -2873,11 +2871,11 @@
      */
     create() {
       this.eventOptions = { signal: this.controller.signal };
-      var class_dialog = this.options.class_dialog;
+      let class_dialog = this.options.class_dialog;
       if (this.options.size) class_dialog += " modal-" + this.options.size;
       if (this.options.center) class_dialog += " modal-dialog-centered";
       if (this.options.scroll) class_dialog += " modal-dialog-scrollable";
-      var modalOpts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", "aria-labelledby": "a" + this.formid, "aria-hidden": true };
+      const modalOpts = { class: this.options.class_modal, id: this.options.id || "", tabindex: "-1", "aria-labelledby": "a" + this.formid, "aria-hidden": true };
       if (this.options.backdrop !== true) modalOpts["data-bs-backdrop"] = typeof this.options.backdrop == "string" ? this.options.backdrop : false;
       if (!this.options.keyboard) modalOpts["data-bs-keyboard"] = false;
       for (const p in this.options.attrs_modal) modalOpts[p] = this.options.attrs_modal[p];
@@ -2897,7 +2895,7 @@
         }
         this.content.append(this.header);
       }
-      var class_form = this.options.class_form;
+      let class_form = this.options.class_form;
       if (!class_form && this.options.horizontal) class_form = "form-horizontal";
       this.body = $elem("div", { class: this.options.class_body });
       this.form = $elem("form", { id: this.formid, class: class_form, role: "form", submit: (e) => this.options.submit(e) });
@@ -3017,25 +3015,25 @@
         this.footer.append(btn);
       }
       $on(this.modal, "show.bs.modal", (e) => {
-        this.options.show.call(this.options.self, e, this);
+        this.options.show(e, this);
       }, this.eventOptions);
       $on(this.modal, "shown.bs.modal", (e) => {
         if (this.options.autofocus) {
           const focus = this.autofocus || Array.from($all("input,select,textarea", this.form)).find((el) => !(el.readOnly || el.disabled || el.type == "hidden"));
           if (focus) focus.focus();
         }
-        this.options.shown.call(this.options.self || this, e, this);
+        this.options.shown(e, this);
       }, this.eventOptions);
       $on(this.modal, "hide.bs.modal", (e) => {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
         e.bootpopupButton = this._callback;
-        this.options.dismiss.call(this.options.self, e, this);
+        this.options.dismiss(e, this);
       }, this.eventOptions);
       $on(this.modal, "hidden.bs.modal", (e) => {
         e.bootpopupButton = this._callback;
-        this.options.complete.call(this.options.self, e, this);
+        this.options.complete(e, this);
         this.modal.remove();
         bootstrap.Modal.getInstance(this.modal)?.dispose();
         delete this.options.data;
@@ -3141,7 +3139,7 @@
       if (!func) return;
       this._callback = name;
       const a = this.data();
-      const result = func.call(this.options.self || this, a.obj, a.list, event, this);
+      const result = func(a.obj, a.list, event, this);
       if (result instanceof Promise) {
         result.then((resolved) => {
           if (resolved !== null) {

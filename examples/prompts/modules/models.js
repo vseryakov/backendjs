@@ -75,7 +75,7 @@ function save(context)
     const { err, data } = api.validate(context, _saveSchema);
     if (err) return context.reply(err);
 
-    db.put("models", data, (err) => {
+    db.incr("models", data, (err) => {
         context.reply(err);
     });
 }
@@ -104,17 +104,6 @@ async function seed()
     logger.log("seed:", "models");
 
     const rows = [
-        { id: 'ornith:9b', type: 'ollama' },
-        { id: 'gemma4:e4b-mlx', type: 'ollama' },
-        { id: 'gemma4:12b-mlx', type: 'ollama' },
-        { id: 'gemma4:26b-mlx', type: 'ollama' },
-        { id: 'qwen3.6:27b-mlx', type: 'ollama' },
-        { id: 'gemma4:31b-cloud', type: 'ollama' },
-        { id: 'qwen3.5:9b', type: 'ollama' },
-        { id: 'minimax-m3:cloud', type: 'ollama' },
-        { id: 'granite4.1:30b', type: 'ollama' },
-        { id: 'mistral-small3.2:24b', type: 'ollama' },
-        { id: 'ministral-3:14b', type: 'ollama' },
         { id: 'gpt-5.5', type: 'openai' },
         { id: 'gpt-5.4', type: 'openaichat' },
         { id: 'gpt-5.6-terra', type: 'openai' },
@@ -122,6 +111,18 @@ async function seed()
         { id: 'claude-opus-4-8', type: 'anthropic' },
         { id: 'claude-sonnet-5', type: 'openaichat' },
         { id: 'grok-4.5', type: 'openai', url: 'https://api.x.ai/v1/responses' },
+        { id: 'ornith:9b', type: 'ollama' },
+        { id: 'gemma4:e4b-mlx', type: 'ollama' },
+        { id: 'gemma4:12b-mlx', type: 'ollama' },
+        { id: 'gemma4:26b-mlx', type: 'ollama' },
+        { id: 'qwen3.6:27b-mlx', type: 'ollama' },
+        { id: 'qwen3.5:397b-cloud', type: 'ollama', url: 'https://ollama.com/api/generate' },
+        { id: 'gemma4:31b-cloud', type: 'ollama' },
+        { id: 'qwen3.5:9b', type: 'ollama' },
+        { id: 'minimax-m3:cloud', type: 'ollama' },
+        { id: 'granite4.1:30b', type: 'ollama' },
+        { id: 'mistral-small3.2:24b', type: 'ollama' },
+        { id: 'ministral-3:14b', type: 'ollama' },
     ].map(x => ({ table: "models", op: "add", query: x }));
 
     await db.abulk(rows);
