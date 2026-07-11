@@ -201,9 +201,9 @@ module.exports = {
             error: rc.obj?.error || rc.err || (!rc.ok && rc.data),
             stats: {
                 duration: rc.request.elapsed,
-                cached: lib.toNumber(rc.obj?.usageMetadata?.cachedContentTokenCount),
-                in: lib.toNumber(rc.obj?.usageMetadata?.promptTokenCount),
-                out: lib.toNumber(rc.obj?.usageMetadata?.totalTokenCount) - lib.toNumber(rc.obj?.usageMetadata?.promptTokenCount),
+                cached: rc.obj?.usage?.total_cached_tokens,
+                in: rc.obj?.usage?.total_input_tokens,
+                out: rc.obj?.usage?.total_output_tokens,
             },
             text: "",
         }
