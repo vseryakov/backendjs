@@ -93,6 +93,19 @@ a:hover {
     margin-right: 1rem;
 }
 
+.wrap {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+summary::after {
+  content: "Show";
+}
+
+[open] summary::after {
+  content: "Close";
+}
+
 article a {
   border-bottom: 1px solid var(--table-border);
 }

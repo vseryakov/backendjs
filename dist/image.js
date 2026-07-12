@@ -11,9 +11,21 @@
 const { lib, logger } = require("backendjs");
 const color = require('backendjs/dist//color');
 
-const image = {
+const image =
+
+/**
+ * Scaling and composing images with Sharp.js
+ *
+ * This is optional module not loaded by default, to use must be loaded as `require("backendjs/dist/image")`
+ */
+
+module.exports = {
     name: "image",
 
+    /**
+     * @var {ConfigOptions[]}
+     * @default
+     */
     args: [
         { name: "black", descr: "Default color to use for black text" },
         { name: "white", descr: "Default color to use for white text" },
@@ -26,14 +38,6 @@ const image = {
     background: "#FFFFFF",
     transparent: { r: 0, g: 0, b: 0, alpha: 0 },
 };
-
-/**
- * Scaling and composing images with Sharp.js
- *
- * This is optional module not loaded by default, to use must be loaded as `require("backendjs/dist/image")`
- */
-
-module.exports = image;
 
 var sharp;
 
