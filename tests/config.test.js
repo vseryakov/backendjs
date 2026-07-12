@@ -66,8 +66,8 @@ line2=line2
             "-cache-q", "local://queue?bk-test=10",
             "-cache-q-options", "count:10,interval:100",
             "-cache-q-options-visibilityTimeout", "1000",
-            "-db-cleanup-rules-aaa", "one:1,two:2",
-            "-db-cleanup-rules-aaa", "three:3",
+            "-db-cleanup-aaa", "one:1,two:1",
+            "-db-cleanup-aaa", "three:0",
             "-app-log-inspect-options", "length:222,b:true,s:s%20%3a%2c,ignore:^/test/$",
         ];
 
@@ -109,7 +109,7 @@ line2=line2
         app.parseArgs(["-cache-q-options-visibilityTimeout", "99", "-cache-q-options", "count:99"]);
         assert.partialDeepStrictEqual(q.options, { visibilityTimeout: 99, count: 99 })
 
-        assert.partialDeepStrictEqual(db.cleanup.rules.aaa, { one: 1, two: 2, three: 3 })
+        assert.partialDeepStrictEqual(db.cleanup.aaa, { one: true, two: true, three: false })
 
         assert.partialDeepStrictEqual(app.logInspect, { length: 222, b: true, s: ["s :"], ignore: /test/ })
     })

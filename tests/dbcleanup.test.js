@@ -42,7 +42,7 @@ describe("DB cleanup tests", () => {
     res = db.cleanupResult("cleanup", Object.assign({}, row), { user: { roles: ["staff"] } })
     assert.ok(res.billing_staff && !res.priv, lib.newError({ message: "should keep billing_staff", res }));
 
-    res = db.cleanupResult("cleanup", Object.assign({}, row), { rules: { extra: false } })
+    res = db.cleanupResult("cleanup", Object.assign({}, row), { cleanup: { extra: false } })
     assert.ok(res.extra && !res.extra2, lib.newError({ message: "should keep extra but not extra2", res }));
 
     db.cleanup = { cleanup: { extra2: false } };

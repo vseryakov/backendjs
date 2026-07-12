@@ -14,13 +14,17 @@ describe('Websocket tests', async () => {
         await ainit({ api: 1, noipc: 1, roles: "users,sqlite" })
 
         api.app.all("/ws/*", (context) => {
+            logger.debug("ws.test", context.method, context.path, context.params);
+
+            const id = context.params[0];
+
             if (context.method == "GET") {
-                context.send(200, context.params[0]);
+                context.send(200, id);
             } else {
                 context.json(context.body);
             }
 
-            switch (context.params[0]) {
+            switch (id) {
             case "time":
                 setTimeout(() => { api.ws.notify({}, "wstime") }, 200);
                 break;
@@ -79,7 +83,7 @@ describe('Websocket tests', async () => {
         await send("/ws/time")
         assert.strictEqual(message, "time")
 
-        await lib.sleep(200);
+        await lib.sleep(250);
         assert.strictEqual(message, "wstime")
 
         await send("/ws/noq")
@@ -97,13 +101,13 @@ describe('Websocket tests', async () => {
         await send("/ws/test")
         assert.strictEqual(message, "test")
 
-        await lib.sleep(200);
+        await lib.sleep(250);
         assert.strictEqual(message, "test")
 
         await send("/ws/admin")
         assert.strictEqual(message, "admin")
 
-        await lib.sleep(200);
+        await lib.sleep(250);
         assert.strictEqual(message, "admin")
 
     });
@@ -136,7 +140,7 @@ describe('Websocket tests', async () => {
         await send("/ws/test")
         assert.strictEqual(message, "test")
 
-        await lib.sleep(200);
+        await lib.sleep(250);
         assert.strictEqual(message, "wstest")
 
     });

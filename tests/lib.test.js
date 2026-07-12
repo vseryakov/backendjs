@@ -1568,21 +1568,21 @@ describe("lib.isNumeric", function() {
 
 describe("lib.isDate", function() {
     describe("isDate()", function() {
-        it("returns true for valid dates", function() {
-            assert.strictEqual(lib.isDate(new Date()), true);
-            assert.strictEqual(lib.isDate(new Date("2024-01-01T00:00:00Z")), true);
+        it("returns date for valid dates", function() {
+            assert.strictEqual(typeof lib.isDate(new Date()), "object");
+            assert.strictEqual(typeof lib.isDate(new Date("2024-01-01T00:00:00Z")), "object");
         });
 
-        it("returns false for invalid dates", function() {
-            assert.strictEqual(lib.isDate(new Date("invalid")), false);
+        it("returns undefined for invalid dates", function() {
+            assert.strictEqual(lib.isDate(new Date("invalid")), undefined);
         });
 
-        it("returns false for non-dates", function() {
-            assert.strictEqual(lib.isDate(Date.now()), false);
-            assert.strictEqual(lib.isDate("2024-01-01"), false);
-            assert.strictEqual(lib.isDate(null), false);
-            assert.strictEqual(lib.isDate(undefined), false);
-            assert.strictEqual(lib.isDate({}), false);
+        it("returns undefined for non-dates", function() {
+            assert.strictEqual(lib.isDate(Date.now()), undefined);
+            assert.strictEqual(lib.isDate("2024-01-01"), undefined);
+            assert.strictEqual(lib.isDate(null), undefined);
+            assert.strictEqual(lib.isDate(undefined), undefined);
+            assert.strictEqual(lib.isDate({}), undefined);
         });
     });
 });
