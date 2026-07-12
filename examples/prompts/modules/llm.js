@@ -152,6 +152,7 @@ module.exports = {
                 model: options.model,
                 stream: false,
                 system: options.system || this.system,
+                think: options.reasoning || this.reasoning,
                 options: {
                     temperature: options.temperature || this.temperature,
                 }
@@ -197,6 +198,7 @@ module.exports = {
                 generation_config: {
                     max_output_tokens: options.max_tokens || this.maxTokens,
                     temperature: options.temperature || this.temperature,
+                    thinking_level: options.reasoning || this.reasoning,
                 }
             },
         });

@@ -50,11 +50,13 @@ app.components.prompts = class extends app.AlpineComponent {
             data,
             content: [
                 { textarea: { name: "prompt", label: "Prompt*", rows: 15, value: data?.prompt } },
+                { number: { name: "max_tokens", label: "Max tokens:" } },
+                { select: { name: "reasoning", label: "Reasoning effort:", caption: "Default", options: ["low", "medium", "high"] } },
                 { hr: {} },
                 { checkboxes: { label: "Models*", inline: true,
                                 options: this.models.map(x => ({ name: x.id, label: `${x.id}: ${x.type}`, value: x.id })),
                 } },
-                data ? { checkbox: { name: "force", label: "Start over with these models", value: 1 } } : null,
+                data ? { checkbox: { name: "force", label: "Start over with only these models", value: 1, switch: true } } : null,
             ],
             buttons: ["cancel", "Submit"],
             Submit: this._submit
@@ -68,9 +70,16 @@ app.components.prompts = class extends app.AlpineComponent {
         if (!models.length) return popup.showAlert("models are required");
 
         const id = popup.xdata?.id;
-        const body = { id, prompt: data.prompt, force: data.force, models };
+        const body = {
+            id,
+            models,
+            prompt: data.prompt,
+            force: data.force,
+            max_tokens: data.max_tokes,
+            reasoning: data.reasoning,
+        };
 
-        const { err } = await app.fetch("/api/prompt", { method: id ? "PUT" : "POST", body });
+        const { err } = await app.fetch(`/api/prompt${id ? "/" + id : ""}`, { method: id ? "PUT" : "POST", body });
         if (err) return popup.showAlert(err);
     }
 
@@ -93,6 +102,16 @@ app.components.prompts = class extends app.AlpineComponent {
         if (i > -1) this.prompts.splice(i, 1);
     }
 
+    async delResult(row, result) {
+        const ok = await app.bootpopup.aconfirm("Delete this result?");
+        if (!ok) return;
+
+        const { err } = await app.fetch("/api/prompt/" + row.id + "/" + result.model, { method: "DELETE" });
+        if (err) return app.showToast("error", err);
+
+        row.results.splice(row.results.findIndex(x => x.model == result.model), 1);
+    }
+
     toggle(row, collapse) {
         row.results.filter(x => (collapse ? x.width : !x.width)).forEach(x => {
             this.show(row, x);
@@ -100,7 +119,7 @@ app.components.prompts = class extends app.AlpineComponent {
     }
 
     scale(row) {
-        row.height = parseInt(row.height || 70) + 1 + 'vh';
+        row.height = parseInt(row.height || 70) + 2 + 'vh';
     }
 
     show(row, result) {

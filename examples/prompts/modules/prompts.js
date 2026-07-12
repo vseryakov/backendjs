@@ -27,11 +27,12 @@ module.exports = {
     configureMiddleware(options, callback)
     {
         api.app.
-            get("/api/prompts", listRoute).
-            post("/api/prompt", submitRoute).
-            put("/api/prompt", resubmitRoute).
-            patch("/api/prompt/:id", cancelRoute).
-            delete("/api/prompt/:id", deleteRoute);
+            get("/api/prompts", listPrompts).
+            post("/api/prompt", submitPrompt).
+            put("/api/prompt/:id", resubmitPrompt).
+            patch("/api/prompt/:id", cancelPrompt).
+            delete("/api/prompt/:id", deletePrompt).
+            delete("/api/prompt/:id/:model", deleteResult);
 
         callback();
     },
@@ -49,7 +50,7 @@ const _listSchema = {
 }
 
 // List one page at a time
-function listRoute(context)
+function listPrompts(context)
 {
     const { err, data } = api.validate(context, _listSchema);
     if (err) return context.reply(err);
@@ -69,12 +70,25 @@ const _submitSchema = {
         type: "list",
         required: true,
     },
-    status: { value: "pending" },
-    results: { value: null },
+    max_tokens: {
+        type: "int"
+    },
+    reasoning: {
+        values: ["low", "medium", "high"]
+    },
+    force: {
+        type: "bool"
+    },
+    status: {
+        value: "pending"
+    },
+    results: {
+        value: null
+    },
 }
 
 // Create a new prompt
-async function submitRoute(context)
+async function submitPrompt(context)
 {
     const { err, data } = api.validate(context, _submitSchema);
     if (err) return context.reply(err);
@@ -88,19 +102,15 @@ async function submitRoute(context)
     submitJob(context, data);
 }
 
-
-const _resubmitSchema = {
-    id: { type: "uuid", required: true },
-    force: { type: "bool" }
-};
-
 // Replace existing prompt, keep the results
-async function resubmitRoute(context)
+async function resubmitPrompt(context)
 {
-    const { err, data } = api.validate(context, Object.assign(_resubmitSchema, _submitSchema));
+    const { id } = context.params;
+
+    const { err, data } = api.validate(context, _submitSchema);
     if (err) return context.reply(err);
 
-    const { data: prompt } = await db.aget("prompts", { id: data.id });
+    const { data: prompt } = await db.aget("prompts", { id });
     if (!prompt) return context.reply({ status: 404, message: "invalid prompt" })
 
     if (!data.force) {
@@ -110,7 +120,21 @@ async function resubmitRoute(context)
     submitJob(context, data);
 }
 
-async function deleteRoute(context)
+async function deleteResult(context)
+{
+    const { id, model } = context.params;
+
+    const { data: prompt } = await db.aget("prompts", { id });
+    if (!prompt) return context.reply({ status: 404, message: "invalid prompt" })
+
+    prompt.results = prompt.results.filter(x => x.model !== model);
+
+    db.update("prompts", { id, results: prompt.results }, (err) => {
+        context.reply(err);
+    });
+}
+
+async function deletePrompt(context)
 {
     const { id } = context.params;
 
@@ -123,7 +147,7 @@ async function deleteRoute(context)
     });
 }
 
-async function cancelRoute(context)
+async function cancelPrompt(context)
 {
     jobs.cancelJob(context.params.id);
     context.reply();
@@ -141,7 +165,12 @@ function submitJob(context, data)
         api.ws.notify({}, { event: "prompts:status", prompt });
 
         // Send a job into a queue for processing
-        const job = { id: prompt.id, models: data.models };
+        const job = {
+            id: prompt.id,
+            models: data.models,
+            max_tokens: data.max_tokens,
+            reasoning: data.reasoning,
+        };
 
         jobs.submitJob({ job: { "prompts.job": job } }, { noWait: 1 }, (err) => {
             context.reply(err, prompt);
@@ -223,7 +252,15 @@ async function job(options, callback)
     const runTask = (task) => {
         logger.info("job:", "prompts", "run", task.type, task.id, prompt.prompt.substr(0, 32));
 
-        return modules.llm[task.type]({ model: task.id, prompt: prompt.prompt, token: task.token, signal }, finish);
+        const opts = {
+            model: task.id,
+            prompt: prompt.prompt,
+            token: task.token,
+            max_tokens: options.max_tokens,
+            reasoning: options.reasoning,
+            signal,
+        }
+        return modules.llm[task.type](opts, finish);
     }
 
     // Group by model type to avoid overloading or throttling so different types runs in parallel but

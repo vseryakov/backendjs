@@ -64,7 +64,7 @@
             <i class="bi bi-arrow-clockwise mx-2" role="button" @click=submit(prompt) title="Resubmit"></i>
             <i class="bi bi-arrows-expand mx-2" role="button" @click=toggle(prompt)></i>
             <i class="bi bi-arrows-collapse mx-2" role="button" @click=toggle(prompt,1)></i>
-            <i class="bi bi-plus-circle mx-2" role="button" @click=scale(prompt)></i>
+            <i class="bi bi-plus-circle mx-2" role="button" @click.stop=scale(prompt)></i>
             <i class="bi bi-sign-stop mx-2" role="button" @click="cancel(prompt)"></i>
             <i class="bi bi-trash mx-2" role="button" @click=del(prompt)></i>
         </div>
@@ -79,6 +79,7 @@
 
                 <div class="text-bg-dark p-2 overflow-auto round border" x-show="result.width" :style="{maxWidth:result.width,maxHeight:prompt.height||'70vh'}">
                     <div class="mb-3 small opacity-75">
+                        <i class="bi bi-trash m-2 float-end" role="button" @click=delResult(prompt,result)></i>
 
                         <div class="py-1 border-bottom text-danger" x-show="result.error">
                             <b>Error:</b> <span x-text="JSON.stringify(result.error)"></span>
