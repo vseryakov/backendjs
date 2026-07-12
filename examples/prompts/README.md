@@ -1,15 +1,6 @@
 
 # Backendjs example showing how to compare output from different LLMs side by side
 
-
-![Screenshot](screenshot.jpg)
-
-![Screenshot2](screenshot2.jpg)
-
-![Screenshot1](screenshot1.jpg)
-
-![Screenshot3](prompts.jpg)
-
 ## Summary
 
 This is a demonstration of backendjs modules `api`, `db`, `jobs`, `ws`:
@@ -20,6 +11,14 @@ This is a demonstration of backendjs modules `api`, `db`, `jobs`, `ws`:
 - ability to cancel running jobs
 - calculate cosine similarity for every result against all other results, sort by most similar
 - notifying web clients via Websockets about progress and results
+
+![Screenshot](screenshot.jpg)
+
+![Screenshot2](screenshot2.jpg)
+
+![Screenshot1](screenshot1.jpg)
+
+![Screenshot3](prompts.jpg)
 
 
 ### First Time Setup
@@ -58,6 +57,7 @@ This is a demonstration of backendjs modules `api`, `db`, `jobs`, `ws`:
 
 ```
 src/
+├── bkjs.conf          # config file
 ├── web/
 │   ├── propmts.js     # Main component
 │   ├── prompts.html   # Main HTML template
@@ -68,7 +68,7 @@ src/
 │   ├── models.js      # Models API
 │   └── prompts.js     # Prompts API
 ├── var/
-    └── prompt.db      # Local SQLite database
+    └── prompts.db     # Local SQLite database
 ```
 
 ## Learn More
