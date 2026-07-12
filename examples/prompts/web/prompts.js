@@ -83,46 +83,46 @@ app.components.prompts = class extends app.AlpineComponent {
         if (err) return popup.showAlert(err);
     }
 
-    async cancel(row) {
+    async cancel(prompt) {
         const ok = await app.bootpopup.aconfirm("Cancel this prompt?");
         if (!ok) return;
 
-        const { err } = await app.fetch("/api/prompt/" + row.id, { method: "PATCH" });
+        const { err } = await app.fetch("/api/prompt/" + prompt.id, { method: "PATCH" });
         if (err) return app.showToast("error", err);
     }
 
-    async del(row) {
+    async del(prompt) {
         const ok = await app.bootpopup.aconfirm("Delete this prompt?");
         if (!ok) return;
 
-        const { err } = await app.fetch("/api/prompt/" + row.id, { method: "DELETE" });
+        const { err } = await app.fetch("/api/prompt/" + prompt.id, { method: "DELETE" });
         if (err) return app.showToast("error", err);
 
-        const i = this.prompts.findIndex(x => x.id === row.id);
+        const i = this.prompts.findIndex(x => x.id === prompt.id);
         if (i > -1) this.prompts.splice(i, 1);
     }
 
-    async delResult(row, result) {
+    async delResult(prompt, result) {
         const ok = await app.bootpopup.aconfirm("Delete this result?");
         if (!ok) return;
 
-        const { err } = await app.fetch("/api/prompt/" + row.id + "/" + result.model, { method: "DELETE" });
+        const { err } = await app.fetch("/api/prompt/" + prompt.id + "/" + result.model, { method: "DELETE" });
         if (err) return app.showToast("error", err);
 
-        row.results.splice(row.results.findIndex(x => x.model == result.model), 1);
+        prompt.results.splice(prompt.results.findIndex(x => x.model == result.model), 1);
     }
 
-    toggle(row, collapse) {
-        row.results.filter(x => (collapse ? x.width : !x.width)).forEach(x => {
-            this.show(row, x);
+    toggle(prompt, collapse) {
+        prompt.results.filter(x => (collapse ? x.width : !x.width)).forEach(x => {
+            this.show(prompt, x);
         });
     }
 
-    scale(row) {
-        row.height = parseInt(row.height || 70) + 2 + 'vh';
+    scale(prompt) {
+        prompt.height = parseInt(prompt.height || 70) + 2 + 'vh';
     }
 
-    show(row, result) {
+    show(prompt, result) {
         result.width = !result.width;
 
         if (result.width && !result._md && result.text) {
@@ -144,16 +144,16 @@ app.components.prompts = class extends app.AlpineComponent {
         }
 
         let show;
-        const open = row.results.filter((res, i) => {
+        const open = prompt.results.filter((res, i) => {
             if (res.model == result.model) show = i;
             return res.width;
         });
 
-        row.results.splice(show, 1);
+        prompt.results.splice(show, 1);
         if (result.width) {
-            row.results.unshift(result);
+            prompt.results.unshift(result);
         } else {
-            row.results.push(result);
+            prompt.results.push(result);
         }
 
         const w = 90/(open.length);

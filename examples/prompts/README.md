@@ -8,6 +8,8 @@
 
 ![Screenshot1](screenshot1.jpg)
 
+![Screenshot3](prompts.jpg)
+
 ## Summary
 
 This is a demonstration of backendjs modules `api`, `db`, `jobs`, `ws`:
