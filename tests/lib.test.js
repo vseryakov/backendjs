@@ -3,127 +3,122 @@ const { describe, it, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { lib } = require("../");
 
-describe("lib tests", () => {
+describe("lib.findWords", () => {
 
-    it("runs search" ,() => {
+    var words = ['keyword1', 'keyword2', 'etc'];
+    var text = 'should find keyword1 at position 19 and keyword2 at position 47.';
+    var ac = new lib.AhoCorasick(words);
+    var rc = ac.search(text);
 
-        var words = ['keyword1', 'keyword2', 'etc'];
-        var text = 'should find keyword1 at position 19 and keyword2 at position 47.';
-        var ac = new lib.AhoCorasick(words);
-        var rc = ac.search(text);
+    assert.ok(rc.length && rc[0][0] == 19 && rc[0][1] == "keyword1");
+    assert.ok(rc.length == 2 && rc[1][0] == 47 && rc[1][1] == "keyword2");
 
-        assert.ok(rc.length && rc[0][0] == 19 && rc[0][1] == "keyword1");
-        assert.ok(rc.length == 2 && rc[1][0] == 47 && rc[1][1] == "keyword2");
+    rc = ac.search(text, { list: 1 });
+    assert.ok(rc.length == 2 && rc[0] == "keyword1" && rc[1] == "keyword2");
 
-        rc = ac.search(text, { list: 1 });
-        assert.ok(rc.length == 2 && rc[0] == "keyword1" && rc[1] == "keyword2");
+    rc = ac.search(text.replace("keyword2", "akeyword2"), { list: 1, delimiters: "" });
+    assert.ok(rc.length == 1 && rc[0] == "keyword1");
 
-        rc = ac.search(text.replace("keyword2", "akeyword2"), { list: 1, delimiters: "" });
-        assert.ok(rc.length == 1 && rc[0] == "keyword1");
+    rc = lib.findWords(words, text);
+    assert.ok(rc.length == 2 && rc[0] == "keyword1" && rc[1] == "keyword2");
 
-        rc = lib.findWords(words, text);
-        assert.ok(rc.length == 2 && rc[0] == "keyword1" && rc[1] == "keyword2");
+    rc = lib.findWords(words, text.replace("keyword2", "akeyword2"));
+    assert.ok(rc.length == 1 && rc[0] == "keyword1");
 
-        rc = lib.findWords(words, text.replace("keyword2", "akeyword2"));
-        assert.ok(rc.length == 1 && rc[0] == "keyword1");
-
-        rc = lib.findWords(words, "keyword2");
-        assert.ok(rc.length == 1 && rc[0] == "keyword2");
-
-    });
-
-    it("lib.skip32", () => {
-
-        // these are the default test values from the original C code
-        var KEY = [ 0x00,0x99,0x88,0x77,0x66,0x55,0x44,0x33,0x22,0x11 ];
-        var INPUT = parseInt("33221100", 16)
-        var ENCRYPTED = parseInt("819d5f1f", 16);
-        var e = lib.toSkip32("",KEY,INPUT)
-        var d = lib.toSkip32("d",KEY,e)
-        assert.strictEqual(ENCRYPTED, e);
-        assert.strictEqual(INPUT, d);
-
-    })
-
-    it("lib.toTemplate", () => {
-
-        var m = lib.toTemplate("email@id@@@com", { id: 1 }, { allow: ["id"] });
-        assert.strictEqual(m, "email1@com")
-
-        m = lib.toTemplate("email@com,@id@@@com", { id: 1, code: "A" });
-        assert.strictEqual(m, "email@com,1@com")
-
-        m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" });
-        assert.strictEqual(m, "/A/1")
-
-        m = lib.toTemplate("/@code@/@id@@n@", { id: 1, code: "A" });
-        assert.strictEqual(m, "/A/1\n")
-
-        m = lib.toTemplate("/@code@/@id@ @exit@", { id: 1, code: "A" });
-        assert.strictEqual(m, "/A/1 ")
-
-        m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" } , { allow: ["id"] });
-        assert.strictEqual(m, "//1")
-
-        m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { skip: ["id"] });
-        assert.strictEqual(m, "/A/")
-
-        m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { only: ["id"] });
-        assert.strictEqual(m, "/@code@/1")
-
-        m = lib.toTemplate("/@code@/@id@", { id: " ", code: "A" }, { encoding: "url" });
-        assert.strictEqual(m, "/A/%20")
-
-        m = lib.toTemplate("Hello @name|friend@!", {});
-        assert.strictEqual(m, "Hello friend!")
-
-        m = lib.toTemplate("/@deep.code@/@id@", { id: 1, deep: { code: "A" } });
-        assert.strictEqual(m, "/A/1")
-
-        m = lib.toTemplate("/@if code A@@code@/@id@@endif@", { id: 1, code: "A" });
-        assert.strictEqual(m, "/A/1")
-
-        var o = { allow: ["id"] };
-        m = lib.toTemplate("/@if code AA@@code@@id@/@exit@-@id@@endif@ ", { id: 1, code: "AA" }, o);
-        assert.strictEqual(m, "/1/")
-        assert.ok(!o.__exit)
-
-        m = lib.toTemplate("/@if code B@@code@/@id@@endif@", { id: 1, code: "A" });
-        assert.strictEqual(m, "/")
-
-        m = lib.toTemplate("/@ifempty code@@id@@endif@", { id: 1 });
-        assert.strictEqual(m, "/1")
-
-        m = lib.toTemplate("/@ifempty v@@ifnotempty code@@id@@endif@@endif@", { id: 1, code: 1 });
-        assert.strictEqual(m, "/1")
-
-        m = lib.toTemplate("/@ifstr code A@@code@/@id@@endif@", { id: 1, code: "A" });
-        assert.strictEqual(m, "/A/1")
-
-        m = lib.toTemplate("/@ifnotstr code A@@code@/@id@@endif@", { id: 1, code: "B" });
-        assert.strictEqual(m, "/B/1")
-
-        m = lib.toTemplate("/@aaa|dflt@", {});
-        assert.strictEqual(m, "/dflt")
-
-        m = lib.toTemplate("/@aaa||url@", { aaa: "a=" });
-        assert.strictEqual(m, "/a%3D")
-
-        m = lib.toTemplate("/@aaa||url@", { aaa: [1,2,3] });
-        assert.strictEqual(m, "/1%2C2%2C3")
-
-        m = lib.toTemplate("/@aaa@", { aaa: { a: 1, b: 2 } });
-        assert.strictEqual(m, `/{"a":1,"b":2}`)
-
-        m = lib.toTemplate("@if code A@@code@@else@ELSE@endif@", { code: "A" });
-        assert.strictEqual(m, "A")
-
-        m = lib.toTemplate("@if code A@@code@@else@ELSE@endif@", { code: "B" });
-        assert.strictEqual(m, "ELSE")
-
-    })
+    rc = lib.findWords(words, "keyword2");
+    assert.ok(rc.length == 1 && rc[0] == "keyword2");
 
 });
+
+describe("lib.skip32", () => {
+
+    // these are the default test values from the original C code
+    var KEY = [ 0x00,0x99,0x88,0x77,0x66,0x55,0x44,0x33,0x22,0x11 ];
+    var INPUT = parseInt("33221100", 16)
+    var ENCRYPTED = parseInt("819d5f1f", 16);
+    var e = lib.toSkip32("",KEY,INPUT)
+    var d = lib.toSkip32("d",KEY,e)
+    assert.strictEqual(ENCRYPTED, e);
+    assert.strictEqual(INPUT, d);
+})
+
+describe("lib.toTemplate", () => {
+
+    var m = lib.toTemplate("email@id@@@com", { id: 1 }, { allow: ["id"] });
+    assert.strictEqual(m, "email1@com")
+
+    m = lib.toTemplate("email@com,@id@@@com", { id: 1, code: "A" });
+    assert.strictEqual(m, "email@com,1@com")
+
+    m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" });
+    assert.strictEqual(m, "/A/1")
+
+    m = lib.toTemplate("/@code@/@id@@n@", { id: 1, code: "A" });
+    assert.strictEqual(m, "/A/1\n")
+
+    m = lib.toTemplate("/@code@/@id@ @exit@", { id: 1, code: "A" });
+    assert.strictEqual(m, "/A/1 ")
+
+    m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" } , { allow: ["id"] });
+    assert.strictEqual(m, "//1")
+
+    m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { skip: ["id"] });
+    assert.strictEqual(m, "/A/")
+
+    m = lib.toTemplate("/@code@/@id@", { id: 1, code: "A" }, { only: ["id"] });
+    assert.strictEqual(m, "/@code@/1")
+
+    m = lib.toTemplate("/@code@/@id@", { id: " ", code: "A" }, { encoding: "url" });
+    assert.strictEqual(m, "/A/%20")
+
+    m = lib.toTemplate("Hello @name|friend@!", {});
+    assert.strictEqual(m, "Hello friend!")
+
+    m = lib.toTemplate("/@deep.code@/@id@", { id: 1, deep: { code: "A" } });
+    assert.strictEqual(m, "/A/1")
+
+    m = lib.toTemplate("/@if code A@@code@/@id@@endif@", { id: 1, code: "A" });
+    assert.strictEqual(m, "/A/1")
+
+    var o = { allow: ["id"] };
+    m = lib.toTemplate("/@if code AA@@code@@id@/@exit@-@id@@endif@ ", { id: 1, code: "AA" }, o);
+    assert.strictEqual(m, "/1/")
+    assert.ok(!o.__exit)
+
+    m = lib.toTemplate("/@if code B@@code@/@id@@endif@", { id: 1, code: "A" });
+    assert.strictEqual(m, "/")
+
+    m = lib.toTemplate("/@ifempty code@@id@@endif@", { id: 1 });
+    assert.strictEqual(m, "/1")
+
+    m = lib.toTemplate("/@ifempty v@@ifnotempty code@@id@@endif@@endif@", { id: 1, code: 1 });
+    assert.strictEqual(m, "/1")
+
+    m = lib.toTemplate("/@ifstr code A@@code@/@id@@endif@", { id: 1, code: "A" });
+    assert.strictEqual(m, "/A/1")
+
+    m = lib.toTemplate("/@ifnotstr code A@@code@/@id@@endif@", { id: 1, code: "B" });
+    assert.strictEqual(m, "/B/1")
+
+    m = lib.toTemplate("/@aaa|dflt@", {});
+    assert.strictEqual(m, "/dflt")
+
+    m = lib.toTemplate("/@aaa||url@", { aaa: "a=" });
+    assert.strictEqual(m, "/a%3D")
+
+    m = lib.toTemplate("/@aaa||url@", { aaa: [1,2,3] });
+    assert.strictEqual(m, "/1%2C2%2C3")
+
+    m = lib.toTemplate("/@aaa@", { aaa: { a: 1, b: 2 } });
+    assert.strictEqual(m, `/{"a":1,"b":2}`)
+
+    m = lib.toTemplate("@if code A@@code@@else@ELSE@endif@", { code: "A" });
+    assert.strictEqual(m, "A")
+
+    m = lib.toTemplate("@if code A@@code@@else@ELSE@endif@", { code: "B" });
+    assert.strictEqual(m, "ELSE")
+
+})
 
 describe("lib.parseTime", function () {
     const ok = (input, expected) => {
@@ -713,7 +708,7 @@ describe("lib.split tests", () => {
 
 });
 
-describe("lib.toValue tests", () =>{
+describe("lib.toValue tests", () => {
 
     test("toValue returns value as-is for null, empty, and none types", () => {
         const obj = { a: 1 };
@@ -1835,5 +1830,658 @@ describe("lib.arrayUpdate", () => {
             assert.equal(result, list);
             assert.deepEqual(result, ["a"]);
         });
+    });
+});
+
+describe('lib.matchRegexp', () => {
+    it('returns group 1 by default', () => {
+        assert.strictEqual(lib.matchRegexp("abc123", /([a-z]+)/), "abc");
+    });
+    it('returns whole match with index 0', () => {
+        assert.strictEqual(lib.matchRegexp("abc123", /[a-z]+(\d+)/, 0), "abc123");
+    });
+    it('returns whole array with index -1', () => {
+        const r = lib.matchRegexp("abc123", /([a-z]+)(\d+)/, -1);
+        assert.strictEqual(r[1], "abc");
+        assert.strictEqual(r[2], "123");
+    });
+    it('returns all matches with g flag', () => {
+        const r = lib.matchRegexp("a1b2c3", /\d/g);
+        assert.deepStrictEqual([...r], ["1", "2", "3"]);
+    });
+    it('returns null for non-string', () => {
+        assert.strictEqual(lib.matchRegexp(123, /\d/), null);
+    });
+    it('returns null for non-regexp', () => {
+        assert.strictEqual(lib.matchRegexp("abc", "abc"), null);
+    });
+    it('returns null when no match', () => {
+        assert.strictEqual(lib.matchRegexp("abc", /(\d+)/), null);
+    });
+});
+
+describe('lib.matchAllRegexp', () => {
+    it('returns all group 1 matches', () => {
+        assert.deepStrictEqual(lib.matchAllRegexp("a1 b2 c3", /(\w)\d/g), ["a", "b", "c"]);
+    });
+    it('returns given index', () => {
+        assert.deepStrictEqual(lib.matchAllRegexp("a1 b2", /(\w)(\d)/g, 2), ["1", "2"]);
+    });
+    it('returns empty for non-string', () => {
+        assert.deepStrictEqual(lib.matchAllRegexp(null, /\d/g), []);
+    });
+    it('returns empty for non-regexp', () => {
+        assert.deepStrictEqual(lib.matchAllRegexp("abc", null), []);
+    });
+});
+
+describe('lib.testRegexp', () => {
+    it('returns true on match', () => {
+        assert.strictEqual(lib.testRegexp("abc", /b/), true);
+    });
+    it('returns false on no match', () => {
+        assert.strictEqual(lib.testRegexp("abc", /z/), false);
+    });
+    it('returns false on non-regexp', () => {
+        assert.strictEqual(lib.testRegexp("abc", "b"), false);
+    });
+});
+
+describe('lib.testRegexpObj', () => {
+    it('returns true on match', () => {
+        assert.strictEqual(lib.testRegexpObj("abc", { rx: /b/ }), true);
+    });
+    it('returns false on no match', () => {
+        assert.strictEqual(lib.testRegexpObj("abc", { rx: /z/ }), false);
+    });
+    it('negates with not flag', () => {
+        assert.strictEqual(lib.testRegexpObj("abc", { rx: /z/, not: true }), true);
+        assert.strictEqual(lib.testRegexpObj("abc", { rx: /b/, not: true }), false);
+    });
+    it('returns false when no rx', () => {
+        assert.strictEqual(lib.testRegexpObj("abc", {}), false);
+        assert.strictEqual(lib.testRegexpObj("abc", null), false);
+    });
+});
+
+describe('lib.replaceRegexp', () => {
+    it('replaces matches with val', () => {
+        assert.strictEqual(lib.replaceRegexp("a1b2", /\d/g, "#"), "a#b#");
+    });
+    it('removes matches when no val', () => {
+        assert.strictEqual(lib.replaceRegexp("a1b2", /\d/g), "ab");
+    });
+    it('returns empty string for non-string', () => {
+        assert.strictEqual(lib.replaceRegexp(null, /\d/g, "#"), "");
+    });
+    it('returns str unchanged for non-regexp', () => {
+        assert.strictEqual(lib.replaceRegexp("abc", "x", "#"), "abc");
+    });
+});
+
+describe('lib.trim', () => {
+    it('trims default whitespace', () => {
+        assert.strictEqual(lib.trim("  abc  "), "abc");
+    });
+    it('trims custom chars', () => {
+        assert.strictEqual(lib.trim("xxabcxx", "x"), "abc");
+    });
+    it('returns empty for non-string', () => {
+        assert.strictEqual(lib.trim(null), "");
+    });
+    it('returns empty for empty string', () => {
+        assert.strictEqual(lib.trim(""), "");
+    });
+    it('trims tabs and newlines', () => {
+        assert.strictEqual(lib.trim("\t\nabc\n\t"), "abc");
+    });
+});
+
+describe('lib.wrap', () => {
+    it('returns short string unchanged', () => {
+        assert.strictEqual(lib.wrap("short", { wrap: 80 }), "short");
+    });
+    it('wraps forward', () => {
+        assert.strictEqual(lib.wrap("very long text line to wrap forward", { wrap: 15, over: 1.5 }),
+            "very long text line\nto wrap forward");
+    });
+    it('wraps backward', () => {
+        assert.strictEqual(lib.wrap("very long text line to wrap backwards", { wrap: 15, over: 0.5 }),
+            "very long text\nline to wrap\nbackwards");
+    });
+    it('returns empty for non-string', () => {
+        assert.strictEqual(lib.wrap(null), "");
+    });
+    it('applies indent', () => {
+        const r = lib.wrap("aaa bbb ccc ddd", { wrap: 5, indent: ">> " });
+        assert.ok(r.includes(">> "));
+    });
+});
+
+describe('lib.split', () => {
+    it('splits by default separator', () => {
+        assert.deepStrictEqual(lib.split("a,b,c"), ["a", "b", "c"]);
+    });
+    it('splits by custom separator', () => {
+        assert.deepStrictEqual(lib.split("a|b|c", "|"), ["a", "b", "c"]);
+    });
+    it('ignores empty by default', () => {
+        assert.deepStrictEqual(lib.split("a,,b"), ["a", "b"]);
+    });
+    it('keeps empty with keepempty', () => {
+        assert.deepStrictEqual(lib.split("a,,b", ",", { keepempty: 1 }), ["a", "", "b"]);
+    });
+    it('trims by default', () => {
+        assert.deepStrictEqual(lib.split(" a , b "), ["a", "b"]);
+    });
+    it('skips trim with notrim', () => {
+        assert.deepStrictEqual(lib.split(" a , b ", ",", { notrim: 1 }), [" a ", " b "]);
+    });
+    it('lowercases', () => {
+        assert.deepStrictEqual(lib.split("A,B", ",", { lower: 1 }), ["a", "b"]);
+    });
+    it('uppercases', () => {
+        assert.deepStrictEqual(lib.split("a,b", ",", { upper: 1 }), ["A", "B"]);
+    });
+    it('converts to number', () => {
+        assert.deepStrictEqual(lib.split("1,2,3", ",", { number: 1 }), [1, 2, 3]);
+    });
+    it('expands numeric ranges', () => {
+        assert.deepStrictEqual(lib.split("1-3", ",", { range: 1 }), ["1", "2", "3"]);
+    });
+    it('removes duplicates with unique', () => {
+        assert.deepStrictEqual(lib.split("a,b,a", ",", { unique: 1 }), ["a", "b"]);
+    });
+    it('filters by regexp', () => {
+        assert.deepStrictEqual(lib.split("a1,bb,c3", ",", { regexp: /\d/ }), ["a1", "c3"]);
+    });
+    it('filters by noregexp', () => {
+        assert.deepStrictEqual(lib.split("a1,bb,c3", ",", { noregexp: /\d/ }), ["bb"]);
+    });
+    it('drops over max', () => {
+        assert.deepStrictEqual(lib.split("ab,abcde", ",", { max: 3 }), ["ab"]);
+    });
+    it('truncates over max', () => {
+        assert.deepStrictEqual(lib.split("abcde", ",", { max: 3, trunc: 1 }), ["abc"]);
+    });
+    it('strips chars', () => {
+        assert.deepStrictEqual(lib.split("a-b,c-d", ",", { strip: "-" }), ["ab", "cd"]);
+    });
+    it('replaces via map', () => {
+        assert.deepStrictEqual(lib.split("a,b", ",", { replace: { a: "x" } }), ["x", "b"]);
+    });
+    it('returns empty for falsy', () => {
+        assert.deepStrictEqual(lib.split(""), []);
+        assert.deepStrictEqual(lib.split(null), []);
+    });
+    it('passes non-string array items through', () => {
+        assert.deepStrictEqual(lib.split([1, "a", 2]), [1, "a", 2]);
+    });
+});
+
+describe('lib.phraseSplit', () => {
+    it('splits by space', () => {
+        assert.deepStrictEqual(lib.phraseSplit("a b c"), ["a", "b", "c"]);
+    });
+    it('keeps quoted phrases', () => {
+        assert.deepStrictEqual(lib.phraseSplit(`a "b c" d`), ["a", "b c", "d"]);
+    });
+    it('handles single quotes', () => {
+        assert.deepStrictEqual(lib.phraseSplit(`a 'b c' d`), ["a", "b c", "d"]);
+    });
+    it('uses custom separator', () => {
+        assert.deepStrictEqual(lib.phraseSplit("a,b,c", { separator: "," }), ["a", "b", "c"]);
+    });
+    it('returns empty for non-string', () => {
+        assert.deepStrictEqual(lib.phraseSplit(null), []);
+    });
+    it('keeps empty with keepempty', () => {
+        const r = lib.phraseSplit("a  b", { keepempty: 1 });
+        assert.ok(r.includes(""));
+    });
+});
+
+describe('lib.zeropad', () => {
+    it('pads with zeros', () => {
+        assert.strictEqual(lib.zeropad(5, 3), "005");
+    });
+    it('no pad when wide enough', () => {
+        assert.strictEqual(lib.zeropad(123, 3), "123");
+    });
+    it('pads two digit', () => {
+        assert.strictEqual(lib.zeropad(42, 4), "0042");
+    });
+});
+
+describe('lib.sprintf', () => {
+    it('formats strings', () => {
+        assert.strictEqual(lib.sprintf("%s", "hi"), "hi");
+    });
+    it('formats integers', () => {
+        assert.strictEqual(lib.sprintf("%d", 42), "42");
+    });
+    it('formats floats', () => {
+        assert.strictEqual(lib.sprintf("%.2f", 3.14159), "3.14");
+    });
+    it('formats hex', () => {
+        assert.strictEqual(lib.sprintf("%x", 255), "ff");
+    });
+    it('pads with zeros', () => {
+        assert.strictEqual(lib.sprintf("%05d", 42), "00042");
+    });
+});
+
+describe('lib.shuffle', () => {
+    it('returns empty array for non-array input', () => {
+        assert.deepStrictEqual(lib.shuffle(null), []);
+        assert.deepStrictEqual(lib.shuffle("foo"), []);
+        assert.deepStrictEqual(lib.shuffle([]), []);
+    });
+
+    it('returns array with same items', () => {
+        const list = [1, 2, 3, 4, 5];
+        const res = lib.shuffle(list);
+        assert.strictEqual(res, list);
+        assert.strictEqual(res.length, 5);
+        assert.deepStrictEqual([...res].sort((a, b) => a - b), [1, 2, 3, 4, 5]);
+    });
+
+    it('handles single item', () => {
+        assert.deepStrictEqual(lib.shuffle([1]), [1]);
+    });
+});
+
+describe('lib.arrayLength', () => {
+    it('returns length of array', () => {
+        assert.strictEqual(lib.arrayLength([1, 2, 3]), 3);
+        assert.strictEqual(lib.arrayLength([]), 0);
+    });
+
+    it('returns 0 for non-array', () => {
+        assert.strictEqual(lib.arrayLength(null), 0);
+        assert.strictEqual(lib.arrayLength("foo"), 0);
+        assert.strictEqual(lib.arrayLength({}), 0);
+        assert.strictEqual(lib.arrayLength(undefined), 0);
+    });
+});
+
+describe('lib.arrayRemove', () => {
+    it('removes item from list in place', () => {
+        const list = [1, 2, 3];
+        const res = lib.arrayRemove(list, 2);
+        assert.strictEqual(res, list);
+        assert.deepStrictEqual(res, [1, 3]);
+    });
+
+    it('does nothing if item not found', () => {
+        const list = [1, 2, 3];
+        assert.deepStrictEqual(lib.arrayRemove(list, 9), [1, 2, 3]);
+    });
+
+    it('removes only first occurrence', () => {
+        assert.deepStrictEqual(lib.arrayRemove([1, 2, 2, 3], 2), [1, 2, 3]);
+    });
+});
+
+describe('lib.arrayUnique', () => {
+    it('returns unique primitive items', () => {
+        assert.deepStrictEqual(lib.arrayUnique([1, 2, 2, 3, 3, 3]), [1, 2, 3]);
+    });
+
+    it('returns unique by key for objects', () => {
+        const list = [{ id: 1 }, { id: 2 }, { id: 1 }];
+        assert.deepStrictEqual(lib.arrayUnique(list, "id"), [{ id: 1 }, { id: 2 }]);
+    });
+
+    it('splits string when not array', () => {
+        assert.deepStrictEqual(lib.arrayUnique("a,b,b,c"), ["a", "b", "c"]);
+    });
+});
+
+describe('lib.arrayEqual', () => {
+    it('returns true for arrays with same items', () => {
+        assert.strictEqual(lib.arrayEqual([1, 2, 3], [1, 2, 3]), true);
+        assert.strictEqual(lib.arrayEqual([1, 2, 3], [3, 2, 1]), true);
+    });
+
+    it('returns false for different lengths', () => {
+        assert.strictEqual(lib.arrayEqual([1, 2], [1, 2, 3]), false);
+    });
+
+    it('returns false for different items', () => {
+        assert.strictEqual(lib.arrayEqual([1, 2, 3], [1, 2, 4]), false);
+    });
+
+    it('returns false for non-arrays', () => {
+        assert.strictEqual(lib.arrayEqual(null, [1]), false);
+        assert.strictEqual(lib.arrayEqual([1], null), false);
+    });
+});
+
+describe('lib.arrayFlatten', () => {
+    it('flattens nested arrays', () => {
+        assert.deepStrictEqual(lib.arrayFlatten([1, [2, 3], [4, [5, 6]]]), [1, 2, 3, 4, 5, 6]);
+    });
+
+    it('handles already flat array', () => {
+        assert.deepStrictEqual(lib.arrayFlatten([1, 2, 3]), [1, 2, 3]);
+    });
+
+    it('handles deeply nested', () => {
+        assert.deepStrictEqual(lib.arrayFlatten([[[[1]]], [2]]), [1, 2]);
+    });
+});
+
+describe('lib.clone', () => {
+    it('shallow clones an object', () => {
+        const a = { x: 1, y: 2 };
+        const b = lib.clone(a);
+        assert.deepStrictEqual(b, a);
+        assert.notStrictEqual(b, a);
+    });
+
+    it('clones nested arrays independently', () => {
+        const a = { 1: 2, a: [1, 2] };
+        const b = lib.clone(a);
+        b.a.push(3);
+        assert.notStrictEqual(a.a.length, b.a.length);
+    });
+
+    it('clones nested objects, sets, maps', () => {
+        const a = { o: { z: 1 }, s: new Set([1, 2]), m: new Map([["k", "v"]]) };
+        const b = lib.clone(a);
+        assert.notStrictEqual(b.o, a.o);
+        assert.notStrictEqual(b.s, a.s);
+        assert.notStrictEqual(b.m, a.m);
+        assert.deepStrictEqual([...b.s], [1, 2]);
+        assert.strictEqual(b.m.get("k"), "v");
+    });
+
+    it('merges additional args', () => {
+        const b = lib.clone({ 1: 2, a: [1, 2] }, { "3": 3, "4": 4 });
+        assert.strictEqual(b["3"], 3);
+        assert.strictEqual(b["4"], 4);
+    });
+
+    it('clones arrays', () => {
+        const b = lib.clone([1, 2, 3]);
+        assert.ok(Array.isArray(b));
+        assert.deepStrictEqual(b, [1, 2, 3]);
+    });
+});
+
+describe('lib.flatten', () => {
+    it('flattens nested objects', () => {
+        assert.deepStrictEqual(lib.flatten({ a: { c: 1 }, b: { d: 1 } }), { 'a.c': 1, 'b.d': 1 });
+    });
+
+    it('flattens with array index option', () => {
+        assert.deepStrictEqual(lib.flatten({ a: { c: 1 }, b: { d: [1, 2, 3] } }, { index: 1 }),
+            { 'a.c': 1, 'b.d.1': 1, 'b.d.2': 2, 'b.d.3': 3 });
+    });
+
+    it('uses custom separator', () => {
+        assert.deepStrictEqual(lib.flatten({ a: { c: 1 } }, { separator: "_" }), { 'a_c': 1 });
+    });
+
+    it('respects depth', () => {
+        const res = lib.flatten({ a: { b: { c: 1 } } }, { depth: 1 });
+        assert.deepStrictEqual(res, {});
+    });
+
+    it('ignores properties matching regexp', () => {
+        assert.deepStrictEqual(lib.flatten({ a: 1, _b: 2 }, { ignore: /^_/ }), { a: 1 });
+    });
+
+    it('handles circular references', () => {
+        const a = { x: 1 };
+        a.self = a;
+        assert.doesNotThrow(() => lib.flatten(a));
+    });
+});
+
+describe('lib.objGet', () => {
+    const obj = { response: { item: { id: 123, name: "Test" } } };
+
+    it('gets nested property', () => {
+        assert.strictEqual(lib.objGet(obj, "response.item.name"), "Test");
+    });
+
+    it('returns as list', () => {
+        assert.deepStrictEqual(lib.objGet(obj, "response.item.name", { list: 1 }), ["Test"]);
+    });
+
+    it('returns owner object', () => {
+        assert.deepStrictEqual(lib.objGet(obj, "response.item.name", { owner: 1 }),
+            { id: 123, name: "Test" });
+    });
+
+    it('returns undefined for missing path', () => {
+        assert.strictEqual(lib.objGet(obj, "response.foo.bar"), undefined);
+    });
+
+    it('handles null obj with options', () => {
+        assert.deepStrictEqual(lib.objGet(null, "a", { list: 1 }), []);
+        assert.deepStrictEqual(lib.objGet(null, "a", { obj: 1 }), Object.create(null));
+        assert.strictEqual(lib.objGet(null, "a", { str: 1 }), "");
+        assert.strictEqual(lib.objGet(null, "a", { num: 1 }), 0);
+        assert.strictEqual(lib.objGet(null, "a"), null);
+    });
+
+    it('returns as string', () => {
+        assert.strictEqual(lib.objGet(obj, "response.item.id", { str: 1 }), "123");
+    });
+
+    it('returns as number', () => {
+        assert.strictEqual(lib.objGet(obj, "response.item.name", { num: 1, dflt: 0 }), 0);
+    });
+
+    it('accepts array name', () => {
+        assert.strictEqual(lib.objGet(obj, ["response", "item", "id"]), 123);
+    });
+
+    it('func option returns null for non-function', () => {
+        assert.strictEqual(lib.objGet(obj, "response.item.id", { func: 1 }), null);
+    });
+});
+
+describe('lib.objSet', () => {
+    it('sets nested property, creating intermediate objects', () => {
+        const a = lib.objSet({}, "response.item.count", 1);
+        assert.strictEqual(a.response.item.count, 1);
+    });
+
+    it('increments', () => {
+        const a = { response: { item: { count: 1 } } };
+        lib.objSet(a, "response.item.count", 1, { incr: 1 });
+        assert.strictEqual(a.response.item.count, 2);
+    });
+
+    it('multiplies', () => {
+        const a = { n: 3 };
+        lib.objSet(a, "n", 4, { mult: 1 });
+        assert.strictEqual(a.n, 12);
+    });
+
+    it('pushes to array', () => {
+        const a = {};
+        lib.objSet(a, "list", 1, { push: 1 });
+        lib.objSet(a, "list", 2, { push: 1 });
+        assert.deepStrictEqual(a.list, [1, 2]);
+    });
+
+    it('pushes unique only', () => {
+        const a = {};
+        lib.objSet(a, "list", 1, { push: 1, unique: 1 });
+        lib.objSet(a, "list", 1, { push: 1, unique: 1 });
+        assert.deepStrictEqual(a.list, [1]);
+    });
+
+    it('appends string', () => {
+        const a = {};
+        lib.objSet(a, "s", "a", { append: 1 });
+        lib.objSet(a, "s", "b", { append: 1 });
+        assert.strictEqual(a.s, "ab");
+    });
+
+    it('result new', () => {
+        assert.strictEqual(lib.objSet({}, "a", 5, { result: "new" }), 5);
+    });
+
+    it('result old', () => {
+        assert.strictEqual(lib.objSet({ a: 1 }, "a", 5, { result: "old" }), 1);
+    });
+
+    it('uses custom separator', () => {
+        const a = lib.objSet({}, "a_b_c", 1, { separator: "_" });
+        assert.strictEqual(a.a.b.c, 1);
+    });
+});
+
+describe('lib.objIncr', () => {
+    it('creates a property when it does not exist', () => {
+        const a = {};
+        assert.strictEqual(lib.objIncr(a, "a", 1), 1);
+        assert.strictEqual(a.a, 1);
+    });
+
+    it('increments an existing property', () => {
+        const a = { a: 5 };
+        assert.strictEqual(lib.objIncr(a, "a", 3), 8);
+        assert.strictEqual(a.a, 8);
+    });
+
+    it('handles multiple properties', () => {
+        const a = {};
+        lib.objIncr(a, "a", 1);
+        lib.objIncr(a, "b", 10);
+        assert.deepStrictEqual(a, { a: 1, b: 10 });
+    });
+
+    it('supports nested path', () => {
+        const a = {};
+        lib.objIncr(a, "x.y", 4);
+        assert.strictEqual(a.x.y, 4);
+    });
+
+    it('returns old value when result=old', () => {
+        const a = { a: 5 };
+        assert.strictEqual(lib.objIncr(a, "a", 3, "old"), 5);
+        assert.strictEqual(a.a, 8);
+    });
+});
+
+describe('lib.objMult', () => {
+    it('creates a property when it does not exist', () => {
+        const a = {};
+        assert.strictEqual(lib.objMult(a, "a", 5), 0);
+        assert.strictEqual(a.a, 0);
+    });
+
+    it('multiplies an existing property', () => {
+        const a = { a: 4 };
+        assert.strictEqual(lib.objMult(a, "a", 3), 12);
+        assert.strictEqual(a.a, 12);
+    });
+
+    it('supports nested path', () => {
+        const a = { x: { y: 2 } };
+        lib.objMult(a, "x.y", 5);
+        assert.strictEqual(a.x.y, 10);
+    });
+});
+
+describe('lib.objKeys', () => {
+    it('returns keys of an object', () => {
+        assert.deepStrictEqual(lib.objKeys({ a: 1, b: 2 }), ["a", "b"]);
+    });
+
+    it('returns empty array for non-object', () => {
+        assert.deepStrictEqual(lib.objKeys(null), []);
+        assert.deepStrictEqual(lib.objKeys(undefined), []);
+        assert.deepStrictEqual(lib.objKeys(42), []);
+        assert.deepStrictEqual(lib.objKeys("str"), []);
+    });
+
+    it('returns empty for empty object', () => {
+        assert.deepStrictEqual(lib.objKeys({}), []);
+    });
+});
+
+describe('lib.objSize', () => {
+    it('returns length for a string', () => {
+        assert.strictEqual(lib.objSize("hello"), 5);
+    });
+
+    it('returns string length for a number', () => {
+        assert.strictEqual(lib.objSize(123), 3);
+    });
+
+    it('computes size of a flat object', () => {
+        // "a": each key length + pad(5) + value size
+        const size = lib.objSize({ a: 1 });
+        assert.strictEqual(size, "a".length + 5 + 1);
+    });
+
+    it('computes size with multiple properties', () => {
+        const size = lib.objSize({ a: 1, bb: 22 });
+        assert.strictEqual(size, (1 + 5 + 1) + (2 + 5 + 2));
+    });
+
+    it('handles nested objects', () => {
+        const size = lib.objSize({ a: { b: 1 } });
+        // outer: "a" + 5 + inner(  "b" + 5 + 1 )
+        assert.strictEqual(size, 1 + 5 + (1 + 5 + 1));
+    });
+
+    it('handles arrays', () => {
+        const size = lib.objSize({ a: [1, 22] });
+        assert.strictEqual(size, 1 + 5 + 1 + 2);
+    });
+
+    it('handles Set', () => {
+        const size = lib.objSize({ a: new Set([1, 22]) });
+        assert.strictEqual(size, 1 + 5 + 1 + 2);
+    });
+
+    it('handles Map', () => {
+        const size = lib.objSize({ a: new Map([["k", "v"]]) });
+        assert.strictEqual(size, 1 + 5 + 1 + 1);
+    });
+
+    it('handles strings inside objects', () => {
+        const size = lib.objSize({ a: "hello" });
+        assert.strictEqual(size, 1 + 5 + 5);
+    });
+
+    it('skips functions', () => {
+        const size = lib.objSize({ a: () => {} });
+        assert.strictEqual(size, 1 + 5);
+    });
+
+    it('returns MAX_SAFE_INTEGER on circular reference', () => {
+        const a = {};
+        a.self = a;
+        assert.ok(lib.objSize(a) > Number.MAX_SAFE_INTEGER);
+    });
+
+    it('returns NaN on circular reference when nan option set', () => {
+        const a = {};
+        a.self = a;
+        assert.ok(Number.isNaN(lib.objSize(a, { nan: true })));
+    });
+
+    it('respects custom pad', () => {
+        const size = lib.objSize({ a: 1 }, { pad: 0 });
+        assert.strictEqual(size, 1 + 0 + 1);
+    });
+
+    it('returns MAX_SAFE_INTEGER when depth exceeded', () => {
+        const deep = { a: { b: { c: { d: {} } } } };
+        assert.ok(lib.objSize(deep, { depth: 1 }) > Number.MAX_SAFE_INTEGER);
+    });
+
+    it('handles null', () => {
+        assert.strictEqual(lib.objSize(null), 9);
     });
 });
