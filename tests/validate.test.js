@@ -34,6 +34,7 @@ describe("lib.validate checks", function () {
             json: { type: "json", datatype: "obj" },
             json1: { type: "json", params: { id: { type: "int" }, name: {} } },
             minnum: { type: "int", minnum: 10 },
+            url: { type: "url", notempty: 1 },
         };
         var opts = {
             defaults: {
@@ -139,6 +140,12 @@ describe("lib.validate checks", function () {
         q = lib.validate({ minnum: 2 }, schema);
         assert.strictEqual(q.err?.code, "validate");
 
+        q = lib.validate({ url: "http://a.com" }, schema);
+        assert.strictEqual(q.data?.url, "http://a.com/");
+
+        q = lib.validate({ url: "http//a.com" }, schema);
+        assert.strictEqual(q.data?.url, undefined);
+        assert.match(q?.err?.message, /invalid/);
     });
 
   it("skips undefined schema entries and ignored fields", function () {
@@ -237,10 +244,25 @@ describe("lib.validate checks", function () {
       a: { type: "regexp" },
       b: { type: "regexp", max: 5, errmsg: "rx too long" },
     };
-    const r = lib.validate(q, { a: s.a });
+    let r = lib.validate(q, { a: s.a });
     assert.ok(r.data?.a instanceof RegExp);
 
     assert.strictEqual(lib.validate(q, { b: s.b })?.err?.message, "rx too long");
+
+    r = lib.validate({ a: "[." }, s);
+    assert.ok(!r.err && !r.data?.a);
+
+    const s2 = { a: { type: "regexp", notempty: 1 } };
+
+    r = lib.validate({}, s2);
+    assert.ok(!r.err);
+
+    r = lib.validate({ a: "a" }, s2);
+    assert.ok(r.data?.a instanceof RegExp);
+
+    r = lib.validate({ a: "[." }, s2);
+    assert.ok(r.err);
+
   });
 
   it("list type: split/filter/novalue/minlist/maxlist/trunc/flatten", function () {
