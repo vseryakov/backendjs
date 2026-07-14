@@ -112,16 +112,6 @@ app.components.prompts = class extends app.AlpineComponent {
         prompt.results.splice(prompt.results.findIndex(x => x.model == result.model), 1);
     }
 
-    toggle(prompt, collapse) {
-        prompt.results.filter(x => (collapse ? x.width : !x.width)).forEach(x => {
-            this.show(prompt, x);
-        });
-    }
-
-    scale(prompt) {
-        prompt.height = !prompt.height || prompt.height === '50vh' ? '1000vh' : '50vh';
-    }
-
     show(prompt, result) {
         result.width = !result.width;
 
@@ -218,9 +208,22 @@ app.components.prompts = class extends app.AlpineComponent {
         this.getModels();
     }
 
+    toggle(prompt, collapse) {
+        prompt.results.filter(x => (collapse ? x.width : !x.width)).forEach(x => {
+            this.show(prompt, x);
+        });
+    }
+
+    scale(prompt) {
+        prompt.height = !prompt.height || prompt.height === '50vh' ? '1000vh' : '50vh';
+    }
+
     async download(prompt, el) {
-        this.toggle(prompt);
-        await new Promise((resolve) => setTimeout(resolve, 500))
+        prompt._wrap = 1;
+        if (!prompt.results.some(x => x.width)) {
+            this.toggle(prompt);
+            await new Promise((resolve) => setTimeout(resolve, 500))
+        }
         this.scale(prompt);
         await new Promise((resolve) => setTimeout(resolve, 500))
         const canvas = await html2canvas(el);
