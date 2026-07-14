@@ -116,6 +116,7 @@ async function resubmitPrompt(context)
     if (!data.force) {
         data.results = prompt.results;
     }
+    data.id = id;
 
     submitJob(context, data);
 }

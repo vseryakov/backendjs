@@ -119,7 +119,7 @@ app.components.prompts = class extends app.AlpineComponent {
     }
 
     scale(prompt) {
-        prompt.height = parseInt(prompt.height || 70) + 2 + 'vh';
+        prompt.height = !prompt.height || prompt.height === '50vh' ? '1000vh' : '50vh';
     }
 
     show(prompt, result) {
@@ -216,6 +216,20 @@ app.components.prompts = class extends app.AlpineComponent {
         if (err) return app.showToast("error", err);
 
         this.getModels();
+    }
+
+    async download(prompt, el) {
+        this.toggle(prompt);
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        this.scale(prompt);
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        const canvas = await html2canvas(el);
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL("image/png");
+        a.download = "prompts_" + prompt.prompt.substr(0, 32).replace(/[^a-z0-9.-]/g, "_") + ".png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     }
 
 };
