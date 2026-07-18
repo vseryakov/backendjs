@@ -1,80 +1,136 @@
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { app, db } = require("../");
+const { app, db, lib, logger } = require("../");
 const { ainit } = require("./utils");
 
 const roles = process.env.BKJS_ROLES || "sqlite";
 
-describe.skip("DB tests", async () => {
+const tables = {
+    bk_test1: {
+        id: {
+            type: "uuid",
+            primary: 1,
+            index: 1,
+            _$dynamodb: { projections: ["email"] }
+        },
+        key: {
+            type: "keyword",
+            primary: 2,
+            not_null: true,
+            join: ["key1","key2"],
+        },
+        key1: {},
+        key2: { type: "int" },
+        ctime: { type: "now", readonly: true },
+        mtime: { type: "now" },
+        name: { check: { max: 32 } },
+        email: { type: "email" },
+        json: { type: "json" },
+        bignum: {
+            type: "bigint",
+            index: 2
+        },
+        realnum: { type: "real" },
+        count: {
+            type: "counter",
+            value: 0,
+        },
+        notempty: {
+            check: { not_empty: true }
+        },
+        dflt: { dflt: "1" },
+        obj: { type: "obj" },
+        list: { type: "array" },
+        tags: { type: "list" },
+        weights: {
+            type: "set",
+            datatype: "int"
+        },
+        nospecial: {
+            check: { max: 32, trunc: 1 },
+            convert: { strip: lib.rxSpecial }
+        },
+    },
+};
+
+var id1 = lib.uuid(), id2 = lib.uuid();
+var key1 = lib.uuid(), key2 = lib.randomNum(1, 1000);
+var name = "test name";
+var email = "test@email.com";
+var bignum = lib.randomNum(1, 1000);
+var next_token = null;
+var configOptions;
+
+describe("DB tests", async () => {
 
     before(async () => {
         await ainit({ roles })
+
+        db.tables = {};
+        db.describeTables(tables);
+
+        db.setProcessRow("post", "bk_test1", (op, row) => {
+            row.computed = `${row.id} ${row.mtime}`;
+            return row;
+        });
+
+        db.customColumn.bk_test1 = { "count[0-9]+": "counter" };
+
+        configOptions = db.getPool(db.pool).configOptions;
+
     });
 
     after(async () => {
         await app.astop();
     });
 
-    it("checks basic db api", { skip: 1 }, async() => {
+    await it("drop tables", async() => {
 
-        var tables = {
-            bk_test1: {
-                id: { primary: 1, index: 1, dynamodb: { projections: ["email"] } },
-                key: { type: "keyword", primary: 2, join: ["key1","key2"], ops: { select: "begins_with" } },
-                key1: {},
-                key2: {},
-                email: {},
-                name: {},
-                json: { type: "json" },
-                bignum: { type: "bigint", index: 2 },
-                realnum: { type: "real" },
-                mtime: { type: "now" },
-                count: { type: "counter", value: 0 },
-                notempty: { check: { not_empty: 1 } },
-                dflt: { dflt: "1" },
-                obj: { type: "obj" },
-                list: { type: "array" },
-                tags: { type: "list", datatype: "int", list: 1 },
-                sets: { type: "set" },
-                spec: { convert: { strip: lib.rxSpecial } },
-            },
-        };
-        var id = lib.uuid();
-        var key1 = lib.uuid();
-        var key2 = lib.randomNum(1, 1000);
-        var bignum = lib.randomNum(1, 1000);
-        var next_token = null, rec;
-        var configOptions = db.getPool(db.pool).configOptions;
+        db.skip = { drop: /./ };
 
-        db.setProcessRow("post", "bk_test1", (op, row) => {
-            var type = (row.type || "").split(":");
-            row.type = type[0];
-            row.mtime = type[1];
-            return row;
-        });
+        const { err: dropped } = await db.adrop("bk_test1", { pool: db.pool });
+        assert.strictEqual(dropped.code, "SkipDrop");
 
-        db.customColumn.test3 = { "action[0-9]+": "counter" };
+        db.skip.drop = null;
 
-        var old = db.tables;
-        db.tables = {};
-        db.describeTables(tables);
+        for (const table in tables) {
+            const { err } = await db.adrop(table, { pool: db.pool });
+            assert.ok(!err);
+        }
 
+    });
+
+    await it("create tables", async() => {
+
+        const { err, created } = await db.acreateTables({ pools: [db.pool] });
+        assert.ok(!err);
+        assert.deepStrictEqual(created, Object.keys(tables));
+    });
+
+    await it("db checks", async() => {
+        const row = { id: id1, name, email }
+
+        let rc = await db.aadd("bk_test1", row)
+        assert.match(rc?.err?.message, /not be empty/);
+
+        row.notempty = 1
+        row.key_$none = null
+
+        rc = await db.aadd("bk_test1", row);
+        // assert.match(rc?.err?.message, /NULL/);
+
+        delete row.key_$none;
+
+        // rc = await db.aadd("bk_test1", row);
+        // assert.strictEqual(rc?.err, null);
+
+        // rc = await db.aadd("bk_test1", row);
+        // assert.ok(rc?.err);
+    });
+
+    await it("other", { skip: 1 }, async() => {
         lib.series([
-            function(next) {
-                db.dropTables(tables, db.pool, () => {
-                    db.createTables(db.pool, next);
-                });
-            },
-            function(next) {
-                db.add("test1", { id: id, email: id, num: '1', num2: null, num3: 1, num4: 1, anum: 1, skipcol: "skip" }, function(err) {
-                    if (err) return next(err);
-                    db.put("test1", { id: id2, email: id2, num: '2', num2: "2", num3: 1, num4: "4", anum: 1, skipcol: "skip" }, function(err) {
-                        if (err) return next(err);
-                        db.put("test3", { id: id, num: 0, email: id, anum: 1, notempty: "1" }, next);
-                    });
-                });
-            },
             function(next) {
                 db.get("test1", { id: id }, function(err, row) {
                     assert(err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum, "err1:", row);
@@ -112,21 +168,6 @@ describe.skip("DB tests", async () => {
                     assert(err || rows.length!=2 || !isok, "err3:", rows.length, isok, rows);
                     next();
                 });
-            },
-            function(next) {
-                db.add("test2", { id: id, id2: '1', email: id, name: id, birthday: id, num: 0, bignum, mtime }, next);
-            },
-            function(next) {
-                db.add("test2", { id: id2, id2: '2', email: id, name: id, birthday: id, group: id, num: 2, num2: num2, mtime: now }, next);
-            },
-            function(next) {
-                db.put("test2", { id: id2, id2: '1', email: id2, name: id2, birthday: id2, group: id2, num: 1, num2: num2, mtime: now }, next);
-            },
-            function(next) {
-                db.put("test3", { id: id2, num: 2, emai: id2, notempty: "1" }, next);
-            },
-            function(next) {
-                db.put("test3", { id: id, type: "like:" + Date.now(), fake: 1, notempty: "1" }, next);
             },
             function(next) {
                 db.select("test3", { id: id }, function(err, rows) {
@@ -550,10 +591,7 @@ describe.skip("DB tests", async () => {
                         next();
                     });
                 }
-            ], (err) => {
-                db.tables = old;
-                callback(err);
-            });
+            ], callback);
     });
 
 });

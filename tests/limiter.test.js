@@ -33,7 +33,7 @@ var opts = {
         await ainit({ nodb: 1, ipc: 1, cache: 1, roles: process.env.BKJS_ROLES });
     });
 
-    it("should delay the pace", async () => (
+    await it("should delay the pace", async () => (
         new Promise((resolve, reject) => {
             var list = [], delays = 0;
             for (let i = 0; i < opts.count; i++) list.push(i);
@@ -60,14 +60,14 @@ var opts = {
         })
     ));
 
-    it("should wait and continue", async () => {
+    await it("should wait and continue", async () => {
         opts.retry = 2;
         await cache.alimiter(opts);
         const { delay } = await cache.acheckLimiter(opts);
         assert.ok(!delay && opts._retries == 2);
     });
 
-    it("should fail after first run", async () => (
+    await it("should fail after first run", async () => (
         new Promise((resolve, reject) => {
             opts.retry = 1;
             delete opts._retries;

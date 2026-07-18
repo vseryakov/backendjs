@@ -9,7 +9,7 @@ go deeper with **app-modules-depth** config.
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup.
 
-All modules are exposed in the top level {@link module:modules}.
+All modules are exposed in the top level {@link module:modules} except files that start with undescore.
 
 This is how to access modules by name without involving Javascript import/export, also this allows
 dynamically detect module at runtime, the app can be bundled with subset of modules only to implement a service,
