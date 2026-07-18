@@ -2,7 +2,7 @@
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { app, db, lib, logger } = require("../");
-const { ainit } = require("./utils");
+const { ainit, astop } = require("./utils");
 
 const roles = process.env.BKJS_ROLES || "sqlite";
 
@@ -55,12 +55,12 @@ const tables = {
 };
 
 var id1 = lib.uuid(), id2 = lib.uuid();
-var key1 = lib.uuid(), key2 = lib.randomNum(1, 1000);
+var key1 = lib.uuid(), key2 = lib.randomInt(1, 1000);
 var name = "test name";
 var email = "test@email.com";
 var bignum = lib.randomNum(1, 1000);
 var next_token = null;
-var configOptions;
+var config;
 
 describe("DB tests", async () => {
 
@@ -77,12 +77,12 @@ describe("DB tests", async () => {
 
         db.customColumn.bk_test1 = { "count[0-9]+": "counter" };
 
-        configOptions = db.getPool(db.pool).configOptions;
+        config = db.getPool(db.pool).config;
 
     });
 
     after(async () => {
-        await app.astop();
+        await astop();
     });
 
     await it("drop tables", async() => {
@@ -94,7 +94,12 @@ describe("DB tests", async () => {
 
         db.skip.drop = null;
 
+        await db.acacheColumns(db.pool);
+
+        const pool = db.getPool(db.pool);
+
         for (const table in tables) {
+            if (!pool.dbcolumns[table]) continue;
             const { err } = await db.adrop(table, { pool: db.pool });
             assert.ok(!err);
         }
@@ -115,18 +120,26 @@ describe("DB tests", async () => {
         assert.match(rc?.err?.message, /not be empty/);
 
         row.notempty = 1
-        row.key_$none = null
+
+        if (config.features.not_null) {
+
+            rc = await db.aadd("bk_test1", row);
+            assert.match(rc?.err?.message, /NULL|not-null|required keys/);
+
+            row.key1 = key1;
+            rc = await db.aadd("bk_test1", row);
+            assert.match(rc?.err?.message, /NULL|not-null|required keys/);
+
+        }
+
+        row.key1 = key1;
+        row.key2 = key2;
 
         rc = await db.aadd("bk_test1", row);
-        // assert.match(rc?.err?.message, /NULL/);
+        assert.strictEqual(rc?.err, null);
 
-        delete row.key_$none;
-
-        // rc = await db.aadd("bk_test1", row);
-        // assert.strictEqual(rc?.err, null);
-
-        // rc = await db.aadd("bk_test1", row);
-        // assert.ok(rc?.err);
+        rc = await db.aadd("bk_test1", row);
+        assert.ok(rc?.err);
     });
 
     await it("other", { skip: 1 }, async() => {

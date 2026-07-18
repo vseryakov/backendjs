@@ -10,8 +10,15 @@ case "$BKJS_CMD" in
 
   help|pg-help)
     echo ""
+    echo "  pg-init [-home P] [-user postgress] [-db default] - setup new database"
     echo "  pg-run - run local PostgreSQL server installed in $PG_PREFIX"
     echo "  pg-stop - stop local PostgreSQL server"
+    echo "  pg-sh - run psql shell"
+    ;;
+
+  pg-sh)
+    $PG_PREFIX/bin/psql -U postgres -d $(get_arg -db default)
+    exit
     ;;
 
   pg-init)

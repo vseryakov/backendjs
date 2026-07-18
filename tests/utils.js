@@ -76,7 +76,11 @@ exports.ainit = async function(options)
 exports.stop = function(options, callback)
 {
     lib.killWorkers();
-    app.stop(callback);
+    app.stop((err) => {
+        const info = process.getActiveResourcesInfo();
+        if (info.length > 2) console.log("ACTIVE RESOURCES:", info);
+        lib.call(callback, err);
+    });
 }
 
 exports.astop = async function(options)

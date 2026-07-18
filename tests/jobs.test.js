@@ -36,7 +36,6 @@ if (cluster.isWorker) {
     });
 }
 
-
 describe("Jobs tests", async () => {
 
     before(async () => {
