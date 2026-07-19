@@ -22,22 +22,22 @@ const tables = {
         },
         key1: {},
         key2: { type: "int" },
-        ctime: { type: "now", readonly: true },
+        ctime: {
+            type: "now",
+            readonly: true,
+            index: 2,
+        },
         mtime: { type: "now" },
-        name: { check: { max: 32 } },
+        name: { validate: { max: 32 } },
         email: { type: "email" },
         json: { type: "json" },
-        bignum: {
-            type: "bigint",
-            index: 2
-        },
         realnum: { type: "real" },
         count: {
             type: "counter",
             value: 0,
         },
         notempty: {
-            check: { not_empty: true }
+            validate: { not_empty: true }
         },
         dflt: { dflt: "1" },
         obj: { type: "obj" },
@@ -45,10 +45,10 @@ const tables = {
         tags: { type: "list" },
         weights: {
             type: "set",
-            datatype: "int"
+            data_type: "int"
         },
         nospecial: {
-            check: { max: 32, trunc: 1 },
+            validate: { max: 32, trunc: 1 },
             convert: { strip: lib.rxSpecial }
         },
     },
@@ -58,7 +58,7 @@ var id1 = lib.uuid(), id2 = lib.uuid();
 var key1 = lib.uuid(), key2 = lib.randomInt(1, 1000);
 var name = "test name";
 var email = "test@email.com";
-var bignum = lib.randomNum(1, 1000);
+var bignum = lib.randomNum(10000000, 1000000000);
 var next_token = null;
 var config;
 

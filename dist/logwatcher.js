@@ -38,9 +38,9 @@ const logwatcher = {
         { name: "local", type: "map", obj: "local", merge: 1, descr: "Save matched lines in local file, ex. file:filename, size:maxsize, ext:ext" },
         { name: "cw-run", type: "bool", descr: "Run AWS Cloudwatch logwatcher" },
         { name: "cw-filter", descr: "AWS Cloudwatch Logs filter pattern, only matched events will be returned and analyzed the the core logwatcher regexps" },
-        { name: "cw-groups", type: "map", maptype: "str", descr: "List of AWS Cloudwatch Logs groups to watch for errors, format is: name:type,..." },
-        { name: "cw-filters-(.+)", obj: "cw-filters", make: "$1", nocamel: 1, descr: "AWS Cloudwatch Logs filter pattern by group, overrides the global filter" },
-        { name: "cw-matches-(.+)", obj: "cw-matches", make: "$1", type: "regexp", empty: 1, nocamel: 1, descr: "Logwatcher line regexp patterns by group, overrides default regexp patterns" },
+        { name: "cw-groups", type: "map", map_type: "str", descr: "List of AWS Cloudwatch Logs groups to watch for errors, format is: name:type,..." },
+        { name: "cw-filters-(.+)", obj: "cw-filters", make: "$1", no_camel: 1, descr: "AWS Cloudwatch Logs filter pattern by group, overrides the global filter" },
+        { name: "cw-matches-(.+)", obj: "cw-matches", make: "$1", type: "regexp", empty: 1, no_camel: 1, descr: "Logwatcher line regexp patterns by group, overrides default regexp patterns" },
     ],
 
     mtime: 0,

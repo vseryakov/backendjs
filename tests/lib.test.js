@@ -372,9 +372,9 @@ describe("lib.toNumber", function () {
     assert.strictEqual(lib.toNumber("nope", { dflt: 9 }), 9);
   });
 
-  it("applies novalue replacement", function () {
-    assert.strictEqual(lib.toNumber("5", { novalue: 5, dflt: 2 }), 2);
-    assert.strictEqual(lib.toNumber(5, { novalue: 5, dflt: 2 }), 2);
+  it("applies no_value replacement", function () {
+    assert.strictEqual(lib.toNumber("5", { no_value: 5, dflt: 2 }), 2);
+    assert.strictEqual(lib.toNumber(5, { no_value: 5, dflt: 2 }), 2);
   });
 
   it("applies incr and mult in order", function () {
@@ -549,9 +549,9 @@ describe("lib.split tests", () => {
         assert.deepEqual(lib.split('a,,b,,c,', ','), ['a', 'b', 'c']);
     });
 
-    test('split: keeps empty items with keepempty option', () => {
+    test('split: keeps empty items with keep_empty option', () => {
         assert.deepEqual(
-            lib.split('a,,b,', ',', { keepempty: true }),
+            lib.split('a,,b,', ',', { keep_empty: true }),
             ['a', '', 'b', '']
             );
     });
@@ -563,9 +563,9 @@ describe("lib.split tests", () => {
             );
     });
 
-    test('split: does not trim string items with notrim option', () => {
+    test('split: does not trim string items with no_trim option', () => {
         assert.deepEqual(
-            lib.split(' a , b , c ', ',', { notrim: true }),
+            lib.split(' a , b , c ', ',', { no_trim: true }),
             [' a ', ' b ', ' c ']
             );
     });
@@ -618,9 +618,9 @@ describe("lib.split tests", () => {
             );
     });
 
-    test('split: applies noregexp option and skips matching values', () => {
+    test('split: applies no_regexp option and skips matching values', () => {
         assert.deepEqual(
-            lib.split('abc,123,def,456', ',', { noregexp: /^\d+$/ }),
+            lib.split('abc,123,def,456', ',', { no_regexp: /^\d+$/ }),
             ['abc', 'def']
             );
     });
@@ -666,9 +666,9 @@ describe("lib.split tests", () => {
             );
     });
 
-    test('split: applies datatype option', () => {
+    test('split: applies data_type option', () => {
         assert.deepEqual(
-            lib.split('1,2,3', ',', { datatype: 'number' }),
+            lib.split('1,2,3', ',', { data_type: 'number' }),
             [1, 2, 3]
             );
     });
@@ -1968,14 +1968,14 @@ describe('lib.split', () => {
     it('ignores empty by default', () => {
         assert.deepStrictEqual(lib.split("a,,b"), ["a", "b"]);
     });
-    it('keeps empty with keepempty', () => {
-        assert.deepStrictEqual(lib.split("a,,b", ",", { keepempty: 1 }), ["a", "", "b"]);
+    it('keeps empty with keep_empty', () => {
+        assert.deepStrictEqual(lib.split("a,,b", ",", { keep_empty: 1 }), ["a", "", "b"]);
     });
     it('trims by default', () => {
         assert.deepStrictEqual(lib.split(" a , b "), ["a", "b"]);
     });
-    it('skips trim with notrim', () => {
-        assert.deepStrictEqual(lib.split(" a , b ", ",", { notrim: 1 }), [" a ", " b "]);
+    it('skips trim with no_trim', () => {
+        assert.deepStrictEqual(lib.split(" a , b ", ",", { no_trim: 1 }), [" a ", " b "]);
     });
     it('lowercases', () => {
         assert.deepStrictEqual(lib.split("A,B", ",", { lower: 1 }), ["a", "b"]);
@@ -1995,8 +1995,8 @@ describe('lib.split', () => {
     it('filters by regexp', () => {
         assert.deepStrictEqual(lib.split("a1,bb,c3", ",", { regexp: /\d/ }), ["a1", "c3"]);
     });
-    it('filters by noregexp', () => {
-        assert.deepStrictEqual(lib.split("a1,bb,c3", ",", { noregexp: /\d/ }), ["bb"]);
+    it('filters by no_regexp', () => {
+        assert.deepStrictEqual(lib.split("a1,bb,c3", ",", { no_regexp: /\d/ }), ["bb"]);
     });
     it('drops over max', () => {
         assert.deepStrictEqual(lib.split("ab,abcde", ",", { max: 3 }), ["ab"]);
@@ -2035,8 +2035,8 @@ describe('lib.phraseSplit', () => {
     it('returns empty for non-string', () => {
         assert.deepStrictEqual(lib.phraseSplit(null), []);
     });
-    it('keeps empty with keepempty', () => {
-        const r = lib.phraseSplit("a  b", { keepempty: 1 });
+    it('keeps empty with keep_empty', () => {
+        const r = lib.phraseSplit("a  b", { keep_empty: 1 });
         assert.ok(r.includes(""));
     });
 });

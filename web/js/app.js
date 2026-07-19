@@ -213,7 +213,7 @@
    * @param {int} [options.max] - maximum value, clip
    * @param {int} [options.incr] - a number to add before checking for other conditions
    * @param {int} [options.mult] - a number to multiply before checking for other conditions
-   * @param {int} [options.novalue] - replace this number with default
+   * @param {int} [options.no_value] - replace this number with default
    * @param {int} [options.zero] - replace with this number if result is 0
    * @param {int} [options.digits] - how many digits to keep after the floating point
    * @param {int} [options.bigint] - return BigInt if not a safe integer
@@ -241,7 +241,7 @@
     }
     n = isNaN(n) ? options?.dflt || 0 : n;
     if (options) {
-      if (typeof options.novalue == "number" && n === options.novalue) n = options.dflt || 0;
+      if (typeof options.no_value == "number" && n === options.no_value) n = options.dflt || 0;
       if (typeof options.incr == "number") n += options.incr;
       if (typeof options.mult == "number") n *= options.mult;
       if (isNaN(n)) n = options.dflt || 0;
@@ -925,7 +925,7 @@
    * @param {string} [options.method] - GET, POST,...GET is default or from app.fetchOptions.method
    * @param {boolean} [options.post] - set method to POST
    * @param {string|object|FormData} [options.body] - a body accepted by window.fetch
-   * @param {string} [options.dataType] - explicit return type: text, blob, default is auto detected between text or json
+   * @param {string} [options.data_type] - explicit return type: text, blob, default is auto detected between text or json
    * @param {object} [options.headers] - an object with additional headers to send, all global headers from app.fetchOptions.headers also are merged
    * @param {object} [options.request] - properties to pass to fetch options according to Web API `RequestInit`
    * @param {function} [callback] - callback as (err, data, info) where info is an object { status, headers, type }
@@ -960,7 +960,7 @@
         }
         throw err;
       }
-      switch (options?.dataType) {
+      switch (options?.data_type) {
         case "text":
           data2 = await res.text();
           break;

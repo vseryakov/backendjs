@@ -261,13 +261,54 @@ describe("toEmail", function () {
 describe("toMap", function () {
   it("parses key:val pairs", function () {
     assert.deepStrictEqual(lib.toMap("a:1,b:2,c:4:5"), { a: "1", b: "2", c: ["4", "5"] });
-  });
-  it("converts value types with maptype", function () {
-    assert.deepStrictEqual(lib.toMap("a:1,b:2", { maptype: "int" }), { a: 1, b: 2 });
-  });
-  it("camelizes keys with mapcamel", function () {
-    assert.deepStrictEqual(lib.toMap("first_name:bob", { mapcamel: 1 }), { firstName: "bob" });
-  });
+      });
+  it("converts value types with map_type", function () {
+    assert.deepStrictEqual(lib.toMap("a:1,b:2", { map_type: "int" }), { a: 1, b: 2 });
+    assert.deepStrictEqual(lib.toMap("x:3.14,y:2", { map_type: "float" }), { x: 3.14, y: 2 });
+      });
+  it("camelizes keys with map_camel", function () {
+    assert.deepStrictEqual(lib.toMap("first_name:bob", { map_camel: 1 }), { firstName: "bob" });
+    assert.deepStrictEqual(lib.toMap("my_key:val,another_one:2", { map_camel: 1 }), { myKey: "val", anotherOne: "2" });
+      });
+  it("uses custom delimiter to split pairs", function () {
+    assert.deepStrictEqual(lib.toMap("a:1;b:2", { delimiter: ";" }), { a: "1", b: "2" });
+    assert.deepStrictEqual(lib.toMap("a=1;b=2", { delimiter: ";", separator: "=" }), { a: "1", b: "2" });
+      });
+  it("uses custom separator between key and value", function () {
+    assert.deepStrictEqual(lib.toMap("a=1,b=2", { separator: "=" }), { a: "1", b: "2" });
+      });
+  it("parses semicolon-separated key-value pairs by default", function () {
+    assert.deepStrictEqual(lib.toMap("a;1,b;2"), { a: "1", b: "2" });
+      });
+  it("keeps empty keys with empty option (bare keys get empty string value)", function () {
+    assert.deepStrictEqual(lib.toMap("a,b:2", { empty: 1 }), { a: "", b: "2" });
+      });
+  it("skips entries with empty values when no_empty is set", function () {
+    assert.deepStrictEqual(lib.toMap("a:,b:2", { no_empty: 1 }), { b: "2" });
+      });
+  it("creates object with null prototype when no_proto is set", function () {
+    const result = lib.toMap("a:1,b:2", { no_proto: 1 });
+    const expected = Object.create(null);
+    expected.a = "1";
+    expected.b = "2";
+    assert.deepStrictEqual(result, expected);
+    assert.strictEqual(Object.getPrototypeOf(result), null);
+      });
+  it("handles empty string input", function () {
+    assert.deepStrictEqual(lib.toMap(""), {});
+      });
+  it("sets bare keys to undefined by default", function () {
+    const result = lib.toMap("a,b:2");
+    assert.strictEqual(result.a, undefined);
+    assert.strictEqual(result.b, "2");
+    assert.ok("a" in result);
+      });
+  it("drops bare keys when no_empty is set", function () {
+    assert.deepStrictEqual(lib.toMap("a,b:2", { no_empty: 1 }), { b: "2" });
+      });
+  it("combines map_camel and map_type options", function () {
+    assert.deepStrictEqual(lib.toMap("first_name:30,last_city:nyc", { map_camel: 1, map_type: "string" }), { firstName: "30", lastCity: "nyc" });
+      });
 });
 
 describe("toValue", function () {

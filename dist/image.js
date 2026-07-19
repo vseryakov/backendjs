@@ -262,7 +262,7 @@ image.convert = async function(input, item)
         if (!ops.includes(filter?.name)) continue;
         let value = filter.value || undefined;
         if (lib.isString(value)) {
-            value = lib.toMap(value, { maptype: "auto" });
+            value = lib.toMap(value, { map_type: "auto" });
         }
         logger.debug("convert:", image.name, item.id, filter);
         input[filter.name](value);

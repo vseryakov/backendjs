@@ -123,7 +123,7 @@ app.components.scraper = class extends app.AlpineComponent {
             content.push({ img: { src: "/api/asset/" + row.id + "/" + file } });
 
         } else {
-            const { err, data } = await app.fetch("/api/asset/" + row.id + "/" + file, { dataType: "text" });
+            const { err, data } = await app.fetch("/api/asset/" + row.id + "/" + file, { data_type: "text" });
             if (err) return app.showToast("error", err);
 
             content.push({ textarea: { readonly: true, rows: 30, value: data } });

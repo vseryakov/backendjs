@@ -11,18 +11,18 @@ describe("lib.validate checks", function () {
             count: { type: "int", min: 1, dflt: 1 },
             page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
             name: { type: "string", max: 6, trunc: 1 },
-            pair: { type: "map", maptype: "int" },
+            pair: { type: "map", map_type: "int" },
             code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },
-            code1: { type: "string", noregexp: /[.,!]/, errmsg: "Valid code1 is required" },
+            code1: { type: "string", no_regexp: /[.,!]/, errmsg: "Valid code1 is required" },
             start: { type: "token", secret: "test" },
-            email: { type: "list", datatype: "email", novalue: ["a@a"] },
+            email: { type: "list", data_type: "email", no_value: ["a@a"] },
             email1: { type: "email", required: { email: null } },
             phone: { type: "phone" },
-            mtime: { type: "mtime", name: "timestamp", mindate: Date.now() - 86400000 },
-            flag: { type: "bool", novalue: false },
-            descr: { novalue: { name: "name", value: "test" }, replace: { "<": "!" } },
+            mtime: { type: "mtime", name: "timestamp", min_date: Date.now() - 86400000 },
+            flag: { type: "bool", no_value: false },
+            descr: { no_value: { name: "name", value: "test" }, replace: { "<": "!" } },
             internal: { ignore: 1 },
-            tm: { type: "timestamp", optional: 1, maxdate: new Date(1970, 1, 1) },
+            tm: { type: "timestamp", optional: 1, max_date: new Date(1970, 1, 1) },
             ready: { value: "ready" },
             empty: { empty: 1, trim: 1, strip: /[.,!]/ },
             nospecial: { strip: lib.rxSpecial },
@@ -31,16 +31,16 @@ describe("lib.validate checks", function () {
             obj: { type: "obj", params: { id: { type: "int" }, name: {} } },
             object: { type: "object" },
             arr: { type: "array", params: { id: { type: "int" }, name: {} } },
-            json: { type: "json", datatype: "obj" },
+            json: { type: "json", data_type: "obj" },
             json1: { type: "json", params: { id: { type: "int" }, name: {} } },
-            minnum: { type: "int", minnum: 10 },
-            url: { type: "url", notempty: 1 },
+            min_num: { type: "int", min_num: 10 },
+            url: { type: "url", not_empty: 1 },
         };
         var opts = {
             defaults: {
                 '*.int': { max: 100 },
                 "*.string": { max: 5 },
-                '*': { maxlist: 5 },
+                '*': { max_list: 5 },
             }
         };
 
@@ -100,7 +100,7 @@ describe("lib.validate checks", function () {
         q = lib.validate({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
         assert.match(q?.err?.message, /is too soon/);
 
-        schema.mtime.mindate = 0;
+        schema.mtime.min_date = 0;
         q = lib.validate({ mtime: '1970-01-01T00:00:01.000Z' }, schema, opts);
         assert.strictEqual(q.data?.timestamp, 1000);
 
@@ -123,7 +123,7 @@ describe("lib.validate checks", function () {
         q = lib.validate({ empty: "." }, schema, opts);
         assert.strictEqual(q.data?.empty, "");
 
-        schema.empty.setempty = null;
+        schema.empty.set_empty = null;
         q = lib.validate({ empty: "." }, schema, opts);
         assert.strictEqual(q.data?.empty, null);
 
@@ -131,13 +131,13 @@ describe("lib.validate checks", function () {
         assert.strictEqual(q.data?.special, "<>");
         assert.strictEqual(q.data?.nospecial, "abc");
 
-        q = lib.validate({ minnum: 2 }, schema, opts);
+        q = lib.validate({ min_num: 2 }, schema, opts);
         assert.match(q?.err?.message, /too small/);
 
-        q = lib.validate({ minnum: 20 }, schema, opts);
-        assert.strictEqual(q.data?.minnum, 20);
+        q = lib.validate({ min_num: 20 }, schema, opts);
+        assert.strictEqual(q.data?.min_num, 20);
 
-        q = lib.validate({ minnum: 2 }, schema);
+        q = lib.validate({ min_num: 2 }, schema);
         assert.strictEqual(q.err?.code, "validate");
 
         q = lib.validate({ url: "http://a.com" }, schema);
@@ -178,10 +178,10 @@ describe("lib.validate checks", function () {
       assert.deepStrictEqual(lib.validate({ a: "null" }, s, { setnull: "null" })?.data, { __proto__: null, a: null });
   });
 
-  it("applies dflt when missing, and dfltempty when empty", function () {
+  it("applies dflt when missing, and dflt_empty when empty", function () {
     const q = { a: "", b: undefined };
     const s = {
-      a: { dfltempty: 1, dflt: "x" },
+      a: { dflt_empty: 1, dflt: "x" },
       b: { dflt: "y" },
     };
     assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, a: "x", b: "y" });
@@ -201,12 +201,12 @@ describe("lib.validate checks", function () {
     assert.ok(r.data?.c === undefined || r.data?.c === false);
   });
 
-  it("numeric types call toNumber and enforce minnum/maxnum", function () {
+  it("numeric types call toNumber and enforce min_num/max_num", function () {
     const q = { a: "5", b: "50", c: "0" };
     const s = {
-      a: { type: "int", minnum: 1, maxnum: 10 },
-      b: { type: "int", maxnum: 10, errmsg: "too big" },
-      c: { type: "int", minnum: 1, errmsg: "too small" },
+      a: { type: "int", min_num: 1, max_num: 10 },
+      b: { type: "int", max_num: 10, errmsg: "too big" },
+      c: { type: "int", min_num: 1, errmsg: "too small" },
       n: { type: "number" },
       f: { type: "real" },
     };
@@ -252,7 +252,7 @@ describe("lib.validate checks", function () {
     r = lib.validate({ a: "[." }, s);
     assert.ok(!r.err && !r.data?.a);
 
-    const s2 = { a: { type: "regexp", notempty: 1 } };
+    const s2 = { a: { type: "regexp", not_empty: 1 } };
 
     r = lib.validate({}, s2);
     assert.ok(!r.err);
@@ -265,13 +265,13 @@ describe("lib.validate checks", function () {
 
   });
 
-  it("list type: split/filter/novalue/minlist/maxlist/trunc/flatten", function () {
+  it("list type: split/filter/no_value/min_list/max_list/trunc/flatten", function () {
     const q = { a: "a,b,c", b: "a,b,c", c: "a,b,c,d", d: "a,,b", e: [["x"], ["y"]] };
     const s = {
       a: { type: "list" },
       b: { type: "list", values: ["a", "c"] },
-      c: { type: "list", maxlist: 3, trunc: 1 },
-      d: { type: "list", keepempty: 0 },
+      c: { type: "list", max_list: 3, trunc: 1 },
+      d: { type: "list", keep_empty: 0 },
       e: { type: "list", flatten: 1, empty: 1 },
     };
     assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, ["a", "b", "c"]);
@@ -288,11 +288,11 @@ describe("lib.validate checks", function () {
     assert.ok(re.includes("x") && re.includes("y"));
   });
 
-  it("map type: parses k:v pairs and supports maptype", function () {
+  it("map type: parses k:v pairs and supports map_type", function () {
     const q = { a: "k1:1,k2:2", b: "k1:1,k2:2,k3:3" };
     const s = {
-      a: { type: "map", maptype: "int" },
-      b: { type: "map", maxlist: 2, trunc: 1 },
+      a: { type: "map", map_type: "int" },
+      b: { type: "map", max_list: 2, trunc: 1 },
     };
     assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, { __proto__: null, k1: 1, k2: 2 });
 
@@ -323,11 +323,11 @@ describe("lib.validate checks", function () {
     assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, a: { __proto__: null, x: 1 } });
   });
 
-  it("array type: supports params per element, minlist/maxlist/trunc", function () {
+  it("array type: supports params per element, min_list/max_list/trunc", function () {
     const q = { a: [{ x: "1" }, { x: "2" }, { x: "3" }], b: [] };
     const s = {
-      a: { type: "array", params: { x: { type: "int" } }, maxlist: 2, trunc: 1 },
-      b: { type: "array", minlist: 1, errmsg: "need one" },
+      a: { type: "array", params: { x: { type: "int" } }, max_list: 2, trunc: 1 },
+      b: { type: "array", min_list: 1, errmsg: "need one" },
     };
     assert.deepStrictEqual(lib.validate(q, { a: s.a }).data?.a, [{ __proto__: null, x: 1 }, { __proto__: null, x: 2 }]);
     assert.strictEqual(lib.validate(q, { b: s.b }).err?.message, "need one");
@@ -363,11 +363,11 @@ describe("lib.validate checks", function () {
     assert.strictEqual(r, "a needed when b=1");
   });
 
-  it("values / novalue / values_map post-processing", function () {
+  it("values / no_value / values_map post-processing", function () {
     const q = { a: "x", b: "x", c: "x" };
     const s = {
       a: { values: ["y"] },                 // not allowed => deleted
-      b: { novalue: "x" },                  // equals novalue => deleted
+      b: { no_value: "x" },                  // equals no_value => deleted
       c: { values_map: ["x", "z"] },        // remap
     };
     assert.deepStrictEqual(lib.validate(q, s)?.data, { __proto__: null, c: "z" });
@@ -396,11 +396,11 @@ describe("lib.validate checks", function () {
     assert.deepStrictEqual(r.data, { __proto__: null, a: 5, b: "S", c: "S" });
   });
 
-  it("noregexp/regexp validation behavior (drops field unless errmsg+!required)", function () {
+  it("no_regexp/regexp validation behavior (drops field unless errmsg+!required)", function () {
     const q = { a: "bad!", b: "bad!", c: "good" };
     const s = {
-      a: { noregexp: /!/ },                 // should drop
-      b: { noregexp: /!/, errmsg: "bad chars" }, // should return error (since !required)
+      a: { no_regexp: /!/ },                 // should drop
+      b: { no_regexp: /!/, errmsg: "bad chars" }, // should return error (since !required)
       c: { regexp: /^[a-z]+$/ },            // keep
     };
     const ra = lib.validate(q, { a: s.a }).data;
@@ -411,9 +411,9 @@ describe("lib.validate checks", function () {
     assert.deepStrictEqual(lib.validate(q, { c: s.c }).data, { __proto__: null, c: "good" });
   });
 
-  it("setempty: replaces empty result after processing", function () {
+  it("set_empty: replaces empty result after processing", function () {
     const q = { a: "" };
-    const s = { a: { setempty: "X" } };
+    const s = { a: { set_empty: "X" } };
     assert.deepStrictEqual(lib.validate(q, s).data, { __proto__: null, a: "X" });
   });
 });
