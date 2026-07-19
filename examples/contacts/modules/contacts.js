@@ -15,7 +15,7 @@ module.exports = {
             phone: { type: "phone" },
             logo: { type: "url" },
             descr: {},
-            ctime: { type: "now", readonly: 1 },
+            ctime: { type: "now", read_only: 1 },
             mtime: { type: "now" },
         }
     },

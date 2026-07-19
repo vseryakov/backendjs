@@ -146,7 +146,7 @@ module.exports = {
             profiles: { type: "array" },
             variants: { type: "int" },
             error: {},
-            ctime: { type: "now", readonly: 1 },
+            ctime: { type: "now", read_only: 1 },
             mtime: { type: "now" },
         }
     },

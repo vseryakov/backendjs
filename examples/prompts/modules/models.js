@@ -123,6 +123,9 @@ async function seed()
         { id: 'granite4.1:30b', type: 'ollama' },
         { id: 'mistral-small3.2:24b', type: 'ollama' },
         { id: 'ministral-3:14b', type: 'ollama' },
+        { id: 'anthropic.claude-opus-4-8', type: 'anthropic', url: 'https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages' },
+        { id: 'qwen.qwen3-235b-a22b-2507', type: 'openaichat', url: 'https://bedrock-mantle.us-east-1.api.aws/v1/chat/completions' },
+        { id: 'openai.gpt-5.6-sol', type: 'openai', url: 'https://bedrock-mantle.us-east-1.api.aws/openai/v1/responses' }
     ].map(x => ({ table: "models", op: "add", query: x }));
 
     await db.abulk(rows);

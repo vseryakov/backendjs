@@ -18,7 +18,7 @@ module.exports = {
             status: {},
             prompt: {},
             results: { type: "object" },
-            ctime: { type: "now", readonly: true },
+            ctime: { type: "now", read_only: true },
             mtime: { type: "now" },
         }
     },

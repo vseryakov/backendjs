@@ -27,7 +27,7 @@ module.exports = {
     tables: {
         bk_config: {
             name: { primary: 1 },
-            ctime: { type: "now", primary: 2, readonly: 1 },
+            ctime: { type: "now", primary: 2, read_only: 1 },
             type: {},
             value: {},
             mtime: { type: "now" },

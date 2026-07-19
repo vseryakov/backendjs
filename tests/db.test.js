@@ -1,3 +1,14 @@
+/**
+ * To test different databases:
+ *
+ * BKJS_ROLES=postgres --test tests/db.test.js
+ *
+ * BKJS_ROLES=dynamodb --test tests/db.test.js
+ *
+ * BKJS_ROLES=elasticsearch --test tests/db.test.js
+ *
+ * BKJS_ROLES=rqlite --test tests/db.test.js
+ */
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -607,5 +618,131 @@ describe("DB tests", async () => {
             ], callback);
     });
 
+    it("check cleanup rules", () => {
+
+        var tables = {
+            cleanup: {
+                pub: { cleanup: false },
+                priv: { cleanup: true },
+                billing: { cleanup: { roles: ["billing"] } },
+                nobilling: { cleanup: { no_roles: ["billing"] } },
+                billing_staff: { cleanup: { roles: ["billing", "staff"] } },
+                notpub: {},
+                extra: {},
+                extra2: {},
+            },
+        };
+        var row = {
+            pub: "pub",
+            priv: "priv",
+            notpub: "notpub",
+            billing: "billing",
+            nobilling: "nobilling",
+            billing_staff: "billing_staff",
+            extra: "extra",
+            extra2: "extra2"
+        }
+
+        db.describeTables(tables);
+
+        let res = db.cleanupResult("cleanup", Object.assign({}, row))
+        assert.ok(res.pub && !res.priv && !res.extra && !res.notpub, lib.newError({ message: "pub and no private", res }));
+
+        res = db.cleanupResult("cleanup", Object.assign({}, row), { user: { roles: ["billing"] } })
+        assert.ok(res.billing && !res.priv, lib.newError({ message: "should keep billing", res }));
+
+        res = db.cleanupResult("cleanup", Object.assign({}, row), { user: { roles: ["billing"] } })
+        assert.ok(!res.nobilling && !res.priv, lib.newError({ message: "should remove nobilling", res }));
+
+        res = db.cleanupResult("cleanup", Object.assign({}, row), { user: { roles: ["staff"] } })
+        assert.ok(res.billing_staff && !res.priv, lib.newError({ message: "should keep billing_staff", res }));
+
+        res = db.cleanupResult("cleanup", Object.assign({}, row), { cleanup: { extra: false } })
+        assert.ok(res.extra && !res.extra2, lib.newError({ message: "should keep extra but not extra2", res }));
+
+        db.cleanup = { cleanup: { extra2: false } };
+
+        res = db.cleanupResult("cleanup", Object.assign({}, row))
+        assert.ok(!res.extra && res.extra2, lib.newError({ message: "should keep extra2 but not extra via table rule", res }));
+
+    });
+
+    await it("check config logic", async () => {
+        db.config = db.pool;
+        db.initConfigTable();
+
+        const { err } = await db.acreateTables({ pools: [db.pool] });
+        assert.ok(!err);
+
+        app.appName = "app";
+        app.version = "bkjs/1.0.0";
+        app.roles = "test,dev";
+        app.role = "shell";
+        app.tag = "qa";
+        app.region = "us-east-1";
+
+        db.configMap = {
+            top: "roles",
+            main: "role, tag",
+            other: "role, region",
+        }
+
+        let types = db.configTypes();
+
+        assert.partialDeepStrictEqual(types, [app.roles]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.role]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.role+"-"+app.role]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.role+"-"+app.region]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.tag]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.tag+"-"+app.role]);
+        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.tag+"-"+app.region]);
+
+        db.configMap.top = "roles,appName";
+        types = db.configTypes();
+
+        assert.partialDeepStrictEqual(types, [app.appName]);
+        assert.partialDeepStrictEqual(types, [app.appName+"-"+app.role+"-"+app.region]);
+        assert.partialDeepStrictEqual(types, [app.appName+"-"+app.tag+"-"+app.region]);
+
+        const type1 = app.roles + "-" + app.role;
+        const type2 = app.roles + "-" + app.tag;
+        const type3 = type1 + "-" + app.role;
+
+        await db.adelAll("bk_config", { type: [type1, type2, type3] });
+
+        await db.aput("bk_config", { type: type1, name: "param1", value: "ok" })
+        await lib.sleep(50);
+        await db.aput("bk_config", { type: type1, name: "param2", value: "hidden", status: "hidden" })
+        await lib.sleep(50);
+        await db.aput("bk_config", { type: type2, name: "param2", value: "version", version: ">1.0.0" })
+        await lib.sleep(50);
+        await db.aput("bk_config", { type: type1, name: "param3", value: "stime", stime: Date.now()+200 })
+        await lib.sleep(50);
+        await db.aput("bk_config", { type: type2, name: "param3", value: "etime", etime: Date.now()+500 })
+        await lib.sleep(100);
+
+        let rc = await db.agetConfig();
+        assert.partialDeepStrictEqual(rc.data, [ { name: "param1" }, { name: "param3", value: "etime" } ]);
+
+        app.version = "bkjs/1.1.0";
+        rc = await db.agetConfig();
+        assert.partialDeepStrictEqual(rc.data, [{ name: "param1" }, { name: "param2" }, { name: "param3" }]);
+
+        await lib.sleep(200);
+
+        app.version = "bkjs/1.0.0";
+        rc = await db.agetConfig();
+        assert.partialDeepStrictEqual(rc.data, [ { name: "param1" }, { name: "param3", value: "stime" } ]);
+
+        await db.aput("bk_config", { type: type3, name: "param1", value: "zero", stime: 0, etime: 0 })
+        await lib.sleep(250);
+
+        rc = await db.agetConfig();
+        assert.partialDeepStrictEqual(rc.data, [ { name: "param1", value: "ok" }, { name: "param3", value: "stime" }, { name: "param1", value: "zero" }]);
+
+    });
+
+
 });
+
 
