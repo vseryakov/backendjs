@@ -258,7 +258,7 @@ BKJS_ENV="$(cd "${0%/*}" ; pwd -P)"
 [ -f $BKJS_ENV/.bkjsrc ] && . $BKJS_ENV/.bkjsrc
 [ -f $BKJS_ENV/../.bkjsrc ] && . $BKJS_ENV/../.bkjsrc
 [ -n "$BKJS_HOME" -a -f $BKJS_HOME/.bkjsrc ] && . $BKJS_HOME/.bkjsrc
-[ -f $HOME/.bkjsrc ] && . $BKJS_HOME/.bkjsrc
+[ -f $HOME/.bkjsrc ] && . $HOME/.bkjsrc
 
 # Start trace as soon as possible
 BKJS_TRACE=$(get_arg -trace $BKJS_TRACE)
