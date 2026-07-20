@@ -115,6 +115,7 @@ exports.checkAccess = function(options, callback)
             url: conf.get || conf.url || "/",
             method: conf.get ? "GET" : conf.method || "POST",
             body: conf.body,
+            query: conf.query,
             formdata: conf.form,
             headers: conf.headers || {},
             cookies: conf.cookies || {},

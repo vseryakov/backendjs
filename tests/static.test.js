@@ -20,7 +20,7 @@ describe('Access tests', async () => {
         var etag;
         const config = [
             { url: "/none", status: 404 },
-            { get: "/", regexp: /index.html/ },
+            { get: "/", regexp: /index.html/, body: { t: 1 } },
             { get: "/", regexp: /index.html/, status: 200, headers: { "if-modified-since": "2000-01-01" } },
             { get: "/", status: 304, headers: { "if-modified-since": new Date().toUTCString() },
               resheaders: { etag: /.+/ },
