@@ -58,6 +58,7 @@
 'use strict';
 const path = require('node:path');
 const fs = require('node:fs');
+const stream = require('node:stream');
 const http = require('node:http');
 const https = require('node:https');
 const qs = require("node:querystring");
@@ -114,64 +115,68 @@ lib.fetch = function(url, options, callback)
         }
     }
 
-    if (!(options instanceof FetchRequest)) {
-        options = new FetchRequest(options);
-    }
+    const fetchReq = !(options instanceof FetchRequest) ? new FetchRequest(options) : options;
 
-    const opts = options.init(url, callback);
+    const opts = fetchReq.init(url, callback);
     if (!opts) return;
 
-    options.logger("dev", "new:");
+    fetchReq.logger("dev", "new:");
 
     const mod = opts.protocol === "https:" ? https : http;
     let req;
 
     try {
         req = mod.request(opts, (res) => {
-            if (!options.binary &amp;&amp; !options.stream &amp;&amp; !options.file) {
-                res.setEncoding("utf8")
-            }
+            fetchReq.onConnect(req, res);
+
             res.on("data", (chunk) => {
-                options.onData(res, chunk);
+                fetchReq.onData(res, chunk);
             });
+
             res.on("end", () => {
-                options.onEnd(res, callback);
+                fetchReq.onEnd(res, callback);
             });
+
             res.on("close", () => {
-                if (!res.complete) options.onEnd(res, callback);
-                if (!req.complete &amp;&amp; options.streaming) req.destroy();
+                if (!res.complete) fetchReq.onEnd(res, callback);
+                if (!req.complete &amp;&amp; fetchReq.streaming) req.destroy();
             });
         });
+
         req.on('error', (err) => {
-            options.onError(err, callback);
+            fetchReq.onError(err, callback);
         });
+
         req.on("timeout", () => {
             req.destroy(lib.newError("timeout", 529, "ETIMEDOUT"));
         });
+
         req.once('response', () => {
-          options.ip = req.socket?.localAddress;
+          fetchReq.ip = req.socket?.localAddress;
         });
     } catch (err) {
-        options.onError(err, callback);
+        fetchReq.onError(err, callback);
         return req;
     }
 
-    if (options.hardTimeout) {
-        options._timer = setTimeout(() => {
+    if (fetchReq.hardTimeout) {
+        fetchReq._timer = setTimeout(() => {
             req.destroy(lib.newError("timeout", 529, "ETIMEDOUT"))
-        }, options.hardTimeout);
+        }, fetchReq.hardTimeout);
     }
 
-    if (options.postdata) {
-        req.write(options.postdata);
+    if (fetchReq.postdata) {
+        req.write(fetchReq.postdata);
     } else
 
-    if (options.poststream) {
-        options.poststream.pipe(req);
+    if (fetchReq.poststream) {
+        stream.pipeline(fetchReq.poststream, req, (err) => {
+            fetchReq.logger(err ? "error" : "dev", 'poststream:', err?.stack);
+        });
         return req;
     }
 
-    if (options.streaming) {
+    if (fetchReq.streaming) {
         req.flushHeaders();
     } else {
         req.end();
@@ -191,30 +196,29 @@ lib.fetch = function(url, options, callback)
  * @property {object|string} query - additional query parameters to be added to the url as an object or as encoded string
  * @property {string|object|buffer} body - if method is GET it is used as query parameters otherwise same as postdata
  * @property {string|object|buffer} postdata - data to be sent with the request in the POST body as JSON
- * @property {string} file - file name where to save response, in case of error response the error body will be saved as well
- * @property {object} stream - a writable stream where to save data
  * @property {object} formdata - data to be sent with the POST request as x-www-form-urlencoded, it uses node:querystring to stringify objects
  * @property {string} postfile - file to be uploaded in the POST body, not as multipart
  * @property {int} postsize - file size to be uploaded if obtained separately
- * @property {string} posttype - content type for post data
+ * @property {stream.Readable} poststream - a readable stream to stream content from
  * @property {object[]} multipart - an array of objects for multipart/form-data post, { name: "..", data: ".." [ file: ".."] }, for files a Buffer can be used in data
+ * @property {string} file - file name where to save response, in case of error response the error body will be saved as well
+ * @property {stream.Writable} stream - a writable stream where to save data
  * @property {boolean} noparse - do not parse known content types like json, xml
  * @property {boolean} chunked - post files using chunked encoding
  * @property {boolean} binary - return a Buffer with received data
- * @property {function} signer - a function to sign the request signer(this)
- * @property {boolean} checksum - if true the body needs a checksum in the signature
+ * @property {function} signer - a function to sign the request called as `signer(this)`
  * @property {boolean} streaming - if true do not issue req.end to allow more data top send
  * @property {Date|int} mtime - a Date or timestamp to be used in conditional requests
- * @property {boolan} conditional - add If-Modified-Since header using `options.mtime` if present or if `file` is given use file last modified timestamp, mtime
+ * @property {boolean} conditional - add If-Modified-Since header using `options.mtime` if present or if `file` is given use file last modified timestamp, mtime
  * @property {int} httpTimeout - timeout in milliseconds after which the request is aborted if no data received
  * @property {int} hardTimeout - abort the request after this amount of time in ms, must be big enough to allow for all data to be received
  * @property {int} maxSize - if the content being downloaded becomes greater than this size the request will be aborted
  * @property {int} retryCount - how many times to retry the request on error or timeout
  * @property {int} retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by `retryMultiplier`
  * @property {boolean|function} retryOnError - retry request if received non 2xx response status,
- *       if this is a function then it must return true in order to retry the request,
- *       otherwise it is treated as a boolean value, if true then retry on all non-2xx responses
- * @property {function} retryPrepare - a function to be called before retrying, it can update any parameter,
+ *       if this is a function then it must return true in order to retry the request, it runs in this context and passes this as well,
+ *       otherwise it is treated as a boolean value, if truthy then retry on all non-2xx responses
+ * @property {function} retryPrepare - a function(this) to be called before retrying, it can update any parameter, runs in this context and passes this as well,
  * retry will use: `origUrl`, `retryTimeout`, `retryMultiplier`
  * @property {int} errorCount - how many times to retry on aborted connections, default is retryCount
  * @property {boolean} raise - on not ok status raise an eror on return with JSON body if present or generic message
@@ -251,10 +255,10 @@ class FetchRequest {
     ok = false;
     date = null;
     obj = null;
-    poststream = null;
     stime = Date.now();
     headers = Object.create(null);
     resheaders = Object.create(null);
+    #options = Object.create(null);
 
     constructor(options)
     {
@@ -264,29 +268,37 @@ class FetchRequest {
         this.data = options.binary ? Buffer.alloc(0) : '';
         this.redirects = lib.toNumber(options.redirects, { min: 0 });
         this.retryCount = lib.toNumber(options.retryCount, { min: 0 });
-        this.retryTotal = options.retryTotal || options.retryCount;
         this.retryTimeout = lib.toNumber(options.retryTimeout, { min: 0, dflt: 500 });
         this.retryMultiplier = lib.toNumber(options.retryMultiplier, { min: 1, dflt: 2 });
         this.httpTimeout = lib.toNumber(options.httpTimeout, { min: 0, dflt: 60000 });
         this.hardTimeout = lib.toNumber(options.hardTimeout, { min: 0 });
-        this.warnTimeout = lib.toNumber(options.warnTimeout, { min: 0, dflt: 30000 });
         this.errorCount = lib.toNumber(options.errorCount, { min: 0, dflt: this.retryCount });
 
         this.method = options.method || "GET";
         this.query = options.query || this.method === "GET" &amp;&amp; options.body;
-        this.postdata = options.postdata || options.body;
+        this.postdata = this.method === "GET" ? undefined : options.postdata || options.body;
 
         if (options.headers) {
             this.headers = Object.assign(this.headers, options.headers);
         }
 
         for (const p in options) {
+            if (p === "__proto__") continue;
+            this.#options[p] = options[p];
             this[p] ??= options[p];
         }
     }
 
     init(url, callback)
     {
+        if (this.poststream &amp;&amp; !stream.isReadable(this.poststream)) {
+            return lib.tryCall(callback, lib.newError("invalid poststream", 400), this);
+        }
+
+        if (this.stream &amp;&amp; !stream.isWritable(this.stream)) {
+            return lib.tryCall(callback, lib.newError("invalid stream", 400), this);
+        }
+
         url = lib.isString(url);
         if (url) {
             this.origUrl = url;
@@ -305,26 +317,28 @@ class FetchRequest {
             query = lib.isString(query);
         }
         if (query) {
-            url += (url.includes("?") ? "" : "?") + (query[0] === "&amp;" ? "" : "&amp;") + query;
+            if (!url.includes("?")) url += "?";
+            if (url.includes("&amp;")) url += "&amp;";
+            url += query;
         }
-
         // orig url + query parameters
         this.url = url;
 
-        const opts = {};
-
         const u = URL.parse(this.url);
-        if (u) {
-            for (const c of REUSE_COLS) {
-                opts[c] = u[c];
-            }
+        if (!u) {
+            return lib.tryCall(callback, lib.newError("invalid url", 400), this);
+        }
+
+        const opts = {};
+        for (const c of REUSE_COLS) {
+            opts[c] = u[c];
         }
 
         opts.path = opts.pathname + opts.search;
         opts.method = this.method;
         opts.headers = this.headers;
         opts.agent = this.agent || null;
-        opts.rejectUnauthorized = false;
+        opts.rejectUnauthorized = this.rejectUnauthorized;
         opts.timeout = this.httpTimeout;
         opts.maxHeaderSize = this.maxHeaderSize;
         opts.setDefaultHeaders = this.setDefaultHeaders;
@@ -344,9 +358,6 @@ class FetchRequest {
             this.file += path.basename(this.pathname);
         }
 
-        if (this.method === "POST" &amp;&amp; !this.headers["content-type"]) {
-            this.headers["content-type"] = this.posttype || "application/x-www-form-urlencoded";
-        }
         if (!this.headers.accept) {
             this.headers.accept = '*/*';
         }
@@ -384,13 +395,10 @@ class FetchRequest {
         // Conditional, time related
         if (!this.prepareConditional(callback)) return;
 
-        // Make sure our data is not corrupted
-        if (this.checksum &amp;&amp; this.postdata) {
-            this.checksum = lib.hash(this.postdata, "sha1");
-        }
         if (typeof this.signer === "function") {
-            this.signer.call(this);
+            this.signer.call(this, this);
         }
+
         return true;
     }
 
@@ -475,11 +483,12 @@ class FetchRequest {
                     return;
                 }
                 this.headers['content-length'] = this.postsize;
+
+                if (!this.headers["content-type"]) {
+                    this.headers["content-type"] = lib.getMimeType(this.postfile);
+                }
             }
             this.poststream = fs.createReadStream(this.postfile);
-            this.poststream.on("error", (err) => {
-                this.logger("error", 'poststream:', err.stack)
-            });
         }
         return true;
     }
@@ -511,33 +520,40 @@ class FetchRequest {
         if (this.stream) {
             this.writeStream(res, chunk);
         } else
+
         if (this.file) {
             this.writeFile(res, chunk);
         } else
+
         if (this.binary) {
             this.data = Buffer.concat([this.data, chunk]);
         } else {
             this.data += chunk.toString();
         }
-        this.size += chunk.length;
+        this.size += Buffer.isBuffer(chunk) ? chunk.length: Buffer.byteLength(chunk, "utf8");
         this.logger("dev", "onData:");
-        if (this.maxSize > 0 &amp;&amp; this.size > this.maxSize) res.req.abort();
+
+        if (this.maxSize > 0 &amp;&amp; this.size > this.maxSize) {
+            this._destroy(lib.newError("too large", 413, "toolarge"), "onData:");
+        }
     }
 
     writeStream(res, chunk)
     {
         try {
-            this.stream.write(chunk);
-        } catch (e) {
-            this.err = e;
-            res.req.abort();
+            if (!this.stream.write(chunk)) {
+                res.pause();
+                this.stream.once("drain", () => { res.resume() });
+            }
+        } catch (err) {
+            this._destroy(err, "writeStream:");
         }
     }
 
     writeFile(res, chunk)
     {
         try {
-            if (!this.fd &amp;&amp; res.statusCode >= 200 &amp;&amp; res.statusCode &lt; 300) {
+            if (!this.fd) {
                 this.fd = fs.openSync(this.file, 'w');
             }
             if (this.fd) {
@@ -546,15 +562,28 @@ class FetchRequest {
                     if (!err) {
                         return res.resume();
                     }
-                    this.logger("error", "writeFile:", err);
-                    this.err = err;
-                    res.req.abort();
+                    this._destroy(err, "writeFile:");
                 });
             }
-        } catch (e) {
-            this.logger("error", "writeFile:", e);
-            this.err = e;
-            res.req.abort();
+        } catch (err) {
+            this._destroy(err, "writeFile:");
+        }
+    }
+
+    onConnect(req, res)
+    {
+        this._destroy = (err, name) => {
+            this.logger("error", name, err);
+            this.err = err;
+            req.destroy();
+        }
+
+        if (!this.binary &amp;&amp; !this.stream &amp;&amp; !this.file) {
+            res.setEncoding("utf8")
+        }
+
+        if (this.stream) {
+            this.stream.once("error", this._destroy);
         }
     }
 
@@ -562,21 +591,20 @@ class FetchRequest {
     {
         this.close();
         if (this.done) return;
+
         if (!this.quiet) {
             this.logger(this.errorCount ? "debug" : "error", "onError:", err);
         }
 
         if (this.errorCount-- > 0) {
             this.lastError = err;
-            if (typeof this.retryPrepare === "function") {
-                this.retryPrepare.call(this);
-            }
-            setTimeout(lib.fetch(this.origUrl, this, callback), lib.objMult(this, "retryTimeout", this.retryMultiplier, "old"));
 
-            if (this.warnTimeout &amp;&amp; this.retryTimeout >= this.warnTimeout) {
-                this.logger("warn", "onError:", err, "retry:", this.errorCount, this.retryTimeout);
+            if (typeof this.retryPrepare === "function") {
+                this.retryPrepare.call(this, this);
             }
+            this.#retry(callback);
         } else {
+            this.#options = undefined;
             err.status = this.status = this.done = 529;
             if (typeof callback === "function") callback(err, this);
         }
@@ -608,21 +636,17 @@ class FetchRequest {
             this.lastError = `${this.status}: ${this.data}`;
 
             if (!this.quiet) {
-                this.logger("debug", "onEnd:", "retry:", this.retryCount, this.retryTimeout);
+                this.logger("debug", "onEnd:", "retry:", this.retryTotal, this.retryCount, this.retryTimeout);
             }
 
             if (typeof this.retryPrepare === "function") {
-                this.retryPrepare.call(this);
+                this.retryPrepare.call(this, this);
             }
-
-            setTimeout(lib.fetch(this.origUrl, this, callback), lib.objMult(this, "retryTimeout", this.retryMultiplier, "old"));
-
-            if (this.warnTimeout &amp;&amp; this.retryTimeout >= this.warnTimeout) {
-                this.logger("warn", "onEnd:", "retry:", this.retryCount, this.retryTimeout);
-            }
+            this.#retry(callback);
             this.done = this.status || 1;
             return;
         }
+
         if (this.checkRedirect(callback)) return;
 
         if (typeof this.preparse === "function") {
@@ -667,7 +691,7 @@ class FetchRequest {
             if (this.err.status === 429 &amp;&amp; !this.err.code) this.err.code = "OverCapacity";
         }
 
-
+        this.#options = undefined;
         this.done = 1;
         if (typeof callback === "function") callback(this.err, this);
     }
@@ -678,18 +702,44 @@ class FetchRequest {
         this.elapsed = this.etime - this.stime;
         clearTimeout(this._timer);
         this._timer = undefined;
+
         if (this.fd) {
-            try { fs.closeSync(this.fd); } catch (_e) {}
+            try {
+                fs.closeSync(this.fd)
+            } catch (e) {
+                this.logger("warn", "close:", e)
+            }
             this.fd = 0;
         }
+
         if (this.stream) {
-            try { this.stream.end(this.onFinish); } catch (_e) {}
+            if (!this.stream.writableEnded) {
+                try {
+                    this.stream.end()
+                } catch (e) {
+                    this.logger("warn", "close:", e)
+                }
+            }
+            this.stream.off("error", this._destroy);
             this.stream = undefined;
         }
+        this._destroy = undefined;
     }
 
     logger(level, name, ...args) {
         logger.logger(level, name, "fetch", this.id, this.method, this.url, this.status, this.size, this.type, this.lastError, ...args);
+    }
+
+    #retry(callback) {
+        const opts = this.#options;
+        this.#options = undefined;
+        opts.retryTotal = lib.toNumber(this.retryTotal) + 1;
+        opts.retryCount = this.retryCount;
+        opts.errorCount = this.errorCount;
+        const delay = lib.objMult(this, "retryTimeout", this.retryMultiplier, "old");
+        opts.retryTimeout = this.retryTimeout;
+        setTimeout(lib.fetch.bind(null, this.origUrl, opts, callback), delay);
+        this.logger("dev", "retry:", opts);
     }
 
     checkRedirect(callback)
@@ -703,15 +753,25 @@ class FetchRequest {
             if (this.noredirects) break;
             if (++this.redirects >= 10) break;
             let url = this.resheaders.location || "";
-            if (url.indexOf("://") === -1) url = this.url.split("/").slice(0, 3).join("/") + url;
-            const cols = ['method','query','postdata','postfile','poststream','signer','checksum'];
-            for (const c of cols) delete this[c];
-            const headers = Object.create(null);
-            for (const i in this.passheaders) {
-                headers[this.passheaders[i]] = this.headers[this.passheaders[i]];
+            if (url.indexOf("://") === -1) {
+                url = this.url.split("/").slice(0, 3).join("/") + url;
             }
-            this.headers = headers;
-            lib.fetch(url, this, callback);
+
+            const opts = this.#options;
+            this.#options = undefined;
+
+            if (this.status &lt; 307) {
+                opts.method = "GET";
+                opts.query = opts.body = opts.postdata = undefined;
+            }
+
+            opts.redirects = this.redirects;
+            opts.headers = Object.create(null);
+            for (const i in this.passheaders) {
+                opts.headers[this.passheaders[i]] = this.headers[this.passheaders[i]];
+            }
+
+            lib.fetch(url, opts, callback);
             return true;
         }
     }
@@ -730,7 +790,7 @@ class FetchRequest {
             let pair = parts[0].match(/([^=]+)=((?:.|\n)*)/);
             if (!pair) continue;
 
-            const name = pair[1], cookie = { value: pair[2] || "" };
+            const name = pair[1].trim(), cookie = { value: pair[2] || "" };
             if (cookie.value.includes("%")) {
                 cookie.value = lib.decodeURIComponent(cookie.value);
             }

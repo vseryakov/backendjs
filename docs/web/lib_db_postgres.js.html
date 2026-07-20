@@ -87,7 +87,7 @@ class PostgresPool extends pgPool.Pool {
     // Cache indexes using the information_schema
     cacheIndexes(client, _options, callback)
     {
-        client.query("SELECT t.relname as table, i.relname as index, indisprimary as pk, array_agg(a.attname ORDER BY a.attnum) as cols "+
+        client.query("SELECT t.relname as table, i.relname as index, indisprimary as pk, json_agg(a.attname ORDER BY a.attnum) as cols "+
                      "FROM pg_class t, pg_class i, pg_index ix, pg_attribute a, pg_catalog.pg_namespace n "+
                      "WHERE t.oid = ix.indrelid and i.oid = ix.indexrelid and a.attrelid = t.oid and n.oid = t.relnamespace and " +
                      "      a.attnum = ANY(ix.indkey) and t.relkind = 'r' and n.nspname not in ('pg_catalog', 'pg_toast') " +

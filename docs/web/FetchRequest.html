@@ -89,7 +89,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_fetch.js.html">lib/lib/fetch.js</a>, <a href="lib_lib_fetch.js.html#line191">line 191</a>
+        <a href="lib_lib_fetch.js.html">lib/lib/fetch.js</a>, <a href="lib_lib_fetch.js.html#line195">line 195</a>
     </li></ul></dd>
     
 
@@ -347,54 +347,6 @@
 
         <tr>
             
-                <td class="name"><code>file</code></td>
-            
-
-            <td class="type">
-            
-                string
-            
-            </td>
-
-            
-
-            
-                <td class="default">
-                
-                </td>
-            
-
-            <td class="description last"><p>file name where to save response, in case of error response the error body will be saved as well</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>stream</code></td>
-            
-
-            <td class="type">
-            
-                object
-            
-            </td>
-
-            
-
-            
-                <td class="default">
-                
-                </td>
-            
-
-            <td class="description last"><p>a writable stream where to save data</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
                 <td class="name"><code>formdata</code></td>
             
 
@@ -467,12 +419,12 @@
 
         <tr>
             
-                <td class="name"><code>posttype</code></td>
+                <td class="name"><code>poststream</code></td>
             
 
             <td class="type">
             
-                string
+                stream.Readable
             
             </td>
 
@@ -484,7 +436,7 @@
                 </td>
             
 
-            <td class="description last"><p>content type for post data</p></td>
+            <td class="description last"><p>a readable stream to stream content from</p></td>
         </tr>
 
     
@@ -509,6 +461,54 @@
             
 
             <td class="description last"><p>an array of objects for multipart/form-data post, { name: &quot;..&quot;, data: &quot;..&quot; [ file: &quot;..&quot;] }, for files a Buffer can be used in data</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>file</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>file name where to save response, in case of error response the error body will be saved as well</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>stream</code></td>
+            
+
+            <td class="type">
+            
+                stream.Writable
+            
+            </td>
+
+            
+
+            
+                <td class="default">
+                
+                </td>
+            
+
+            <td class="description last"><p>a writable stream where to save data</p></td>
         </tr>
 
     
@@ -604,31 +604,7 @@
                 </td>
             
 
-            <td class="description last"><p>a function to sign the request signer(this)</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>checksum</code></td>
-            
-
-            <td class="type">
-            
-                boolean
-            
-            </td>
-
-            
-
-            
-                <td class="default">
-                
-                </td>
-            
-
-            <td class="description last"><p>if true the body needs a checksum in the signature</p></td>
+            <td class="description last"><p>a function to sign the request called as <code>signer(this)</code></p></td>
         </tr>
 
     
@@ -688,7 +664,7 @@
 
             <td class="type">
             
-                boolan
+                boolean
             
             </td>
 
@@ -845,8 +821,8 @@
             
 
             <td class="description last"><p>retry request if received non 2xx response status,
-if this is a function then it must return true in order to retry the request,
-otherwise it is treated as a boolean value, if true then retry on all non-2xx responses</p></td>
+if this is a function then it must return true in order to retry the request, it runs in this context and passes this as well,
+otherwise it is treated as a boolean value, if truthy then retry on all non-2xx responses</p></td>
         </tr>
 
     
@@ -870,7 +846,7 @@ otherwise it is treated as a boolean value, if true then retry on all non-2xx re
                 </td>
             
 
-            <td class="description last"><p>a function to be called before retrying, it can update any parameter,
+            <td class="description last"><p>a function(this) to be called before retrying, it can update any parameter, runs in this context and passes this as well,
 retry will use: <code>origUrl</code>, <code>retryTimeout</code>, <code>retryMultiplier</code></p></td>
         </tr>
 
@@ -1557,7 +1533,7 @@ retry will use: <code>origUrl</code>, <code>retryTimeout</code>, <code>retryMult
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_lib_fetch.js.html">lib/lib/fetch.js</a>, <a href="lib_lib_fetch.js.html#line669">line 669</a>
+        <a href="lib_lib_fetch.js.html">lib/lib/fetch.js</a>, <a href="lib_lib_fetch.js.html#line729">line 729</a>
     </li></ul></dd>
     
 

@@ -25,7 +25,21 @@ describe('Users middleware tests', async () => {
         }
     });
 
-    it("test access", async () => {
+    await it("token access", async () => {
+
+        const config = [
+            { get: "/api/1", status: 401 },
+            { get: "/api/1", status: 200, headers: { authorization } },
+            { get: "/profile", status: 401, noredirects: 1, headers: { authorization } },
+            { get: "/admin/1", status: 302, noredirects: 1, headers: { authorization } },
+            { get: "/staff/1", status: 302, noredirects: 1, headers: { authorization } },
+        ];
+        const tmp = {};
+
+        await acheckAccess({ config, tmp });
+    });
+
+    await it("user access", async () => {
 
         const config = [
             { url: "/none", status: 404 },
@@ -63,20 +77,6 @@ describe('Users middleware tests', async () => {
             { get: "/admin/1", status: 200, noredirects: 1, },
             { get: "/staff/1", status: 403, noredirects: 1, },
             { get: "/api/1", status: 401, noredirects: 1, },
-        ];
-        const tmp = {};
-
-        await acheckAccess({ config, tmp });
-    });
-
-    it("token access", async () => {
-
-        const config = [
-            { get: "/api/1", status: 401 },
-            { get: "/api/1", status: 200, headers: { authorization } },
-            { get: "/profile", status: 401, noredirects: 1, headers: { authorization } },
-            { get: "/admin/1", status: 302, noredirects: 1, headers: { authorization } },
-            { get: "/staff/1", status: 302, noredirects: 1, headers: { authorization } },
         ];
         const tmp = {};
 

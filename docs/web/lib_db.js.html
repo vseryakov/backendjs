@@ -549,7 +549,8 @@ db.shutdown = function(options, callback)
     clearInterval(this._configTimer);
     this._configTimer = undefined;
 
-    lib.forEach(Object.keys(this.pools), (name, next) => {
+    const pools = Object.keys(this.pools).filter(x => x !== "none");
+    lib.forEach(pools, (name, next) => {
         const pool = this.pools[name];
         delete this.pools[name];
         pool.shutdown(options, next);
