@@ -165,8 +165,9 @@ describe("DB tests", async () => {
         row.key1 = key1;
         row.key2 = key2;
 
-        rc = await db.aadd("bk_test1", row);
+        rc = await db.aadd("bk_test1", row, { returning: "*", first: true });
         assert.strictEqual(rc?.err, null);
+        assert.ok(rc?.data?.id);
 
         rc = await db.aadd("bk_test1", row);
         assert.ok(rc?.err);

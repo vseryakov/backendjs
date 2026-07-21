@@ -450,7 +450,7 @@ function prepareForUpdate(req)
             req.options.ops[name] = aop;
         }
 
-        if (value === undefined) continue;
+        if (value === undefined || aop === "none") continue;
 
         col = req.column(name);
 
@@ -462,7 +462,6 @@ function prepareForUpdate(req)
             col = req.column(name.substr(0, dot));
             if (!col || !lib.rxObjectType.test(col.type)) continue;
         }
-        if (lib.includes(req.options.skip_columns, name)) continue;
 
         // auto update ops
         if (!req.options.ops[name] &amp;&amp; req.options.typesOps?.[col.type]) {

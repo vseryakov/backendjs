@@ -1188,6 +1188,7 @@ class ElasticsearchPool extends DbPool {
         var config = req.config;
         var path = table + "/" + config.docType + "/" + lib.escape(this._getKey(keys, req.query));
         var query = this._getQuery("index", req.options);
+        if (req.options.returning === "*" || req.options.returning === "new") req.options.result_query = 1;
         this.doQuery("PUT", path, req.query, query, req.options, (err, res) => {
             if (!err &amp;&amp; res) res.affected_rows = 1;
             if (err?.status === 409) err.code = "AlreadyExists";

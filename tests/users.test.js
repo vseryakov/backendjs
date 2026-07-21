@@ -92,7 +92,7 @@ describe('Users middleware tests', async () => {
             { url: "/login", status: 401, match: { code: "MFA" }, body: { login: "admin", secret: "admin" } },
             { url: "/login", status: 200, body: { login: "admin", secret: "admin" },
               preprocess: (conf, query, next) => {
-                query.body.code = lib.totp(user.totp_secret);
+                query.body.totp_code = lib.totp(user.totp_secret);
                 next();
             } },
         ];
@@ -110,7 +110,7 @@ describe('Users middleware tests', async () => {
             { url: "/login", status: 401, match: { code: "MFA" }, body: { login: "admin", secret: "admin" } },
             { url: "/login", status: 200, body: { login: "admin", secret: "admin" },
               preprocess: (conf, query, next) => {
-                query.body.code = api.users.prepareMFA(user);
+                query.body.mfa_code = api.users.prepareMFA(user);
                 api.users.update(user, next);
             } },
         ];

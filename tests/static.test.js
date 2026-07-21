@@ -1,8 +1,9 @@
 /* global  */
 
+const assert = require('node:assert/strict');
 const { describe, it, before, after } = require('node:test');
 const { acheckAccess, ainit } = require("./utils");
-const { app, files } = require("../");
+const { app, files, lib } = require("../");
 
 describe('Access tests', async () => {
 
@@ -39,6 +40,13 @@ describe('Access tests', async () => {
             { get: "/index.js", regexp: /index.js/ },
             { get: "/index.js.gz", headers: { "accept-encoding": "gzip" }, regexp: /index.js.gz/ },
             { get: "/\0passwd", status: 403, headers: { connection: "close" } },
+            { get: "/img/1.png", binary: 1,
+                postprocess: (c, rc, next) => {
+                    const png = lib.readFileSync(__dirname + "/../web/img/1.png");
+                    assert.strictEqual(png, rc.data.toString());
+                    next();
+                }
+            },
         ];
 
         await acheckAccess({ config });

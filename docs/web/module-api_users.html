@@ -1316,7 +1316,7 @@ const { err, data } = await api.users.aadd({ login: "john@mail.com", name: "John
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line259">line 259</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line262">line 262</a>
     </li></ul></dd>
     
 
@@ -1732,7 +1732,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line239">line 239</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line242">line 242</a>
     </li></ul></dd>
     
 
@@ -1935,7 +1935,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line746">line 746</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line765">line 765</a>
     </li></ul></dd>
     
 
@@ -2263,7 +2263,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line804">line 804</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line823">line 823</a>
     </li></ul></dd>
     
 
@@ -3154,7 +3154,7 @@ api.users.del({ login: "john@mail.com" }, lib.log);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line206">line 206</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line209">line 209</a>
     </li></ul></dd>
     
 
@@ -3512,8 +3512,13 @@ it is <a href="module-lib.html#.isUuid">module:lib.isUuid</a> with optional user
 store .exp in the <code>sessions</code> column, cleanup expired sessions.</p>
 <p>Verification code will be enforced if a user has TOPT secret or mfa code saved.</p>
 <p>In case MFA is wrong or missing the error object will contain a property <code>code: &quot;MFA&quot;</code> to signal the UI
-to deal with it by asking for code or using a separate endpoint to send it.
-The user record is returned in the callback because it was verified already.</p></li></ul></dd>
+to deal with it by asking for code or using a separate endpoint to send it.</p>
+<p>The input is always checked for max size by module.api.validate,
+login is case-sensitive by default and validation only checks for required,
+up to the application to perform different validations and conversions before calling this.</p>
+<p>The user record is returned in the callback because it was verified already.</p>
+<p>NOTE: The login middleware is supposed to perform rate limiting for concurrent logins and
+against brute force enumerations</p></li></ul></dd>
     
 
     
@@ -3521,7 +3526,7 @@ The user record is returned in the callback because it was verified already.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line670">line 670</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line675">line 675</a>
     </li></ul></dd>
     
 
@@ -3856,7 +3861,7 @@ Passing <code>&amp;force=1</code> in the query url will clear all sessions for a
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line775">line 775</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line794">line 794</a>
     </li></ul></dd>
     
 
@@ -4011,7 +4016,7 @@ Passing <code>&amp;force=1</code> in the query url will clear all sessions for a
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line629">line 629</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line634">line 634</a>
     </li></ul></dd>
     
 
@@ -4288,7 +4293,7 @@ sendmail.send({ to: user.login, subject: "Verification code", text: `Your verifi
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line588">line 588</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line589">line 589</a>
     </li></ul></dd>
     
 
@@ -4443,7 +4448,7 @@ sendmail.send({ to: user.login, subject: "Verification code", text: `Your verifi
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line653">line 653</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line658">line 658</a>
     </li></ul></dd>
     
 
@@ -4604,7 +4609,8 @@ await api.users.aupdate({ login: user.login, totp_secret: user.totp_secret });</
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Prepare an API token before saving in the database, generates UUIDv4 in place login/secret properties.</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Prepare an API token before saving in the database, generates in place login/secret properties.
+Both generated login and secret are random UUIDv4, so secret hash without a salt is more about exposure of the secret.</p></li></ul></dd>
     
 
     
@@ -4612,7 +4618,7 @@ await api.users.aupdate({ login: user.login, totp_secret: user.totp_secret });</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line607">line 607</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line608">line 608</a>
     </li></ul></dd>
     
 
@@ -5239,12 +5245,12 @@ await api.users.aupdate({ login: user.login, totp_secret: user.totp_secret });</
 <li><code>login</code>: generated UUIDv4 by <a href="module-lib.html#.uuid">module:lib.uuid</a>, unique primary key</li>
 <li><code>secret</code>: generated UUIDv4 by <a href="module-lib.html#.uuid">module:lib.uuid</a></li>
 <li><strong>send the token as <code>${login}${secret}</code> back to user via secure method, like TLS....</strong></li>
-<li>hash the secret with SHA256 and store in the DB</li>
+<li>hash the secret with SHA256 base64 encoded and store in the DB</li>
 </ul>
 <p>Verification is done the following way:</p>
 <ul>
-<li>get a user record from DB by <code>token.substr(0, 32)</code> if there is a prefix skip it,
-the convention about prefix it must be separated by underscore from the token like <code>api_........</code></li>
+<li>prefix if exists must be separated by underscore from the token like <code>api_........</code>, this is enforced in <code>prepareToken</code></li>
+<li>get a user record from DB by <code>[token.prefix]token.substr(0, 32)</code></li>
 <li>check the <code>user.expire_time</code> column, must be empty or in the future</li>
 <li>compare the stored user secret by comparing <code>SHA256(token.substr(32))</code> with <a href="module-lib.html#.timingSafeEqual">module:lib.timingSafeEqual</a></li>
 </ul></li></ul></dd>
