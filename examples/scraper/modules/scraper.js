@@ -184,7 +184,7 @@ function list(context)
 {
     const { err, data } = api.validate(context, {
         start: { type: "int" },
-        count: { type: "int", dflt: 10 },
+        count: { type: "int", dflt: 10, min: 10, max: 250 },
     });
     if (err) return context.reply(err);
 

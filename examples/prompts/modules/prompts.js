@@ -44,7 +44,7 @@ module.exports = {
 // Schema for pagination, make sure all are valid numbers
 const _listSchema = {
     start: { type: "int", min: 0 },
-    count: { type: "int", min: 10, dflt: 50 },
+    count: { type: "int", min: 10, dflt: 50, max: 999 },
     desc: { type: "bool", dflt: true },
     sort: { value: "ctime" },
 }
