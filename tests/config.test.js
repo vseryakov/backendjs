@@ -68,7 +68,7 @@ line2=line2
             "-cache-q-options-visibilityTimeout", "1000",
             "-db-cleanup-aaa", "one:1,two:1",
             "-db-cleanup-aaa", "three:0",
-            "-app-log-inspect-options", "length:222,b:true,s:s%20%3a%2c,ignore:^/test/$",
+            "-app-log-inspect-options", "length:222,b:true,s:s%20%3a1%2c,ignore:^/test/$",
         ];
 
         cache._config = {};
@@ -106,12 +106,12 @@ line2=line2
         q = cache.getClient("q");
         assert.partialDeepStrictEqual(q.options, { test: 10 })
 
-        app.parseArgs(["-cache-q-options-visibilityTimeout", "99", "-cache-q-options", "count:99"]);
+        app.parseArgs(["-cache-q-options-visibilityTimeout", "99", "-cache-q-options", '{"count":99}']);
         assert.partialDeepStrictEqual(q.options, { visibilityTimeout: 99, count: 99 })
 
         assert.partialDeepStrictEqual(db.cleanup.aaa, { one: true, two: true, three: false })
 
-        assert.partialDeepStrictEqual(app.logInspect, { length: 222, b: true, s: ["s :"], ignore: /test/ })
+        assert.partialDeepStrictEqual(app.logInspect, { length: 222, b: true, s: ["s","1"], ignore: /test/ })
     })
 
     after(async () => {

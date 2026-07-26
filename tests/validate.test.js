@@ -209,6 +209,7 @@ describe("lib.validate checks", function () {
       c: { type: "int", min_num: 1, errmsg: "too small" },
       n: { type: "number" },
       f: { type: "real" },
+      s: { type: "number", strict: true },
     };
     assert.deepStrictEqual(lib.validate(q, { a: s.a })?.data, { __proto__: null, a: 5 });
 
@@ -218,6 +219,9 @@ describe("lib.validate checks", function () {
     assert.deepStrictEqual(lib.validate({ a: "5.2" }, { a: s.a })?.data, { __proto__: null, a: 5 });
     assert.deepStrictEqual(lib.validate({ n: "5.2" }, { n: s.n })?.data, { __proto__: null, n: 5.2 });
     assert.deepStrictEqual(lib.validate({ f: "5.2" }, { f: s.f })?.data, { __proto__: null, f: 5.2 });
+
+    assert.strictEqual(lib.validate({ s: "a" }, { s: s.s })?.err?.message, "s must be a number");
+    assert.deepStrictEqual(lib.validate({ s: "1" }, { s: s.s })?.data, { __proto__: null, s: 1 });
 
   });
 
@@ -397,11 +401,13 @@ describe("lib.validate checks", function () {
   });
 
   it("no_regexp/regexp validation behavior (drops field unless errmsg+!required)", function () {
-    const q = { a: "bad!", b: "bad!", c: "good" };
+    const q = { a: "bad!", b: "bad!", c: "good", d: "1", e: "bad" };
     const s = {
       a: { no_regexp: /!/ },                 // should drop
       b: { no_regexp: /!/, errmsg: "bad chars" }, // should return error (since !required)
       c: { regexp: /^[a-z]+$/ },            // keep
+      d: { regexp: "^[a-z]+$" },            // cached, drop
+      e: { no_regexp: "^[a-z]+$" },   // cached, drop
     };
     const ra = lib.validate(q, { a: s.a }).data;
     assert.deepStrictEqual(ra, { __proto__: null, });
@@ -409,6 +415,17 @@ describe("lib.validate checks", function () {
     assert.strictEqual(lib.validate(q, { b: s.b })?.err.message, "bad chars");
 
     assert.deepStrictEqual(lib.validate(q, { c: s.c }).data, { __proto__: null, c: "good" });
+
+    assert.deepStrictEqual(lib.validate(q, { c: s.c }).data, { __proto__: null, c: "good" });
+
+    assert.deepStrictEqual(lib.validate(q, { d: s.d }).data, { __proto__: null });
+
+    assert.strictEqual(!!lib.isRegExp(s.d.regexp), true);
+
+    assert.deepStrictEqual(lib.validate(q, { e: s.e }).data, { __proto__: null });
+
+    assert.strictEqual(!!lib.isRegExp(s.e.no_regexp), true);
+
   });
 
   it("set_empty: replaces empty result after processing", function () {

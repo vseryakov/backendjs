@@ -259,48 +259,72 @@ describe("toEmail", function () {
 });
 
 describe("toMap", function () {
-  it("parses key:val pairs", function () {
+  it("parses key:val pairs with default delimiter and separator", function () {
     assert.deepStrictEqual(lib.toMap("a:1,b:2,c:4:5"), { __proto__: null, a: "1", b: "2", c: ["4", "5"] });
-      });
-  it("converts value types with map_type", function () {
-    assert.deepStrictEqual(lib.toMap("a:1,b:2", { map_type: "int" }), { __proto__: null, a: 1, b: 2 });
-    assert.deepStrictEqual(lib.toMap("x:3.14,y:2", { map_type: "float" }), { __proto__: null, x: 3.14, y: 2 });
-      });
-  it("camelizes keys with map_camel", function () {
-    assert.deepStrictEqual(lib.toMap("first_name:bob", { map_camel: 1 }), { __proto__: null, firstName: "bob" });
-    assert.deepStrictEqual(lib.toMap("my_key:val,another_one:2", { map_camel: 1 }), { __proto__: null, myKey: "val", anotherOne: "2" });
-      });
+    });
+  it("parses semicolon-separated key-value pairs by default", function () {
+    assert.deepStrictEqual(lib.toMap("a;1,b;2"), { __proto__: null, a: "1", b: "2" });
+    });
   it("uses custom delimiter to split pairs", function () {
     assert.deepStrictEqual(lib.toMap("a:1;b:2", { delimiter: ";" }), { __proto__: null, a: "1", b: "2" });
     assert.deepStrictEqual(lib.toMap("a=1;b=2", { delimiter: ";", separator: "=" }), { __proto__: null, a: "1", b: "2" });
-      });
+    });
   it("uses custom separator between key and value", function () {
     assert.deepStrictEqual(lib.toMap("a=1,b=2", { separator: "=" }), { __proto__: null, a: "1", b: "2" });
-      });
-  it("parses semicolon-separated key-value pairs by default", function () {
-    assert.deepStrictEqual(lib.toMap("a;1,b;2"), { __proto__: null, a: "1", b: "2" });
-      });
-  it("keeps empty keys with empty option (bare keys get empty string value)", function () {
-    assert.deepStrictEqual(lib.toMap("a,b:2", { empty: 1 }), { __proto__: null, a: "", b: "2" });
-      });
-  it("skips entries with empty values when no_empty is set", function () {
-    assert.deepStrictEqual(lib.toMap("a:,b:2", { no_empty: 1 }), { __proto__: null, b: "2" });
-      });
+    });
   it("handles empty string input", function () {
-    assert.deepStrictEqual(lib.toMap(""), { __proto__: null, });
-      });
-  it("sets bare keys to undefined by default", function () {
-    const result = lib.toMap("a,b:2");
-    assert.strictEqual(result.a, undefined);
-    assert.strictEqual(result.b, "2");
-    assert.ok("a" in result);
-      });
-  it("drops bare keys when no_empty is set", function () {
-    assert.deepStrictEqual(lib.toMap("a,b:2", { no_empty: 1 }), { __proto__: null, b: "2" });
-      });
-  it("combines map_camel and map_type options", function () {
-    assert.deepStrictEqual(lib.toMap("first_name:30,last_city:nyc", { map_camel: 1, map_type: "string" }), { __proto__: null, firstName: "30", lastCity: "nyc" });
-      });
+    assert.deepStrictEqual(lib.toMap(""), Object.create(null));
+    });
+  it("converts value types with map_type", function () {
+    assert.deepStrictEqual(lib.toMap("a:1,b:2", { map_type: "int" }), { __proto__: null, a: 1, b: 2 });
+    assert.deepStrictEqual(lib.toMap("x:3.14,y:2", { map_type: "float" }), { __proto__: null, x: 3.14, y: 2 });
+    });
+  it("camelizes keys with camel option", function () {
+    assert.deepStrictEqual(lib.toMap("first_name:bob", { camel: true }), { __proto__: null, firstName: "bob" });
+    assert.deepStrictEqual(lib.toMap("my_key:val,another_one:2", { camel: true }), { __proto__: null, myKey: "val", anotherOne: "2" });
+    });
+  it("lowercases values with lower option", function () {
+    assert.deepStrictEqual(lib.toMap("a:HEllo,b:WoRLd", { lower: true }), { __proto__: null, a: "hello", b: "world" });
+    });
+  it("uppercases values with upper option", function () {
+    assert.deepStrictEqual(lib.toMap("a:hello,b:world", { upper: true }), { __proto__: null, a: "HELLO", b: "WORLD" });
+    });
+  it("capitalizes values with cap option", function () {
+    assert.deepStrictEqual(lib.toMap("a:hello world", { cap: true }), { __proto__: null, a: "Hello World" });
+    });
+  it("trims whitespace from values with trim option", function () {
+    assert.deepStrictEqual(lib.toMap("a: hello ,b:  world ", { trim: true }), { __proto__: null, a: "hello", b: "world" });
+    });
+  it("strips string occurrences in values with strip option", function () {
+    assert.deepStrictEqual(lib.toMap("a:abc123def", { strip: "a" }), { __proto__: null, a: "bc123def" });
+    });
+  it("strips regexp matches from values with strip option", function () {
+    assert.deepStrictEqual(lib.toMap("a:hello123world456", { strip: /\d+/g }), { __proto__: null, a: "helloworld" });
+    });
+  it("replaces chars in values with replace option", function () {
+    assert.deepStrictEqual(lib.toMap("a:hello,b:test", { replace: { e: "E" } }), { __proto__: null, a: "hEllo", b: "tEst" });
+    });
+  it("returns null when max_list is exceeded without trunc", function () {
+    assert.strictEqual(lib.toMap("a:1,b:2,c:3", { max_list: 2 }), null);
+    });
+  it("truncates to max_list with trunc option", function () {
+    assert.deepStrictEqual(lib.toMap("a:1,b:2,c:3", { max_list: 2, trunc: true }), { __proto__: null, a: "1", b: "2" });
+    });
+  it("skips whose value exceeds max in skip mode", function () {
+    assert.deepStrictEqual(lib.toMap("a:short,b:a very long value,c:ok", { max: 5 }), { __proto__: null, a: "short", c: "ok" });
+    });
+  it("truncates value to max length with trunc option", function () {
+    assert.deepStrictEqual(lib.toMap("a:hello world", { max: 5, trunc: true }), { __proto__: null, a: "hello" });
+    });
+  it("keeps empty values when keep_empty is set", function () {
+    assert.deepStrictEqual(lib.toMap("a:,b:2,c:1;2;3", { keep_empty: true }), { __proto__: null, a: undefined, b: "2", c: ["1","2","3"] });
+    });
+  it("drops entries with empty values by default", function () {
+    assert.deepStrictEqual(lib.toMap("a:,b:2"), { __proto__: null, b: "2" });
+    });
+  it("combines camel and map_type options", function () {
+    assert.deepStrictEqual(lib.toMap("first_name:30,last_city:nyc", { camel: true, map_type: "string" }), { __proto__: null, firstName: "30", lastCity: "nyc" });
+    });
 });
 
 describe("toValue", function () {

@@ -738,6 +738,13 @@ describe("lib.toValue tests", () => {
         assert.strictEqual(lib.toValue(obj, "js"), obj);
     });
 
+    test("toValue parses map type", () => {
+        assert.deepStrictEqual(lib.toValue('a:1,b:x,c', "map", { map_type: "auto" }), { __proto__: null,
+            a: 1,
+            b: "x",
+        });
+    });
+
     test("toValue converts set/list/array types using split", () => {
         assert.deepStrictEqual(lib.toValue("a,b,c", "set"), ["a", "b", "c"]);
         assert.deepStrictEqual(lib.toValue("a,b,c", "list"), ["a", "b", "c"]);
