@@ -5,7 +5,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>lib/aws/cw.js - Backendjs Documentation</title>
+    <title>lib/middleware/validate.js - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,7 +41,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">lib/aws/cw.js</h1>
+    <h1 class="page-title">lib/middleware/validate.js</h1>
     
 
     
@@ -53,400 +53,232 @@
         <article>
             <pre class="prettyprint source linenums"><code>/*
  *  Author: Vlad Seryakov vseryakov@gmail.com
- *  backendjs 2018
+ *  backendjs 2026
  */
 'use strict';
 
+/**
+  * @module middleware/validate
+  */
+
 const logger = require(__dirname + '/../logger');
 const lib = require(__dirname + '/../lib');
-const aws = require(__dirname + '/../aws');
+const api = require(__dirname + '/../api');
+const Router = require(__dirname + "/../router");
+
+const mod =
 
 /**
- * AWS CloudWatch API request
- * @memberOf module:aws
- * @method queryCW
- */
-aws.queryCW = function(action, obj, options, callback)
-{
-    this.queryEndpoint("monitoring", '2010-08-01', action, obj, options, callback);
-}
-
-/**
- * AWS CloudWatch Log API request
- * @memberOf module:aws
- * @method queryCWL
- */
-aws.queryCWL = function(action, obj, options, callback)
-{
-    this.queryService({ endpoint: "logs", target: "Logs_20140328", action }, obj, options, callback);
-}
-
-/**
- * Creates or updates an alarm and associates it with the specified Amazon CloudWatch metric.
- * The options specify the following:
- *  - name - alarm name, if not specified metric name and dimensions will be used to generate alarm name
- *  - metric - metric name, default is `CPUUtilization`
- *  - namespace - AWS namespace, default is `AWS/EC2`
- *  - op - comparison operator, one of => | &lt;= | > | &lt; | GreaterThanOrEqualToThreshold | GreaterThanThreshold | LessThanThreshold | LessThanOrEqualToThreshold. Default is `>=`.
- *  - statistic - one of SampleCount | Average | Sum | Minimum | Maximum, default is `Average`
- *  - period - collection period in seconds, default is `60`
- *  - evaluationPeriods - the number of periods over which data is compared to the specified threshold, default is `15`
- *  - threshold - the value against which the specified statistic is compared, default is `90`
- *  - ok - ARN(s) to be notified on OK state
- *  - alarm - ARN(s) to be notified on ALARM state
- *  - insufficient_data - ARN(s) to be notified on INSUFFICIENT_DATA state
- *  - dimensions - the dimensions for the alarm's associated metric.
- * @memberOf module:aws
- * @method cwPutMetricAlarm
- */
-aws.cwPutMetricAlarm = function(options, callback)
-{
-    if (typeof options === "function") callback = options, options = null;
-    if (!options) options = lib.empty;
-
-    var ops = { ">=": "GreaterThanOrEqualToThreshold", ">": "GreaterThanThreshold", "&lt;": "LessThanThreshold", "&lt;=": "LessThanOrEqualToThreshold" };
-    var metric = options.metric || "CPUUtilization";
-    var namespace = options.namespace || "AWS/EC2";
-
-    var params = {
-        AlarmName: options.name || (namespace + ": " + metric + " " + lib.inspect(options.dimensions)),
-        MetricName: metric,
-        Namespace: namespace,
-        ComparisonOperator: ops[options.op] || options.op || "GreaterThanOrEqualToThreshold",
-        Period: options.period || 60,
-        EvaluationPeriods: options.evaluationPeriods || 15,
-        Threshold: options.threshold || 90,
-        Statistic: options.statistic || "Average"
-    }
-    var i = 1;
-    for (var p in options.dimensions) {
-        params["Dimensions.member." + i + ".Name"] = p;
-        params["Dimensions.member." + i + ".Value"] = options.dimensions[p];
-        i++;
-    }
-    lib.split(options.ok).forEach(function(x, i) { params["OKActions.member." + (i + 1)] = x; });
-    lib.split(options.alarm).forEach(function(x, i) { params["AlarmActions.member." + (i + 1)] = x; });
-    lib.split(options.insufficient_data).forEach(function(x, i) { params["InsufficientDataActions.member." + (i + 1)] = x; });
-
-    this.queryCW("PutMetricAlarm", params, options, callback);
-}
-
-/**
- * Publishes metric data points to Amazon CloudWatch.
- * The argumernts specify the following:
- *  - namespace - custome namespace, cannot start with `AWS`
- *  - data - an object with metric data:
- *    { metricName: value }, ...
- *    { metricName: {
- *           value: Number,
- *           dimension1: name1,
- *           ..
- *        },
- *    }, ...
- *    { metricName: {
- *           value: [min, max, sum, sample],
- *           dimension1: ...
- *        },
- *    }, ...
+ * ## Validation and Rate Limiter Middleware
  *
- * The options can specify the following:
- * - storageResolution - 1 to use 1 second resolution
- * - timestamp - ms to be used as the timestamp instead of the current time
- * @memberOf module:aws
- * @method cwPutMetricData
+ * As oppose to the limiter by path this middleware validates first the params/query/body parameters and returns an error immediately,
+ * then if configured can check rate limits for the matching method, path and parameter.
+ *
+ * For example this is useful and universally checked in case of multi-tenant environment when each tenant is distinguished by
+ * query parameter or body property like accountId, clientId or else.
+ *
+ * Validating common global parameters upfront with rate limits allows the actual business handlers to avoid
+ * boilerplate checks and focus only on specific logic instead.
+ *
+ * Because the router does not validate params parts in the path, only extracts, this is the way to enforce path parameters to a particular
+ * format.
+ *
+ * ## Global mode
+ *
+ * Enable via `middleware-validate-enable = true` to dynamically check every request path, this allows to
+ * add more routes to the config without restarting
+ *
+ * `middleware-validate-query`, `middleware-validate-body` config parameters can be configured,
+ * only matched methods and paths are checked, each parameter in query or body will be validated using {@link module:lib/validate}.
+ *
+ * Errors are returned immediately, otherwide the possibly converted values are placed back into query or body, this allows subsequent middleware
+ * to reuse already validated values.
+ *
+ * If rate limiting is required params must be placed with rate prefix except the `rate`, like `rate_interval, rate_ttl, rate_max`...,
+ * all valid parameters for {@link module:api.limiter} can be placed in the config.
+ *
+ * ```
+ * # Validate accountId for all /account requests and allow 100 req/s only
+ * middleware-validate-params-get,post-accountId-/account/:accountId/* = type:int,strict:true,min:100000,required:true,rate:100
+ *
+ * # Validate clientId to be a number in the query for all /api requests and allow 100 req/s only
+ * middleware-validate-query-get,post-clientId-/api/* = type:int,max:32,required:true,rate:100,rate_interval:30000
+ *
+ * # Validate login email and limit to 2 req per minute, increase delay
+ * middleware-validate-body-post-login-/login = type:email,max:128,required:true,rate:2,rate_interval:60000,rate_multiplier:1.5
+ *
+ * # Use JSON format for regexp validation
+ * middleware-validate-body-post-ssn-/register = { "required": true, "regexp": "^[0-9]{3}-[0-9]{2}-[0-9]{4}$", "errmsg": "Valid SSN is required in NNN-NN-NNNN format" }
+ * ```
+ *
+ * ## Fixed config mode
+ *
+ * To enable just what is in the config on start and ignore subsequent config changes
+ *
+ * ```
+ * middleware-validate-enable = fixed
+ * ```
+ *
  */
-aws.cwPutMetricData = function(namespace, data, options, callback)
-{
-    if (typeof options === "function") callback = options, options = null;
 
-    var batches = [], keys = [];
-    for (const p in data) {
-        keys.push(p);
-        if (keys.length === 20) {
-            batches.push(keys);
-            keys = [];
+module.exports = {
+    name: "middleware.validate",
+
+    /**
+     * @var {ConfigOptions[]}
+     * @default
+     */
+    args: [
+        { name: "enable", descr: "Enable the middlware, 'true' means dynamicaly check all requests, 'fixed' means set routes from the config on start" },
+        { name: "(query|body|params)-([a-z,*]+)-([a-zA-Z0-9_]+)-(/.+)", type: "map", no_camel: 1, ephemeral: 1, logger: "error", onupdate, descr: "Query parameters to validate/limit by path", example: "middleware-validate-query-*-accountId-/api/* = type:int,required:true,rate:10,rate_interval:30000" },
+        { name: "reset", type: "callback", callback(v) { if (v) this.reset() }, descr: "Reset all rules" },
+        { name: "priority", type: "int", descr: "Add routes with this priority sorting number, for config mode only" },
+    ],
+
+    router: new Router(),
+};
+
+function onupdate(value, options)
+{
+    const [, name, methods, param, path] = options.matches;
+
+    for (const method of lib.split(methods)) {
+        const routes = mod.router.find(method, path);
+        if (routes.length) {
+            // Merge all configs in the same route
+            const config = routes[0].route.handler;
+            if (!config[name]) config[name] = {};
+            config[name][param] = lib.extend(config[name][param], value);
+        } else {
+            mod.router.add(method, path, { [name]: { [param]: value } });
         }
     }
-    if (keys.length) batches.push(keys);
-    lib.forEverySeries(batches, (batch, next) => {
-        var params = {
-            Namespace: namespace,
-        }
-        var i = 1;
-        for (const key of batch) {
-            const val = data[key];
-            params["MetricData.member." + i + ".MetricName"] = key;
-            if (typeof val === "number" || typeof val === "string") {
-                params["MetricData.member." + i + ".Value"] = val;
-            } else {
-                let j = 1;
-                if (lib.isArray(val.value)) {
-                    params["MetricData.member." + i + ".StatisticValues.Minimum"] = val.value[0];
-                    params["MetricData.member." + i + ".StatisticValues.Maximum"] = val.value[1];
-                    params["MetricData.member." + i + ".StatisticValues.Sum"] = val.value[2];
-                    params["MetricData.member." + i + ".StatisticValues.SampleCount"] = val.value[3];
-                } else {
-                    params["MetricData.member." + i + ".Value"] = val.value;
-                }
-                for (const d in val) {
-                    if (d === "value") continue;
-                    params["MetricData.member." + i + ".Dimensions.member." + j + ".Name"] = d;
-                    params["MetricData.member." + i + ".Dimensions.member." + j + ".Value"] = val[d];
-                    j++;
-                }
-            }
-            if (options?.storageResolution) {
-                params["MetricData.member." + i + ".StorageResolution"] = 1;
-            }
-            if (options &amp;&amp; options.timestamp > 0) {
-                params["MetricData.member." + i + ".Timestamp"] = lib.toDate(options.timestamp).toISOString();
-            }
-            i++;
-        }
-        aws.queryCW("PutMetricData", params, options, next);
-    }, callback, true);
+}
+
+mod.reset = function()
+{
+    mod.router.reset();
 }
 
 /**
- * Return metrics for the given query, the options can be specified:
- *  - name - a metric name
- *  - namespace - limit by namespace: AWS/AutoScaling, AWS Billing, AWS/CloudFront, AWS/DynamoDB, AWS/ElastiCache, AWS/EBS, AWS/EC2, AWS/ELB, AWS/ElasticMapReduce, AWS/Kinesis, AWS/OpsWorks, AWS/Redshift, AWS/RDS, AWS/Route53, AWS/SNS, AWS/SQS, AWS/SWF, AWS/StorageGateway
- * @memberOf module:aws
- * @method cwListMetrics
+ * Start global middleware if enabled
+ *
+ * @memberof module:middleware/validate
+ * @method configureMiddleware
  */
-aws.cwListMetrics = function(options, callback)
+mod.configureMiddleware = function(_options, callback)
 {
-    if (typeof options === "function") callback = options, options = null;
-    if (!options) options = {};
+    if (mod.enable === "fixed") {
+        const method = `#${this.priority ?? 0}`;
 
-    var params = {};
-    if (options.name) params.MetricName = options.name;
-    if (options.namespace) params.Namespace = options.namespace;
-    var i = 1;
-    for (var p in options.dimensions) {
-        params["Dimensions.member." + i + ".Name"] = p;
-        params["Dimensions.member." + i + ".Value"] = options.dimensions[p];
-        i++;
-    }
-    this.queryCW("ListMetrics", params, options, function(err, rc) {
-        var rows = lib.objGet(rc, "ListMetricsResponse.ListMetricsResult.Metrics.member", { list: 1 });
-        if (typeof callback === "function") callback(err, rows);
-    });
-}
+        mod.router.walk(node => {
+            logger.debug("configureMiddleware:", mod.name, node.handlers[0]);
 
-/**
- * Return collected metric statistics
- *
- * Options:
- * - start_time - starting timestamp
- * - end_time - ending timestamp
- * - period - aggregation period in seconds, default is 60, if &lt; 0 then dunamically set it for the time range
- * - age - number of ms to go back in case start_time is not specified, fraction can be used, default is 30 secs if no timestamp are given
- * - namespace - namespace for all metrics, default is AWS/EC2
- * - desc - return data in descending order
- * - metrics - a list with metrics to retrieve:
- *    { name: "..",
- *      stat: "..",
- *      dimensions: { key: val, ...},
- *      [namespace: ".."],
- *      [label: "..""],
- *      [hidden: 1],
- *      [expression: ".."]
- *    }
- *
- * Returns an object: { data: [{ id, label, timestamps: [], data: [] }], errors: [] }
- *
- * Example:
- *
- *     aws.cwGetMetricData({ age: 300000, metrics: [{ name: "NetworkOut", label: "Traffic", stat: "Average", dimensions: { InstanceId: "i-1234567" } } ] }, lib.log)
- * @memberOf module:aws
- * @method cwGetMetricData
- */
-aws.cwGetMetricData = function(options, callback)
-{
-    var end = lib.toDate(options.end_time || Date.now());
-    var start = lib.toDate(options.start_time || (Date.now() - lib.toNumber(options.age, { min: 30000, max: 86400000*63 })));
-    var period = options.period > 0 ? options.period : 60;
-    if (options.period &lt; 0) {
-        const age = (end - start)/60000;
-        period = age &lt;= 30 ? 10 : age &lt;= 300 ? 60 : age &lt;= 720 ? 300 : age &lt;= 1440 ? 900 : age &lt;= 1440*5 ? 3600 : age &lt; 1440*10 ? 3600*2 : 3600*6;
-   }
-
-    var rc = { start, end, period, data: [], errors: [] }, t0 = Date.now();
-
-    var opts = {
-        StartTime: start.toISOString(),
-        EndTime: end.toISOString(),
-        ScanBy: options.desc ? "TimestampDescending": "TimestampAscending",
-        MetricDataQueries: { member: [] },
-    };
-    for (const i in options.metrics) {
-        const metric = options.metrics[i];
-        let dimensions;
-        for (const d in metric.dimensions) {
-            if (!dimensions) dimensions = { member: [] };
-            dimensions.member.push({ Name: d, Value: metric.dimensions[d] });
-        }
-        if (metric.expression) {
-            opts.MetricDataQueries.member.push({
-                Id: metric.id || `m${i}`,
-                Label: metric.label,
-                Expression: metric.expression,
+            api.app.use(method, node.handlers[0].path, {
+                params: node.handlers[0].handler.params,
+                query: node.handlers[0].handler.query,
+                body: node.handlers[0].handler.body,
+                handle: mod.handle
             });
-        } else
-        if (metric.name) {
-            opts.MetricDataQueries.member.push({
-                Id: metric.id || `e${i}`,
-                Label: metric.label || metric.name,
-                MetricStat: {
-                    Metric: {
-                        MetricName: metric.name,
-                        Namespace: metric.namespace || options.namespace || "AWS/EC2",
-                        Dimensions: dimensions || undefined,
-                    },
-                    Period: period,
-                    Stat: metric.stat || options.stat || "Average",
-                },
-                ReturnData: metric.hidden ? false : undefined,
-            });
+        });
+        mod.router.reset();
+    } else
+
+    if (lib.toBool(mod.enable)) {
+        const method = `#${this.priority ?? ''}`;
+
+        api.app.use(method, "*", mod);
+    }
+
+    callback();
+}
+
+const _fields = [
+    ["params", { params: true }],
+    ["query", { query: true }],
+    ["body"],
+];
+
+/**
+ * @param {RequestContext} context
+ * @param {function} next
+ * @memberof module:middleware/validate
+ * @method handle
+ * @example
+ *
+ * const { api, middleware } = require("backendjs");
+ * const { validate } = middleware;
+ *
+ * api.app.post("*", validate)
+ *
+ * api.app.post("/account/*", validate)
+ *
+ * api.app.post("/account", {
+ *     body: { accountId: { type: "int", required: true, rate: 100 },
+ *     amount: { type: "number", max: 1000 }
+ * }, handle: validate.handle })
+ *
+ */
+mod.handle = function(context, next)
+{
+    let config;
+
+    if (this === mod) {
+        // Global config
+
+        const routes = mod.router.find(context.method, context.path);
+        if (!routes.length) return next();
+
+        config = routes[0].route.handler;
+
+    } else {
+        // Local config or fixed mode
+        config = this;
+    }
+
+    logger.debug("handle:", mod.name, context, "CONFIG:", config);
+
+    let rates;
+
+    for (const [name, opts] of _fields) {
+        const schema = config?.[name];
+        const body = context[name];
+
+        const { err, data } = api.validate(context, schema, opts);
+        if (err) {
+            return context.reply(err);
+        }
+
+        if (body) {
+            Object.assign(body, data);
+        }
+        logger.dev("handle:", mod.name, name, "schema:", schema, "data:", data);
+
+        for (const p in data) {
+            if (!schema?.[p]?.rate) continue;
+            const key = [context.method, context.path, name, p, data[p]];
+
+            if (!rates) rates = [];
+            rates.push([
+                key,
+                Object.keys(schema[p]).
+                       filter(x => x.startsWith("rate_")).
+                       reduce((obj, key) => {
+                           obj[key.substr(5)] = schema[key];
+                           return obj;
+                       }, { rate: schema[p].rate })
+            ]);
         }
     }
 
-    logger.debug("cwGetMetricData:", opts);
-
-    if (!opts.MetricDataQueries.member.length) {
-        return callback(null, rc);
+    if (!rates) {
+        return next();
     }
 
-    opts = lib.flatten(opts, { index: 1 });
-
-    lib.doWhilst(
-        function(next) {
-            aws.queryCW("GetMetricData", opts, options, (err, res) => {
-                if (err) return next(err);
-                res = res?.GetMetricDataResponse?.GetMetricDataResult;
-                opts.nextToken = res?.NextToken;
-
-                rc.errors.push(...lib.objGet(res, "Messages.member", { list: 1 }).map((x) => (`${x.Code}: ${x.Value}`)));
-
-                var d = lib.objGet(res, "MetricDataResults.member", { list: 1 }), t, x, v, sum;
-                for (const m of d) {
-                    if (!["PartialData", "Complete"].includes(m?.StatusCode)) {
-                        const e = lib.objGet(m, "Messages.member", { list: 1 }).map((x) => (`${x.Code}: ${x.Value} (${x.Id}: ${x.Label})`));
-                        if (e.length) rc.errors.push(...e);
-                        continue;
-                    }
-                    t = lib.objGet(m, "Timestamps.member", { list: 1 });
-                    if (!t.length) continue;
-                    x = lib.objGet(m, "Values.member", { list: 1 });
-                    sum = 0, v = t.map((y, i) => {
-                        y = lib.toNumber(x[i] || 0);
-                        sum += y;
-                        return y;
-                    });
-                    if (sum || options.zeros) {
-                        rc.data.push({
-                            id: m.Id,
-                            label: m.Label,
-                            timestamps: t,
-                            data: v,
-                        });
-                    }
-                }
-                next();
-            });
-        },
-        function() {
-            return opts.nextToken &amp;&amp;
-                   (!options.timeout || Date.now() - t0 &lt; options.timeout);
-        },
-        function(err) {
-            callback(err, rc);
-        }, true);
+    lib.forEach(rates, (arg, next2) => {
+        api.limiter(arg[0], arg[1], next2);
+    }, next, true);
 }
-
-/**
- * Lists log events from the specified log group. You can list all the log events or filter the results using a filter pattern,
- * a time range, and the name of the log stream.
- * Options:
- *  - name - a group name, required
- *  - count - how many events to retrieve in one batch, 10000
- *  - limit - total number of events to return
- *  - filter - filter pattern
- *  - stime - start time in ms
- *  - etime - end time in ms
- *  - prefix - log stream prefix pattern
- *  - names - list of log streams to filter
- *  - token - a previous token to start with
- *  - timeout - how long to keep reading or waiting, ms
- * @memberOf module:aws
- * @method cwlFilterLogEvents
- */
-aws.cwlFilterLogEvents = function(options, callback)
-{
-    var opts = {
-        logGroupName: options.name,
-        limit: options.count || Math.min(10000, options.limit) || undefined,
-        filterPattern: options.filter,
-        startTime: options.stime,
-        endTime: options.etime,
-        logStreamNamePrefix: options.prefix || undefined,
-        logStreamNames: lib.isArray(options.names, undefined),
-        nextToken: options.token,
-    };
-    var data = { events: [] }, t0 = Date.now();
-    lib.doWhilst(
-        function(next) {
-            aws.queryCWL("FilterLogEvents", opts, options, (err, rc) => {
-                logger.debug("cwFilterLogEvents:", err, opts, rc);
-                if (err) return next(err);
-                opts.nextToken = rc.nextToken;
-                data.events.push.apply(data.events, lib.isArray(rc.events, []));
-                for (const p in rc) if (p !== "events") data[p] = rc[p];
-                setTimeout(next, options.delay || 0);
-            });
-        },
-        function() {
-            return opts.nextToken &amp;&amp;
-                   (!options.limit || data.events.length &lt; options.limit) &amp;&amp;
-                   (!options.timeout || Date.now() - t0 &lt; options.timeout);
-        },
-        function(err) {
-            lib.tryCall(callback, err, data);
-        }, true);
-}
-
-/**
- * Store events in the Cloudwatch Logs.
- * Options:
- * - name - log group name, required
- * - stream - log stream name, required
- * - events - a list of strings, or objects { timestamp, message }, required
- * - tm_pos - position in the message where the timestamp starts, default is 0
- * - tm_sep - separator after the timestamp, default is space
- * @memberOf module:aws
- * @method cwPutLogEvents
- */
-aws.cwPutLogEvents = function(options, callback)
-{
-    var opts = {
-        logGroupName: options.name,
-        logStreamName: options.stream,
-        logEvents: lib.isArray(options.events, []). map((x) => {
-            var m = typeof x === "string" ? x : x.message;
-            if (!m) return null;
-            var t = x.timestamp;
-            if (!t) {
-                const e = m.indexOf(options.tm_sep || " ", options.tm_pos || 0);
-                if (e > 0) t = lib.toMtime(m.substr(options.tm_pos || 0, e).trim());
-            }
-            return t ? { timestamp: t, message: m } : null;
-        }).filter((x) => (x)),
-    };
-    if (!opts.logEvents.length) return lib.tryCall(callback);
-    aws.queryCWL("PutLogEvents", opts, options, callback);
-}
-
 </code></pre>
         </article>
     </section>

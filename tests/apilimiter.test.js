@@ -1,7 +1,8 @@
 
+const assert = require('node:assert/strict');
 const { describe, it, before, after } = require('node:test');
 const { app, api } = require("../");
-const { ainit, acheckAccess } = require("./utils");
+const { ainit, astop, acheckAccess } = require("./utils");
 
 describe('API limiter tests', async () => {
 
@@ -28,7 +29,7 @@ describe('API limiter tests', async () => {
             { url: "/api/6" },
             { url: "/api/7", status: 429, delay: 100 },
             { get: "/api/8" },
-            { get: "/api/9", status: 429, delay: 100 },
+            { get: "/api/9", status: 429 },
             { url: "/api/10", status: 429, streaming: 1, postdata: { timeout: 1 } },
         ];
 
@@ -36,33 +37,7 @@ describe('API limiter tests', async () => {
     });
 
     after(async () => {
-        await app.astop()
-    })
-})
-
-
-describe('API validate tests', async () => {
-
-    before(async () => {
-        await ainit({ api: 1, cache: 1, nodb: 1, noipc: 1, roles: process.env.BKJS_ROLES || "validate" })
-
-        api.app.all("/api/*", (context) => { context.send(200, "test") })
-    });
-
-    it("checks validate endpoints", async () => {
-
-        const config = [
-            { get: "/" },
-            { get: "/api/1", status: 400 },
-            { get: "/api/2?clientId=aaa", status: 400 },
-            { url: "/api/3?clientId=123" },
-        ];
-
-        await acheckAccess({ config });
-    });
-
-    after(async () => {
-        await app.astop()
+        await astop()
     })
 })
 

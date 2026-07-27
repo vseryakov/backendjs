@@ -11,6 +11,7 @@ module.exports = {
         excludePattern: "(^|\\/|\\\\)_"
     },
     templates: {
+        cleverLinks: true,
         default: {
           includeDate: false,
           outputSourceFiles: true

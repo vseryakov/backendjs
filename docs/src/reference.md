@@ -25,6 +25,48 @@ For example if Redis will be used run inside your project
 npm install --save sharp
 ```
 
+## Middleware
+
+A middleware is a function that takes {@link RequestContext} and either responds back or passes the control to next middleware.
+
+Implementing middleware is as simpe as this:
+
+```js
+function meMiddleware(context, next) {
+    if (context.user?.id) {
+        return context.json({ name: context.user.name });
+    }
+    next();
+}
+
+api.app.use("GET", "/me", myMiddleware);
+
+```
+
+Initializing middleware can be done at any time but mostly it is done inside a module `configureMiddleware`
+hook which is called by the backend after the API server is initialized.
+
+Default middleware modules are initialized in the order shown below by default, see each module for config parameters:
+
+- {@link module:middleware/proxy middleware.proxy: Proxy request using httpproxy}
+- {@link module:middleware/limiter middleware.limiter: Rate limiter of requests by path}
+- {@link module:middleware/routing middleware.routing: Reroute requests internally to different path}
+- {@link module:middleware/cors middleware.cors: CORS permissions}
+- {@link module:middleware/csrf middleware.csrf: CSRF protection}
+- {@link module:middleware/xray middleware.xray: AWS X-ray tracing support}
+- {@link module:middleware/body middleware.body: Body parser for JSON, XML, Formdata}
+- {@link module:middleware/multipart middleware.multipart: Body parser for multipart uploads}
+- {@link module:middleware/users middleware.users: User authentication/authorization}
+- {@link module:middleware/validate middleware.validate: Validate and rate limit requests by query/body parameters}
+- {@link module:middleware/static middleware.static: Serve static assets}
+
+Each module supports special config paramater `priority` that may change the place of a module in the router execution list,
+see module documentation for details.
+
+To dump all routes to check the order of middleware use command like:
+
+`bksh -app-config tests/bkjs.conf -app-roles users -run-api -dump-api -exit`
+
 ## Configuration
 
 Almost everything in the backend is configurable using config files or a config database, see {@tutorial config}.

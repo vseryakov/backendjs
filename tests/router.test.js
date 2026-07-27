@@ -157,10 +157,12 @@ describe('Name path - Multiple routes', () => {
     assert.strictEqual(res[1].params.id, '123')
   })
   it('sorting order', () => {
-    router.add('get#0', '/posts/*', 'wildcard')
+    router.add('get#1', '/posts/*', 'first')
+    router.add('#0', '/posts/*', 'wildcard')
     const res = router.find('get', '/posts/123')
-    assert.strictEqual(res.length, 3)
+    assert.strictEqual(res.length, 4)
     assert.strictEqual(res[0].route.handler, 'wildcard')
+    assert.strictEqual(res[1].route.handler, 'first')
   });
 })
 
