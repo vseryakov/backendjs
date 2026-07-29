@@ -9,7 +9,7 @@ describe("lib.validate checks", function () {
         var schema = {
             id: { type: "int" },
             count: { type: "int", min: 1, dflt: 1 },
-            page: { type: "int", min: 1, max: 10, dflt: NaN, required: 1, errmsg: "Page number between 1 and 10 is required" },
+            page: { type: "int", min: 1, max: 10, dflt: 0, required: 1, errmsg: "Page number between 1 and 10 is required" },
             name: { type: "string", max: 6, trunc: 1 },
             pair: { type: "map", map_type: "int" },
             code: { type: "string", regexp: /^[a-z]-[0-9]+$/, errmsg: "Valid code is required" },

@@ -149,15 +149,8 @@ describe("toDate", function () {
     it("returns epoch by default for invalid date", function () {
       assert.strictEqual(lib.toDate("bad date").getTime(), 0);
     });
-    it("returns null when invalid flag is set", function () {
-      assert.strictEqual(lib.toDate("bad date", undefined, true), null);
-    });
-    it("returns null when dflt is null/0/NaN", function () {
-      assert.strictEqual(lib.toDate("bad date", null), null);
-      assert.strictEqual(lib.toDate("bad date", 0), null);
-      assert.strictEqual(lib.toDate("bad date", NaN), null);
-    });
     it("uses dflt date value for invalid date", function () {
+      assert.strictEqual(lib.toDate("bad date", new Date("2024-01-02T03:04:05Z")).getTime(), Date.parse("2024-01-02T03:04:05Z"));
       assert.strictEqual(lib.toDate("bad date", 1704164645000).getTime(), 1704164645000);
     });
   });

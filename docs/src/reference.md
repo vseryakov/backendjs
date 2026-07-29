@@ -49,11 +49,11 @@ hook which is called by the backend after the API server is initialized.
 Default middleware modules are initialized in the order shown below by default, see each module for config parameters:
 
 - {@link module:middleware/proxy middleware.proxy: Proxy request using httpproxy}
-- {@link module:middleware/limiter middleware.limiter: Rate limiter of requests by path}
 - {@link module:middleware/routing middleware.routing: Reroute requests internally to different path}
-- {@link module:middleware/cors middleware.cors: CORS permissions}
 - {@link module:middleware/csrf middleware.csrf: CSRF protection}
 - {@link module:middleware/xray middleware.xray: AWS X-ray tracing support}
+- {@link module:middleware/limiter middleware.limiter: Rate limiter of requests by path}
+- {@link module:middleware/cors middleware.cors: CORS permissions}
 - {@link module:middleware/body middleware.body: Body parser for JSON, XML, Formdata}
 - {@link module:middleware/multipart middleware.multipart: Body parser for multipart uploads}
 - {@link module:middleware/users middleware.users: User authentication/authorization}

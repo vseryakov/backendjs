@@ -391,7 +391,7 @@ describe("lib.toNumber", function () {
   it("rounds when options.float is explicitly falsey (0)", function () {
     assert.strictEqual(lib.toNumber("1.4", { float: 0 }), 1);
     assert.strictEqual(lib.toNumber("1.5", { float: 0 }), 1);
-    assert.strictEqual(lib.toNumber(2.49, { float: 0 }), 2);
+    assert.strictEqual(lib.toNumber(2.49, { float: false }), 2);
   });
 
   it("replaces 0 with options.zero", function () {
@@ -403,6 +403,7 @@ describe("lib.toNumber", function () {
   it("keeps digits after decimal with options.digits", function () {
     assert.strictEqual(lib.toNumber("1.2345", { float: 1, digits: 2 }), 1.23);
     assert.strictEqual(lib.toNumber("1.235", { float: 1, digits: 2 }), 1.24);
+    assert.strictEqual(lib.toNumber("1.235", { float: 1, digits: -1 }), 1.235);
   });
 
   it("bigint: returns BigInt if not a safe integer", function () {
