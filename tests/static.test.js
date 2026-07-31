@@ -37,6 +37,7 @@ describe('Access tests', async () => {
             { get: "/render.html", regexp: /render.html/ },
             { get: "/old/render", regexp: /render.html/ },
             { get: "/redirect", noredirects: 1, resheaders: { location: /^\/render.html$/ }, status: 302 },
+            { get: "/redirect/1", noredirects: 1, resheaders: { location: /^\/render.html$/ }, status: 302 },
             { get: "/index.js", regexp: /index.js/ },
             { get: "/index.js.gz", headers: { "accept-encoding": "gzip" }, regexp: /index.js.gz/ },
             { get: "/\0passwd", status: 403, headers: { connection: "close" } },

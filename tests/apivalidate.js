@@ -21,6 +21,8 @@ describe('API validate tests', async () => {
 
     it("checks validate endpoints", async () => {
 
+        const token = api.token.create({}).token;
+
         const config = [
             { get: "/" },
             { get: "/account/a", status: 400 },
