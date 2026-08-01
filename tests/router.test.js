@@ -1,7 +1,9 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { Router } = require("../");
+const { api } = require("../");
+
+const Router = api.Router;
 
 describe('Root Node', () => {
   const router = new Router()
@@ -163,6 +165,7 @@ describe('Name path - Multiple routes', () => {
     assert.strictEqual(res.length, 4)
     assert.strictEqual(res[0].route.handler, 'wildcard')
     assert.strictEqual(res[1].route.handler, 'first')
+    assert.strictEqual(res[1].params[0], '123')
   });
 })
 
@@ -208,6 +211,7 @@ describe('Named params and a wildcard', () => {
     assert.strictEqual(res.length, 1)
     assert.strictEqual(res[0].route.handler, 'onepart')
     assert.strictEqual(res[0].params.id, 'foo')
+    assert.strictEqual(res[0].params[0], 'bar')
   })
 })
 

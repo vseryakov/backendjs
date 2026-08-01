@@ -271,6 +271,8 @@ describe("toMap", function () {
   it("converts value types with map_type", function () {
     assert.deepStrictEqual(lib.toMap("a:1,b:2", { map_type: "int" }), { __proto__: null, a: 1, b: 2 });
     assert.deepStrictEqual(lib.toMap("x:3.14,y:2", { map_type: "float" }), { __proto__: null, x: 3.14, y: 2 });
+    assert.deepStrictEqual(lib.toMap("a:1,b:a,c:null", { map_type: "auto" }), { __proto__: null, a: 1, b: "a" });
+    assert.deepStrictEqual(lib.toMap("a:1,b:a,c:null", { map_type: "auto", keep_empty: true }), { __proto__: null, a: 1, b: "a", c: null });
     });
   it("camelizes keys with camel option", function () {
     assert.deepStrictEqual(lib.toMap("first_name:bob", { camel: true }), { __proto__: null, firstName: "bob" });

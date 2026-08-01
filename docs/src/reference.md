@@ -19,6 +19,22 @@ const bkjs = require("backendjs");
 ]
 ```
 
+## Project Structure
+
+Typical structure might look like this but is not required or necessary:
+
+```
+myapp/
+├── README.md
+├── package.json
+├── bkjs.conf              - config file
+├── modules/               - business logic modules
+│   ├── module1.js
+│   └── module2.js
+├── web/                   - static assets
+    └── *.js,css,html
+```
+
 ## Modules
 
 The primary way to add functionality to the backend is via external modules specific to the backend,
@@ -30,11 +46,11 @@ go deeper with **app-modules-depth** config.
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup.
 
-All modules are exposed in the top level {@link module:modules} except files that start with undescore.
+All modules are exposed in the top level {@link module:modules} except files that start with underscore.
 
 This is how to access modules by name without involving Javascript import/export, also this allows
 dynamically detect module at runtime, the app can be bundled with subset of modules only to implement a service,
-this way allows not to hardcode imports in the code.
+this way allows not to hard code imports in the code.
 
 By having module names contain dots it is possible to create a module hierarchy, for example
 modules with names billing.invoice, billing.stripe can be accessed like this:
@@ -165,7 +181,7 @@ function configureModule(options, callback)
 ```
 
 Called after the {@link module:app.init} has been initialized successfully, this can be defined in the modules to add additional
-init steps that all processes require to have. All database pools and other confugration is ready at this point.
+init steps that all processes require to have. All database pools and other configuration is ready at this point.
 
 This method is called regardless of what kind of server is about to start, it is always called before starting a server or shell.
 
@@ -207,14 +223,14 @@ Called during the server process startup, this is the process that monitors the 
 function configureWorker(options, callback)
 ```
 
-Called on job worker process startup after the tables are intialized and it is ready to process jobs.
+Called on job worker process startup after the tables are initialized and it is ready to process jobs.
 
 ```js
 function shutdownWorker(options, callback)
 ```
 
  Perform last minute operations inside a worker process before exit, the callback must be called eventually which will exit the process.
- This method can be overrided to implement custom worker shutdown procedure in order to finish pending tasks like network calls.
+ This method can be overridden to implement custom worker shutdown procedure in order to finish pending tasks like network calls.
 
 ```js
 function configureShell(options, callback)
@@ -229,7 +245,7 @@ function configureCollectStats(options, callback)
 ```
 
 Called by the {@link module:stats} module during collection phase.
-Each module can add its own telemtry data to the **options.stats** object.
+Each module can add its own telemetry data to the **options.stats** object.
 
 
 ```js
@@ -274,7 +290,7 @@ npm install --save sharp
 
 A middleware is a function that takes {@link RequestContext} and either responds back or passes the control to next middleware.
 
-Implementing middleware is as simpe as this:
+Implementing middleware is as simple as this:
 
 ```js
 function meMiddleware(context, next) {
@@ -305,7 +321,7 @@ Default middleware modules are initialized in the order shown below by default, 
 - {@link module:middleware/validate middleware.validate: Validate and rate limit requests by query/body parameters}
 - {@link module:middleware/static middleware.static: Serve static assets}
 
-Each module supports special config paramater `priority` that may change the place of a module in the router execution list,
+Each module supports special config parameter `priority` that may change the place of a module in the router execution list,
 see module documentation for details.
 
 To dump all routes to check the order of middleware use command like:
@@ -362,7 +378,7 @@ npm run start -- -app-roles pg
 
 All sources provide plain text where each line contains one config parameter.
 
- - `file`: using {@link module:app.config} parameter (`app-config`) to point initial confi gfile to load, config files support `include ...` directive to includee other config files
+ - `file`: using {@link module:app.config} parameter (`app-config`) to point initial config file to load, config files support `include ...` directive to include other config files
  - `DB`: using {@link module:db.config} parameter `db-config` to point to the database pool with bk_config table
  - `S3`: using parameter `aws-config-s3-file` to point to a file in a S3 bucket
  - `AWS Secrets Manager`: using parameter `aws-config-secrets` with a list of secrets to pull from AWS Secrets Manager
@@ -389,14 +405,14 @@ commands that simplify running the backend in different modes.
 
 - __bkjs start__ - this command is supposed to be run at the server startup as a service, it runs in the background and the monitors all tasks,
    the env variable __BKJS_SERVER__ must be set in the profile to __server__ to start the server
-- __bkjs watch__ - runs the server and Web server in wather mode checking all source files for changes, this is the common command to be used
+- __bkjs watch__ - runs the server and Web server in watcher mode checking all source files for changes, this is the common command to be used
    in development, it passes the command line switches: __-watch -server__
 - __bkjs server__ - this command is supposed to be run at the server startup, it runs in the background and the monitors all processes,
    the command line parameters are: __-daemon -server -syslog__, web server and workers are started by default
 - __bkjs run__ - this command runs without other parameters, all additional parameters can be added in the command line, this command
    is a barebone helper to be used with any other custom settings.
-- __bkjs run -api__ - this command runs a single process as web server, sutable for Docker
-- __bkjs run -worker__ - this command runs a single process worker, suatable for Docker
+- __bkjs run -api__ - this command runs a single process as web server, suitable for Docker
+- __bkjs run -worker__ - this command runs a single process worker, suitable for Docker
 - __bkjs shell__ or __bksh__ - start backendjs shell, no API or Web server is initialized, only the database pools
 
 
@@ -406,10 +422,10 @@ On startup some env variable will be used for initial configuration:
 
   - BKJS_HOME - home directory where to cd and find files, __-app-home__ config parameter overrides it
   - BKJS_CONFIG - config file to use instead of 'etc/config', __-app-config__ overrides it
-  - BKJS_IMPORT - packags to import on start, __-app-import__ overrieds it
+  - BKJS_IMPORT - packages to import on start, __-app-import__ overrides it
   - BKJS_DB_POOL - default db pool, __-db-pool__ overrides it
   - BKJS_DB_CONFIG - config db pool, __-db-config__ overrides it
-  - BKJS_ROLES - additonal roles to use for config, __-app-roles__ overrides it
+  - BKJS_ROLES - additional roles to use for config, __-app-roles__ overrides it
   - BKJS_VERSION - default app name and version, __-app-version__ overrides it
   - BKJS_TAG - initial instance tag, __-app-env-tag__ overrides it, it may be also overridden by AWS instance tag
   - BKJS_LOG_OPTIONS - logger options, __-app-log-options__ overrides it
@@ -433,7 +449,7 @@ On startup some env variable will be used for initial configuration:
 
 * now run local server on port 8000 run command:
 
-    `bin/bkjs watch -app-log info`
+    `bin/bkjs watch`
 
 * to start the backend in command line mode, the backend environment is prepared and initialized including all database pools.
    This command line access allows you to test and run all functions from all modules of the backend without running full server

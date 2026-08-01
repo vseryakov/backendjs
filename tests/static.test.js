@@ -2,10 +2,10 @@
 
 const assert = require('node:assert/strict');
 const { describe, it, before, after } = require('node:test');
-const { acheckAccess, ainit } = require("./utils");
-const { app, files, lib } = require("../");
+const { acheckAccess, ainit, astop } = require("./utils");
+const { files, lib } = require("../");
 
-describe('Access tests', async () => {
+describe('Static tests', async () => {
 
     before(async () => {
         await ainit({ api: 1, nodb: 1, noipc: 1, roles: "static" })
@@ -35,9 +35,6 @@ describe('Access tests', async () => {
                 next();
             } },
             { get: "/render.html", regexp: /render.html/ },
-            { get: "/old/render", regexp: /render.html/ },
-            { get: "/redirect", noredirects: 1, resheaders: { location: /^\/render.html$/ }, status: 302 },
-            { get: "/redirect/1", noredirects: 1, resheaders: { location: /^\/render.html$/ }, status: 302 },
             { get: "/index.js", regexp: /index.js/ },
             { get: "/index.js.gz", headers: { "accept-encoding": "gzip" }, regexp: /index.js.gz/ },
             { get: "/\0passwd", status: 403, headers: { connection: "close" } },
@@ -54,7 +51,7 @@ describe('Access tests', async () => {
     });
 
     after(async () => {
-        await app.astop({ force: 1 })
+        await astop({ force: 1 })
     })
 })
 

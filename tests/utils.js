@@ -75,8 +75,10 @@ exports.ainit = async function(options)
 
 exports.stop = function(options, callback)
 {
+    if (typeof options == "function") callback = options, options = null;
+
     lib.killWorkers();
-    app.stop((err) => {
+    app.stop(options, (err) => {
         const info = process.getActiveResourcesInfo();
         if (info.length > 2) console.log("ACTIVE RESOURCES:", info);
         lib.call(callback, err);
@@ -112,8 +114,8 @@ exports.checkAccess = function(options, callback)
 
     lib.forEachSeries(options.config, (conf, next) => {
         var q = {
-            url: conf.get || conf.url || "/",
-            method: conf.get ? "GET" : conf.method || "POST",
+            url: conf.url || conf.get || conf.put || conf.post || "/",
+            method: conf.get ? "GET" : conf.put ? "PUT" : conf.method || "POST",
             body: conf.body,
             query: conf.query,
             formdata: conf.form,

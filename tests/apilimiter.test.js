@@ -40,6 +40,9 @@ describe('API limiter tests', async () => {
             { url: "/session/1", user: token },
             { url: "/session/2" },
             { url: "/session/1", status: 429, user: token },
+            { put: "/session/2" },
+            { put: "/session/2" },
+            { put: "/session/2" },
         ];
 
         await acheckAccess({ config });
