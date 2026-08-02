@@ -27,7 +27,7 @@ describe('API validate tests', async () => {
             { get: "/" },
             { get: "/account/a", status: 400 },
             { get: "/account/1" },
-            { get: "/account/1", status: 429, delay: 1000 },
+            { get: "/account/1", status: 429, delay: 500 },
             { get: "/account/1" },
             { get: "/client/1", status: 400 },
             { get: "/client/2?clientId=aaa", status: 400 },
