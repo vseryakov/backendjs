@@ -199,7 +199,7 @@ class SqlitePool extends sqlPool.Pool {
                     });
                 });
             }, (err) => {
-                // Replace all at once, it is run inside a pool
+                // Replace all at once, it runs with pool instance context
                 for (const p in schema) this[p] = schema[p];
                 lib.tryCall(callback, err);
             }, true);

@@ -72,7 +72,7 @@ module.exports = SESTransport;
 
 function SESTransport(options)
 {
-    this.options = options || {};
+    this.options = lib.isObject(options);
     this.name = 'SES';
     this.version = "1.0.0";
 }
@@ -111,14 +111,14 @@ SESTransport.prototype.send = function(mail, callback)
             if (err) return lib.tryCall(callback, err);
 
             const from = mail.message._headers.find(header => ["from", "From"].includes(header.key));
-            var region = this.options.region || aws.region;
-            var opts = {
+            const region = this.options?.region || aws.region;
+            const opts = {
                 from: from?.value || envelope.from,
                 to: envelope.to,
-                config: this.options.config,
+                config: this.options?.config,
                 region,
             };
-            if (this.options.dryrun) {
+            if (this.options?.dryrun) {
                 return lib.tryCall(callback, null, { envelope, raw: Buffer.from(raw).toString() });
             }
 

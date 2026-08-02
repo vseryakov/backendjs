@@ -489,7 +489,6 @@ class Router {
                 let index = 0;
                 const params = Object.create(null);
                 route.params.forEach((part, i) => {
-                    if (!part) return;
                     params[part === "*" ? index++ : part] = paths[i];
                 });
                 result.push({ route, params });
@@ -550,7 +549,7 @@ class Router {
 
     dump(_node) {
         this.walk(node => {
-            const text = util.inspect(node, { showHidden: true, depth: null, compact: 3, breakLength: Infinity }).split("\n");
+            const text = util.inspect(node, { showHidden: true, depth: null, compact: 3, breakLength: Number.POSITIVE_INFINITY }).split("\n");
             console.log(text.map(x => (" ".repeat(node.index || 0) + x)).join("\n"));
         });
     }

@@ -819,7 +819,7 @@ the worker processes if they die and restart them automatically.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line192">line 192</a>
+        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line200">line 200</a>
     </li></ul></dd>
     
 
@@ -1534,7 +1534,7 @@ rearely need to called directly, only for new server implementation or if using 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line113">line 113</a>
+        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line121">line 121</a>
     </li></ul></dd>
     
 
@@ -2416,6 +2416,37 @@ text fields are limited to 512 chars, object to 32k, json to 4k, arrays to 512 i
 
         <tr>
             
+                <td class="name"><code>dprefix</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>defaults prefix, if not given <code>context.path-</code>
+is used to check defaults by path</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
                 <td class="name"><code>query</code></td>
             
 
@@ -2539,6 +2570,7 @@ text fields are limited to 512 chars, object to 32k, json to 4k, arrays to 512 i
     <pre class="prettyprint"><code>const opts = {
     defaults: {
         "*.string": { max: 1024 },
+    }
 }
 
 const schema = {
@@ -2575,7 +2607,7 @@ const { err, data } = api.validate(context, schema, opts);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line58">line 58</a>
+        <a href="lib_api_util.js.html">lib/api/util.js</a>, <a href="lib_api_util.js.html#line66">line 66</a>
     </li></ul></dd>
     
 

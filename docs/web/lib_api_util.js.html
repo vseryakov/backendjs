@@ -72,6 +72,8 @@ const cache = require(__dirname + '/../cache');
  * @param {module:lib.ValidateOptions} schema - schema object
  * @param {object} [options]
  * @param {object} [options.defaults] - merged with global `api.defaults`
+ * @param {boolean} [options.dprefix] - defaults prefix, if not given `context.path-`
+ * is used to check defaults by path
  * @param {boolean} [options.query] - use `context.query` not body
  * @param {boolean} [options.params] - use `context.params` not body
  * @returns {object} - a query object or an error { data, err }
@@ -83,6 +85,7 @@ const cache = require(__dirname + '/../cache');
  * const opts = {
  *     defaults: {
  *         "*.string": { max: 1024 },
+ *     }
  * }
  *
  * const schema = {
@@ -96,16 +99,21 @@ const cache = require(__dirname + '/../cache');
  */
 api.validate = function(context, schema, options)
 {
-    var opts = lib.extend({}, options, {
-        dprefix: context?.path + "-",
-        defaults: lib.extend({}, options?.defaults, api.defaults)
+    const opts = Object.create(null, {
+        dprefix: { value: `${context?.path}-`, enumerable: true },
+        defaults: { value: api.defaults, enumerable: true },
     });
-    const query = options?.query ? context.query :
-                  options?.params ? context.params :
-                  context.body || context.query;
 
-    logger.debug("validate:", "api", context, "schema:", schema, "opts:", opts, "query:", query);
-    return lib.validate(query, schema, opts);
+    let body = context.body || context.query;
+
+    if (options) {
+        lib.extend(opts, options);
+        body = options.query ? context.query :
+               options.params ? context.params : body;
+    }
+
+    logger.debug("validate:", "api", context, "schema:", schema, "opts:", opts, "body:", body);
+    return lib.validate(body, schema, opts);
 }
 
 /**

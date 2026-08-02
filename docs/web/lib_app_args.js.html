@@ -534,7 +534,7 @@ function _processArg(obj, key, val, arg, reverse, type)
 
     case "map":
         if (!val) break;
-        if (typeof val == "string") val = val.trim();
+        if (typeof val === "string") val = val.trim();
         if (val?.[0] === "{" &amp;&amp; val.at(-1) === "}") {
             val = lib.jsonParse(val, arg);
         } else {

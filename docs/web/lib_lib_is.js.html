@@ -254,9 +254,10 @@ lib.isNumber = function(val, dflt = Number.NaN)
 }
 
 /**
+ * Safe wrapper for testing for a string type, always returns a string, itself or empty, dflt may return any value
  * @param {string} val
  * @param {any} [dflt=""] - default value if not valid
- * @return {string|any} the string value or empty string if not a string
+ * @return {string|any} the string value itself or empty string if not a string
  * @memberof module:lib
  * @method isString
  * @example
@@ -278,6 +279,7 @@ lib.isString = function(val, dflt = "")
 }
 
 /**
+ * Safe wrapper for testing for and returning function type, returns itself or undefined, dflt can be any value
  * @param {string} func
  * @param {any} [dflt] - default value if not valid function
  * @return {function|undefined} the function itself or undefined if not a function
@@ -286,7 +288,7 @@ lib.isString = function(val, dflt = "")
  * @example
  * function test() {}
  * lib.isFunc(test);
- * // => test
+ * // => [Function]
  *
  * lib.isFunc(() => true);
  * // => [Function]

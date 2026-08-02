@@ -322,7 +322,7 @@ class DynamoDBPool extends DbPool {
         return { keys, local, global, attrs, projections };
     }
 
-    queryCreate(client, req, callback)
+    queryCreate(_client, req, callback)
     {
         const { keys, local, global, attrs, projections } = this.prepareCreate(req.query);
 
@@ -373,7 +373,7 @@ class DynamoDBPool extends DbPool {
         }, true);
     }
 
-    queryUpgrade(client, req, callback)
+    queryUpgrade(_client, req, callback)
     {
         var global = {}, rc;
         var table = aws.ddbTable(req.table);
