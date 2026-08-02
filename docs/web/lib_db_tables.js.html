@@ -409,6 +409,7 @@ db.checkCustomColumn = function(req, name)
 {
     var col, cols = this.customColumn[req.table];
     for (const p in cols) {
+        if (p === "__proto__") continue;
         col = cols[p];
         if (typeof col === "string") {
             col = [ lib.toRegexp(p), col];

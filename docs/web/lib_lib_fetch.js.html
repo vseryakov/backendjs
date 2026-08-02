@@ -784,28 +784,29 @@ class FetchRequest {
     /**
      * Parse Set-Cookie header and return an object of cookies: { NAME: { value: VAL, secure: true, expires: N ... } }
      */
-    parseSetCookies(header)
-    {
-        var cookies = {};
-        header = Array.isArray(header) ? header.filter((x) => (typeof x === "string")) :
-                 typeof header === "string" ? header.split(/[:](?=\s*[a-zA-Z0-9_-]+\s*[=])/g) : [];
-        for (const item of header) {
-            const parts = item.split(";");
+    parseSetCookies(header) {
+        const cookies = Object.create(null);
 
-            let pair = parts[0].match(/([^=]+)=((?:.|\n)*)/);
+        const str = Array.isArray(header) ? header.filter(x => lib.isString(x)).join("\n") : lib.isString(header);
+        if (str.length > 65536) return cookies;
+
+        for (const item of str.split(/[:](?=\s*[a-zA-Z0-9_-]+\s*[=])/g)) {
+            const parts = item.split(";");
+            const pair = parts[0].match(/([^=]+)=([\s\S]*)/);
             if (!pair) continue;
 
-            const name = pair[1].trim(), cookie = { value: pair[2] || "" };
+            const name = pair[1].trim();
+            const cookie = { value: (pair[2] || "").trim() };
             if (cookie.value.includes("%")) {
                 cookie.value = lib.decodeURIComponent(cookie.value);
             }
 
             for (let i = 1; i &lt; parts.length; i++) {
-                pair = parts[i].match(/([^=]+)(?:=((?:.|\n)*))?/);
-                if (!pair) continue;
-                const key = pair[1].trim().toLowerCase();
-                let value = pair[2]?.trim();
-                if (value?.includes("%")) {
+                const p = parts[i].match(/([^=]+)\s*=?\s*([\s\S]*)/);
+                if (!p) continue;
+                const key = p[1].trim().toLowerCase();
+                let value = (p[2] || "").trim();
+                if (value.includes("%")) {
                     value = lib.decodeURIComponent(value);
                 }
                 switch (key) {
@@ -835,7 +836,6 @@ class FetchRequest {
         }
         return cookies;
     }
-
 }
 
 /**

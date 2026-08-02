@@ -912,7 +912,7 @@ lib.toRegexpObj = function(obj, val, options)
  */
 lib.toMilliseconds = function(duration)
 {
-    var d = /^(-?(?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|mos?|mons?|months?|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)?$/i.exec(duration);
+    var d = lib.rxMilliseconds.exec(duration);
     if (!d) return;
     const n = Number.parseFloat(d[1]);
     if (d[2]) {
@@ -1622,7 +1622,7 @@ lib.jsonFormatPreset = function(name, options)
 {
     if (!name) return;
     let preset = lib._jsonFormatPresets[name];
-    if (!preset) preset = lib._jsonFormatPresets[name] = {};
+    if (!preset) preset = lib._jsonFormatPresets[name] = Object.create(null);
     for (const p in options) preset[p] = options[p];
     return preset;
 }
@@ -2211,7 +2211,7 @@ lib.unicode2Ascii = function(str, types)
     types = typeof types === "string" &amp;&amp; types || "opqs";
     let map = this._unicodeCache[types];
     if (!map) {
-        map = this._unicodeCache[types] = {};
+        map = this._unicodeCache[types] = Object.create(null);
         for (const t of types) {
             Object.assign(this._unicodeCache[types], this.unicodeAsciiMap[t]);
         }

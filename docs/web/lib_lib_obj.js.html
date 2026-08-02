@@ -268,6 +268,7 @@ lib.clone = function(obj, ...args)
 {
     var rc = Array.isArray(obj) ? [] : {}, o1, o2;
     for (const p in obj) {
+        if (p === "__proto__") continue;
         if (!Object.hasOwn(obj, p)) continue;
         o1 = obj[p];
         switch (this.typeName(o1)) {
@@ -359,7 +360,7 @@ lib.flatten = function(obj, options)
 
 /**
  * Extend the object with properties similar to Object.assign but perform deep merge
- * @param {object} obj
+ * @param {object} obj - object to extend
  * @param {object[]} ...args
  * @return {object}
  * @example
@@ -370,12 +371,12 @@ lib.flatten = function(obj, options)
  */
 lib.extend = function(obj, ...args)
 {
-    obj = typeof obj === "object" || typeof obj === "function" ? obj || {} : {};
+    obj = lib.isObject(obj) || typeof obj === "function" ? obj : Object.create(null);
     for (const val of args) {
         for (const p in val) {
+            if (p === "__proto__") continue;
             const v = val[p];
             if (v === obj) continue;
-            if (p === "__proto__") continue;
             if (v) {
                 if (Array.isArray(v)) {
                     obj[p] = this.extend(Array.isArray(obj[p]) ? obj[p] : [], v);
@@ -477,6 +478,8 @@ lib.objSet = function(obj, name, value, options)
     if (!name?.length) return obj;
 
     const p = name[name.length - 1], v = obj;
+    if (p === "__proto__") return obj;
+
     for (let i = 0; i &lt; name.length - 1; i++) {
         if (name[i] === "__proto__") continue;
         if (typeof obj[name[i]] === "undefined") {

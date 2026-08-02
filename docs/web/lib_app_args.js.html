@@ -248,7 +248,7 @@ app.processArg = function(options)
     var val = options.val;
     var key = options.key;
 
-    var o = Object.assign({ errnull: 1 }, arg);
+    var o = Object.assign(Object.create(null), { errnull: 1 }, arg);
     o.name = o.key || key;
     o.matches = options.matches;
     o._conf = options.file;
@@ -283,7 +283,9 @@ app.processArg = function(options)
                     }
                 }
                 context = lib.objGet(mod, obj.concat(o.name), { owner: 1 });
-                if (!context) lib.objSet(mod, obj, context = {});
+                if (!context) {
+                    lib.objSet(mod, obj, context = Object.create(null));
+                }
                 o.obj = obj.join(".");
             } else {
                 // Substitutions from the matched key
@@ -295,7 +297,10 @@ app.processArg = function(options)
                 if (!o.no_camel || o.obj.includes("-")) {
                     o.obj = lib.toCamel(o.obj, o.camel || "-");
                 }
-                if (!mod[o.obj]) mod[o.obj] = {};
+                if (o.obj === "__proto__") return false;
+                if (!mod[o.obj]) {
+                    mod[o.obj] = Object.create(null);
+                }
                 context = mod[o.obj];
 
                 // Strip the prefix if starts with the same name
@@ -312,6 +317,7 @@ app.processArg = function(options)
         if (o.name_type) o.name = lib.toValue(o.name, o.name_type);
 
         if (lib.isArray(o.names) &amp;&amp; !lib.includes(o.names, o.name)) return false;
+        if (o.name === "__proto__") return false;
 
         const missing = context[o.name] === undefined;
 
@@ -330,7 +336,7 @@ app.processArg = function(options)
 
         // Can be set only once
         if (arg.once) {
-            if (!arg._once) arg._once = {};
+            if (!arg._once) arg._once = Object.create(null);
             if (arg._once[o.name]) return;
             arg._once[o.name] = 1;
         }
@@ -484,6 +490,8 @@ function _processArg(obj, key, val, arg, reverse, type)
     if (reverse) {
         [key, val] = [val, key];
     }
+    if (key === "__proto__") return val;
+
     switch (type) {
     case "bool":
         val = !val ? true : lib.toBool(val);
@@ -580,7 +588,7 @@ function _processArg(obj, key, val, arg, reverse, type)
         case "json":
             if (!obj || arg.set) for (const p in obj) delete obj[p];
             for (const p in val) {
-                if (typeof obj[p] === "function") continue;
+                if (p === "__proto__" || typeof obj[p] === "function") continue;
                 if (val[p] === arg.no_value || Array.isArray(arg.no_value) &amp;&amp; arg.no_value.includes(val[p])) continue;
                 if (arg.not_empty &amp;&amp; lib.isEmpty(val[p])) continue;
                 obj[p] = val[p];
@@ -590,7 +598,7 @@ function _processArg(obj, key, val, arg, reverse, type)
         case "map":
             if (!obj || arg.set) for (const p in obj) delete obj[p];
             for (const p in val) {
-                if (typeof obj[p] === "function") continue;
+                if (p === "__proto__" || typeof obj[p] === "function") continue;
                 if (val[p] === arg.no_value || Array.isArray(arg.no_value) &amp;&amp; arg.no_value.includes(val[p])) continue;
                 if (arg.not_empty &amp;&amp; lib.isEmpty(val[p])) continue;
                 obj[p] = val[p];
