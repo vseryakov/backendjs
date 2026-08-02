@@ -429,13 +429,13 @@ describe("lib.toNumber", function () {
 describe("lib.extend", function () {
   it("returns an object even if target is not an object", function () {
     const out = lib.extend(null, { a: 1 });
-    assert.deepStrictEqual(out, { a: 1 });
+    assert.deepStrictEqual(out, { __proto__: null, a: 1 });
 
     const out2 = lib.extend(123, { a: 1 });
-    assert.deepStrictEqual(out2, { a: 1 });
+    assert.deepStrictEqual(out2, { __proto__: null, a: 1 });
 
     const out3 = lib.extend("x", { a: 1 });
-    assert.deepStrictEqual(out3, { a: 1 });
+    assert.deepStrictEqual(out3, { __proto__: null, a: 1 });
   });
 
   it("behaves like assign for flat props (last wins)", function () {
@@ -445,12 +445,12 @@ describe("lib.extend", function () {
 
   it("deep merges plain objects", function () {
     const out = lib.extend({ a: 1, c: 5 }, { c: { b: 2 } }, { c: { a: 2 } });
-    assert.deepStrictEqual(out, { a: 1, c: { b: 2, a: 2 } });
+    assert.deepStrictEqual(out, { a: 1, c: { __proto__: null, b: 2, a: 2 } });
   });
 
   it("deep merges arrays by index (recursive)", function () {
     const out = lib.extend({}, { d: [{ d: 3 }] });
-    assert.deepStrictEqual(out, { d: [{ d: 3 }] });
+    assert.deepStrictEqual(out, { d: [{ __proto__: null, d: 3 }] });
 
     const out2 = lib.extend({ a: [1, 2] }, { a: [3] });
     // index 0 overwritten, index 1 preserved
@@ -458,7 +458,7 @@ describe("lib.extend", function () {
   });
 
   it("merges array elements that are objects", function () {
-    const out = lib.extend({ a: [{ x: 1, y: 1 }] }, { a: [{ y: 2, z: 3 }] });
+    const out = lib.extend({ a: [{ x: 1, y: 1 }] }, { a: [{ __proto__: null, y: 2, z: 3 }] });
     assert.deepStrictEqual(out, { a: [{ x: 1, y: 2, z: 3 }] });
   });
 
@@ -469,7 +469,7 @@ describe("lib.extend", function () {
 
   it("overwrites primitive with object (deep)", function () {
     const out = lib.extend({ a: 1 }, { a: { b: 2 } });
-    assert.deepStrictEqual(out, { a: { b: 2 } });
+    assert.deepStrictEqual(out, { a: { __proto__: null, b: 2 } });
   });
 
   it("keeps functions as-is (not treated as plain objects)", function () {
@@ -1234,7 +1234,7 @@ describe("lib.autoType", function() {
             assert.strictEqual(lib.autoType("hello"), "");
             assert.strictEqual(lib.autoType({}), "");
             assert.strictEqual(lib.autoType([]), "");
-            assert.strictEqual(lib.autoType(null), "");
+            assert.strictEqual(lib.autoType(null), "null");
             assert.strictEqual(lib.autoType(undefined), "");
         });
     });
@@ -2182,7 +2182,7 @@ describe('lib.arrayFlatten', () => {
 
 describe('lib.clone', () => {
     it('shallow clones an object', () => {
-        const a = { x: 1, y: 2 };
+        const a = { __proto__: null, x: 1, y: 2 };
         const b = lib.clone(a);
         assert.deepStrictEqual(b, a);
         assert.notStrictEqual(b, a);
@@ -2220,25 +2220,25 @@ describe('lib.clone', () => {
 
 describe('lib.flatten', () => {
     it('flattens nested objects', () => {
-        assert.deepStrictEqual(lib.flatten({ a: { c: 1 }, b: { d: 1 } }), { 'a.c': 1, 'b.d': 1 });
+        assert.deepStrictEqual(lib.flatten({ a: { c: 1 }, b: { d: 1 } }), { __proto__: null, 'a.c': 1, 'b.d': 1 });
     });
 
     it('flattens with array index option', () => {
         assert.deepStrictEqual(lib.flatten({ a: { c: 1 }, b: { d: [1, 2, 3] } }, { index: 1 }),
-            { 'a.c': 1, 'b.d.1': 1, 'b.d.2': 2, 'b.d.3': 3 });
+            { __proto__: null, 'a.c': 1, 'b.d.1': 1, 'b.d.2': 2, 'b.d.3': 3 });
     });
 
     it('uses custom separator', () => {
-        assert.deepStrictEqual(lib.flatten({ a: { c: 1 } }, { separator: "_" }), { 'a_c': 1 });
+        assert.deepStrictEqual(lib.flatten({ a: { c: 1 } }, { separator: "_" }), { __proto__: null, 'a_c': 1 });
     });
 
     it('respects depth', () => {
         const res = lib.flatten({ a: { b: { c: 1 } } }, { depth: 1 });
-        assert.deepStrictEqual(res, {});
+        assert.deepStrictEqual(res, {__proto__: null});
     });
 
     it('ignores properties matching regexp', () => {
-        assert.deepStrictEqual(lib.flatten({ a: 1, _b: 2 }, { ignore: /^_/ }), { a: 1 });
+        assert.deepStrictEqual(lib.flatten({ a: 1, _b: 2 }, { ignore: /^_/ }), { __proto__: null, a: 1 });
     });
 
     it('handles circular references', () => {
