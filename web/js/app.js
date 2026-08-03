@@ -88,12 +88,12 @@
      * this is an alternative to using **&lt;template&gt;** tags which are kept in the DOM all the time even if not used.
      * This object can be populated in the bundle or loaded later as JSON, this all depends on the application environment.
      */
-    templates: {},
+    templates: /* @__PURE__ */ Object.create(null),
     /**
      * @var {string} - Component classes, this is the registry of all components logic to be used with corresponding templates.
      * Only classed derived from **app.AlpineComponent** will be used, internally they are registered with **Alpine.data()** to be reused by name.
      */
-    components: {},
+    components: /* @__PURE__ */ Object.create(null),
     /** @var {function}  - see {@link isFunction} */
     isF: isFunction,
     /** @var {function}  - see {@link isString} */
@@ -268,7 +268,7 @@
     if (isFunction(obj)) return obj(method, ...args);
     if (typeof obj != "object") return;
     if (isFunction(method)) return method.call(obj, ...args);
-    if (obj && isFunction(obj[method])) return obj[method].call(obj, ...args);
+    if (isFunction(obj?.[method])) return obj[method].call(obj, ...args);
   }
   var _entities = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" };
   /**
@@ -282,7 +282,7 @@
   }
 
   // src/events.js
-  var _events = {};
+  var _events = /* @__PURE__ */ Object.create(null);
   /**
    * Listen on event, the callback is called synchronously, optional namespace allows deleting callbacks later easier by not providing
    * exact function by just namespace.
@@ -576,7 +576,7 @@
   });
 
   // src/render.js
-  var _plugins = {};
+  var _plugins = /* @__PURE__ */ Object.create(null);
   var _default_plugin;
   /**
    * Register a render plugin, at least 2 functions must be defined in the options object:
@@ -604,7 +604,7 @@
         app[toCamel(`_${name}_component`)] = options.Component;
       }
     }
-    var plugin = _plugins[name] = _plugins[name] || {};
+    const plugin = _plugins[name] = _plugins[name] || /* @__PURE__ */ Object.create(null);
     if (options?.default) _default_plugin = plugin;
     return Object.assign(plugin, options);
   }
@@ -656,8 +656,8 @@
   function resolve(path, dflt) {
     const tmpl = parsePath(path);
     trace("resolve:", path, dflt, tmpl);
-    var name = tmpl?.name, templates = app.templates, components = app.components;
-    var template = tmpl.template || templates[name] || document.getElementById(name);
+    const name = tmpl?.name, templates = app.templates, components = app.components;
+    let template = tmpl.template || templates[name] || document.getElementById(name);
     if (!template && dflt) {
       template = templates[dflt] || document.getElementById(dflt);
       if (template) tmpl.name = dflt;
@@ -669,7 +669,7 @@
     }
     if (!template) return;
     tmpl.template = template;
-    var component = components[name] || components[tmpl.name];
+    let component = components[name] || components[tmpl.name];
     if (isString(component)) {
       component = components[tmpl.ocomponent = component];
     }
@@ -700,19 +700,19 @@
   function render(options, dflt) {
     var tmpl = resolve(options, dflt);
     if (!tmpl) return;
-    var params = tmpl.params = Object.assign(tmpl.params || {}, options?.params);
+    const params = tmpl.params = Object.assign(tmpl.params || /* @__PURE__ */ Object.create(null), options?.params);
     params.$target = options.$target || params.$target || app.$target;
     trace("render:", options, tmpl.name, tmpl.params);
     const element = isElement(params.$target) || $(params.$target);
     if (!element) return;
-    var plugin = tmpl.component?.$type || options?.plugin || params.$plugin;
+    let plugin = tmpl.component?.$type || options?.plugin || params.$plugin;
     plugin = _plugins[plugin] || _default_plugin;
     if (!plugin?.render) return;
     if (params.$target == app.$target) {
-      var ev = { name: tmpl.name, params };
+      const ev = { name: tmpl.name, params };
       emit(app.event, "prepare:delete", ev);
       if (ev.stop) return;
-      var plugins = Object.values(_plugins);
+      const plugins = Object.values(_plugins);
       for (const p of plugins.filter((x) => x.cleanup)) {
         call(p.cleanup, element);
       }
@@ -756,7 +756,7 @@
   /**
     * Parses component path and returns an object with at least **{ name, params }** ready for rendering. External urls are ignored.
     *
-    * Passing an object will retun a shallow copy of it with name and params properties possibly set if not provided.
+    * Passing an object will return a shallow copy of it with name and params properties possibly set if not provided.
     *
     * The path can be:
     * - component name
@@ -772,10 +772,14 @@
     * @returns {Object} in format { name, params }
     */
   function parsePath(path) {
-    var rc = { name: "", params: {} }, query, loc = window.location;
+    const rc = Object.create(null, {
+      name: { value: "", writable: true, enumerable: true },
+      params: { value: /* @__PURE__ */ Object.create(null), writable: true, enumerable: true }
+    });
+    var query, loc = window.location;
     if (isObject(path)) return Object.assign(rc, path);
     if (!isString(path)) return rc;
-    var base = app.base;
+    const base = app.base;
     if (path.startsWith(loc.origin)) path = path.substr(loc.origin.length);
     if (path.includes("://")) path = path.replace(/^(.*:\/\/[^/]*)/, "");
     if (path.startsWith(base)) path = path.substr(base.length);
@@ -801,6 +805,7 @@
     }
     if (query) {
       for (const [key, value] of new URLSearchParams(query).entries()) {
+        if (key === "__proto___" || key === "constructor" || key === "prototype") continue;
         rc.params[key] = value;
       }
     }
@@ -817,9 +822,11 @@
   function savePath(options) {
     if (isString(options)) options = { name: options };
     if (!options?.name) return;
-    var path = [options.name];
+    let path = [options.name];
     if (options?.params) {
-      for (let i = 1; i < 7; i++) path.push(options.params[`param${i}`] || "");
+      for (let i = 1; i < 7; i++) {
+        path.push(options.params[`param${i}`] || "");
+      }
     }
     while (!path.at(-1)) path.length--;
     path = path.join("/");
@@ -864,15 +871,16 @@
   var fetchOptions = {
     method: "GET",
     cache: "default",
-    headers: {}
+    headers: /* @__PURE__ */ Object.create(null)
   };
   function parseOptions(url, options) {
-    const headers = options?.headers || {};
+    const headers = options?.headers || /* @__PURE__ */ Object.create(null);
     const opts = Object.assign({
       headers,
       method: options?.method || options?.post && "POST" || void 0
     }, options?.request);
     for (const p in fetchOptions.headers) {
+      if (p === "__proto___") continue;
       headers[p] ??= fetchOptions.headers[p];
     }
     for (const p of ["method", "cache", "credentials", "duplex", "integrity", "keepalive", "mode", "priority", "redirect", "referrer", "referrerPolicy", "signal"]) {
@@ -901,18 +909,15 @@
     return [url, opts];
   }
   function parseResponse(res) {
-    const info = { status: res.status, headers: {}, type: res.type, url: res.url, redirected: res.redirected };
+    const info = {
+      status: res.status,
+      headers: /* @__PURE__ */ Object.create(null),
+      type: res.type,
+      url: res.url,
+      redirected: res.redirected
+    };
     for (const h of res.headers) {
       info.headers[h[0].toLowerCase()] = h[1];
-    }
-    const h_csrf = fetchOptions.csrfHeader || "x-csrf-token";
-    const v_csrf = info?.headers[h_csrf];
-    if (v_csrf) {
-      if (v_csrf <= 0) {
-        delete fetchOptions.headers[h_csrf];
-      } else {
-        fetchOptions.headers[h_csrf] = v_csrf;
-      }
     }
     return info;
   }
@@ -953,7 +958,7 @@
         let err;
         if (/\/json/.test(ctype)) {
           const d = await res.json();
-          err = { status: res.status };
+          err = Object.create(null, { status: { value: res.status, enumerable: true } });
           for (const p in d) err[p] = d[p];
         } else {
           err = { message: await res.text(), status: res.status };
@@ -986,7 +991,7 @@
    * @class
    */
   var Component = class {
-    params = {};
+    params = /* @__PURE__ */ Object.create(null);
     constructor(name, params) {
       this.$name = name;
       Object.assign(this.params, params);
@@ -1016,7 +1021,7 @@
       off(app.event, this._handleEvent);
       emit("component:delete", { type: this.$type, name: this.$name, component: this, element: this.$el, params: this.params });
       call(this._onDelete?.bind(this));
-      this.params = {};
+      this.params = /* @__PURE__ */ Object.create(null);
       delete this.$root;
     }
   };
@@ -1083,7 +1088,7 @@
       if (!options) return;
     }
     $empty(element);
-    element._x_params = Object.assign({}, options.params);
+    element._x_params = Object.assign(/* @__PURE__ */ Object.create(null), options.params);
     _Alpine.onElRemoved(element, () => {
       delete element._x_params;
     });
