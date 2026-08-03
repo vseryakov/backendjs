@@ -14,6 +14,10 @@ describe('Users middleware tests', async () => {
     before(async () => {
         await ainit({ api: 1, noipc: 1, roles });
 
+        api.app.use("#0", "*", (context, next) => {
+            context.setCookie("test", "test");
+            next();
+        });
         api.app.all("/api/1", (context) => { context.send(200, "api") })
         api.app.all("/app/1", (context) => { context.send(200, "app") })
         api.app.all("/admin/1", (context) => { context.send(200, "admin") })
