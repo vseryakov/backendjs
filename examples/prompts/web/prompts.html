@@ -74,9 +74,9 @@
     <div class="d-flex flex-wrap">
         <template x-for="result in app.isArray(prompt.results, [])" :key="result.model">
 
-            <div class="m-2" draggable="true" x-draggable="result" :class="{ 'dragover': result._dragover, 'dragging': result._dragging }">
+            <div class="m-2" x-draggable="result" :class="{ 'dragover': result._dragover, 'dragging': result._dragging }">
 
-                <button class="btn m-2 p-2" data-bs-toggle="button" x-text="result.model" @click="show(prompt,result)" :class="result.error?'btn-outline-danger':'btn-outline-success'"></button>
+                <button class="btn m-2 p-2" draggable="true" data-bs-toggle="button" x-text="result.model" @click="show(prompt,result)" :class="result.error?'btn-outline-danger':'btn-outline-success'"></button>
 
                 <div class="text-bg-dark p-2 overflow-auto round border" x-show="result.width" :style="{maxWidth:result.width,maxHeight:prompt.height||'50vh'}">
                     <div class="mb-3 small opacity-75">
