@@ -74,7 +74,7 @@ const mod =
  * This is a wrapper around users table to support multiple databases with the same interface, makes it easy to
  * find users by id or login.
  *
- * Supports simple TOTP and email MFA code verification.
+ * Supports TOTP and email MFA code verification.
  *
  * User cookie sessions are stored in the `sessions` columns as a list of expiration time in ms. Every login or logout removes
  * expired sessions from the list. To login a session must be present in the list.
@@ -91,6 +91,17 @@ const mod =
  * # bksh -user-add login admin name admin secret XXXXX roles admin
  * '136ea1b9fb1778bd2d37096d'
  *
+ * ```
+ *
+ * ## Caching
+ *
+ * Caching will significantly speed up user verification and will avoid DB hits, using internal
+ * caching support is just a configuration:
+ *
+ * ```
+ * db-cache-tables = bk_user
+ * db-cache-ttl-bk_user = 3600000
+ * db-cache-name-bk_user = redis
  * ```
  */
 module.exports = {

@@ -94,7 +94,7 @@
     <dd class="tag-description"><ul class="dummy"><li><h2 id="users-table-management-and-db-operations">Users table management and DB operations</h2>
 <p>This is a wrapper around users table to support multiple databases with the same interface, makes it easy to
 find users by id or login.</p>
-<p>Supports simple TOTP and email MFA code verification.</p>
+<p>Supports TOTP and email MFA code verification.</p>
 <p>User cookie sessions are stored in the <code>sessions</code> columns as a list of expiration time in ms. Every login or logout removes
 expired sessions from the list. To login a session must be present in the list.</p>
 <p>To enable it just add a table name of your choice to the bkjs.conf</p>
@@ -104,6 +104,13 @@ expired sessions from the list. To login a session must be present in the list.<
 <pre class="prettyprint source lang-sh"><code># bksh -user-add login admin name admin secret XXXXX roles admin
 '136ea1b9fb1778bd2d37096d'
 
+</code></pre>
+<h2 id="caching">Caching</h2>
+<p>Caching will significantly speed up user verification and will avoid DB hits, using internal
+caching support is just a configuration:</p>
+<pre class="prettyprint source"><code>db-cache-tables = bk_user
+db-cache-ttl-bk_user = 3600000
+db-cache-name-bk_user = redis
 </code></pre></li></ul></dd>
     
 
@@ -112,7 +119,7 @@ expired sessions from the list. To login a session must be present in the list.<
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line43">line 43</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line54">line 54</a>
     </li></ul></dd>
     
 
@@ -221,7 +228,7 @@ expired sessions from the list. To login a session must be present in the list.<
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line50">line 50</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line61">line 61</a>
     </li></ul></dd>
     
 
@@ -282,7 +289,7 @@ expired sessions from the list. To login a session must be present in the list.<
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line76">line 76</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line87">line 87</a>
     </li></ul></dd>
     
 
@@ -348,7 +355,7 @@ expired sessions from the list. To login a session must be present in the list.<
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line62">line 62</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line73">line 73</a>
     </li></ul></dd>
     
 
@@ -414,7 +421,7 @@ expired sessions from the list. To login a session must be present in the list.<
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line100">line 100</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line111">line 111</a>
     </li></ul></dd>
     
 
@@ -869,7 +876,7 @@ when sent it is saved in the format: <code>code,expires,type</code>, a code, exp
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line69">line 69</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line80">line 80</a>
     </li></ul></dd>
     
 
@@ -944,7 +951,7 @@ when sent it is saved in the format: <code>code,expires,type</code>, a code, exp
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line286">line 286</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line297">line 297</a>
     </li></ul></dd>
     
 
@@ -1148,7 +1155,7 @@ const { err, data } = await api.users.aadd({ login: "john@mail.com", name: "John
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line463">line 463</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line474">line 474</a>
     </li></ul></dd>
     
 
@@ -1311,7 +1318,7 @@ const { err, data } = await api.users.aadd({ login: "john@mail.com", name: "John
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line255">line 255</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line266">line 266</a>
     </li></ul></dd>
     
 
@@ -1522,7 +1529,7 @@ const { err, data } = await api.users.aadd({ login: "john@mail.com", name: "John
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line390">line 390</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line401">line 401</a>
     </li></ul></dd>
     
 
@@ -1727,7 +1734,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line235">line 235</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line246">line 246</a>
     </li></ul></dd>
     
 
@@ -1930,7 +1937,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line720">line 720</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line731">line 731</a>
     </li></ul></dd>
     
 
@@ -2258,7 +2265,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line778">line 778</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line789">line 789</a>
     </li></ul></dd>
     
 
@@ -2416,7 +2423,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line333">line 333</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line344">line 344</a>
     </li></ul></dd>
     
 
@@ -2619,7 +2626,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line439">line 439</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line450">line 450</a>
     </li></ul></dd>
     
 
@@ -2781,7 +2788,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line427">line 427</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line438">line 438</a>
     </li></ul></dd>
     
 
@@ -2939,7 +2946,7 @@ const { err, data } = await api.users.adel({ login: "john@mail.com" });</code></
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line354">line 354</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line365">line 365</a>
     </li></ul></dd>
     
 
@@ -3149,7 +3156,7 @@ api.users.del({ login: "john@mail.com" }, lib.log);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line202">line 202</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line213">line 213</a>
     </li></ul></dd>
     
 
@@ -3353,7 +3360,7 @@ it is <a href="module-lib.html#.isUuid"><code>module:lib.isUuid</code></a> with 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line413">line 413</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line424">line 424</a>
     </li></ul></dd>
     
 
@@ -3521,7 +3528,7 @@ against brute force enumerations</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line630">line 630</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line641">line 641</a>
     </li></ul></dd>
     
 
@@ -3856,7 +3863,7 @@ Passing <code>&amp;force=1</code> in the query url will clear all sessions for a
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line749">line 749</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line760">line 760</a>
     </li></ul></dd>
     
 
@@ -4011,7 +4018,7 @@ Passing <code>&amp;force=1</code> in the query url will clear all sessions for a
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line589">line 589</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line600">line 600</a>
     </li></ul></dd>
     
 
@@ -4288,7 +4295,7 @@ sendmail.send({ to: user.login, subject: "Verification code", text: `Your verifi
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line526">line 526</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line537">line 537</a>
     </li></ul></dd>
     
 
@@ -4443,7 +4450,7 @@ sendmail.send({ to: user.login, subject: "Verification code", text: `Your verifi
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line613">line 613</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line624">line 624</a>
     </li></ul></dd>
     
 
@@ -4612,7 +4619,7 @@ await api.users.aupdate({ login: user.login, totp_secret: user.totp_secret });</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line307">line 307</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line318">line 318</a>
     </li></ul></dd>
     
 
@@ -4820,7 +4827,7 @@ await api.users.aupdate({ login: user.login, totp_secret: user.totp_secret });</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line482">line 482</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line493">line 493</a>
     </li></ul></dd>
     
 
@@ -4975,7 +4982,7 @@ await api.users.aupdate({ login: user.login, totp_secret: user.totp_secret });</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line545">line 545</a>
+        <a href="lib_api_users.js.html">lib/api/users.js</a>, <a href="lib_api_users.js.html#line556">line 556</a>
     </li></ul></dd>
     
 
