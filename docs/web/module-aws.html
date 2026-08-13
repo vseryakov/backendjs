@@ -2944,7 +2944,7 @@ Options:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1109">line 1109</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1108">line 1108</a>
     </li></ul></dd>
     
 
@@ -3042,7 +3042,7 @@ Options:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1071">line 1071</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1070">line 1070</a>
     </li></ul></dd>
     
 
@@ -3118,7 +3118,7 @@ Options:</p>
 
     
 
-    <h4 class="name" id=".ddbCreateTable"><span class="type-signature type-signature-static">(static) </span>ddbCreateTable<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id=".ddbCreateTable"><span class="type-signature type-signature-static">(static) </span>ddbCreateTable<span class="signature">(options)</span><span class="type-signature"></span></h4>
 
     
 
@@ -3128,24 +3128,7 @@ Options:</p>
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Create a table</p>
-<ul>
-<li>attrs can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS</li>
-<li>options may contain any valid native property if it starts with capital letter and the following:
-<ul>
-<li>waitTimeout - number of milliseconds to wait for ACTIVE status</li>
-<li>waitDelay - how often to pool for table status, default is 250ms</li>
-<li>keys is an array of column ids used for the primary key or a string with the hash key. if omitted, the first attribute will be used for the primary key</li>
-<li>local - an object with each property for a local secondary index name defining key format the same way as for primary keys, all Uppercase properties are added to the top index object</li>
-<li>global - an object for global secondary indexes, same format as for local indexes</li>
-<li>projections - an object with index name and list of projected properties to be included in the index or &quot;ALL&quot; for all properties, if omitted then default KEYS_ONLY is assumed</li>
-<li>readCapacity - read capacity units for provisioned throughput</li>
-<li>writeCapacity - write capacity units</li>
-<li>onDemand - billing mode, auto provision capacity and pay per request, if no read/write capacity is configured on-demand is the default</li>
-<li>stream - enable stream support</li>
-</ul>
-</li>
-</ul></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Create a table</p></li></ul></dd>
     
 
     
@@ -3153,7 +3136,7 @@ Options:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line480">line 480</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line524">line 524</a>
     </li></ul></dd>
     
 
@@ -3198,6 +3181,383 @@ Options:</p>
 
 
 
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                object
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>may contain any valid native property if it starts with capital letter and the following:</p>
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>waitTimeout</code></td>
+            
+
+            <td class="type">
+            
+                number
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>number of milliseconds to wait for ACTIVE status</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>waitDelay</code></td>
+            
+
+            <td class="type">
+            
+                number
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>how often to pool for table status, default is 250ms</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>attrs</code></td>
+            
+
+            <td class="type">
+            
+                Array.&lt;string> | object
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>can be an array in native DDB JSON format or an object with name:type properties, type is one of S, N, NN, NS, BS, if not provided
+attributes from keys will be added with type S</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>keys</code></td>
+            
+
+            <td class="type">
+            
+                Array.&lt;string>
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>is an array of column ids used for the primary key or a string with the hash key. if omitted, the first attribute
+will be used for the primary key</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>local</code></td>
+            
+
+            <td class="type">
+            
+                object
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>an object with each property for a local secondary index name, special properties are:
+<code>projection, readCapacity, writeCapacity</code>, other properties are key schema, first is HASH, second is RANGE</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>global</code></td>
+            
+
+            <td class="type">
+            
+                object
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>an object for global secondary indexes, same format as for local indexes</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>readCapacity</code></td>
+            
+
+            <td class="type">
+            
+                number
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>read capacity units for provisioned throughput</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>writeCapacity</code></td>
+            
+
+            <td class="type">
+            
+                number
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>write capacity units</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>onDemand</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>billing mode, auto provision capacity and pay per request, if no read/write capacity is configured on-demand is the default</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>stream</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>enable stream support</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
 
 
 
@@ -3218,15 +3578,27 @@ Options:</p>
 
     <h5 class="h5-examples">Example</h5>
     
-    <pre class="prettyprint"><code>ddbCreateTable('users', { id: 'S', mtime: 'N', name: 'S'},
-                                 { keys: ["id", "name"],
-                                   local: { mtime: { mtime: "HASH" } },
-                                   global: { name: { name: 'HASH', ProvisionedThroughput: { ReadCapacityUnits: 50 } } },
-                                   projections: { mtime: ['gender','age'],
-                                                  name: ['name','gender'] },
-                                   stream: "NEW_IMAGE",
-                                   readCapacity: 10,
-                                   writeCapacity: 10 });</code></pre>
+    <pre class="prettyprint"><code>aws.ddbCreateTable('users',
+                   {
+                       keys: ["id", "name"],
+                       attrs: { id: 'S', name: 'S' },
+                       local: {
+                           mtime: {
+                               mtime: "N",
+                               projection: "ALL",
+                           }
+                       },
+                       global: {
+                           name: {
+                              name: 'N',
+                              projection: ['name','gender'],
+                              readCapacity: 5,
+                           }
+                       },
+                       stream: "NEW_IMAGE",
+                       readCapacity: 10,
+                       writeCapacity: 10
+});</code></pre>
 
 
 
@@ -3268,7 +3640,7 @@ for ExpressionAttributeNames parameter</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1024">line 1024</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1023">line 1023</a>
     </li></ul></dd>
     
 
@@ -3363,7 +3735,7 @@ By default the callback will ba callled only after the table is deleted, specify
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line767">line 767</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line766">line 766</a>
     </li></ul></dd>
     
 
@@ -3452,7 +3824,7 @@ By default the callback will ba callled only after the table is deleted, specify
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line462">line 462</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line506">line 506</a>
     </li></ul></dd>
     
 
@@ -3546,7 +3918,7 @@ By default the callback will ba callled only after the table is deleted, specify
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line752">line 752</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line751">line 751</a>
     </li></ul></dd>
     
 
@@ -3646,7 +4018,7 @@ for ExpressionAttributeNames parameter</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1146">line 1146</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1145">line 1145</a>
     </li></ul></dd>
     
 
@@ -3740,7 +4112,7 @@ for ExpressionAttributeNames parameter</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line430">line 430</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line474">line 474</a>
     </li></ul></dd>
     
 
@@ -3844,7 +4216,7 @@ for ExpressionAttributeNames parameter</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line821">line 821</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line820">line 820</a>
     </li></ul></dd>
     
 
@@ -3961,7 +4333,7 @@ for ExpressionAttributeNames parameter</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1186">line 1186</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1185">line 1185</a>
     </li></ul></dd>
     
 
@@ -4071,7 +4443,7 @@ for ExpressionAttributeNames parameter</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1278">line 1278</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1277">line 1277</a>
     </li></ul></dd>
     
 
@@ -4170,7 +4542,7 @@ for ExpressionAttributeNames parameter</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1337">line 1337</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line1336">line 1336</a>
     </li></ul></dd>
     
 
@@ -4292,7 +4664,7 @@ from <code>options.ops</code> the same way as for queries.</li>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line868">line 868</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line867">line 867</a>
     </li></ul></dd>
     
 
@@ -4370,7 +4742,7 @@ ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png'
 
     
 
-    <h4 class="name" id=".ddbUpdateTable"><span class="type-signature type-signature-static">(static) </span>ddbUpdateTable<span class="signature">()</span><span class="type-signature"></span></h4>
+    <h4 class="name" id=".ddbUpdateTable"><span class="type-signature type-signature-static">(static) </span>ddbUpdateTable<span class="signature">(options, callback)</span><span class="type-signature"></span></h4>
 
     
 
@@ -4381,18 +4753,7 @@ ddbUpdateItem("users", { id: 1, name: "john" }, { gender: 'male', icons: '1.png'
     
     <dt class="tag-description">Description:</dt>
     <dd class="tag-description"><ul class="dummy"><li><p>Update tables provisioned throughput settings, options is used instead of table name so this call can be used directly in the cron jobs to adjust
-provisionined throughput on demand.
-Options must provide the following properties:</p>
-<ul>
-<li>name - table name</li>
-<li>readCapacity and writeCapacity - new povisioned throughtput settings, both must be specified</li>
-<li>stream - null to disable or one of the NEW_IMAGE | OLD_IMAGE | NEW_AND_OLD_IMAGES | KEYS_ONLY</li>
-<li>add - an object with indexes to create</li>
-<li>del - delete a global secondary index by name, a string or a list with multiple indexes</li>
-<li>update - an object with indexes to update</li>
-<li>waitTimeout - how long to wait in ms until the table is active again</li>
-<li>onDemand - true to switch to pat per request mode, false to switch to provisioning mode</li>
-</ul></li></ul></dd>
+provisionined throughput on demand.</p></li></ul></dd>
     
 
     
@@ -4400,7 +4761,7 @@ Options must provide the following properties:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line608">line 608</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line642">line 642</a>
     </li></ul></dd>
     
 
@@ -4445,6 +4806,338 @@ Options must provide the following properties:</p>
 
 
 
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                object
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>table name</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>readCapacity</code></td>
+            
+
+            <td class="type">
+            
+                number
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>and writeCapacity - new povisioned throughtput settings, both must be specified</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>stream</code></td>
+            
+
+            <td class="type">
+            
+                null | string
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>null to disable or one of the NEW_IMAGE | OLD_IMAGE | NEW_AND_OLD_IMAGES | KEYS_ONLY</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>add</code></td>
+            
+
+            <td class="type">
+            
+                object
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>an object with indexes to create { hash, range, projections, readCapacity, writeCapacity }</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>del</code></td>
+            
+
+            <td class="type">
+            
+                object
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>delete a global secondary index by name, a string or a list with multiple indexes</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>update</code></td>
+            
+
+            <td class="type">
+            
+                object
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>an object with indexes to update</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>waitTimeout</code></td>
+            
+
+            <td class="type">
+            
+                number
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>how long to wait in ms until the table is active again</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>onDemand</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>true to switch to pat per request mode, false to switch to provisioning mode</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>callback</code></td>
+            
+
+            <td class="type">
+            
+                function()
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
 
 
 
@@ -4465,8 +5158,8 @@ Options must provide the following properties:</p>
 
     <h5 class="h5-examples">Examples</h5>
     
-    <pre class="prettyprint"><code>aws.ddbUpdateTable({ name: "users", add: { name_id: { name: "S", id: 'N', readCapacity: 20, writeCapacity: 20, projections: ["mtime","email"] } })
-aws.ddbUpdateTable({ name: "users", add: { name: { name: "S", readCapacity: 20, writeCapacity: 20, projections: ["mtime","email"] } })
+    <pre class="prettyprint"><code>aws.ddbUpdateTable({ name: "users", add: { name_id: { name: "S", id: 'N', readCapacity: 20, writeCapacity: 20, projection: ["mtime","email"] } })
+aws.ddbUpdateTable({ name: "users", add: { name: { name: "S", readCapacity: 20, writeCapacity: 20, projection: "ALL" } })
 aws.ddbUpdateTable({ name: "users", del: "name" })
 aws.ddbUpdateTable({ name: "users", update: { name: { readCapacity: 10, writeCapacity: 10 } })</code></pre>
 
@@ -4510,7 +5203,7 @@ The options properties:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line731">line 731</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line730">line 730</a>
     </li></ul></dd>
     
 
@@ -4601,7 +5294,7 @@ while the status is equal to it. options.waitDelay can be specified how often to
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line783">line 783</a>
+        <a href="lib_aws_dynamodb.js.html">lib/aws/dynamodb.js</a>, <a href="lib_aws_dynamodb.js.html#line782">line 782</a>
     </li></ul></dd>
     
 
@@ -10873,7 +11566,7 @@ this is sent in the X-Amz-Target header</p></td>
             
 
             <td class="description last"><p>The parameters for the SQL statement as a list of objects
-<code>{ name, [stringValue, longValue, doubleValue, booleanValue, isNull, arrayValue[stringValues,longValues]] [, typeHint] }</code></p></td>
+<code>{ name, value: { [stringValue|longValue|doubleValue|booleanValue|isNull|arrayValue[stringValues|longValues|doubleValues]] } [, typeHint] }</code></p></td>
         </tr>
 
     
@@ -10904,6 +11597,36 @@ this is sent in the X-Amz-Target header</p></td>
             
 
             <td class="description last"><p>A value that indicates whether to include metadata in the results.</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>convertResult</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>if true convert records into native Javascript array of objects with properties being column names</p></td>
         </tr>
 
     
@@ -10954,6 +11677,26 @@ this is sent in the X-Amz-Target header</p></td>
 
 
 
+
+
+    <h5 class="h5-examples">Examples</h5>
+    
+    <pre class="prettyprint"><code>aws.rdsDataExecuteStatement({
+    database: "mydb",
+    resourceArn: "arn:aws:rds:us-east-1:123456789012:cluster:mydbcluster",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret:mysecret",
+    sql: "insert into mytable values (:id, :val)",
+    parameters: [{ name: "id", value: { longValue: 1 } },
+                 { name: "val", value: { stringValue: "value1" } }]
+}, lib.log)</code></pre>
+
+    <pre class="prettyprint"><code>aws.rdsDataExecuteStatement({
+    database: "mydb",
+    resourceArn: "arn:aws:rds:us-east-1:123456789012:cluster:mydbcluster",
+    secretArn: "arn:aws:secretsmanager:us-east-1:123456789012:secret:mysecret",
+    sql: "select * from mytable",
+    convertResult: true,
+}, lib.log)</code></pre>
 
 
 

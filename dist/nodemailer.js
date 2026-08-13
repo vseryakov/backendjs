@@ -552,7 +552,7 @@ var require_package = __commonJS({
   "../../.bkjs/lib/node_modules/nodemailer/package.json"(exports2, module2) {
     module2.exports = {
       name: "nodemailer",
-      version: "9.0.3",
+      version: "9.0.5",
       description: "Easy as cake e-mail sending from your Node.js applications",
       main: "lib/nodemailer.js",
       scripts: {
@@ -579,19 +579,19 @@ var require_package = __commonJS({
       },
       homepage: "https://nodemailer.com/",
       devDependencies: {
-        "@aws-sdk/client-sesv2": "3.1068.0",
+        "@aws-sdk/client-sesv2": "3.1104.0",
         bunyan: "1.8.15",
-        c8: "11.0.0",
-        eslint: "10.5.0",
+        c8: "12.0.0",
+        eslint: "10.8.0",
         "eslint-config-prettier": "10.1.8",
-        globals: "17.6.0",
+        globals: "17.9.0",
         libbase64: "1.3.0",
-        libmime: "5.3.8",
+        libmime: "5.4.1",
         libqp: "2.1.1",
-        prettier: "3.8.4",
+        prettier: "3.9.6",
         proxy: "1.0.2",
         "proxy-test-server": "1.0.0",
-        "smtp-server": "3.19.0"
+        "smtp-server": "3.19.2"
       },
       engines: {
         node: ">=6.0.0"
@@ -3814,12 +3814,30 @@ var require_mime_funcs = __commonJS({
       /**
        * Checks if a value is plaintext string (uses only printable 7bit chars)
        *
+       * When isParam is set the value is destined for a header parameter, so HT, CR and LF
+       * are not plaintext either: a header parameter has no way to carry them. HT is a valid
+       * fold point, so folding and unfolding a header would rewrite it as a space, and CR/LF
+       * cannot appear in a header value at all. DEL is neither a token character nor qtext,
+       * so it can not be carried bare or quoted. Such values have to go through the rfc2231
+       * parameter continuation encoding instead, the same way a quote already does.
+       *
        * @param {String} value String to be tested
+       * @param {Boolean} [isParam] Set to true if the value is a header parameter value
        * @returns {Boolean} true if it is a plaintext string
        */
       isPlainText(value, isParam) {
-        const re = isParam ? /[\x00-\x08\x0b\x0c\x0e-\x1f"\u0080-\uFFFF]/ : /[\x00-\x08\x0b\x0c\x0e-\x1f\u0080-\uFFFF]/;
+        const re = isParam ? /[\x00-\x1f\x7f"\u0080-\uFFFF]/ : /[\x00-\x08\x0b\x0c\x0e-\x1f\u0080-\uFFFF]/;
         return typeof value === "string" && !re.test(value);
+      },
+      /**
+       * Wraps a value into a quoted-string. Inside one a quote would end the string early
+       * and a backslash would escape whatever follows it, so both go out as quoted-pairs.
+       *
+       * @param {String} value String to be quoted
+       * @returns {String} The value as a quoted-string, quotes included
+       */
+      quoteString(value) {
+        return '"' + (value || "").toString().replace(/["\\]/g, "\\$&") + '"';
       },
       /**
        * Checks if a multi line string containes lines longer than the selected value.
@@ -3874,7 +3892,7 @@ var require_mime_funcs = __commonJS({
             let lpart = "";
             for (let i = 0, len = encodedStr.length; i < len; i++) {
               let chr = encodedStr.charAt(i);
-              if (/[\ud83c\ud83d\ud83e]/.test(chr) && i < len - 1) {
+              if (/[\ud800-\udbff]/.test(chr) && /[\udc00-\udfff]/.test(encodedStr.charAt(i + 1))) {
                 chr += encodedStr.charAt(++i);
               }
               if (Buffer.byteLength(lpart + chr) <= maxLength || i === 0) {
@@ -3935,23 +3953,25 @@ var require_mime_funcs = __commonJS({
        */
       buildHeaderValue(structured) {
         const paramsArray = [];
-        Object.keys(structured.params || {}).forEach((param) => {
-          const value = structured.params[param];
-          if (!this.isPlainText(value, true) || value.length >= 75) {
-            this.buildHeaderParam(param, value, 50).forEach((encodedParam) => {
+        Object.keys(structured.params || {}).forEach((key) => {
+          const value2 = structured.params[key];
+          const param = key.replace(/[\x00-\x1f\x7f]/g, "");
+          if (!this.isPlainText(value2, true) || value2.length >= 75) {
+            this.buildHeaderParam(param, value2, 50).forEach((encodedParam) => {
               if (!/[\s"\\;:/=(),<>@[\]?]|^[-']|'$/.test(encodedParam.value) || encodedParam.key.substr(-1) === "*") {
                 paramsArray.push(encodedParam.key + "=" + encodedParam.value);
               } else {
                 paramsArray.push(encodedParam.key + "=" + JSON.stringify(encodedParam.value));
               }
             });
-          } else if (/[\s'"\\;:/=(),<>@[\]?]|^-/.test(value)) {
-            paramsArray.push(param + "=" + JSON.stringify(value));
+          } else if (/[\s'"\\;:/=(),<>@[\]?]|^-/.test(value2)) {
+            paramsArray.push(param + "=" + JSON.stringify(value2));
           } else {
-            paramsArray.push(param + "=" + value);
+            paramsArray.push(param + "=" + value2);
           }
         });
-        return structured.value + (paramsArray.length ? "; " + paramsArray.join("; ") : "");
+        const value = typeof structured.value === "string" ? structured.value.replace(/[\x00-\x1f\x7f]/g, "") : structured.value;
+        return value + (paramsArray.length ? "; " + paramsArray.join("; ") : "");
       },
       /**
        * Encodes a string or an Buffer to an UTF-8 Parameter Value Continuation encoding (rfc2231)
@@ -3971,7 +3991,7 @@ var require_mime_funcs = __commonJS({
       buildHeaderParam(key, data, maxLength) {
         const list = [];
         let encodedStr = typeof data === "string" ? data : (data || "").toString();
-        let chr, ord;
+        let chr;
         let line;
         let startPos = 0;
         let i, len;
@@ -4001,8 +4021,7 @@ var require_mime_funcs = __commonJS({
             const encodedStrArr = [];
             for (i = 0, len = encodedStr.length; i < len; i++) {
               chr = encodedStr.charAt(i);
-              ord = chr.charCodeAt(0);
-              if (ord >= 55296 && ord <= 56319 && i < len - 1) {
+              if (/[\ud800-\udbff]/.test(chr) && /[\udc00-\udfff]/.test(encodedStr.charAt(i + 1))) {
                 chr += encodedStr.charAt(i + 1);
                 encodedStrArr.push(chr);
                 i++;
@@ -4028,7 +4047,7 @@ var require_mime_funcs = __commonJS({
                     encoded
                   });
                   line = "";
-                  startPos = i - 1;
+                  encoded = true;
                 } else {
                   encoded = true;
                   i = startPos;
@@ -4286,7 +4305,7 @@ var require_mime_funcs = __commonJS({
         try {
           str = encodeURIComponent(str);
         } catch (_E) {
-          return str.replace(/[^\x00-\x1F *'()<>@,;:\\"[\]?=\u007F-\uFFFF]+/g, "");
+          str = encodeURIComponent(Buffer.from(str, "utf-8").toString("utf-8"));
         }
         return str.replace(/[\x00-\x1F *'()<>@,;:\\"[\]?=\u007F-\uFFFF]/g, (chr) => this.encodeURICharComponent(chr));
       }
@@ -4298,6 +4317,17 @@ var require_mime_funcs = __commonJS({
 var require_addressparser = __commonJS({
   "../../.bkjs/lib/node_modules/nodemailer/lib/addressparser/index.js"(exports2, module2) {
     "use strict";
+    function _quoteLocalPart(address) {
+      const lastAt = address.lastIndexOf("@");
+      if (lastAt < 0) {
+        return address;
+      }
+      const user = address.substr(0, lastAt);
+      if (/^[^\s"(),:;<>@[\\\]]+$/.test(user) || /^"(?:[^"\\]|\\[\s\S])*"$/.test(user)) {
+        return address;
+      }
+      return '"' + user.replace(/["\\]/g, "\\$&") + '"@' + address.substr(lastAt + 1);
+    }
     function _handleAddress(tokens, depth) {
       let isGroup = false;
       let state = "text";
@@ -4410,6 +4440,7 @@ var require_addressparser = __commonJS({
         if (data.address.length > 1) {
           data.text = data.text.concat(data.address.splice(1));
         }
+        const addressFromQuotedText = !data.address.length && data.textWasQuoted.some((wasQuoted) => wasQuoted);
         data.text = data.text.join(" ");
         data.address = data.address.join(" ");
         const address = {
@@ -4422,6 +4453,9 @@ var require_addressparser = __commonJS({
           } else {
             address.address = "";
           }
+        }
+        if (addressFromQuotedText && address.address) {
+          address.address = _quoteLocalPart(address.address);
         }
         addresses.push(address);
       }
@@ -4715,6 +4749,10 @@ var require_mime_node = __commonJS({
     var LeWindows = require_le_windows();
     var LeUnix = require_le_unix();
     var FORMATTED_HEADERS = ["From", "Sender", "To", "Cc", "Bcc", "Reply-To", "Date", "References"];
+    var ATEXT = "[A-Za-z0-9!#$%&'*+\\-/=?^_`{|}~\\x80-\\uFFFF]";
+    var DOT_ATOM = new RegExp("^" + ATEXT + "+(?:\\." + ATEXT + "+)*$");
+    var QUOTED_STRING = /^"(?:[^"\\]|\\[\s\S])*"$/;
+    var PLAIN_ADDRESS = /^[^\s"(),:;<>@[\\\]]+@[^\s"(),:;<>@[\\\]]+$/;
     var MimeNode = class _MimeNode {
       constructor(contentType, options) {
         this.nodeCounter = 0;
@@ -5069,15 +5107,16 @@ var require_mime_node = __commonJS({
               break;
             case "Content-Type":
               structured = mimeFuncs.parseHeaderValue(value);
+              structured.value = (structured.value || "").toString().replace(/[\x00-\x1f\x7f]/g, "");
               this._handleContentType(structured);
               if (structured.value.match(/^text\/plain\b/) && typeof this.content === "string" && /[\u0080-\uFFFF]/.test(this.content)) {
                 structured.params.charset = "utf-8";
               }
               value = mimeFuncs.buildHeaderValue(structured);
               if (this.filename) {
-                param = this._encodeWords(this.filename);
+                param = /[\x00-\x1f\x7f]/.test(this.filename) ? mimeFuncs.encodeWord(this.filename, this._getTextEncoding(this.filename), 52) : this._encodeWords(this.filename);
                 if (param !== this.filename || /[\s'"\\;:/=(),<>@[\]?]|^-/.test(param)) {
-                  param = '"' + param + '"';
+                  param = JSON.stringify(param);
                 }
                 value += "; name=" + param;
               }
@@ -5094,8 +5133,9 @@ var require_mime_node = __commonJS({
           }
           if (typeof this.normalizeHeaderKey === "function") {
             const normalized = this.normalizeHeaderKey(key, value);
-            if (normalized && typeof normalized === "string" && normalized.length) {
-              key = normalized;
+            const cleaned = typeof normalized === "string" ? normalized.replace(/[\x00-\x1f\x7f]/g, "") : "";
+            if (cleaned) {
+              key = cleaned;
             }
           }
           headers.push(mimeFuncs.foldLines(key + ": " + value, 76));
@@ -5296,7 +5336,7 @@ var require_mime_node = __commonJS({
         };
         if (envelope.from) {
           list = [];
-          this._convertAddresses(this._parseAddresses(envelope.from), list);
+          this._convertAddresses(this._parseEnvelopeAddresses(envelope.from), list);
           list = list.filter((address) => address && address.address);
           if (list.length && list[0]) {
             this._envelope.from = list[0].address;
@@ -5304,7 +5344,7 @@ var require_mime_node = __commonJS({
         }
         ["to", "cc", "bcc"].forEach((key) => {
           if (envelope[key]) {
-            this._convertAddresses(this._parseAddresses(envelope[key]), this._envelope.to);
+            this._convertAddresses(this._parseEnvelopeAddresses(envelope[key]), this._envelope.to);
           }
         });
         this._envelope.to = this._envelope.to.map((to) => to.address).filter((address) => address);
@@ -5459,13 +5499,57 @@ var require_mime_node = __commonJS({
           [],
           [].concat(addresses).map((address) => {
             if (address && address.address) {
-              address.address = this._normalizeAddress(address.address);
-              address.name = address.name || "";
-              return [address];
+              const normalized = this._normalizeAddress(address.address);
+              if (normalized === address.address && typeof address.name === "string") {
+                return [address];
+              }
+              const copy = Object.assign({}, address);
+              copy.address = normalized;
+              copy.name = address.name || "";
+              return [copy];
             }
-            return addressparser(address);
+            return this._normalizeParsedAddresses(addressparser(address));
           })
         );
+      }
+      /**
+       * Normalizes the addresses of a freshly parsed address list, groups included.
+       *
+       * Everything this method returns carries a normalized address, whether it arrived as an
+       * object or was parsed out of a header value. Without this the two shapes disagree, and
+       * a consumer reading the parsed form back is handed the ambiguous
+       * 'user@evil.com@good.com' that the header and the envelope no longer carry.
+       *
+       * @param {Array} parsed An array of address objects, as returned by addressparser
+       * @return {Array} The same array, with every address normalized
+       */
+      _normalizeParsedAddresses(parsed) {
+        parsed.forEach((entry) => {
+          if (entry.address) {
+            entry.address = this._normalizeAddress(entry.address);
+          } else if (entry.group) {
+            this._normalizeParsedAddresses(entry.group);
+          }
+        });
+        return parsed;
+      }
+      /**
+       * Parses the addresses of an explicitly set envelope.
+       *
+       * An envelope value is an addr-spec and never a display name, so a bare local username
+       * such as 'root' is the address here. Header parsing has to read the same value as a
+       * display name, as a value with no '@' in it can not be an addr-spec in a header.
+       *
+       * @param {Mixed} addresses Addresses to be parsed
+       * @return {Array} An array of address objects
+       */
+      _parseEnvelopeAddresses(addresses) {
+        return this._parseAddresses(addresses).map((entry) => {
+          if (entry.address || entry.group || !entry.name || /[\s@]/.test(entry.name)) {
+            return entry;
+          }
+          return { address: this._normalizeAddress(entry.name), name: "" };
+        });
       }
       /**
        * Normalizes a header key, uses Camel-Case form, except for uppercase MIME-
@@ -5474,7 +5558,7 @@ var require_mime_node = __commonJS({
        * @return {String} key in Camel-Case form
        */
       _normalizeHeaderKey(key) {
-        key = (key || "").toString().replace(/\r?\n|\r/g, " ").trim().toLowerCase().replace(/^X-SMTPAPI$|^(MIME|DKIM|ARC|BIMI)\b|^[a-z]|-(SPF|FBL|ID|MD5)$|-[a-z]/gi, (c) => c.toUpperCase()).replace(/^Content-Features$/i, "Content-features");
+        key = (key || "").toString().replace(/\r?\n|\r/g, " ").replace(/[\x00-\x1f\x7f]/g, "").trim().toLowerCase().replace(/^X-SMTPAPI$|^(MIME|DKIM|ARC|BIMI)\b|^[a-z]|-(SPF|FBL|ID|MD5)$|-[a-z]/gi, (c) => c.toUpperCase()).replace(/^Content-Features$/i, "Content-features");
         return key;
       }
       /**
@@ -5521,7 +5605,7 @@ var require_mime_node = __commonJS({
           case "Message-ID":
           case "In-Reply-To":
           case "Content-Id":
-            value = (value || "").toString().replace(/\r?\n|\r/g, " ");
+            value = (value || "").toString().replace(/\r?\n|\r/g, " ").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
             if (value.charAt(0) !== "<") {
               value = "<" + value;
             }
@@ -5534,7 +5618,7 @@ var require_mime_node = __commonJS({
             value = [].concat.apply(
               [],
               [].concat(value || "").map((elm) => {
-                elm = (elm || "").toString().replace(/\r?\n|\r/g, " ").trim();
+                elm = (elm || "").toString().replace(/\r?\n|\r/g, " ").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "").trim();
                 return elm.replace(/<[^>]*>/g, (str) => str.replace(/\s/g, "")).split(/\s+/);
               })
             ).map((elm) => {
@@ -5552,13 +5636,13 @@ var require_mime_node = __commonJS({
               return value.toUTCString().replace(/GMT/, "+0000");
             }
             value = (value || "").toString().replace(/\r?\n|\r/g, " ");
-            return this._encodeWords(value);
+            return this._encodeHeaderText(value);
           case "Content-Type":
           case "Content-Disposition":
             return (value || "").toString().replace(/\r?\n|\r/g, " ");
           default:
             value = (value || "").toString().replace(/\r?\n|\r/g, " ");
-            return this._encodeWords(value);
+            return this._encodeHeaderText(value);
         }
       }
       /**
@@ -5575,7 +5659,7 @@ var require_mime_node = __commonJS({
           if (address.address) {
             address.address = this._normalizeAddress(address.address);
             if (!address.name) {
-              values.push(address.address.indexOf(" ") >= 0 ? `<${address.address}>` : `${address.address}`);
+              values.push(PLAIN_ADDRESS.test(address.address) ? address.address : `<${address.address}>`);
             } else {
               values.push(`${this._encodeAddressName(address.name)} <${address.address}>`);
             }
@@ -5596,12 +5680,15 @@ var require_mime_node = __commonJS({
        * @return {String} address string
        */
       _normalizeAddress(address) {
-        address = (address || "").toString().replace(/[\x00-\x1F<>]+/g, " ").trim();
-        const lastAt = address.lastIndexOf("@");
-        if (lastAt < 0) {
+        address = (address || "").toString().replace(/[\x00-\x1F\x7F<>]+/g, " ").trim();
+        if (!address) {
           return address;
         }
-        let user = address.substr(0, lastAt);
+        const lastAt = address.lastIndexOf("@");
+        if (lastAt < 0) {
+          return this._normalizeLocalPart(address);
+        }
+        const user = address.substr(0, lastAt);
         const domain = address.substr(lastAt + 1);
         let encodedDomain = domain;
         try {
@@ -5612,15 +5699,25 @@ var require_mime_node = __commonJS({
           }
         } catch (_err) {
         }
-        if (user.indexOf(" ") >= 0) {
-          if (user.charAt(0) !== '"') {
-            user = '"' + user;
-          }
-          if (user.substr(-1) !== '"') {
-            user = user + '"';
-          }
+        return `${this._normalizeLocalPart(user)}@${encodedDomain}`;
+      }
+      /**
+       * Normalizes the local part of an address into a form that can be emitted as is.
+       *
+       * A local part is either a dot-atom or a quoted-string, anything else is not a valid
+       * addr-spec. The quotes of a quoted local part get lost along the way, and a bare
+       * 'user@evil.com@good.com' leaves it to the receiver which '@' splits the domain off,
+       * while the split here is always at the last one. So whatever is not already one of
+       * the two valid forms goes back out as a quoted-string.
+       *
+       * @param {String} user Local part of an address
+       * @return {String} Local part as a dot-atom or as a quoted-string
+       */
+      _normalizeLocalPart(user) {
+        if (DOT_ATOM.test(user) || QUOTED_STRING.test(user)) {
+          return user;
         }
-        return `${user}@${encodedDomain}`;
+        return mimeFuncs.quoteString(user);
       }
       /**
        * If needed, mime encodes the name part
@@ -5631,12 +5728,26 @@ var require_mime_node = __commonJS({
       _encodeAddressName(name) {
         if (!/^[\w ]*$/.test(name)) {
           if (/^[\x20-\x7e]*$/.test(name)) {
-            return '"' + name.replace(/([\\"])/g, "\\$1") + '"';
+            return mimeFuncs.quoteString(name);
           } else {
             return mimeFuncs.encodeWord(name, this._getTextEncoding(name), 52);
           }
         }
         return name;
+      }
+      /**
+       * Encodes an unstructured header value. Such a value can only carry VCHAR and WSP, so a
+       * control char or DEL has to be forced into the mime encoded word that a non-ascii value
+       * would get anyway. HT stays as it is, it is valid folding whitespace here.
+       *
+       * @param {String} value Header value to encode
+       * @returns {String} Mime word encoded string if needed
+       */
+      _encodeHeaderText(value) {
+        return /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(value) ? mimeFuncs.encodeWord(value, this._getTextEncoding(value), 52) : (
+          // encodeWords only encodes if needed, otherwise the original string is returned
+          this._encodeWords(value)
+        );
       }
       /**
        * If needed, mime encodes the name part
@@ -6439,15 +6550,16 @@ var require_sign = __commonJS({
     };
     module2.exports.relaxedHeaders = relaxedHeaders;
     function generateDKIMHeader(domainName, keySelector, fieldNames, hashAlgo, bodyHash) {
+      const cleanTagValue = (value) => (value || "").toString().replace(/[\x00-\x1f\x7f;=]/g, "");
       const dkim = [
         "v=1",
         "a=rsa-" + hashAlgo,
         "c=relaxed/relaxed",
-        "d=" + punycode.toASCII(domainName),
+        "d=" + punycode.toASCII(cleanTagValue(domainName)),
         "q=dns/txt",
-        "s=" + keySelector,
+        "s=" + cleanTagValue(keySelector),
         "bh=" + bodyHash,
-        "h=" + fieldNames
+        "h=" + cleanTagValue(fieldNames)
       ].join("; ");
       return mimeFuncs.foldLines("DKIM-Signature: " + dkim, 76) + ";\r\n b=";
     }
@@ -6916,7 +7028,7 @@ var require_mail_message = __commonJS({
         setImmediate(() => resolveNext());
       }
       normalize(callback) {
-        const envelope = this.data.envelope || this.message.getEnvelope();
+        const envelope = this.message.getEnvelope();
         const messageId = this.message.messageId();
         this.resolveAll((err, data) => {
           if (err) {
@@ -7026,19 +7138,13 @@ var require_mail_message = __commonJS({
                 };
               }
               if (value2 && value2.url) {
-                if (key.toLowerCase().trim() === "id") {
-                  let comment2 = (value2.comment || "").toString().replace(/\r?\n|\r/g, " ");
-                  if (mimeFuncs.isPlainText(comment2)) {
-                    comment2 = '"' + comment2 + '"';
-                  } else {
-                    comment2 = mimeFuncs.encodeWord(comment2);
-                  }
-                  return (value2.comment ? comment2 + " " : "") + this._formatListUrl(value2.url).replace(/^<[^:]+:\/{0,2}/, "<");
-                }
                 let comment = (value2.comment || "").toString().replace(/\r?\n|\r/g, " ");
-                if (!mimeFuncs.isPlainText(comment)) {
-                  comment = mimeFuncs.encodeWord(comment);
+                const needsEncoding = !mimeFuncs.isPlainText(comment) || /\x7f/.test(comment);
+                if (key.toLowerCase().trim() === "id") {
+                  comment = needsEncoding ? mimeFuncs.encodeWord(comment) : mimeFuncs.quoteString(comment);
+                  return (value2.comment ? comment + " " : "") + this._formatListUrl(value2.url).replace(/^<[^:]+:\/{0,2}/, "<");
                 }
+                comment = needsEncoding ? mimeFuncs.encodeWord(comment) : comment.replace(/[()\\]/g, "\\$&");
                 return this._formatListUrl(value2.url) + (value2.comment ? " (" + comment + ")" : "");
               }
               return "";
@@ -7047,7 +7153,7 @@ var require_mail_message = __commonJS({
         }));
       }
       _formatListUrl(url) {
-        url = url.replace(/[\s<]+|[\s>]+/g, "");
+        url = url.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "").replace(/[\s<]+|[\s>]+/g, "");
         if (/^(https?|mailto|ftp):/.test(url)) {
           return "<" + url + ">";
         }
@@ -10122,6 +10228,18 @@ var require_services = __commonJS({
         host: "smtp.tipimail.com",
         port: 587
       },
+      TurboSMTP: {
+        description: "TurboSMTP",
+        host: "pro.turbo-smtp.com",
+        port: 465,
+        secure: true
+      },
+      "TurboSMTP-EU": {
+        description: "TurboSMTP (EU region)",
+        host: "pro.eu.turbo-smtp.com",
+        port: 465,
+        secure: true
+      },
       Tutanota: {
         description: "Tutanota (Tuta Mail)",
         domains: ["tutanota.com", "tuta.com", "tutanota.de", "tuta.io"],
@@ -11147,10 +11265,10 @@ var require_sendmail_transport = __commonJS({
        */
       send(mail, done) {
         mail.message.keepBcc = true;
-        const envelope = mail.data.envelope || mail.message.getEnvelope();
+        const envelope = mail.message.getEnvelope();
         const messageId = mail.message.messageId();
         let returned;
-        const hasInvalidAddresses = [].concat(envelope.from || []).concat(envelope.to || []).some((addr) => /^-/.test(addr));
+        const hasInvalidAddresses = [].concat(envelope.from || []).concat(envelope.to || []).some((addr) => /^"?-/.test(addr));
         if (hasInvalidAddresses) {
           const err = new Error("Can not send mail. Invalid envelope addresses.");
           err.code = errors2.ESENDMAIL;
@@ -11308,7 +11426,7 @@ var require_stream_transport = __commonJS({
        */
       send(mail, done) {
         mail.message.keepBcc = true;
-        const envelope = mail.data.envelope || mail.message.getEnvelope();
+        const envelope = mail.message.getEnvelope();
         const messageId = mail.message.messageId();
         const recipients = [].concat(envelope.to || []);
         if (recipients.length > 3) {
@@ -11426,7 +11544,7 @@ var require_json_transport = __commonJS({
        */
       send(mail, done) {
         mail.message.keepBcc = true;
-        const envelope = mail.data.envelope || mail.message.getEnvelope();
+        const envelope = mail.message.getEnvelope();
         const messageId = mail.message.messageId();
         const recipients = [].concat(envelope.to || []);
         if (recipients.length > 3) {
@@ -11520,7 +11638,7 @@ var require_ses_transport = __commonJS({
           const mimeNode = new MimeNode("text/plain");
           fromHeader = mimeNode._convertAddresses(mimeNode._parseAddresses(fromHeader.value));
         }
-        const envelope = mail.data.envelope || mail.message.getEnvelope();
+        const envelope = mail.message.getEnvelope();
         const messageId = mail.message.messageId();
         const recipients = [].concat(envelope.to || []);
         if (recipients.length > 3) {

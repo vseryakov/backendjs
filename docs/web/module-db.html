@@ -8956,7 +8956,7 @@ defined in the object with the same name as the db driver: <code>pg, sql, sqlite
 <p>DynmamoDB:</p>
 <p>To create a DynamoDB secondary index, the first index property if not the same as primary key hash defines global index, if it is the same then local,
 or if the first property contains <code>_$dynamodb.global</code> property then it is a global index.</p>
-<p>DynamoDB projections are defined by the <code>_$dynamodb.projections[N]</code> property in the first index property
+<p>DynamoDB projections are defined by the <code>_$dynamodb.projection[N]</code> property in the first index property
 as an array with names of properties to include in projection or ALL for all properties.</p>
 <p>When using real DynamoDB creating a table may take some time, for such cases if <code>options.waitTimeout</code> is not specified it defaults to 1min,
 so the callback is called as soon as the table is active or after the timeout whichever comes first.</p>
@@ -9212,8 +9212,8 @@ so the callback is called as soon as the table is active or after the timeout wh
         type: "int",
         primary: 1,
         index: 1,
-        // DynamoDB specific projections instructions
-        _$dynamodb: { projections: ["flags"] }
+        // DynamoDB specific projection instructions
+        _$dynamodb: { projection: ["flags"] }
     },
     name: { primary: 2 },
     flags: { type: "list" },

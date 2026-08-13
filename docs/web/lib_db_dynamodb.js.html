@@ -93,14 +93,10 @@ class DynamoDBPool extends DbPool {
         super(options, exports.defaults);
 
         this.dbcapacity = Object.create(null);
-        this.dbprojections = Object.create(null);
 
         for (const table in db.tables) {
-            const { keys, local, global, projections } = this.prepareCreate(db.tables[table]);
+            const { keys, local, global } = this.prepareCreate(db.tables[table]);
             this.dbkeys[table] = keys;
-            if (!lib.isEmpty(projections)) {
-                this.dbprojections[table] = projections;
-            }
             for (const i in local) {
                 if (!this.dbcolumns[table]) this.dbcolumns[table] = Object.create(null);
                 for (const p in local[i]) {
@@ -125,8 +121,10 @@ class DynamoDBPool extends DbPool {
         (rc.Table.KeySchema || []).forEach(function(x) {
             schema.dbcolumns[table][x.AttributeName].primary = 1;
             lib.objSet(schema.dbkeys, [table], x.AttributeName, { push: 1, unique: 1 });
-            lib.objSet(schema.dbcapacity, [table, table], { read: rc.Table.ProvisionedThroughput?.ReadCapacityUnits || 0,
-                write: rc.Table.ProvisionedThroughput?.WriteCapacityUnits || 0 });
+            lib.objSet(schema.dbcapacity, [table, table], {
+                read: rc.Table.ProvisionedThroughput?.ReadCapacityUnits || 0,
+                write: rc.Table.ProvisionedThroughput?.WriteCapacityUnits || 0
+            });
         });
         (rc.Table.LocalSecondaryIndexes || []).forEach(function(x) {
             if (x.Projection &amp;&amp; Array.isArray(x.Projection.NonKeyAttributes)) {
@@ -296,13 +294,11 @@ class DynamoDBPool extends DbPool {
 
     prepareCreate(table)
     {
-        var local = {}, global = {}, attrs = {}, projections = {};
+        const local = {}, global = {}, attrs = {};
 
-        var indexes = db.getIndexColumns(table);
+        const indexes = db.getIndexColumns(table);
 
-        var keys = indexes.primary?.slice(0, 2).map(x => { attrs[x] = 1; return x }) || [];
-
-        var hash = keys[0];
+        const keys = indexes.primary?.slice(0, 2) || [];
 
         for (const type in indexes) {
             if (type[0] === "p") continue;
@@ -310,50 +306,57 @@ class DynamoDBPool extends DbPool {
             let name = index.join("_");
             if (name.length &lt; 3) name = "i_" + name;
 
+            const [hash, range] = index;
+
+            const hash_type = !table[hash].join &amp;&amp; lib.rxNumericType.test(table[hash].type) ? "N" : "S";
+            const range_type = !table[range].join &amp;&amp; lib.rxNumericType.test(table[range].type) ? "N" : "S";
+            const projection = table[hash]._$dynamodb?.["projection" + type.replace(/[^0-9]/, "")];
+
             // Index starts with the same hash, local unless explicitly defined as global
-            if (index.length === 2 &amp;&amp; index[0] === hash &amp;&amp; !table[index[0]]._$dynamodb?.global) {
-                local[name] = { [index[0]]: 'HASH', [index[1]]: 'RANGE' };
-            } else
-
-            // Global if does not start with the primary hash
-            if (index.length === 2) {
-                global[name] = { [index[0]]: 'HASH', [index[1]]: 'RANGE' };
+            if (hash === keys[0] &amp;&amp; range &amp;&amp; !table[hash]._$dynamodb?.global) {
+                local[name] = {
+                    [hash]: hash_type,
+                    [range]: range_type,
+                    projection,
+                };
             } else {
-                global[name] = { [index[0]]: 'HASH' };
+                global[name] = {
+                    [hash]: hash_type,
+                    projection,
+                };
+                if (range) {
+                    global[range] = range_type;
+                }
             }
-            index.forEach((y) => { attrs[y] = 1 });
-
-            projections[name] = table[index[0]]._$dynamodb?.["projections" + type.replace(/[^0-9]/, "")];
         }
-        return { keys, local, global, attrs, projections };
+        return { keys, local, global, attrs };
     }
 
     queryCreate(_client, req, callback)
     {
-        const { keys, local, global, attrs, projections } = this.prepareCreate(req.query);
+        const { keys, local, global } = this.prepareCreate(req.query);
 
         // All native properties for options from the key columns
-        Object.keys(attrs).forEach((x) => {
-            attrs[x] = !req.query[x].join &amp;&amp; lib.rxNumericType.test(req.query[x].type) ? "N" : "S";
-            for (const p in req.query[x]._$dynamodb) {
-                req.options[p] = req.query[x]._$dynamodb[p];
+        keys.forEach(key => {
+            for (const p in req.query[key]._$dynamodb) {
+                req.options[p] = req.query[key]._$dynamodb[p];
             }
         });
         req.options.keys = keys;
         req.options.local = local;
         req.options.global = global;
-        req.options.projections = projections;
-        var ctable = req.table.substr(0,1).toUpperCase() + req.table.substr(1);
-        var cap = lib.split(this.config["capacity" + ctable], ",", { data_type: "int" });
+
+        const ctable = req.table.substr(0,1).toUpperCase() + req.table.substr(1);
+        const cap = lib.split(this.config["capacity" + ctable], ",", { data_type: "int" });
         req.options.readCapacity = req.options.readCapacity || this.config["readCapacity" + ctable] || cap[0] || this.config.readCapacity;
         req.options.writeCapacity = req.options.writeCapacity || this.config["writeCapacity" + ctable] || cap[1] || cap[0] || this.config.writeCapacity;
         // Wait long enough for the table to be active
         if (typeof req.options.waitTimeout === "undefined") req.options.waitTimeout = 60000;
 
-        var rc;
+        let rc;
         lib.series([
             (next) => {
-                aws.ddbCreateTable(req.table, attrs, req.options, (err, item) => {
+                aws.ddbCreateTable(req.table, req.options, (err, item) => {
                     rc = item;
                     // Create table columns for cases when describeTable never called or errored, for example Rate limit
                     // happened during the cacheColumns stage
@@ -404,7 +407,7 @@ class DynamoDBPool extends DbPool {
                 if (!add.writeCapacity &amp;&amp; cap.write) add.writeCapacity = cap.write;
                 add[x] = !req.query[x].join &amp;&amp; lib.rxNumericType.test(req.query[x].type) ? "N" : "S";
             });
-            add.projection = req.query[index[0]]._$dynamodb?.["projections" + type.replace(/[^0-9]/, "")];
+            add.projection = req.query[index[0]]._$dynamodb?.["projection" + type.replace(/[^0-9]/, "")];
 
             global[name] = add;
         }

@@ -2095,7 +2095,7 @@ var require_query = __commonJS({
         if (typeof this.text !== "string" && typeof this.name !== "string") {
           return new Error("A query must have either text or a name. Supplying neither is unsupported.");
         }
-        const previous = connection.parsedStatements[this.name];
+        const previous = connection.parsedStatements[this.name] || connection.submittedNamedStatements[this.name];
         if (this.text && previous && this.text !== previous) {
           return new Error(`Prepared statements must be unique - '${this.name}' was used for a different statement`);
         }
@@ -2115,7 +2115,7 @@ var require_query = __commonJS({
         return null;
       }
       hasBeenParsed(connection) {
-        return this.name && connection.parsedStatements[this.name];
+        return this.name && (connection.parsedStatements[this.name] || connection.submittedNamedStatements[this.name]);
       }
       handlePortalSuspended(connection) {
         this._getRows(connection, this.rows);
@@ -2139,6 +2139,9 @@ var require_query = __commonJS({
             name: this.name,
             types: this.types
           });
+          if (this.name) {
+            connection.submittedNamedStatements[this.name] = this.text;
+          }
         }
         try {
           connection.bind({
@@ -2927,7 +2930,7 @@ var require_parser = __commonJS({
       const parameterCount = reader.int16();
       const message = new messages_1.ParameterDescriptionMessage(LATEINIT_LENGTH, parameterCount);
       for (let i = 0; i < parameterCount; i++) {
-        message.dataTypeIDs[i] = reader.int32();
+        message.dataTypeIDs[i] = reader.uint32();
       }
       return message;
     };
@@ -3148,6 +3151,7 @@ var require_connection = __commonJS({
         this._keepAlive = config.keepAlive;
         this._keepAliveInitialDelayMillis = config.keepAliveInitialDelayMillis;
         this.parsedStatements = {};
+        this.submittedNamedStatements = {};
         this.ssl = config.ssl || false;
         this.sslNegotiation = config.sslNegotiation || "postgres";
         this._ending = false;
@@ -3704,6 +3708,8 @@ var require_client = __commonJS({
           encoding: this.connectionParameters.client_encoding || "utf8"
         });
         this._queryQueue = [];
+        this._sentQueryQueue = [];
+        this.pipeline = Boolean(c.pipeline);
         this.binary = c.binary || defaults.binary;
         this.processID = null;
         this.secretKey = null;
@@ -3738,6 +3744,8 @@ var require_client = __commonJS({
           enqueueError(activeQuery);
           this._activeQuery = null;
         }
+        this._sentQueryQueue.forEach(enqueueError);
+        this._sentQueryQueue.length = 0;
         this._queryQueue.forEach(enqueueError);
         this._queryQueue.length = 0;
       }
@@ -3980,6 +3988,9 @@ var require_client = __commonJS({
           return;
         }
         this._activeQuery = null;
+        if (activeQuery.name) {
+          delete this.connection.submittedNamedStatements[activeQuery.name];
+        }
         activeQuery.handleError(msg, this.connection);
       }
       _handleRowDescription(msg) {
@@ -4036,6 +4047,7 @@ var require_client = __commonJS({
         }
         if (activeQuery.name) {
           this.connection.parsedStatements[activeQuery.name] = activeQuery.text;
+          delete this.connection.submittedNamedStatements[activeQuery.name];
         }
       }
       _handleCopyInResponse(msg) {
@@ -4102,6 +4114,9 @@ var require_client = __commonJS({
           });
         } else if (client._queryQueue.indexOf(query) !== -1) {
           client._queryQueue.splice(client._queryQueue.indexOf(query), 1);
+        } else if (client._sentQueryQueue.indexOf(query) !== -1) {
+          query.callback = () => {
+          };
         }
       }
       setTypeParser(oid, format, parseFn) {
@@ -4120,6 +4135,10 @@ var require_client = __commonJS({
         return utils.escapeLiteral(str);
       }
       _pulseQueryQueue() {
+        if (this.pipeline) {
+          this._pulsePipelinedQueryQueue();
+          return;
+        }
         if (this.readyForQuery === true) {
           this._activeQuery = this._queryQueue.shift();
           const activeQuery = this._getActiveQuery();
@@ -4138,6 +4157,30 @@ var require_client = __commonJS({
             this._activeQuery = null;
             this.emit("drain");
           }
+        }
+      }
+      _pulsePipelinedQueryQueue() {
+        if (!this._connected || !this._queryable) {
+          return;
+        }
+        while (this._queryQueue.length > 0) {
+          const query = this._queryQueue.shift();
+          this.hasExecuted = true;
+          const queryError = query.submit(this.connection);
+          if (queryError) {
+            process.nextTick(() => {
+              query.handleError(queryError, this.connection);
+            });
+            continue;
+          }
+          this._sentQueryQueue.push(query);
+        }
+        if (this.readyForQuery && !this._activeQuery && this._sentQueryQueue.length > 0) {
+          this._activeQuery = this._sentQueryQueue.shift();
+          this.readyForQuery = false;
+        }
+        if (!this._activeQuery && this._sentQueryQueue.length === 0 && this._queryQueue.length === 0 && this.hasExecuted) {
+          this.emit("drain");
         }
       }
       query(config, values, callback) {
@@ -4183,6 +4226,9 @@ var require_client = __commonJS({
             const index = this._queryQueue.indexOf(query);
             if (index > -1) {
               this._queryQueue.splice(index, 1);
+            } else if (this.pipeline) {
+              this.connection.stream.destroy();
+              return;
             }
             this._pulseQueryQueue();
           }, readTimeout);
@@ -4209,7 +4255,7 @@ var require_client = __commonJS({
           });
           return result;
         }
-        if (this._queryQueue.length > 0) {
+        if (this._queryQueue.length > 0 && !this.pipeline) {
           queryQueueLengthDeprecationNotice();
         }
         this._queryQueue.push(query);
@@ -4235,7 +4281,11 @@ var require_client = __commonJS({
             return this._Promise.resolve();
           }
         }
-        if (this._getActiveQuery() || !this._queryable) {
+        if (!this._queryable) {
+          this.connection.stream.destroy();
+        } else if (this.pipeline && (this._getActiveQuery() || this._sentQueryQueue.length > 0 || this._queryQueue.length > 0)) {
+          this.once("drain", () => this.connection.end());
+        } else if (this._getActiveQuery()) {
           this.connection.stream.destroy();
         } else {
           this.connection.end();
@@ -4725,7 +4775,7 @@ var require_query2 = __commonJS({
       sourceFunction: "routine"
     };
     NativeQuery.prototype.handleError = function(err) {
-      const fields = this.native.pq.resultErrorFields();
+      const fields = this.native && this.native.pq.resultErrorFields();
       if (fields) {
         for (const key in fields) {
           const normalizedFieldName = errorFieldMap[key] || key;
@@ -4858,6 +4908,8 @@ var require_client2 = __commonJS({
       this._connecting = false;
       this._connected = false;
       this._queryable = true;
+      this.pipeline = Boolean(config.pipeline);
+      this._pipelineInFlight = false;
       const cp = this.connectionParameters = new ConnectionParameters(config);
       if (config.nativeConnectionString) cp.nativeConnectionString = config.nativeConnectionString;
       this.user = cp.user;
@@ -5001,7 +5053,7 @@ var require_client2 = __commonJS({
         });
         return result;
       }
-      if (this._queryQueue.length > 0) {
+      if (this._queryQueue.length > 0 && !this.pipeline) {
         queryQueueLengthDeprecationNotice();
       }
       this._queryQueue.push(query);
@@ -5023,14 +5075,21 @@ var require_client2 = __commonJS({
           cb = (err) => err ? reject(err) : resolve();
         });
       }
-      this.native.end(function() {
-        self._connected = false;
-        self._errorAllQueries(new Error("Connection terminated"));
-        process.nextTick(() => {
-          self.emit("end");
-          if (cb) cb();
+      const doEnd = function() {
+        self.native.end(function() {
+          self._connected = false;
+          self._errorAllQueries(new Error("Connection terminated"));
+          process.nextTick(() => {
+            self.emit("end");
+            if (cb) cb();
+          });
         });
-      });
+      };
+      if (this.pipeline && (this._pipelineInFlight || this._queryQueue.length > 0)) {
+        this.once("drain", doEnd);
+      } else {
+        doEnd();
+      }
       return result;
     };
     Client.prototype._hasActiveQuery = function() {
@@ -5039,6 +5098,9 @@ var require_client2 = __commonJS({
     Client.prototype._pulseQueryQueue = function(initialConnection) {
       if (!this._connected) {
         return;
+      }
+      if (this.pipeline && !initialConnection) {
+        return this._pulsePipelinedQueryQueue();
       }
       if (this._hasActiveQuery()) {
         return;
@@ -5055,6 +5117,69 @@ var require_client2 = __commonJS({
       const self = this;
       query.once("_done", function() {
         self._pulseQueryQueue();
+      });
+    };
+    Client.prototype._pulsePipelinedQueryQueue = function() {
+      if (!this._connected || this._pipelineInFlight) {
+        return;
+      }
+      if (this._queryQueue.length === 0) {
+        if (this.hasExecuted) {
+          this.emit("drain");
+        }
+        return;
+      }
+      this._pipelineInFlight = true;
+      const self = this;
+      const queries = [];
+      const nativeQueries = [];
+      const utils = require_utils();
+      while (this._queryQueue.length > 0) {
+        const query = this._queryQueue.shift();
+        this.hasExecuted = true;
+        nativeQueries.push(query);
+        const values = query.values ? query.values.map(utils.prepareValue) : null;
+        const pipelineEntry = { text: query.text, name: query.name };
+        if (values) {
+          pipelineEntry.values = values;
+        }
+        if (query.name && this.namedQueries[query.name]) {
+          pipelineEntry._alreadyPrepared = true;
+        }
+        queries.push(pipelineEntry);
+      }
+      this.native.pipeline(queries, function(err, results) {
+        self._pipelineInFlight = false;
+        if (err) {
+          for (let i = 0; i < nativeQueries.length; i++) {
+            const q = nativeQueries[i];
+            q.native = self.native;
+            q.handleError(err);
+          }
+          self._pulsePipelinedQueryQueue();
+          return;
+        }
+        for (let i = 0; i < nativeQueries.length; i++) {
+          const q = nativeQueries[i];
+          const r = results[i];
+          q.native = self.native;
+          if (r.err) {
+            q.handleError(r.err);
+          } else {
+            if (q.name) {
+              self.namedQueries[q.name] = q.text;
+            }
+            q.state = "end";
+            q.emit("end", r.result);
+            if (q.callback) {
+              q.callback(null, r.result);
+            }
+          }
+          setImmediate(function() {
+            q.emit("_done");
+          });
+        }
+        self._pulsePipelinedQueryQueue();
       });
     };
     Client.prototype.cancel = function(query) {

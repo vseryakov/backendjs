@@ -59,10 +59,10 @@ which is used in the backend development and can be useful for others running or
 /etc/sysconfig/bkjs
 </code></pre>
 <p>Then it try to source all local config files:</p>
-<pre class="prettyprint source lang-shell"><code>$BKJS_ENV/../etc/profile
-$BKJS_HOME/etc/profile
-$BKJS_ENV/../etc/profile.local
-$BKJS_HOME/etc/profile.local
+<pre class="prettyprint source lang-shell"><code>$BKJS_ENV/.bkjsrc
+$BKJS_ENV/../.bkjsrc
+$BKJS_HOME/.bkjsrc
+$HOME/.bkjsrc
 </code></pre>
 <p>Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
 customize the running environment, these should be regular shell scripts using bash syntax.</p>

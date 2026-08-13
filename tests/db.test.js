@@ -1,13 +1,13 @@
 /**
  * To test different databases:
  *
- * BKJS_ROLES=postgres --test tests/db.test.js
+ * BKJS_ROLES=postgres node --test tests/db.test.js
  *
- * BKJS_ROLES=dynamodb --test tests/db.test.js
+ * BKJS_ROLES=dynamodb node --test tests/db.test.js
  *
- * BKJS_ROLES=elasticsearch --test tests/db.test.js
+ * BKJS_ROLES=elasticsearch node --test tests/db.test.js
  *
- * BKJS_ROLES=rqlite --test tests/db.test.js
+ * BKJS_ROLES=rqlite node --test tests/db.test.js
  */
 
 const { describe, it, before, after } = require('node:test');

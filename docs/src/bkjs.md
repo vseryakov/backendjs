@@ -20,10 +20,10 @@ On Linux, when started the bkjs tries to load and source the following global co
 Then it try to source all local config files:
 
 ```shell
-$BKJS_ENV/../etc/profile
-$BKJS_HOME/etc/profile
-$BKJS_ENV/../etc/profile.local
-$BKJS_HOME/etc/profile.local
+$BKJS_ENV/.bkjsrc
+$BKJS_ENV/../.bkjsrc
+$BKJS_HOME/.bkjsrc
+$HOME/.bkjsrc
 ```
 
 Any of the following config files can redefine any environment variable thus pointing to the correct backend environment directory or
