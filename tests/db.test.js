@@ -53,10 +53,15 @@ const tables = {
         dflt: { dflt: "1" },
         obj: { type: "obj" },
         list: { type: "array" },
-        tags: { type: "list" },
+        tags: {
+            type: "list",
+            validate: { max_list: 3 }
+        },
         weights: {
             type: "set",
-            data_type: "int"
+            split: {
+                data_type: "int"
+            }
         },
         nospecial: {
             validate: { max: 32, trunc: 1 },
@@ -67,9 +72,19 @@ const tables = {
 
 var id1 = lib.uuid(), id2 = lib.uuid();
 var key1 = lib.uuid(), key2 = lib.randomInt(1, 1000);
-var name = "test name";
-var email = "test@email.com";
-var bignum = lib.randomNum(10000000, 1000000000);
+var row = {
+    id: id1,
+    name: "test name",
+    email: "test@email.com",
+    json: '{ "a": 1, "b": "b" }',
+    realnum: 1.12345,
+    obj: { a: 1, b: "b" },
+    list: ["a", "b", "c"],
+    tags: ["tag1", "tag2", "tag3"],
+    weights: [1,2,"3",4,"5"],
+    nospecial: "[plain, text!]###########################",
+    bignum: lib.randomNum(10000000, 1000000000),
+}
 var next_token = null;
 var config;
 
@@ -96,7 +111,7 @@ describe("DB tests", async () => {
         await astop();
     });
 
-    await it("drop tables", async() => {
+    await it("db drop", async() => {
 
         db.skip = { drop: /./ };
 
@@ -117,19 +132,19 @@ describe("DB tests", async () => {
 
     });
 
-    await it("create tables", async() => {
+    await it("db create", async() => {
 
         const { err, created } = await db.acreateTables({ pools: [db.pool] });
         assert.ok(!err);
         assert.deepStrictEqual(created, Object.keys(tables));
     });
 
-    await it("migrate tables", async() => {
+    await it("db migrate", async() => {
 
         db.tables.bk_test1.bignum = {
             type: "bigint",
             index1: 1,
-        }
+        };
 
         const { err, upgraded } = await db.acreateTables({ pools: [db.pool] });
         assert.ok(!err);
@@ -143,29 +158,50 @@ describe("DB tests", async () => {
 
     });
 
-    await it("db checks", async() => {
-        const row = { id: id1, name, email }
+    await it("db not empty", async() => {
 
-        let rc = await db.aadd("bk_test1", row)
+        const rc = await db.aadd("bk_test1", row)
         assert.match(rc?.err?.message, /not be empty/);
 
         row.notempty = 1
+    });
 
-        if (config.features.not_null) {
+    await it("db not null", async() => {
 
-            rc = await db.aadd("bk_test1", row);
-            assert.match(rc?.err?.message, /NULL|not-null|required keys/);
+        if (!config.features.not_null) return;
 
-            row.key1 = key1;
-            rc = await db.aadd("bk_test1", row);
-            assert.match(rc?.err?.message, /NULL|not-null|required keys/);
+        let rc = await db.aadd("bk_test1", row);
+        assert.match(rc?.err?.message, /NULL|not-null|required keys/);
 
-        }
+        row.key1 = key1;
+        rc = await db.aadd("bk_test1", row);
+        assert.match(rc?.err?.message, /NULL|not-null|required keys/);
+
+    });
+
+    await it("db too large", async() => {
 
         row.key1 = key1;
         row.key2 = key2;
 
-        rc = await db.aadd("bk_test1", row, { returning: "*", first: true });
+        row.name += "1".repeat(100);
+        let rc = await db.aadd("bk_test1", row);
+        assert.match(rc?.err?.message, /too large/);
+
+        row.name = row.name.replaceAll("1", "");
+
+
+        row.tags.push(...row.tags.map(x => x + 1));
+        rc = await db.aadd("bk_test1", row);
+        assert.match(rc?.err?.message, /too large/);
+
+        row.tags = row.tags.slice(0, 2);
+
+    });
+
+    await it("db add", async() => {
+
+        let rc = await db.aadd("bk_test1", row, { returning: "*", first: true });
         assert.strictEqual(rc?.err, null);
         assert.ok(rc?.data?.id);
 
@@ -173,39 +209,44 @@ describe("DB tests", async () => {
         assert.ok(rc?.err);
     });
 
+    await it("db get", async() => {
+
+        let rc = await db.adel("bk_test1", { id: id1, key1, key2 });
+        assert.strictEqual(rc?.err, null);
+
+        rc = await db.aget("bk_test1", { id: id1, key1, key2 });
+        assert.strictEqual(rc?.err, null);
+        assert.strictEqual(rc?.data, null);
+
+        rc = await db.aadd("bk_test1", row);
+        assert.ok(!rc?.err);
+
+        rc = await db.aget("bk_test1", { id: id1, key1, key2 });
+        assert.strictEqual(rc?.data?.id, id1);
+
+        assert.strictEqual(rc?.data?.name, row.name);
+        assert.strictEqual(rc?.data?.email, row.email);
+        assert.deepStrictEqual(rc?.data?.json, row.obj);
+        assert.strictEqual(rc?.data?.realnum, row.realnum);
+        assert.deepStrictEqual(rc?.data?.obj, row.obj);
+        assert.deepStrictEqual(rc?.data?.list, row.list)
+        assert.deepStrictEqual(rc?.data?.tags, row.tags);
+        assert.deepStrictEqual(rc?.data?.weights, row.weights.map(x => parseInt(x)));
+        assert.strictEqual(rc?.data?.nospecial, row.nospecial.replace(lib.rxSpecial, ""));
+        assert.strictEqual(rc?.data?.bignum, row.bignum);
+
+        row.id = id2;
+
+        rc = await db.aadd("bk_test1", row);
+        assert.ok(!rc?.err);
+
+        rc = await db.aget("bk_test1", { id: id2, key1, key2 });
+        assert.strictEqual(rc?.data?.id, id2);
+
+    });
+
     await it("other", { skip: 1 }, async() => {
         lib.series([
-            function(next) {
-                db.get("test1", { id: id }, function(err, row) {
-                    assert(err || !row || row.id != id || row.num != 1 || row.num3 != row.id+"|"+row.num || row.anum != "1" || row.jnum, "err1:", row);
-                    if (db.pool != "elasticsearch") {
-                        expect(!row.skipcol && !row.skipjoin && row.nojoin, "expect no skipcol, no skipjoin and nojoin", row)
-                    }
-                    next();
-                });
-            },
-            function(next) {
-                db.get("test1", { id: id2 }, function(err, row) {
-                    assert(err || !row || row.num4 != "4" || row.jnum || !row.mnum || row.mnum.match(/\|$/), "err1-1:", row);
-                    if (db.pool != "elasticsearch") {
-                        expect(!row.skipcol && !row.skipjoin && row.nojoin, "expect no skipcol, no skipjoin and nojoin", row)
-                    }
-                    next();
-                });
-            },
-            function(next) {
-                db.get("test3", { id: id }, function(err, row) {
-                    assert(err || !row || row.id != id, "err1-2:", row);
-                    next();
-                });
-            },
-            function(next) {
-                // Type conversion for strictTypes
-                db.get("test1", { id: id, num: '1' }, function(err, row) {
-                    assert(err || !row || row.id != id || row.num!=1, "err2:", row);
-                    next();
-                });
-            },
             function(next) {
                 db.list("test1", String([id,id2,""]), {}, function(err, rows) {
                     var isok = rows.every(function(x) { return x.id==id || x.id==id2});
@@ -474,35 +515,6 @@ describe("DB tests", async () => {
             function(next) {
                 db.get("test1", { id: id }, {}, function(err, row) {
                     assert(err || !row || row.num != 2, "err29:", row);
-                    next();
-                });
-            },
-            function(next) {
-                db.put("test3", { id: id, type: "1", notempty: "" }, { quiet: 1 }, function(err, rc, info) {
-                    assert(err, "err30:", info);
-                    next();
-                });
-            },
-            function(next) {
-                db.put("test3", { id: id, type: "2", notempty: "notempty" }, function(err, rc, info) {
-                    assert(err, "err31:", info);
-                    next();
-                });
-            },
-            function(next) {
-                db.update("test3", { id: id, type: "3", notempty: null, text: "" }, function(err, rc, info) {
-                    assert(err || !info.affected_rows, "err32:", info);
-                    next();
-                });
-            },
-            function(next) {
-                db.get("test3", { id: id }, {}, function(err, row) {
-                    assert(err || !row || row.notempty != "notempty", "err33:", row);
-                    if (configOptions.noNulls) {
-                        expect(typeof row?.text == "undefined", "expect text undefined", row)
-                    } else {
-                        expect(row?.text === null, "expect text null", row)
-                    }
                     next();
                 });
             },
