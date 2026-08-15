@@ -150,7 +150,7 @@ async function deletePrompt(context)
 
 async function cancelPrompt(context)
 {
-    jobs.cancelJob(context.params.id);
+    jobs.cancel(context.params.id);
     context.reply();
 }
 
@@ -173,7 +173,7 @@ function submitJob(context, data)
             reasoning: data.reasoning,
         };
 
-        jobs.submitJob({ job: { "prompts.job": job } }, { noWait: 1 }, (err) => {
+        jobs.submit({ job: { "prompts.job": job } }, { noWait: 1 }, (err) => {
             context.reply(err, prompt);
         });
     });

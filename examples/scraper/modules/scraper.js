@@ -273,7 +273,7 @@ function submit(context)
 
         api.ws.notify({}, { event: "scraper:status", data: row });
 
-        jobs.submitJob({ job: { "scraper.job": { id: row.id } } }, { noWait: 1 }, (err) => {
+        jobs.submit({ job: { "scraper.job": { id: row.id } } }, { noWait: 1 }, (err) => {
             context.reply(err, row);
         });
     });
@@ -287,7 +287,7 @@ function resubmit(context)
     db.get("scraper", context.params.id, (err, row) => {
         if (!row) return context.reply({ status: 404, message: "no record found" });
 
-        jobs.submitJob({ job: { "scraper.job": { id: row.id, mode: context.body.mode } } }, { noWait: 1 }, (err) => {
+        jobs.submit({ job: { "scraper.job": { id: row.id, mode: context.body.mode } } }, { noWait: 1 }, (err) => {
             context.reply(err, row);
         });
     });

@@ -10,11 +10,14 @@ Visit the [tutorial](https://vseryakov.github.io/backendjs/docs/web/tutorial-sta
 ---
 
 ```js
-const { app, api, logger } = require('backendjs');
+const { app, api, db, logger } = require('backendjs');
 
 app.start({ api: true });
 
-api.app.get("/", (context) => { context.send(200, "Hello, World!") });
+api.app.get("/", async (context) => {
+    const { err, data } = await db.aget("content", { id: "index" });
+    context.send(200, err?.message || data?.text || "Hello, World!");
+});
 
 logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 ```
@@ -71,9 +74,9 @@ logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 
 1. Log watcher, notify about errors by parsing log files
 
-2. Image composing with Sharp.js from JSON schema, supports avatars, shadows, outline fonts, wrapping, padding
+2. Image composing posters with Sharp.js from JSON schema, supports avatars, shadows, outline fonts, wrapping, padding
 
-3. Web scraping with Puppeteer
+3. Web scraping module using Puppeteer
 
 ---
 

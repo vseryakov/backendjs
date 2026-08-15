@@ -57,7 +57,7 @@ describe("Jobs tests", async () => {
         const file = app.tmpDir + "/job3.test";
         lib.unlinkSync(file);
 
-        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "local" } } }, { queueName: "local" });
+        await jobs.asubmit({ job: { "jobs.testJob": { file, data: "local" } } }, { queueName: "local" });
         await lib.sleep(100)
 
         var data = lib.readFileSync(file);
@@ -69,7 +69,7 @@ describe("Jobs tests", async () => {
         var file = app.tmpDir + "/job4.test";
         lib.unlinkSync(file);
 
-        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "worker" } } }, { queueName: "worker" });
+        await jobs.asubmit({ job: { "jobs.testJob": { file, data: "worker" } } }, { queueName: "worker" });
         await lib.sleep(500)
 
         var data = lib.readFileSync(file);
@@ -82,7 +82,7 @@ describe("Jobs tests", async () => {
 
         const opts = { queueName };
 
-        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "job" } } }, opts);
+        await jobs.asubmit({ job: { "jobs.testJob": { file, data: "job" } } }, opts);
         await lib.sleep(500)
 
         var data = lib.readFileSync(file);
@@ -95,10 +95,10 @@ describe("Jobs tests", async () => {
 
         const opts = { queueName };
 
-        await jobs.asubmitJob({ job: { "jobs.testJob": { file, cancel: "job2", timeout: 5000 } } }, opts);
+        await jobs.asubmit({ job: { "jobs.testJob": { file, cancel: "job2", timeout: 5000 } } }, opts);
         await lib.sleep(500)
 
-        jobs.cancelJob("job2");
+        jobs.cancel("job2");
         await lib.sleep(500);
 
         var data = lib.readFileSync(file);
@@ -111,8 +111,8 @@ describe("Jobs tests", async () => {
 
         const opts = { queueName, visibilityTimeout: 1000, uniqueKey: "testTtl" }
 
-        jobs.submitJob({ job: { "jobs.testJob": { file, timeout: 1000, data: "ttl1" } } }, opts);
-        jobs.submitJob({ job: { "jobs.testJob": { file, timeout: 1000, data: "ttl2" } } }, opts);
+        jobs.submit({ job: { "jobs.testJob": { file, timeout: 1000, data: "ttl1" } } }, opts);
+        jobs.submit({ job: { "jobs.testJob": { file, timeout: 1000, data: "ttl2" } } }, opts);
 
         await lib.sleep(4000)
 
@@ -131,7 +131,7 @@ describe("Jobs tests", async () => {
 
         const opts = { queueName, visibilityTimeout: 1000, uniqueKey: "testRetry" }
 
-        jobs.submitJob({ job: { "jobs.testJob": { file, err: { status: 600 }, err_expires: Date.now() + 1000, data: "retry" } } }, opts);
+        jobs.submit({ job: { "jobs.testJob": { file, err: { status: 600 }, err_expires: Date.now() + 1000, data: "retry" } } }, opts);
         await lib.sleep(1000)
 
         var data = lib.readFileSync(file);
@@ -155,7 +155,7 @@ describe("Jobs tests", async () => {
 
         const opts = { queueName, noWait: 1 };
 
-        await jobs.asubmitJob({ job: { "jobs.testJob": { file, err: { status: 600 }, err_expires: Date.now() + 300, data: "noWait" } } }, opts);
+        await jobs.asubmit({ job: { "jobs.testJob": { file, err: { status: 600 }, err_expires: Date.now() + 300, data: "noWait" } } }, opts);
         await lib.sleep(2000)
 
         var data = lib.readFileSync(file).split("\n");
@@ -169,7 +169,7 @@ describe("Jobs tests", async () => {
 
         const opts = { queueName, endTime: Date.now() - 100 };
 
-        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "endTime" } } }, opts);
+        await jobs.asubmit({ job: { "jobs.testJob": { file, data: "endTime" } } }, opts);
         await lib.sleep(500)
 
         const data = lib.readFileSync(file);
@@ -184,7 +184,7 @@ describe("Jobs tests", async () => {
         const now = Date.now();
         const opts = { queueName, startTime: now + 1500 };
 
-        await jobs.asubmitJob({ job: { "jobs.testJob": { file, data: "startTime" } } }, opts);
+        await jobs.asubmit({ job: { "jobs.testJob": { file, data: "startTime" } } }, opts);
         await lib.sleep(2500)
 
         const data = lib.readFileSync(file);
