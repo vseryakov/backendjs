@@ -70,7 +70,7 @@ const tables = {
     },
 };
 
-var id1 = lib.uuid(), id2 = lib.uuid();
+var id1 = lib.uuid(), id2 = lib.uuid(), id3 = lib.uuid();
 var key1 = lib.uuid(), key2 = lib.randomInt(1, 1000);
 var row = {
     id: id1,
@@ -207,11 +207,8 @@ describe("DB tests", async () => {
 
         rc = await db.aadd("bk_test1", row);
         assert.ok(rc?.err);
-    });
 
-    await it("db get", async() => {
-
-        let rc = await db.adel("bk_test1", { id: id1, key1, key2 });
+        rc = await db.adel("bk_test1", { id: id1, key1, key2 });
         assert.strictEqual(rc?.err, null);
 
         rc = await db.aget("bk_test1", { id: id1, key1, key2 });
@@ -219,9 +216,33 @@ describe("DB tests", async () => {
         assert.strictEqual(rc?.data, null);
 
         rc = await db.aadd("bk_test1", row);
-        assert.ok(!rc?.err);
+        assert.strictEqual(rc?.err, null);
 
-        rc = await db.aget("bk_test1", { id: id1, key1, key2 });
+
+        row.id = id2;
+        rc = await db.aadd("bk_test1", row);
+        assert.strictEqual(rc?.err, null);
+
+
+        row.id = id3;
+        rc = await db.aadd("bk_test1", row);
+        assert.strictEqual(rc?.err, null);
+
+        row.key1 = key1;
+        row.key2 = key1;
+        rc = await db.aadd("bk_test1", row);
+        assert.strictEqual(rc?.err, null);
+
+        row.key1 = key2;
+        row.key2 = key2;
+        rc = await db.aadd("bk_test1", row);
+        assert.strictEqual(rc?.err, null);
+
+    });
+
+    await it("db get", async() => {
+
+        const rc = await db.aget("bk_test1", { id: id1, key1, key2 });
         assert.strictEqual(rc?.data?.id, id1);
 
         assert.strictEqual(rc?.data?.name, row.name);
@@ -235,46 +256,26 @@ describe("DB tests", async () => {
         assert.strictEqual(rc?.data?.nospecial, row.nospecial.replace(lib.rxSpecial, ""));
         assert.strictEqual(rc?.data?.bignum, row.bignum);
 
-        row.id = id2;
+    });
 
-        rc = await db.aadd("bk_test1", row);
-        assert.ok(!rc?.err);
+    await it("db select", async() => {
 
-        rc = await db.aget("bk_test1", { id: id2, key1, key2 });
-        assert.strictEqual(rc?.data?.id, id2);
+        let rc = await db.alist("bk_test1", [id1, id2, id3].map(id => ({ id, key1, key2 })));
+        assert.strictEqual(rc?.data?.length, 3);
+
+        rc = await db.aselect("bk_test1", { id: id1 });
+        assert.strictEqual(rc?.data?.[0]?.id, id1);
+
+        rc = await db.aselect("bk_test1", { id: id3, key1_$in: [key1, key2] });
+        assert.strictEqual(rc?.data?.length, 3);
+
+        rc = await db.aselect("bk_test1", { id: id3, key1: [key1, key2] }, { ops: { key1: "in" } });
+        assert.strictEqual(rc?.data?.length, 3);
 
     });
 
     await it("other", { skip: 1 }, async() => {
         lib.series([
-            function(next) {
-                db.list("test1", String([id,id2,""]), {}, function(err, rows) {
-                    var isok = rows.every(function(x) { return x.id==id || x.id==id2});
-                    assert(err || rows.length!=2 || !isok, "err3:", rows.length, isok, rows);
-                    next();
-                });
-            },
-            function(next) {
-                db.select("test3", { id: id }, function(err, rows) {
-                    assert(err || rows.length!=1 || rows[0].id != id || rows[0].type!="like" || rows[0].fake || rows[0].dflt != "1", "err4:", rows);
-                    next();
-                });
-            },
-            function(next) {
-                db.delAll("test1", { id: id, fake: 1 }, { join_skip: ["num3"] }, next);
-            },
-            function(next) {
-                db.get("test1", { id: id }, function(err, row) {
-                    assert(err || row, "err4-1:", row);
-                    next();
-                });
-            },
-            function(next) {
-                db.select("test2", { id: id2 }, { filterrows: function(req, rows, o) { return rows.filter((x) => (x.id2 == '1')) } }, function(err, rows) {
-                    assert(err || rows.length!=1 || rows[0].id2 != '1' || rows[0].num2 != num2 , "err5:", num2, rows);
-                    next();
-                });
-            },
             function(next) {
                 db.select("test2", { id: id2, id2: ["2"] }, { ops: { id2: "in" } }, function(err, rows) {
                     assert(err || rows.length!=1 || rows[0].id2!='2', "err5-1:", rows.length, rows);
@@ -284,12 +285,6 @@ describe("DB tests", async () => {
             function(next) {
                 db.select("test2", { id: id2, id2: "" }, { ops: { id2: "in" }, select: ["id","name"] }, function(err, rows) {
                     assert(err || rows.length!=2, "err5-2:", rows.length, rows);
-                    next();
-                });
-            },
-            function(next) {
-                db.list("test3", String([id,id2]), function(err, rows) {
-                    assert(err || rows.length!=2, "err6:", rows);
                     next();
                 });
             },
