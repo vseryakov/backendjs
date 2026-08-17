@@ -31,7 +31,7 @@ const tables = {
             not_null: true,
             join: ["key1","key2"],
         },
-        key1: {},
+        key1: { type: "text" },
         key2: { type: "int" },
         ctime: {
             type: "now",
@@ -43,7 +43,7 @@ const tables = {
         email: { type: "email" },
         json: { type: "json" },
         realnum: { type: "real" },
-        count: {
+        counter: {
             type: "counter",
             value: 0,
         },
@@ -83,7 +83,7 @@ var row = {
     tags: ["tag1", "tag2", "tag3"],
     weights: [1,2,"3",4,"5"],
     nospecial: "[plain, text!]###########################",
-    bignum: lib.randomNum(10000000, 1000000000),
+    bignum: lib.randomInt(10000000, 1000000000),
 }
 var next_token = null;
 var config;
@@ -240,15 +240,31 @@ describe("DB tests", async () => {
 
     });
 
+    await it("db incr", async() => {
+
+        let rc = await db.aincr("bk_test1", { id: id1, key1, key2, counter: 3 });
+        assert.strictEqual(rc?.err, null);
+
+        rc = await db.aincr("bk_test1", { id: id2, key1, key2, counter: 1 });
+        assert.strictEqual(rc?.err, null);
+
+        rc = await db.aincr("bk_test1", { id: id3, key1, key2, counter: 2 });
+        assert.strictEqual(rc?.err, null);
+
+        rc = await db.aincr("bk_test1", { id: id3, key1, key2: key1, counter: -2 });
+        assert.strictEqual(rc?.err, null);
+    });
+
     await it("db get", async() => {
 
-        const rc = await db.aget("bk_test1", { id: id1, key1, key2 });
+        let rc = await db.aget("bk_test1", { id: id1, key1, key2 });
         assert.strictEqual(rc?.data?.id, id1);
 
         assert.strictEqual(rc?.data?.name, row.name);
         assert.strictEqual(rc?.data?.email, row.email);
         assert.deepStrictEqual(rc?.data?.json, row.obj);
         assert.strictEqual(rc?.data?.realnum, row.realnum);
+        assert.deepStrictEqual(rc?.data?.counter, 3)
         assert.deepStrictEqual(rc?.data?.obj, row.obj);
         assert.deepStrictEqual(rc?.data?.list, row.list)
         assert.deepStrictEqual(rc?.data?.tags, row.tags);
@@ -256,94 +272,57 @@ describe("DB tests", async () => {
         assert.strictEqual(rc?.data?.nospecial, row.nospecial.replace(lib.rxSpecial, ""));
         assert.strictEqual(rc?.data?.bignum, row.bignum);
 
+        rc = await db.aget("bk_test1", { id: id2, key1, key2 });
+        assert.strictEqual(rc?.data?.id, id2);
+        assert.deepStrictEqual(rc?.data?.counter, 1)
+
+        rc = await db.aget("bk_test1", { id: id3, key1, key2 });
+        assert.strictEqual(rc?.data?.id, id3);
+        assert.deepStrictEqual(rc?.data?.counter, 2)
+
+    });
+
+    await it("db list", async() => {
+
+        let rc = await db.alist("bk_test1", [id1, id2, id3, 1].map(id => ({ id, key1, key2 })));
+        assert.strictEqual(rc?.data?.length, 3);
+
+        rc = await db.alist("bk_test1", rc.data);
+        assert.strictEqual(rc?.data?.length, 3);
     });
 
     await it("db select", async() => {
 
-        let rc = await db.alist("bk_test1", [id1, id2, id3].map(id => ({ id, key1, key2 })));
-        assert.strictEqual(rc?.data?.length, 3);
-
-        rc = await db.aselect("bk_test1", { id: id1 });
+        let rc = await db.aselect("bk_test1", { id: id1 });
         assert.strictEqual(rc?.data?.[0]?.id, id1);
 
-        rc = await db.aselect("bk_test1", { id: id3, key1_$in: [key1, key2] });
+        rc = await db.aselect("bk_test1", { id: id3, $or: { key1, key1_$: String(key2) } });
         assert.strictEqual(rc?.data?.length, 3);
 
-        rc = await db.aselect("bk_test1", { id: id3, key1: [key1, key2] }, { ops: { key1: "in" } });
+        rc = await db.aselect("bk_test1", { id: id3, key1_$in: [key1, String(key2)] });
         assert.strictEqual(rc?.data?.length, 3);
+
+        rc = await db.aselect("bk_test1", { id: id3, key1: [key1, String(key2)] }, { ops: { key1: "in" } });
+        assert.strictEqual(rc?.data?.length, 3);
+
+        rc = await db.aselect("bk_test1", { id: id3, counter_$gt: 0 }, { select: 'id,counter' });
+        assert.strictEqual(rc?.data?.length, 1);
+        assert.strictEqual(rc?.data[0].key1, undefined);
+        assert.strictEqual(rc?.data[0].counter, 2);
+
+        rc = await db.aselect("bk_test1", { id: id3, counter: 0 }, { ops: { counter: 'lt' } })
+        assert.strictEqual(rc?.data?.length, 1);
+
+        rc = await db.aselect("bk_test1", { id: id3, counter: [0,2] }, { ops: { counter: 'between' } })
+        assert.strictEqual(rc?.data?.length, 2);
+
+        rc = await db.aselect("bk_test1", { id: id3, key_$begins_with: key1 });
+        assert.strictEqual(rc?.data?.length, 2);
 
     });
 
     await it("other", { skip: 1 }, async() => {
         lib.series([
-            function(next) {
-                db.select("test2", { id: id2, id2: ["2"] }, { ops: { id2: "in" } }, function(err, rows) {
-                    assert(err || rows.length!=1 || rows[0].id2!='2', "err5-1:", rows.length, rows);
-                    next();
-                });
-            },
-            function(next) {
-                db.select("test2", { id: id2, id2: "" }, { ops: { id2: "in" }, select: ["id","name"] }, function(err, rows) {
-                    assert(err || rows.length!=2, "err5-2:", rows.length, rows);
-                    next();
-                });
-            },
-            function(next) {
-                db.incr("test3", { id: id, num: 3 }, { mtime: 1 }, function(err) {
-                    if (err) return next(err);
-                    db.incr("test3", { id: id, num: 1 }, function(err) {
-                        if (err) return next(err);
-                        db.incr("test3", { id: id, num: -2 }, next);
-                    });
-                });
-            },
-            function(next) {
-                db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'gt' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-                    assert(err || rows.length!=1 || rows[0].email || rows[0].id2 != '2' || rows[0].num2 != num2, "err8:", rows);
-                    next();
-                });
-            },
-            function(next) {
-                db.select("test2", { id: id2, id2: '1' }, { ops: { id2: 'begins_with' }, select: 'id,id2,num2,mtime' }, function(err, rows) {
-                    assert(err || rows.length!=1 || rows[0].email || rows[0].id2 != '1' || rows[0].num2 != num2, "err8-1:", rows);
-                    next();
-                });
-            },
-            function(next) {
-                db.select("test2", { id: id2, id2: "1,2" }, { ops: { id2: 'between' } }, function(err, rows) {
-                    assert(err || rows.length!=2, "err8-2:", rows);
-                    next();
-                });
-            },
-            function(next) {
-                db.select("test2", { id: id2, num: "1,2" }, { ops: { num: 'between' } }, function(err, rows) {
-                    assert(err || rows.length!=2, "err8-3:", rows);
-                    next();
-                });
-            },
-            function(next) {
-                db.update("test2", { id: id, id2: '1', email: id + "@test", num: 9, num2: 9, json: { a: 1, b: 2 }, mtime: now }, next);
-            },
-            function(next) {
-                db.get("test2", { id: id, id2: '1' }, { consistent: true }, function(err, row) {
-                    assert(err || !row || row.id != id || row.email != id+"@test" || row.num != 9, "err9-2:", row);
-                    next();
-                });
-            },
-            function(next) {
-                db.del("test2", { id: id2, id2: '1', fake: 1 }, next);
-            },
-            function(next) {
-                db.get("test2", { id: id2, id2: '1' }, { consistent: true }, function(err, row) {
-                    assert(err || row, "del:", row);
-                    next();
-                });
-            },
-            function(next) {
-                lib.forEachSeries([1,2,3,4,5,6,7,8,9], function(i, next2) {
-                    db.put("test2", { id: id2, id2: String(i), email: id, name: id, birthday: id, num: i, num2: i, mtime: now }, next2);
-                }, next);
-            },
             function(next) {
                 // Check pagination
                 next_token = null;
@@ -388,9 +367,6 @@ describe("DB tests", async () => {
                 next();
             },
             function(next) {
-                db.add("test2", { id: id, id2: '2', email: id, name: id, birthday: id, num: 2, num2: 1, mtime: now }, next);
-            },
-            function(next) {
                 // Select by primary key and other filter
                 db.select("test2", { id: id, num: 9, num2: 9 }, { ops: { num: 'ge', num2: 'ge' } }, function(err, rows, info) {
                     assert(err || rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
@@ -409,14 +385,6 @@ describe("DB tests", async () => {
                 db.select("test2", { num: 9 }, { ops: { num: 'ge' } }, function(err, rows, info) {
                     var isok = rows.every(function(x) { return x.num >= 9 });
                     assert(err || rows.length==0 || !isok, "err15:", isok, rows, info);
-                    next();
-                });
-            },
-            function(next) {
-                // Scan the whole table with custom filter and sorting
-                db.select("test2", { id: id2, num: 1 }, { ops: { num: 'gt' }, sort: "num" }, function(err, rows, info) {
-                    var isok = rows.every(function(x) { return x.num > 1 });
-                    assert(err || rows.length==0 || !isok , "err16:", isok, rows, info);
                     next();
                 });
             },
@@ -444,31 +412,6 @@ describe("DB tests", async () => {
                     assert(err || rows.length!=11, "err19:", rows.length);
                     next();
                 });
-            },
-            async function(next) {
-                var key = lib.random();
-                await db.aput("test2", { id: key, key1: id, key2: 1 });
-                await db.aput("test2", { id: key, key1: id, key2: 2 });
-                await db.aput("test2", { id: key, key1: id, key2: 3 });
-
-                var rows = await db.aselect("test2", { id: key });
-                assert(rows?.length!=3 , "must be 3 records", rows);
-
-                rows = await db.aselect("test2", { id: key, id2: id }, { select: ["id","id2","key1","key2"] });
-                assert(rows?.length!=3 , "must be 3 records by matching beginning of secondary keys:", rows);
-
-                var ids = rows.map((x) => { delete x.id2; return x });
-                rows = await db.alist("test2", ids);
-                assert(rows?.length!=3 , "expcted 3 rows by exact joined secondary key:", rows, ids);
-
-
-                rows = await db.aselect("test2", { id: key, or$: { key2: 2, kkey2: 3 } }, { aliases: { kkey2: "key2" } });
-                assert(rows?.length!=2 , "must be 2 records by OR condition with aliases", rows);
-
-                rows = await db.aselect("test2", { id: key, or$: { key2: 2, $key2: 3 } } );
-                assert(rows?.length!=2 , "must be 2 records by OR condition with $ as alias", rows);
-
-                next();
             },
             function(next) {
                 db.put("test1", { id: id, email: id, num: 1 }, { info_obj: 1 }, function(err, rows, info) {
@@ -555,13 +498,6 @@ describe("DB tests", async () => {
             },
             function(next) {
                 db.update("test3", { id: id, tags: [6,7] }, { updateOps: { tags: "add" } }, next);
-            },
-            function(next) {
-                db.list("test3", [id + " "], {}, function(err, rows) {
-                    assert(err || rows.length != 1, "must return 1 row:", rows, db.customColumn);
-                    expect(configOptions.noListOps || rows[0].tags == "3,4,5,6,7", "tags must have 5 items", rows, configOptions)
-                    next();
-                });
             },
             function(next) {
                 db.update("test3", { id: id, tags: "6" }, { updateOps: { tags: "del" } }, next);
