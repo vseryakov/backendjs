@@ -23,7 +23,7 @@ const tables = {
             type: "uuid",
             primary: 1,
             index: 1,
-            _$dynamodb: { projections: ["email"] }
+            _$dynamodb: { projection: ["counter"] }
         },
         key: {
             type: "keyword",
@@ -35,8 +35,9 @@ const tables = {
         key2: { type: "int" },
         ctime: {
             type: "now",
-            readonly: true,
+            read_only: true,
             index: 2,
+            convert: { clock: true },
         },
         mtime: { type: "now" },
         name: { validate: { max: 32 } },
@@ -50,7 +51,7 @@ const tables = {
         notempty: {
             validate: { not_empty: true }
         },
-        dflt: { dflt: "1" },
+        dflt: { value: "dflt" },
         obj: { type: "obj" },
         list: { type: "array" },
         tags: {
@@ -70,8 +71,10 @@ const tables = {
     },
 };
 
-var id1 = lib.uuid(), id2 = lib.uuid(), id3 = lib.uuid();
-var key1 = lib.uuid(), key2 = lib.randomInt(1, 1000);
+var id1 = "10000000000000000000000000000000", id2 = "20000000000000000000000000000000", id3 = "30000000000000000000000000000000";
+var key1 = "abc", key2 = 999;
+var tags = ["tag1", "tag2", "tag3"];
+var list = ["a", "b", "c"];
 var row = {
     id: id1,
     name: "test name",
@@ -79,14 +82,14 @@ var row = {
     json: '{ "a": 1, "b": "b" }',
     realnum: 1.12345,
     obj: { a: 1, b: "b" },
-    list: ["a", "b", "c"],
-    tags: ["tag1", "tag2", "tag3"],
+    list: list.slice(0),
+    tags: tags.slice(0),
     weights: [1,2,"3",4,"5"],
     nospecial: "[plain, text!]###########################",
     bignum: lib.randomInt(10000000, 1000000000),
 }
 var next_token = null;
-var config;
+var pool, config;
 
 describe("DB tests", async () => {
 
@@ -103,7 +106,8 @@ describe("DB tests", async () => {
 
         db.customColumn.bk_test1 = { "count[0-9]+": "counter" };
 
-        config = db.getPool(db.pool).config;
+        pool = db.getPool(db.pool);
+        config = pool.config;
 
     });
 
@@ -195,7 +199,7 @@ describe("DB tests", async () => {
         rc = await db.aadd("bk_test1", row);
         assert.match(rc?.err?.message, /too large/);
 
-        row.tags = row.tags.slice(0, 2);
+        row.tags = tags.slice(0);
 
     });
 
@@ -230,11 +234,15 @@ describe("DB tests", async () => {
 
         row.key1 = key1;
         row.key2 = key1;
+        row.tags = tags.slice(1, 2);
+        row.dflt = null;
         rc = await db.aadd("bk_test1", row);
         assert.strictEqual(rc?.err, null);
 
         row.key1 = key2;
         row.key2 = key2;
+        row.counter = 0;
+        row.tags = tags.slice(0, 1);
         rc = await db.aadd("bk_test1", row);
         assert.strictEqual(rc?.err, null);
 
@@ -266,8 +274,8 @@ describe("DB tests", async () => {
         assert.strictEqual(rc?.data?.realnum, row.realnum);
         assert.deepStrictEqual(rc?.data?.counter, 3)
         assert.deepStrictEqual(rc?.data?.obj, row.obj);
-        assert.deepStrictEqual(rc?.data?.list, row.list)
-        assert.deepStrictEqual(rc?.data?.tags, row.tags);
+        assert.deepStrictEqual(rc?.data?.list, list)
+        assert.deepStrictEqual(rc?.data?.tags, tags);
         assert.deepStrictEqual(rc?.data?.weights, row.weights.map(x => parseInt(x)));
         assert.strictEqual(rc?.data?.nospecial, row.nospecial.replace(lib.rxSpecial, ""));
         assert.strictEqual(rc?.data?.bignum, row.bignum);
@@ -293,19 +301,54 @@ describe("DB tests", async () => {
 
     await it("db select", async() => {
 
-        let rc = await db.aselect("bk_test1", { id: id1 });
+        let rc = await db.aselect("bk_test1", { id: id1, fake: 1 }, { no_columns: true });
+        assert.deepStrictEqual(rc?.data, []);
+
+        rc = await db.aselect("bk_test1", { id: id1, fake: 1 });
         assert.strictEqual(rc?.data?.[0]?.id, id1);
 
-        rc = await db.aselect("bk_test1", { id: id3, $or: { key1, key1_$: String(key2) } });
+        rc = await db.aselect("bk_test1", { id: id1 });
+        assert.strictEqual(rc?.data?.[0]?.id, id1);
+
+        rc = await db.aselect("bk_test1", { id: id3 }, { sort: "ctime", desc: true });
+        assert.strictEqual(rc?.data?.[0]?.counter, 0);
+    });
+
+    await it("db expr in", async() => {
+
+        let rc = await db.aselect("bk_test1", { id: id3, $or: { key1, key1_$: String(key2) } });
         assert.strictEqual(rc?.data?.length, 3);
 
-        rc = await db.aselect("bk_test1", { id: id3, key1_$in: [key1, String(key2)] });
+        rc = await db.aselect("bk_test1", { id: id3, key1_$in: [key1, String(key2), "null"] });
         assert.strictEqual(rc?.data?.length, 3);
 
         rc = await db.aselect("bk_test1", { id: id3, key1: [key1, String(key2)] }, { ops: { key1: "in" } });
         assert.strictEqual(rc?.data?.length, 3);
 
-        rc = await db.aselect("bk_test1", { id: id3, counter_$gt: 0 }, { select: 'id,counter' });
+        rc = await db.aselect("bk_test1", { id: id3, key1_$not_in: [key1] });
+        assert.strictEqual(rc?.data?.length, 1);
+
+        rc = await db.aselect("bk_test1", { id: id3, key1_$not_in: [key1] });
+        assert.strictEqual(rc?.data?.length, 1);
+
+    });
+
+    await it("db expr in list", async() => {
+
+        const op = pool.type === "elasticsearch" ? "in" :
+                   pool.type === "postgres" ? "&&" : "contains";
+
+        let rc = await db.aselect("bk_test1", { id: id3, ["tags_$" + op]: tags.slice(0, 1) });
+        assert.strictEqual(rc?.data?.length, 2);
+
+        rc = await db.aselect("bk_test1", { id: id3, ["tags_$not_" + op]: [tags[0]] });
+        assert.strictEqual(rc?.data?.length, 1);
+
+    });
+
+    await it("db expr numeric", async() => {
+
+        let rc = await db.aselect("bk_test1", { id: id3, counter_$gt: 0 }, { select: 'id,counter' });
         assert.strictEqual(rc?.data?.length, 1);
         assert.strictEqual(rc?.data[0].key1, undefined);
         assert.strictEqual(rc?.data[0].counter, 2);
@@ -315,9 +358,24 @@ describe("DB tests", async () => {
 
         rc = await db.aselect("bk_test1", { id: id3, counter: [0,2] }, { ops: { counter: 'between' } })
         assert.strictEqual(rc?.data?.length, 2);
+    });
+
+    await it("db expr pattern", async() => {
+
+        let rc = await db.aselect("bk_test1", { id: id3, key_$begins_with: key1 });
+        assert.strictEqual(rc?.data?.length, 2);
 
         rc = await db.aselect("bk_test1", { id: id3, key_$begins_with: key1 });
         assert.strictEqual(rc?.data?.length, 2);
+
+        rc = await db.aselect("bk_test1", { id: id3, key1_$contains: "a" });
+        assert.strictEqual(rc?.data?.length, 2);
+
+        rc = await db.aselect("bk_test1", { id: id3, dflt: null });
+        assert.strictEqual(rc?.data?.length, 2);
+
+        rc = await db.aselect("bk_test1", { id: id3, dflt_$not_null: "" });
+        assert.strictEqual(rc?.data?.length, 1);
 
     });
 
@@ -365,42 +423,6 @@ describe("DB tests", async () => {
             function(next) {
                 assert(null, next_token, "err13: next_token must be null", next_token);
                 next();
-            },
-            function(next) {
-                // Select by primary key and other filter
-                db.select("test2", { id: id, num: 9, num2: 9 }, { ops: { num: 'ge', num2: 'ge' } }, function(err, rows, info) {
-                    assert(err || rows.length==0 || rows[0].num!=9 || rows[0].num2!=9, "err13:", rows, info);
-                    next();
-                });
-            },
-            function(next) {
-                // Wrong query property and non-existent value
-                db.select("test2", { id: id, num: 9, num2: 9, email: 'fake' }, { sort: "id_num", ops: { num: 'ge' } }, function(err, rows, info) {
-                    assert(err || rows.length!=0, "err14:", rows, info);
-                    next();
-                });
-            },
-            function(next) {
-                // Scan the whole table with custom filter
-                db.select("test2", { num: 9 }, { ops: { num: 'ge' } }, function(err, rows, info) {
-                    var isok = rows.every(function(x) { return x.num >= 9 });
-                    assert(err || rows.length==0 || !isok, "err15:", isok, rows, info);
-                    next();
-                });
-            },
-            function(next) {
-                // Query with sorting with composite key
-                db.select("test2", { id: id2 }, { desc: true, sort: "id2" }, function(err, rows, info) {
-                    assert(err || rows.length==0 || rows[0].id2!='9' , "err17:", rows, info);
-                    next();
-                });
-            },
-            function(next) {
-                // Query with sorting by another column/index
-                db.select("test2", { id: id2 }, { desc: true, sort: "num" }, function(err, rows, info) {
-                    assert(err || rows.length==0 || rows[0].num!=9 , "err18:", rows, info);
-                    next();
-                });
             },
             function(next) {
                 // Scan all records

@@ -237,7 +237,7 @@ sql.expr = function(req, name, value, column)
 {
     if (!name || value === undefined) return "";
 
-    var text = req.pool.prepareExpr(req, name, value, column);
+    let text = req.pool.prepareExpr(req, name, value, column);
 
     logger.debug("expr:", "sql", name, value, "C:", column, "R:", req, text);
 
@@ -245,7 +245,7 @@ sql.expr = function(req, name, value, column)
 
     const type = column?.type;
     const raw = req.options?.raw;
-    let op = column?.op;
+    let op = column?.op, list;
 
     name = sql.column(req, name)
 
@@ -258,7 +258,7 @@ sql.expr = function(req, name, value, column)
     case "not @>":
     case "&lt;@":
     case "not &lt;@":
-        let list = [];
+        list = [];
         // Convert type into array
         switch (lib.typeName(value)) {
         case "object":
@@ -527,7 +527,8 @@ sql.where = function(req, query)
         return { where: [sql.list(req, query)] };
     }
 
-    var where = [], join;
+    const where = [];
+    let join;
     for (const p in query) {
         if (p[0] === "_") continue;
 
@@ -701,11 +702,11 @@ sql.createColumn = function(req, name, col)
 
     return name + " " + type + " " +
            (col.length ? ` (${col.length}) ` : " ") +
-           (col.not_null || col.validate?.not_empty ? " NOT NULL " : "") +
+           (col.not_null ? " NOT NULL " : "") +
            (col.auto &amp;&amp; config?.features?.auto ? " AUTO_INCREMENT " : "") +
            (col.value !== undefined ? ` DEFAULT ${sql.value(col.value, col)} `: "") +
            (opts?.sql_extra || "") +
-           (fk?.table ? ` REFERENCES ${fk.table}(${fk.name || name}) ${fk.ondelete ? "ON DELETE " + fk.ondelete : ""} ${fk.custom || ""}`: "")
+           (fk?.table ? ` REFERENCES ${fk.table}(${fk.name || name}) ${fk.on_delete ? "ON DELETE " + fk.on_delete : ""} ${fk.custom || ""}`: "")
 }
 
 /**
@@ -811,9 +812,9 @@ sql.select = function(req)
         return null;
     }
 
-    var select = lib.split(req.options.select).map((x) => (sql.column(req, x))).join(",") || "*";
-    var where = w.where.length ? " WHERE " + w.where.join(" AND ") : "";
-    var join = w.join?.length ? w.join.join(" ") : "";
+    const select = lib.split(req.options.select).map((x) => (sql.column(req, x))).join(",") || "*";
+    const where = w.where.length ? " WHERE " + w.where.join(" AND ") : "";
+    const join = w.join?.length ? w.join.join(" ") : "";
 
     req.text = `SELECT ${select} FROM ${req.table} ${join} ${where} ${sql.limit(req)}`;
 }
@@ -932,7 +933,7 @@ sql.delete = function(req)
         return null;
     }
 
-    var where = w.where.length ? " WHERE " + w.where.join(" AND ") : "";
+    const where = w.where.length ? " WHERE " + w.where.join(" AND ") : "";
 
     req.text = `DELETE FROM ${req.table} ${where}`;
 

@@ -119,10 +119,10 @@ class PostgresPool extends pgPool.Pool {
                         req.values.push(val);
                         return req.pool.placeholder(req);
                     });
-                    expr.text = `${expr.column}=${expr.column}||ARRAY[${array}]`;
+                    expr.text = `${expr.column}=${req.table}.${expr.column}||ARRAY[${array}]`;
                     expr.placeholder = undefined;
                 } else {
-                    expr.text = `${expr.column}=${expr.column}||${expr.placeholder}`;
+                    expr.text = `${expr.column}=${req.table}.${expr.column}||${expr.placeholder}`;
                 }
                 return;
 
@@ -136,7 +136,7 @@ class PostgresPool extends pgPool.Pool {
                     expr.text = `${expr.column}=${array}`;
                     expr.placeholder = undefined;
                 } else {
-                    expr.text = `${expr.column}=array_remove(${expr.column},${expr.placeholder})`;
+                    expr.text = `${expr.column}=array_remove(${req.table}.${expr.column},${expr.placeholder})`;
                 }
                 return;
             }

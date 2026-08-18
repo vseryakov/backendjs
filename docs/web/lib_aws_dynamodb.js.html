@@ -1248,7 +1248,8 @@ aws.ddbGetItem = function(name, keys, options, callback)
  *      - sort - index name to use, indexes are named the same as the corresponding column, with index primary keys for Keycondition will be used
  *      - ops - an object with operators to be used for properties if other than EQ.
  *      - keys - list of primary key columns, if there are other properties in the condition then they will be
- *               put into QueryFilter instead of KeyConditions. If keys are absent, all properties in the condition are treated as primary keys.
+ *          put into FilterExpression instead of KeyConditionExpression. If keys are absent, all properties in the
+ *          condition are treated as primary keys.
  *      - projection - projection expression
  *      - values - an object with values map to be used for in the update and/or condition expressions, to be used
  *          for ExpressionAttributeValues parameters
@@ -1308,7 +1309,12 @@ aws.ddbQueryTable = function(name, condition, options, callback)
     if (Array.isArray(options.keys)) {
         const keys = {}, filter = {};
         for (const p in condition) {
-            if (options.keys.includes(p)) keys[p] = condition[p]; else filter[p] = condition[p];
+            const name = p.includes("_$") ? p.substr(0, p.indexOf("_$")) : p;
+            if (options.keys.includes(name)) {
+                keys[p] = condition[p];
+            } else {
+                filter[p] = condition[p];
+            }
         }
         params.KeyConditionExpression = getQueryExpression(params, keys, options);
         if (filter) {

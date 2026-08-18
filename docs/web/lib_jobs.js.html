@@ -438,7 +438,7 @@ jobs.markCancelled = function(msg)
     for (const job of this.running) {
         job.cancelKey = lib.arrayUpdate("add", job.cancelKey, msg.key);
     }
-    logger.info("markCancelled:", this.runningJobs.length, msg);
+    logger.info("markCancelled:", this.running.length, msg);
 }
 
 /**
@@ -450,7 +450,7 @@ jobs.markCancelled = function(msg)
 jobs.isCancelled = function(key)
 {
     if (!key) return this.exiting;
-    for (const job of this.runningJobs) {
+    for (const job of this.running) {
         if (lib.includes(job?.cancelKey, key)) return 1;
     }
     return this.exiting;
@@ -459,7 +459,7 @@ jobs.isCancelled = function(key)
 // Find the max runtime allowed in milliseconds
 jobs.getMaxRuntime = function()
 {
-    return this.runningJobs.reduce((m, x) => (Math.max(m, x.maxRuntime || 0)), this.maxRuntime);
+    return this.running.reduce((m, x) => (Math.max(m, x.maxRuntime || 0)), this.maxRuntime);
 }
 
 // Return a list of unique job names currently running
@@ -481,13 +481,13 @@ jobs.getRunning = function()
 jobs.checkTimes = function()
 {
     var now = Date.now();
-    if (this.runningJobs.length) {
+    if (this.running.length) {
         const maxRuntime = this.getMaxRuntime();
         if (maxRuntime > 0) {
-            const badJobs = this.runningJobs.filter((x) => (now - x.jobTime > maxRuntime));
+            const badJobs = this.running.filter((x) => (now - x.jobTime > maxRuntime));
             // Stuck jobs can run much longer if we are still processing other small jobs
             if (badJobs.length) {
-                if (this.runningJobs.length === badJobs.length) {
+                if (this.running.length === badJobs.length) {
                     logger.warn('checkLifetime:', 'jobs: exceeded max run time', maxRuntime, badJobs);
 
                     // Notify all queues about bad jobs to be dropped completely
