@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>webscraper - Backendjs Documentation</title>
+    <title>Using the Database Layer - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -39,370 +39,482 @@
 
 <div id="main">
     
-    <h1 class="page-title">webscraper</h1>
-    
 
-    
-
-
-
-
-<section>
-
-
-    <div class="toc">
-    
-    
-    
-    
-        <h4><a href="#methods">↓ Methods.</a></h4>
-    
-    </div>
-
+    <section>
 
 <header>
-    
-        
-            
-        
     
 </header>
 
 <article>
-    
-        <div class="container-overview">
-        
-            
-
-            
-                
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Scrape the url and extract details using Puppeteer</p>
-<p>This is optional module not loaded by default, to use must be loaded as <code>require(&quot;backendjs/dist/webscraper&quot;)</code></p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="dist_webscraper.js.html">dist/webscraper.js</a>, <a href="dist_webscraper.js.html#line15">line 15</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            
-        
-        </div>
-    
-
-    
-
-    
-
-    
-
-    
-    
-    
-
-     
-
-    
-
-    
-
-
-    
-        <a name="methods">
-            <h2 class="subsection-title">Methods</h2>
-        </a>
-
-        
-            
-
-    
-
-    <h4 class="name" id=".run"><span class="type-signature type-signature-async, static">(async, static) </span>run<span class="signature">(options)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Runs the scraper for given url, extracts details</p>
-<p>Properties set in the options:</p>
+    <h1 id="using-the-database-layer">Using the Database Layer</h1>
+<p>This guide shows how to use the <code>db</code> module of backendjs. It is written for application
+developers, not for people modifying the library. The examples are lifted straight from
+<a href="../../tests/db.test.js"><code>tests/db.test.js</code></a> — the same tests that run against every
+supported backend, so the code below works the same whether your pool is SQLite,
+PostgreSQL, DynamoDB, Elasticsearch or Rqlite.</p>
+<p>Pick your backend by setting an environment variable before running your app or the
+tests:</p>
+<pre class="prettyprint source lang-bash"><code>BKJS_ROLES=postgres   node --test tests/db.test.js
+BKJS_ROLES=dynamodb   node --test tests/db.test.js
+BKJS_ROLES=sqlite     node --test tests/db.test.js   # (default)
+</code></pre>
+<p>You write one set of <code>db.*</code> calls; the driver mapping is handled for you.</p>
+<hr>
+<h2 id="table-of-contents">Table of contents</h2>
 <ul>
-<li>{string} title - page title</li>
-<li>{string} logo - first logo</li>
-<li>{object} meta - meta tags</li>
-<li>{object} event - from LD+JSON</li>
-<li>{object} webpage - from LD+JSON</li>
-<li>{object} company - company from LD+JSON</li>
-<li>{object} ical - first event</li>
-<li>{string[]} logos - first 5 detected logos</li>
+<li><a href="#tables-define-create-and-migrate">Tables: define, create and migrate</a></li>
+<li><a href="#writing-data-add-put-update-incr">Writing data: add, put, update, incr</a></li>
+<li><a href="#reading-data-get-select-list">Reading data: get, select, list</a></li>
+<li><a href="#operators-how-conditions-work">Operators: how conditions work</a></li>
+<li><a href="#validation-and-defaults">Validation and defaults</a></li>
+<li><a href="#lists-sets-and-objects">Lists, sets and objects</a></li>
+<li><a href="#pagination-and-scan">Pagination and scan</a></li>
+<li><a href="#caching-reads">Caching reads</a></li>
+<li><a href="#aliases">Aliases</a></li>
+<li><a href="#the-db-method-list">The <code>db.*</code> method list</a></li>
+<li><a href="#config-table-and-cleanup-rules">Config table and cleanup rules</a></li>
 </ul>
-<p>Files stored under options.root</p>
+<hr>
+<h2 id="tables%3A-define%2C-create-and-migrate">Tables: define, create and migrate</h2>
+<p>You describe your tables as plain objects. A table is a map of <code>column name → definition</code>.
+Common column options: <code>type</code>, <code>primary</code>, <code>index</code>, <code>not_null</code>, <code>value</code> (default), and
+<code>validate</code> / <code>convert</code> for constraints.</p>
+<pre class="prettyprint source lang-js"><code>const tables = {
+    bk_test1: {
+        id:   { type: &quot;uuid&quot;,  primary: 1, index: 1 },
+        key1: { type: &quot;text&quot; },
+        key2: { type: &quot;int&quot; },
+        name: { validate: { max: 32 } },
+        email:{ type: &quot;email&quot; },
+        json: { type: &quot;json&quot; },
+        realnum:{ type: &quot;real&quot; },
+        counter:{ type: &quot;counter&quot;, value: 0 },
+        notempty:{ validate: { not_empty: true } },
+        dflt: { value: &quot;dflt&quot; },
+        obj:  { type: &quot;obj&quot; },
+        list: { type: &quot;array&quot; },
+        tags: { type: &quot;list&quot;,  validate: { max_list: 3 } },
+        weights:{ type: &quot;set&quot;, split: { data_type: &quot;int&quot; } },
+        nospecial:{ validate: { max: 32, trunc: 1 }, convert: { strip: lib.rxSpecial } },
+    },
+};
+
+// Register the definitions, then create/migrate them in the pool(s)
+db.describeTables(tables);
+const { err, created } = await db.acreateTables({ pools: [db.pool] });
+// created === [&quot;bk_test1&quot;]
+</code></pre>
 <ul>
-<li>{file} page.png - first page screenshot</li>
-<li>{file} scroll.png - full page scrolled screenshot</li>
-<li>{file} full.png - screenshots of the first and fully scrolled down pages</li>
-<li>{file} page.html - HTML content</li>
-<li>{file} page.txt  - body innerText</li>
-<li>{file} logo.png - downloaded logo</li>
+<li><strong><code>db.describeTables(defs)</code></strong> – register table definitions in memory.</li>
+<li><strong><code>db.acreateTables({ pools })</code></strong> – create missing tables and <strong>migrate existing</strong> ones,
+creating new columns and indexes. It is idempotent: call it on every startup. A freshly
+added column (e.g. a new <code>bigint</code> with <code>index1: 1</code>) is picked up on the next call and the
+returned <code>upgraded</code> list tells you which tables changed.</li>
+<li><code>db.acacheColumns(pool)</code> refreshes the in-memory view of the table columns.</li>
 </ul>
-<p>Different sources of information are supported:</p>
+<p>Table names can start with <code>bk_</code>, but that is just a convention.</p>
+<hr>
+<h2 id="writing-data%3A-add%2C-put%2C-update%2C-incr">Writing data: add, put, update, incr</h2>
+<p>All verbs have an async (<code>a</code>-prefixed) form that returns <code>{ err, data, info }</code> and a
+callback form. The examples below use the async form.</p>
+<h3 id="add-%2F-insert-(db.aadd)">Add / insert (<code>db.aadd</code>)</h3>
+<pre class="prettyprint source lang-js"><code>const { err, data, info } = await db.aadd(&quot;bk_test1&quot;, row, { returning: &quot;*&quot;, first: true });
+// data.id is the generated/normalized primary key
+</code></pre>
 <ul>
-<li>DOM</li>
-<li>meta tags</li>
-<li>LD+JSON scripts</li>
-<li>iCal links</li>
-</ul></li></ul></dd>
-    
+<li>A primary key may be <strong>composite</strong> and/or <strong>joined</strong> — see below. If you do not supply the
+required key columns, the driver fills them in (for example a <code>uuid</code> type is generated).</li>
+<li><code>returning: &quot;*&quot;</code> returns the stored row; <code>first: true</code> is a convenience for single-row ops.</li>
+<li><strong>Adding a duplicate primary key fails</strong> — this is how <code>upsert</code> is avoided; to replace,
+delete then add, or use <code>db.aput</code>.</li>
+</ul>
+<h3 id="put-%2F-upsert-(db.aput)">Put / upsert (<code>db.aput</code>)</h3>
+<p>Creates the row if it does not exist, otherwise updates it.</p>
+<pre class="prettyprint source lang-js"><code>await db.aput(&quot;bk_test1&quot;, { id, email: id, num: 1 }, { info_obj: 1 });
+</code></pre>
+<h3 id="update-(db.aupdate)">Update (<code>db.aupdate</code>)</h3>
+<p><code>update(table, newFields, options)</code> applies <code>newFields</code> to the rows matched by the options
+<code>query</code>, and can apply operators per column instead of plain assignment:</p>
+<pre class="prettyprint source lang-js"><code>// increment num only where email matches
+await db.aupdate(&quot;test1&quot;,
+    { id, email: &quot;test&quot;, num: 1 },
+    { query: { id, email }, updateOps: { num: &quot;incr&quot; }, skip_columns: [&quot;mtime&quot;] }
+);
 
-    
+// return the updated rows
+const { info } = await db.aupdate(&quot;test1&quot;,
+    { id, email: &quot;test&quot;, num: 100 },
+    { query: { id, email }, returning: &quot;*&quot; });
+</code></pre>
+<p>Useful update options: <code>query</code> (extra WHERE condition in addition to the key),
+<code>updateOps</code> / <code>ops</code> (per-column operator such as <code>incr</code>, <code>add</code>, <code>del</code>), <code>skip_columns</code>
+(do not touch these columns), <code>returning</code> (return affected rows).</p>
+<h3 id="incr-%E2%80%94-bump-counters-%2F-upsert-a-counter-row-(db.aincr)">Incr — bump counters / upsert a counter row (<code>db.aincr</code>)</h3>
+<pre class="prettyprint source lang-js"><code>await db.aincr(&quot;bk_test1&quot;, { id: id1, key1, key2, counter: 3 });
+await db.aincr(&quot;bk_test1&quot;, { id: id3, key1, key2: key1, counter: -2 }); // negative ok
+</code></pre>
+<p><code>counter</code> is a special column type; <code>incr</code> adds the given amount and creates the row if it
+does not exist.</p>
+<hr>
+<h2 id="reading-data%3A-get%2C-select%2C-list">Reading data: get, select, list</h2>
+<h3 id="get-one-row-by-key-(db.aget)">Get one row by key (<code>db.aget</code>)</h3>
+<p><code>get</code> takes the <strong>primary key(s)</strong> of the table — a composite key means you pass all its
+parts. Non-key columns are not used for lookup, only for read/return control:</p>
+<pre class="prettyprint source lang-js"><code>const { err, data } = await db.aget(&quot;bk_test1&quot;, { id: id1, key1, key2 });
+if (data === null) { /* not found */ }
 
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="dist_webscraper.js.html">dist/webscraper.js</a>, <a href="dist_webscraper.js.html#line138">line 138</a>
-    </li></ul></dd>
-    
+data.name;    // string
+data.json;    // already parsed into a JS object (json type, not a string)
+data.list;    // [&quot;a&quot;,&quot;b&quot;,&quot;c&quot;] (array/column type)
+data.tags;    // [&quot;tag1&quot;,&quot;tag2&quot;,&quot;tag3&quot;] (list type, split back into an array)
+data.weights; // [1,2,3,4,5] (set type, split + coerced to int)
+data.counter; // number
+</code></pre>
+<p>Values are <strong>converted back</strong> to the types you declared when reading: <code>json</code>/<code>obj</code>/<code>array</code>
+become objects, <code>list</code>/<code>set</code> become arrays, numbers come back as numbers. Default values are
+applied for any column that stored <code>null</code>.</p>
+<h3 id="select-many-by-a-condition-(db.aselect)">Select many by a condition (<code>db.aselect</code>)</h3>
+<p><code>select</code> takes a <strong>condition</strong> object plus <strong>options</strong>:</p>
+<pre class="prettyprint source lang-js"><code>// equality + a prefix condition, limit columns and columns that don't exist are ignored
+const { data } = await db.aselect(&quot;bk_test1&quot;, { id: id3 }, { sort: &quot;ctime&quot;, desc: true });
+data[0].counter; // 0  (most recent first)
 
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                object
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last">
-                <h6>Properties</h6>
-                
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>url</code></td>
-            
-
-            <td class="type">
-            
-                string
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
+// columns not in the table/definition are ignored by default:
+const { data } = await db.aselect(&quot;bk_test1&quot;, { id: id1, fake: 1 });
+// data === []  because matching on a real (nonexistent) key with no columns selected → none
+</code></pre>
+<p>Options you can pass: <code>select</code> (comma-separated list of columns to return), <code>sort</code>
+(ordering; prefix a column name with <code>!</code> for descending), <code>desc</code>, <code>count</code> / <code>page</code> /
+<code>start</code> (paging), <code>first</code> / <code>last</code> (return a single record), <code>no_columns</code> (do not filter out
+unknown columns — only meaningful for NoSQL backends that store any field).</p>
+<h3 id="list-%2F-batch-get-(db.alist)">List / batch get (<code>db.alist</code>)</h3>
+<p>Fetch several rows by their keys in one call. It accepts an array of key objects and just
+returns the ones that exist (missing keys are skipped):</p>
+<pre class="prettyprint source lang-js"><code>const { data } = await db.alist(&quot;bk_test1&quot;,
+    [id1, id2, id3, 1].map(id => ({ id, key1, key2 })));
+data.length; // 3  — the bogus key `1` is simply not present
+</code></pre>
+<hr>
+<h2 id="operators%3A-how-conditions-work">Operators: how conditions work</h2>
+<p>By default a condition is an equality test: <code>{ id: id3, name: &quot;John&quot; }</code>. You can replace the
+operator in two equivalent ways:</p>
+<ol>
+<li><strong>Inline in the column name</strong> as <code>name_$op</code> — the most common form.</li>
+<li><strong>Via the <code>ops</code> option</strong>: <code>{ col: val }</code> with <code>{ ops: { col: op } }</code>.</li>
+</ol>
+<p>The inline operator wins if both are given. The following are all the same query:</p>
+<pre class="prettyprint source lang-js"><code>// prefix match on a joined/composite key
+await db.aselect(&quot;bk_test1&quot;, { id: id3, key_$begins_with: &quot;abc&quot; });
+// substring match
+await db.aselect(&quot;bk_test1&quot;, { id: id3, key1_$contains: &quot;a&quot; });
+// null tests
+await db.aselect(&quot;bk_test1&quot;, { id: id3, dflt: null });            // dflt IS NULL
+await db.aselect(&quot;bk_test1&quot;, { id: id3, dflt_$not_null: &quot;&quot; });    // dflt IS NOT NULL
+// membership
+await db.aselect(&quot;bk_test1&quot;, { id: id3, key1_$in:     [&quot;abc&quot;, &quot;999&quot;, &quot;null&quot;] });
+await db.aselect(&quot;bk_test1&quot;, { id: id3, key1_$not_in: [&quot;abc&quot;] });
+await db.aselect(&quot;bk_test1&quot;, { id: id3, key1: [&quot;abc&quot;, &quot;999&quot;] }, { ops: { key1: &quot;in&quot; } });
+// comparisons and ranges
+await db.aselect(&quot;bk_test1&quot;, { id: id3, counter_$gt: 0 }, { select: &quot;id,counter&quot; });
+await db.aselect(&quot;bk_test1&quot;, { id: id3, counter: 0 },          { ops: { counter: &quot;lt&quot; } });
+await db.aselect(&quot;bk_test1&quot;, { id: id3, counter: [0, 2] },     { ops: { counter: &quot;between&quot; } });
+// list / array containment (one syntax, mapped to the right native op per backend)
+await db.aselect(&quot;bk_test1&quot;, { id: id3, &quot;tags_$contains&quot;: [&quot;tag1&quot;] });
+</code></pre>
+<h3 id="built-in-operators">Built-in operators</h3>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Operators</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Equality/comparison</td>
+<td><code>=</code>, <code>!=</code>/<code>&lt;&gt;</code> (<code>ne</code>), <code>&gt;</code>, <code>lt</code>, <code>&gt;=</code>, <code>ge</code>, <code>&lt;=</code>, <code>le</code></td>
+<td><code>{ counter_$gt: 0 }</code>, <code>{ num: 0 }, ops:{ num: &quot;lt&quot; }</code></td>
+</tr>
+<tr>
+<td>Ranges</td>
+<td><code>between</code>, <code>not between</code></td>
+<td><code>{ counter: [0, 2] }, ops: { counter: &quot;between&quot; }</code></td>
+</tr>
+<tr>
+<td>Text</td>
+<td><code>begins_with</code>, <code>not_begins_with</code>, <code>ends_with</code>, <code>not_ends_with</code>, <code>contains</code>, <code>not_contains</code>, <code>like</code>, <code>like%</code>, <code>ilike</code></td>
+<td><code>{ key1_$contains: &quot;a&quot; }</code></td>
+</tr>
+<tr>
+<td>Membership</td>
+<td><code>in</code>, <code>not_in</code>, <code>all_in</code></td>
+<td><code>{ key1_$in: [&quot;abc&quot;,&quot;999&quot;] }</code></td>
+</tr>
+<tr>
+<td>Null</td>
+<td><code>null</code> (pass a <code>null</code> value), <code>not_null</code></td>
+<td><code>{ dflt: null }</code>, <code>{ dflt_$not_null: &quot;&quot; }</code></td>
+</tr>
+<tr>
+<td>Full text (Postgres)</td>
+<td><code>@@</code> (tsvector/tsquery)</td>
+<td><code>{&quot;fulltext_$@@&quot;: &quot;cats&quot;}</code></td>
+</tr>
+<tr>
+<td>Regex / similar (Postgres)</td>
+<td><code>~</code>, <code>~*</code>, <code>!~</code>, <code>!~*</code>, <code>regexp</code>, <code>iregexp</code>, <code>similar to</code></td>
+<td>—</td>
+</tr>
+</tbody>
 </table>
+<h3 id="composite-and-joined-keys">Composite and joined keys</h3>
+<p>A primary key can be composite (ordered <code>primary: 1, 2, ...</code>) and one column can be a
+<strong>join</strong> of the key columns:</p>
+<pre class="prettyprint source lang-js"><code>key: { type: &quot;keyword&quot;, primary: 2, join: [&quot;key1&quot;, &quot;key2&quot;] }
+</code></pre>
+<p><code>key</code> is a virtual column equal to <code>key1</code> and <code>key2</code> combined. You still fetch and update
+by the parts (<code>{ id, key1, key2 }</code>), but you can <em>query</em> on the combined value, e.g.
+<code>{ id: id3, key_$begins_with: &quot;abc&quot; }</code>. On NoSQL backends the same idea maps to a composite
+primary key.</p>
+<h3 id="logical-combinations%3A-%24or%2C-%24and%2C-%24not">Logical combinations: <code>$or</code>, <code>$and</code>, <code>$not</code></h3>
+<p>You can nest conditions with special keys. Multiple levels use extra <code>$</code> signs:</p>
+<pre class="prettyprint source lang-js"><code>// id = id3 AND ( key1 = key1 OR key1 = &quot;999&quot; )
+await db.aselect(&quot;bk_test1&quot;, { id: id3, $or: { key1, key1_$: &quot;999&quot; } });
 
-            </td>
-        </tr>
+// multiple alternatives: id IN (...) OR name = 'a'
+await db.aselect(&quot;bk_test1&quot;, { $$or: { id_$in: [4,5,6], name: &quot;a&quot; } });
 
-    
-    </tbody>
+// negation
+await db.aselect(&quot;bk_test1&quot;, { $not: { name: &quot;a&quot; } });
+</code></pre>
+<hr>
+<h2 id="validation-and-defaults">Validation and defaults</h2>
+<p>Validation happens on the way <strong>in</strong> (<code>add</code>/<code>put</code>/<code>update</code>), and is defined per column.
+Failing validation returns a non-<code>null</code> <code>err</code> with a descriptive message.</p>
+<pre class="prettyprint source lang-js"><code>// not_empty: value must be present
+await db.aadd(&quot;bk_test1&quot;, row);                       // err: &quot;...must not be empty&quot;
+row.notempty = 1;
+
+// not_null: required columns must be supplied
+await db.aadd(&quot;bk_test1&quot;, row);                        // err: &quot;NULL|not-null|required keys&quot;
+row.key1 = &quot;abc&quot;;
+// still fails until the whole required composite key is present
+
+// max length (text) and max_list (list)
+row.name = &quot;x&quot;.repeat(200);
+await db.aadd(&quot;bk_test1&quot;, row);                        // err: &quot;too large&quot;
+row.name = &quot;short&quot;;
+row.tags = [&quot;a&quot;,&quot;b&quot;,&quot;c&quot;,&quot;a1&quot;,&quot;b1&quot;,&quot;c1&quot;];               // exceeds max_list: 3 → &quot;too large&quot;
+</code></pre>
+<ul>
+<li><code>validate.max</code> — max string length. <code>validate.trunc</code> truncates instead of erroring.</li>
+<li><code>validate.max_list</code> — max array size.</li>
+<li><code>validate.not_empty</code> — value must not be empty.</li>
+<li><code>not_null: true</code> — the column is required (only enforced on backends that support it).</li>
+<li><code>convert.strip</code> — a regular expression stripped from the value on write (e.g. <code>lib.rxSpecial</code> removes punctuation).</li>
+<li><code>value: &quot;dflt&quot;</code> — a default applied when the stored value is <code>null</code>, on read.</li>
+</ul>
+<hr>
+<h2 id="lists%2C-sets-and-objects">Lists, sets and objects</h2>
+<ul>
+<li>
+<p><strong><code>list</code> / <code>set</code></strong> types are stored as delimited strings by SQL backends and returned as
+arrays. They support element operations so you do not have to rewrite the whole value:</p>
+<pre class="prettyprint source lang-js"><code>await db.aupdate(&quot;test3&quot;, { tags: &quot;4&quot; },     { updateOps: { tags: &quot;add&quot; } }); // append
+await db.aupdate(&quot;test3&quot;, { tags: &quot;6&quot; },     { updateOps: { tags: &quot;del&quot; } }); // remove
+await db.aupdate(&quot;test3&quot;, { tags: [6,7] },   { updateOps: { tags: &quot;add&quot; } });
+const { data } = await db.aget(&quot;test3&quot;, { id });
+data.tags; // [&quot;3&quot;,&quot;4&quot;,&quot;5&quot;,&quot;7&quot;]
+</code></pre>
+<p>On backends that support native array ops (e.g. Postgres) the equivalent operators
+(<code>&amp;&amp;</code>, <code>@&gt;</code>, <code>&lt;@</code>, <code>add</code>, <code>del</code>) are used automatically.</p>
+</li>
+<li>
+<p><strong><code>obj</code> / <code>array</code> / <code>json</code></strong> types are stored as JSON and passed to/from you already
+decoded.</p>
+</li>
+<li>
+<p><code>set</code> with <code>split: { data_type: &quot;int&quot; }</code> splits on the delimiter and coerces each element
+to a number on read, so <code>[1,2,&quot;3&quot;,4,&quot;5&quot;]</code> comes back as <code>[1,2,3,4,5]</code>.</p>
+</li>
+</ul>
+<hr>
+<h2 id="pagination-and-scan">Pagination and scan</h2>
+<h3 id="paged-select">Paged select</h3>
+<p>For large result sets, page through with <code>count</code> and the <code>next_token</code> returned in <code>info</code>.
+<code>next_token</code> becomes <code>null</code> when you reach the end, which is the natural loop-stopping
+condition.</p>
+<pre class="prettyprint source lang-js"><code>let token = null, pages = [];
+do {
+    const { data, info } = await db.aselect(&quot;test2&quot;, { id: id2 },
+        { sort: &quot;id2&quot;, start: token, count: 2, select: &quot;id,id2&quot; });
+    pages.push(...data);
+    token = info.next_token;
+} while (token);
+</code></pre>
+<p>You can condition the paging on a range key:</p>
+<pre class="prettyprint source lang-js"><code>await db.aselect(&quot;test2&quot;, { id: id2, id2: &quot;0&quot; },
+    { sort: &quot;id2&quot;, ops: { id2: &quot;gt&quot; }, start: token, count: 3, select: &quot;id,id2&quot; });
+// returns the next 3 rows after id2 > &quot;0&quot;
+</code></pre>
+<h3 id="stream-%2F-scan">Stream / scan</h3>
+<p><code>db.scan(table, query, options, rowCallback, doneCallback)</code> streams rows one at a time so
+you do not load the whole result into memory. <code>count</code> controls the batch size.</p>
+<pre class="prettyprint source lang-js"><code>const rows = [];
+await db.ascan(&quot;test2&quot;, {}, { count: 2 }, row => { rows.push(row); });
+</code></pre>
+<hr>
+<h2 id="caching-reads">Caching reads</h2>
+<p>Reads of a table can be result-cached. Register the tables and (optionally) a per-table TTL,
+then read with the <code>cached</code> option. <code>info.cached</code> tells you where the row came from
+(<code>0</code> = DB, <code>1</code>/<code>2</code> = cache levels). You can also read the cache directly with
+<code>db.getCache</code>.</p>
+<pre class="prettyprint source lang-js"><code>db.cache.tables.push(&quot;test1&quot;, &quot;test3&quot;);
+db.cache2.test3 = 30000;                     // 30s TTL for test3
+
+const { info } = await db.aget(&quot;test1&quot;, { id }, { cached: 1 });
+info.cached; // 0 first miss, then 1 on a cache hit
+</code></pre>
+<p><code>nocache: true</code> bypasses caching for a single call even when it is otherwise enabled.</p>
+<hr>
+<h2 id="aliases">Aliases</h2>
+<p>Give a table a short name and use it everywhere, handy when table names change:</p>
+<pre class="prettyprint source lang-js"><code>db.aliases.t = &quot;test3&quot;;
+const { data } = await db.aget(&quot;t&quot;, { id });   // reads test3 via the alias
+</code></pre>
+<hr>
+<h2 id="the-db.*-method-list">The <code>db.*</code> method list</h2>
+<p>Every operation has a callback form and an async (<code>a</code>-prefixed) form that resolves to
+<strong><code>{ err, data, info }</code></strong> (or <code>{ err, ...named }</code> for a few DDL verbs).</p>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Methods</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DDL</td>
+<td><code>acreateTables</code>, <code>adrop</code>, <code>acacheColumns</code></td>
+<td>create/migrate &amp; drop tables, refresh the column view</td>
+</tr>
+<tr>
+<td>Write</td>
+<td><code>aadd</code>, <code>aput</code>, <code>aupdate</code>, <code>aincr</code>, <code>adel</code>, <code>adelAll</code>, <code>abulk</code></td>
+<td>insert / upsert / update / increment / delete / batch</td>
+</tr>
+<tr>
+<td>Read</td>
+<td><code>aget</code>, <code>aselect</code>, <code>alist</code>, <code>ascan</code>, <code>agetConfig</code>, <code>db.getCached</code>, <code>db.getCache</code></td>
+<td>get by key, query, batch, stream, load config, cached read</td>
+</tr>
+<tr>
+<td>Config</td>
+<td><code>initConfigTable</code>, <code>agetConfig</code>, <code>configTypes</code></td>
+<td>load the dynamic config</td>
+</tr>
+<tr>
+<td>Access</td>
+<td><code>describeTables</code>, <code>cleanupResult</code>, <code>aliases.{name}</code></td>
+<td>table defs, per-field visibility, short names</td>
+</tr>
+</tbody>
 </table>
+<p><code>info</code> commonly carries <code>affected_rows</code>, <code>next_token</code>, <code>inserted_oid</code>, <code>cached</code>, and
+<code>consumed_capacity</code> (DynamoDB). Pass <code>{ info_obj: true }</code> to also get the stored/normalized
+record back as <code>info.obj</code>.</p>
+<hr>
+<h2 id="config-table-and-cleanup-rules">Config table and cleanup rules</h2>
+<h3 id="dynamic-configuration">Dynamic configuration</h3>
+<p><code>db.agetConfig()</code> loads parameters from a <code>bk_config</code> table. <strong>Config types are derived from
+your running context</strong> (<code>configMap</code>), so the <em>same row can apply to different deployments</em>:</p>
+<pre class="prettyprint source lang-js"><code>db.config = db.pool;
+db.initConfigTable();
+db.configMap = { top: &quot;roles&quot;, main: &quot;role, tag&quot;, other: &quot;role, region&quot; };
 
+// With app.roles=&quot;test,dev&quot;, role=&quot;shell&quot;, tag=&quot;qa&quot;, region=&quot;us-east-1&quot;, v=&quot;1.0.0&quot;:
+//  - params gated by status=&quot;hidden&quot; stay hidden       → not loaded
+//  - params gated by version >1.0.0 stay hidden at 1.0.0 → appear at 1.1.0
+//  - params gated by stime/etime appear only in range
+const { data } = await db.agetConfig();
+// [{ name: &quot;param1&quot; }, { name: &quot;param3&quot;, value: &quot;etime&quot; }]
+</code></pre>
+<p>This is the mechanism to ship environment-, version- and time-gated configuration without
+redeploying: bump <code>app.version</code> or let time advance and the same rows resolve differently.</p>
+<h3 id="column-%2F-field-cleanup-(access-control-on-output)">Column / field cleanup (access control on output)</h3>
+<p>Table columns can be marked for <strong>automatic removal before a row is returned</strong>, so
+unauthorized data never leaves the service. <code>cleanup</code> on a column defines the rule;
+<code>db.cleanupResult</code> resolves it:</p>
+<pre class="prettyprint source lang-js"><code>db.describeTables({
+    cleanup: {
+        pub:         { cleanup: false },      // always keep
+        priv:        { cleanup: true },       // always remove
+        billing:     { cleanup: { roles: [&quot;billing&quot;] } },   // keep for billing users
+        nobilling:   { cleanup: { no_roles: [&quot;billing&quot;] } }, // remove for billing users
+        billing_staff:{ cleanup: { roles: [&quot;billing&quot;,&quot;staff&quot;] } },
+        notpub: {},                          // default removal, unless whitelisted
+        extra: {}, extra2: {},
+    },
+});
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-    
-
-    
+const user = { roles: [&quot;billing&quot;] };
+const res = db.cleanupResult(&quot;cleanup&quot;, row, { user });
+res.pub;        // true  — always public
+res.priv;       // false — always stripped
+res.billing;    // true  — visible to billing users
+res.nobilling;  // false — hidden from billing users
+</code></pre>
+<p>Summary of the rules you can write:</p>
+<table>
+<thead>
+<tr>
+<th>Column value</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cleanup: false</code></td>
+<td>never removed</td>
+</tr>
+<tr>
+<td><code>cleanup: true</code></td>
+<td>always removed from results</td>
+</tr>
+<tr>
+<td><code>cleanup: { roles: [...] }</code></td>
+<td>kept <strong>only</strong> when the user has one of these roles</td>
+</tr>
+<tr>
+<td><code>cleanup: { no_roles: [...] }</code></td>
+<td>removed when the user has one of these roles</td>
+</tr>
+<tr>
+<td><code>(no cleanup) on a non-public column</code></td>
+<td>removed by default (e.g. <code>notpub</code>) unless whitelisted</td>
+</tr>
+<tr>
+<td>per-call <code>cleanup: { col: false }</code></td>
+<td>override the table rule for that call</td>
+</tr>
+<tr>
+<td>global <code>db.cleanup = { col: false }</code></td>
+<td>override the table rule for all rows of that table</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<p><em>See also:</em> the driver-specific behaviour in
+<a href="../../lib/db/sqlite.js"><code>lib/db/sqlite.js</code></a>, <a href="../../lib/db/postgres.js"><code>lib/db/postgres.js</code></a>,
+<a href="../../lib/db/dynamodb.js"><code>lib/db/dynamodb.js</code></a>, <a href="../../lib/db/elasticsearch.js"><code>lib/db/elasticsearch.js</code></a>,
+and the full API docs for each <code>db.*</code> method in <a href="../../lib/db.js"><code>lib/db.js</code></a>.</p>
 </article>
 
 </section>
-
-
-
 
     
     
