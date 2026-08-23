@@ -343,12 +343,14 @@ function getQueryExpression(params, query, options, join)
         const col = modules.db.prepareColumn(req, name, val);
         val = col.value;
 
+        const not = col.op[0] === 'n' ? "not " : "";
+
         switch (col.op) {
         case 'not between':
         case 'between':
             if (val.length &lt; 2) continue;
             name = _checkName(params, col.name);
-            expr.push((col.op[0] === 'n' ? "not " : "") + name + " between :v" + _addValue(params, val[0]) + " and :v" + _addValue(params, val[1]));
+            expr.push(not + name + " between :v" + _addValue(params, val[0]) + " and :v" + _addValue(params, val[1]));
             break;
 
         case 'not null':
@@ -361,8 +363,8 @@ function getQueryExpression(params, query, options, join)
             expr.push(`(attribute_not_exists(${name}) OR attribute_type(${name},:v${_addValue(params, "NULL")}))`);
             break;
 
-        case 'not in':
         case 'in':
+        case 'not in':
             if (Array.isArray(val)) {
                 if (!val.length) break;
                 name = _checkName(params, col.name);
@@ -371,7 +373,7 @@ function getQueryExpression(params, query, options, join)
                     if (val[i]) vals.push(":v" + _addValue(params, val[i]));
                 }
                 if (!vals.length) break;
-                expr.push((col.op[0] === 'n' ? "not " : "") + name + " in (" + vals + ")");
+                expr.push(not + name + " in (" + vals + ")");
             } else
             if (val) {
                 name = _checkName(params, col.name);
@@ -380,53 +382,38 @@ function getQueryExpression(params, query, options, join)
             break;
 
         case 'all in':
+        case "not all in":
             if (Array.isArray(val)) {
                 if (!val.length) break;
                 name = _checkName(params, col.name);
                 const vals = [];
                 for (let i = 0; i &lt; val.length; i++) {
-                    if (val[i]) vals.push(":v" + _addValue(params, val[i]) + " in (" + name + ")");
+                    if (val[i]) vals.push(not + "contains(" + name + ",:v" + _addValue(params, val[i]) + ")");
                 }
                 if (!vals.length) break;
-                expr.push("(" + vals.join(` ${col.join} || 'and'} `) + ")");
+                expr.push("(" + vals.join(` ${col.join || 'and'} `) + ")");
             } else
             if (val) {
                 name = _checkName(params, col.name);
-                expr.push(name + " " + (col.op[0] === 'n' ? "&lt;>" : "=") + " :v" + _addValue(params, val));
-            }
-            break;
-
-        case 'not contains':
-            if (!val &amp;&amp; ["string","object","undefined"].indexOf(typeof val) > -1) break;
-            if (Array.isArray(val)) {
-                if (!val.length) break;
-                name = _checkName(params, col.name);
-                const vals = [];
-                for (let i = 0; i &lt; val.length; i++) {
-                    if (val[i]) vals.push("not contains(" + name + ",:v" + _addValue(params, val[i]) + ")");
-                }
-                if (!vals.length) break;
-                expr.push("(" + vals.join(` ${col.join || 'or'} `) + ")");
-            } else {
-                name = _checkName(params, col.name);
-                expr.push("not contains(" + name + ", :v" + _addValue(params, val) + ")");
+                expr.push(not + name + " " + (col.op[0] === 'n' ? "&lt;>" : "=") + " :v" + _addValue(params, val));
             }
             break;
 
         case 'contains':
-            if (!val &amp;&amp; ["string","object","undefined"].indexOf(typeof val) > -1) break;
+        case 'not contains':
+            if (!val &amp;&amp; ["string","object","undefined"].includes(typeof val)) break;
             if (Array.isArray(val)) {
                 if (!val.length) break;
                 name = _checkName(params, col.name);
                 const vals = [];
                 for (let i = 0; i &lt; val.length; i++) {
-                    if (val[i]) vals.push("contains(" + name + ", :v" + _addValue(params, val[i]) + ")");
+                    if (val[i]) vals.push(not + "contains(" + name + ",:v" + _addValue(params, val[i]) + ")");
                 }
                 if (!vals.length) break;
                 expr.push("(" + vals.join(` ${col.join || 'or'} `) + ")");
             } else {
                 name = _checkName(params, col.name);
-                expr.push("contains(" + name + ", :v" + _addValue(params, val) + ")");
+                expr.push(not + "contains(" + name + ", :v" + _addValue(params, val) + ")");
             }
             break;
 
@@ -436,7 +423,7 @@ function getQueryExpression(params, query, options, join)
         case '>=':
         case '&lt;':
         case '&lt;=':
-            if (!val &amp;&amp; ["string","object","undefined"].indexOf(typeof val) > -1) break;
+            if (!val &amp;&amp; ["string","object","undefined"].includes(typeof val)) break;
             name = _checkName(params, col.name);
             expr.push(name + " " + col.op + " :v" + _addValue(params, val));
             break;
@@ -445,9 +432,18 @@ function getQueryExpression(params, query, options, join)
         case 'begins with':
         case 'not like%':
         case 'not begins with':
-            if (!val &amp;&amp; ["string","object","number","undefined"].indexOf(typeof val) > -1) continue;
+            if (!val &amp;&amp; ["string","object","undefined"].includes(typeof val)) break;
             name = _checkName(params, col.name);
-            expr.push((col.op[0] === "n" ? "not " : "") + "begins_with(" + name + ", :v" + _addValue(params, val) + ")");
+            expr.push(not + "begins_with(" + name + ", :v" + _addValue(params, val) + ")");
+            break;
+
+        case 'includes':
+        case 'not includes':
+        case '%like%':
+        case 'not %like%':
+            if (!val &amp;&amp; ["string","object","undefined"].includes(typeof val)) break;
+            name = _checkName(params, col.name);
+            expr.push(not + "contains(" + name + ", :v" + _addValue(params, val) + ")");
             break;
         }
     }

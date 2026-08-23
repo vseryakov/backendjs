@@ -1132,7 +1132,7 @@ each property defines a type by name/key, this is for complex parameters with <c
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line274">line 274</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line230">line 230</a>
     </li></ul></dd>
     
 
@@ -1385,7 +1385,7 @@ each property defines a type by name/key, this is for complex parameters with <c
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line155">line 155</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line111">line 111</a>
     </li></ul></dd>
     
 
@@ -2044,71 +2044,9 @@ return the input record, making it similar to <code>result_query</code></li>
 
             
 
-            <td class="description last"><p>operators to use for for properties, an object with column name and operator.</p>
-<p><strong>Comparison</strong> operators used in select/get:</p>
-<ul>
-<li>Generic:</li>
-</ul>
-<pre class="prettyprint source lang->,"><code>   between, begins_with, not_begins_with, ends_with, not_ends_with,
-   like, like%, not like%, ilike%, not like%,
-   contains, not_contains,
-   expr, none
-</code></pre>
-<ul>
-<li>Sqlite:</li>
-</ul>
-<pre class="prettyprint source"><code>   match
-</code></pre>
-<ul>
-<li>Postgres specific:</li>
-</ul>
-<pre class="prettyprint source lang-&&,"><code>   similar to, not similar to, regexp, iregexp,
-   ~, ~*, !~&quot;, !~,
-</code></pre>
-<p><strong>Update</strong> operators used in incr/update/del:</p>
-<ul>
-<li>none - ignore this column, join columns will not be built</li>
-<li>add - add to list</li>
-<li>del - remove from list</li>
-<li>incr - increment a number</li>
-<li>unset/remove - remove column or set to NULL</li>
-<li>append - append to existing column value</li>
-<li>prepend - prepend to existing column value</li>
-<li>not_exists - update only if the value is null, otherwise skip</li>
-<li>expr - full set SQL expression as is or an array of values with element 0 being the expression
-and the rest as values for placeholders:  <strong>[&quot;name=COALESCE(name,?)||?&quot;, 'N/A', ' jr']</strong></li>
-</ul>
-<p>As an alternative, operators also can be used inside column names, the format is <strong>name_$op</strong>:</p>
-<pre class="prettyprint source lang-js"><code>{ flags_$del: &quot;flag&quot; }
-
-{ flags_$none: &quot;&quot; }
-
-{ count_$incr: 3 }
-
-{ tag_$expr: &quot;tag=COALESCE(name,'none')||count&quot; }
-
-{ tag_$expr: [&quot;tag=COALESCE(name,?)||count&quot;, &quot;none&quot;] }
-</code></pre></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>opsMap</code></td>
-            
-
-            <td class="type">
-            
-                object
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>operator mapping between supplied operators and actual operators supported by the db</p></td>
+            <td class="description last"><p>operators to use for for properties, an object with column name and operator, for query methods like get, select
+ops is used for filter condition, for update methods like add/put/update/incr the ops define how a column is modified,
+see <a href="module-db.html"><code>module:db</code></a> for description about all comparison operators.</p></td>
         </tr>
 
     
@@ -2130,26 +2068,6 @@ and the rest as values for placeholders:  <strong>[&quot;name=COALESCE(name,?)||
 
             <td class="description last"><p>an object that defines ops by column type, for example <strong>typesOps: { list: &quot;add&quot; }</strong> will
 make sure all lists will have options.ops set to <strong>add</strong> if not specified explicitly</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>typesMap</code></td>
-            
-
-            <td class="type">
-            
-                object
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>type mapping between supplied and actual column types, an object, use * for default type</p></td>
         </tr>
 
     
@@ -2723,7 +2641,7 @@ not every row individually, batch size is defined by the <strong>count</strong> 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line143">line 143</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line99">line 99</a>
     </li></ul></dd>
     
 
@@ -3080,7 +2998,7 @@ properties starting with _ or $ are ignored and used for other specific purposes
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line167">line 167</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line123">line 123</a>
     </li></ul></dd>
     
 
@@ -3298,7 +3216,7 @@ properties starting with _ or $ are ignored and used for other specific purposes
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line180">line 180</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line136">line 136</a>
     </li></ul></dd>
     
 

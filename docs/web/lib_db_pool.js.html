@@ -181,6 +181,7 @@ class DbPool extends lib.Pool {
                 this.metrics.tables[p].read.end();
                 this.metrics.tables[p].write.end();
             }
+            this.url = "";
             this.metrics = Object.create(null);
             this.dbcolumns = this.dbkeys = this.dbindexes = Object.create(null);
             this.config = this.connect = Object.create(null);

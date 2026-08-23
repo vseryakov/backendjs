@@ -151,6 +151,92 @@ db-sqlite1-pool-alias = billing
 
 await db.aselect(&quot;bills&quot;, { status: &quot;ok&quot; }, { pool: &quot;billing&quot; })
 </code></pre>
+<h2 id="comparison-operators">Comparison operators</h2>
+<p>These are used in query condutions and filters:</p>
+<h3 id="generic">Generic</h3>
+<ul>
+<li><code>&gt;, gt, &lt;, lt, =, !=, &lt;&gt;, &gt;=, ge, &lt;=, le, between</code> - simple operators</li>
+<li><code>in, not in</code> - compare a column value against a list, as in SQL <code>val IN (...)</code></li>
+<li><code>begins_with, not_begins_with, like%, not like%</code> - column value starts with given string</li>
+<li><code>ends_with, not_ends_with, %like, not %like</code> - column value ends with given string</li>
+<li><code>like, not like</code> - simple SQL LIKE</li>
+<li><code>ilike%, not ilike%</code> - case insensitive SQL LIKE</li>
+<li><code>includes, not includes, %like%, not %like%</code> - column string value contains given substring</li>
+<li><code>all_in, not all_in</code> - column list/set contains all given list values</li>
+<li><code>contains, not_contains</code> - columns list/set contains any of the given list values</li>
+<li><code>expr</code> - SQL expression as is</li>
+<li><code>none</code> - ignore this column</li>
+</ul>
+<h3 id="sqlite-fts">Sqlite FTS</h3>
+<ul>
+<li><code>match</code> - full text search</li>
+</ul>
+<h3 id="postgres">Postgres</h3>
+<ul>
+<li><code>&amp;&amp;, not &amp;&amp;</code> - corresponds to generic <code>in</code> for text[] columns, used by postgres pool for <code>in</code> automatically</li>
+<li><code>@&gt;, not @&gt;</code> - corresponds to generic <code>contains</code> for text[] columns, used by postgres pool for <code>contains</code> automatically</li>
+<li><code>&lt;@, not &lt;@</code> - Postgres operators used as is, refer to PG docs</li>
+<li><code>similar to, not similar to</code> - Postgres operators used as is</li>
+<li><code>regexp, iregexp</code> - Postgres operators used as is</li>
+<li><code>~* any, ! ~* any</code> - Postgres operators used as is</li>
+<li><code>~, ~*, !~&quot;, !~</code> - Postgres operators used as is</li>
+</ul>
+<p>Operators can be used inside column names, in the format <strong>name_$op</strong> or via <code>ops</code> the object in the options:</p>
+<pre class="prettyprint source lang-js"><code>await db.select(&quot;test&quot;, { flags_$contains: [&quot;flag1&quot;, &quot;flag2&quot;] });
+
+await db.select(&quot;test&quot;, { flags: [&quot;flag1&quot;, &quot;flag2&quot;] }, { ops: { flags: &quot;contains&quot; } });
+
+await db.select(&quot;test&quot;, { status_$in: [&quot;ok&quot;, &quot;done&quot;] });
+
+await db.select(&quot;test&quot;, { status: [&quot;ok&quot;, &quot;done&quot;] }, { ops: { status: &quot;in&quot; } });
+
+await db.select(&quot;test&quot;, { name_$begins_with: &quot;A&quot; });
+
+await db.select(&quot;test&quot;, { name: &quot;A&quot; }, { ops: { name: &quot;begins_with&quot; } });
+
+await db.select(&quot;test&quot;, { date_$gt: Date.now() - 86400000 });
+
+await db.select(&quot;test&quot;, { date: Date.now() - 86400000 }, { ops: { date: &quot;gt&quot; } });
+
+</code></pre>
+<h2 id="update-operators">Update operators</h2>
+<p>These are used in incr/update/del</p>
+<ul>
+<li><code>none</code> - ignore this column, join columns will not be built</li>
+<li><code>add</code> - add to list</li>
+<li><code>del</code> - remove from list</li>
+<li><code>incr</code> - increment a number</li>
+<li><code>unset</code> - remove column or set to NULL</li>
+<li><code>remove</code> - same as unset</li>
+<li><code>append</code> - append to existing column value</li>
+<li><code>prepend</code> - prepend to existing column value</li>
+<li><code>not_exists</code> - update only if the value is null, otherwise skip</li>
+<li><code>expr</code> - full set SQL expression as is or an array of values with element 0 being the expression
+and the rest as values for placeholders:  <strong>[&quot;name=COALESCE(name,?)||?&quot;, 'N/A', ' jr']</strong></li>
+</ul>
+<p>Operators can be used inside column names, in the format <strong>name_$op</strong> or via <code>ops</code> the object in the options:</p>
+<pre class="prettyprint source lang-js"><code>await db.update(&quot;test&quot;, { flags_$add: &quot;flag&quot; });
+
+await db.update(&quot;test&quot;, { flags: &quot;flag&quot; } ,{ ops: { flags: &quot;add&quot; } });
+
+await db.update(&quot;test&quot;, { flags_$del: &quot;flag&quot; });
+
+await db.update(&quot;test&quot;, { flags: &quot;flag&quot; } ,{ ops: { flags: &quot;del&quot; } });
+
+await db.update(&quot;test&quot;, { flags_$none: &quot;&quot; });
+
+await db.update(&quot;test&quot;, { flags: &quot;flag&quot; }, { ops: { flags: &quot;none&quot; } });
+
+await db.update(&quot;test&quot;, { count_$incr: 3 } });
+
+await db.update(&quot;test&quot;, { count: 3 } , { ops: { count: &quot;incr&quot; } });
+
+await db.update(&quot;test&quot;, { tag_$expr: &quot;tag=COALESCE(name,'none')||count&quot; });
+
+await db.update(&quot;test&quot;, { tag: &quot;tag=COALESCE(name,'none')||count&quot; }, { ops: { tag: &quot;expr&quot; }});
+
+await db.update(&quot;test&quot;, { tag_$expr: [&quot;tag=COALESCE(name,?)||count&quot;, &quot;none&quot;] });
+</code></pre>
 <h2 id="caching">Caching</h2>
 <p>In-app caching is supported, it can use any available cache that implements <code>get/put</code> operations like <code>Redis, local</code>.</p>
 <p>The caching is best effort, for example when getting a record by primary key and a table is in the cche list the
@@ -175,7 +261,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line403">line 403</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line453">line 453</a>
     </li></ul></dd>
     
 
@@ -281,7 +367,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line410">line 410</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line460">line 460</a>
     </li></ul></dd>
     
 
@@ -621,7 +707,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line498">line 498</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line548">line 548</a>
     </li></ul></dd>
     
 
@@ -682,7 +768,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line482">line 482</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line532">line 532</a>
     </li></ul></dd>
     
 
@@ -743,7 +829,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line489">line 489</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line539">line 539</a>
     </li></ul></dd>
     
 
@@ -872,7 +958,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line520">line 520</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line570">line 570</a>
     </li></ul></dd>
     
 
@@ -933,7 +1019,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line451">line 451</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line501">line 501</a>
     </li></ul></dd>
     
 
@@ -994,7 +1080,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line479">line 479</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line529">line 529</a>
     </li></ul></dd>
     
 
@@ -1055,7 +1141,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line456">line 456</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line506">line 506</a>
     </li></ul></dd>
     
 
@@ -1116,7 +1202,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line517">line 517</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line567">line 567</a>
     </li></ul></dd>
     
 
@@ -1177,7 +1263,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line501">line 501</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line551">line 551</a>
     </li></ul></dd>
     
 
@@ -1252,7 +1338,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1132">line 1132</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1182">line 1182</a>
     </li></ul></dd>
     
 
@@ -1460,7 +1546,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1570">line 1570</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1620">line 1620</a>
     </li></ul></dd>
     
 
@@ -1635,7 +1721,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1620">line 1620</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1670">line 1670</a>
     </li></ul></dd>
     
 
@@ -2026,7 +2112,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1958">line 1958</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2008">line 2008</a>
     </li></ul></dd>
     
 
@@ -2229,7 +2315,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2108">line 2108</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2158">line 2158</a>
     </li></ul></dd>
     
 
@@ -2648,7 +2734,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1111">line 1111</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1161">line 1161</a>
     </li></ul></dd>
     
 
@@ -2887,7 +2973,7 @@ This cache level can only expire, eviction is not supported.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1380">line 1380</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1430">line 1430</a>
     </li></ul></dd>
     
 
@@ -3096,7 +3182,7 @@ console.log('deleted:', info.affected_rows);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1419">line 1419</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1469">line 1469</a>
     </li></ul></dd>
     
 
@@ -3299,7 +3385,7 @@ console.log('deleted:', info.affected_rows);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2174">line 2174</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2224">line 2224</a>
     </li></ul></dd>
     
 
@@ -3474,7 +3560,7 @@ console.log('deleted:', info.affected_rows);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line945">line 945</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line995">line 995</a>
     </li></ul></dd>
     
 
@@ -3776,7 +3862,7 @@ const { err, data } = await db.aget("config", ['key1', 'type1']);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1182">line 1182</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1232">line 1232</a>
     </li></ul></dd>
     
 
@@ -3984,7 +4070,7 @@ const { err, data } = await db.aget("config", ['key1', 'type1']);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1485">line 1485</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1535">line 1535</a>
     </li></ul></dd>
     
 
@@ -4284,7 +4370,7 @@ console.log(data);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1223">line 1223</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1273">line 1273</a>
     </li></ul></dd>
     
 
@@ -4493,7 +4579,7 @@ no exceptions are raised or reject, only resolve is called with an object <code>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line673">line 673</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line723">line 723</a>
     </li></ul></dd>
     
 
@@ -4656,7 +4742,7 @@ no exceptions are raised or reject, only resolve is called with an object <code>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1788">line 1788</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1838">line 1838</a>
     </li></ul></dd>
     
 
@@ -4859,7 +4945,7 @@ no exceptions are raised or reject, only resolve is called with an object <code>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1089">line 1089</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1139">line 1139</a>
     </li></ul></dd>
     
 
@@ -5068,7 +5154,7 @@ await db.asearch("users", "john*", { pool: "elasticsearch" });</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1039">line 1039</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1089">line 1089</a>
     </li></ul></dd>
     
 
@@ -5276,7 +5362,7 @@ await db.asearch("users", "john*", { pool: "elasticsearch" });</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2220">line 2220</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2270">line 2270</a>
     </li></ul></dd>
     
 
@@ -5484,7 +5570,7 @@ await db.asearch("users", "john*", { pool: "elasticsearch" });</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1676">line 1676</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1726">line 1726</a>
     </li></ul></dd>
     
 
@@ -5659,7 +5745,7 @@ await db.asearch("users", "john*", { pool: "elasticsearch" });</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1298">line 1298</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1348">line 1348</a>
     </li></ul></dd>
     
 
@@ -5868,7 +5954,7 @@ if (!err &amp;&amp; !info?.affected_rows) logger.error("no updates")</code></pre
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1339">line 1339</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1389">line 1389</a>
     </li></ul></dd>
     
 
@@ -6099,7 +6185,7 @@ if (!err &amp;&amp; !info?.affected_rows) logger.error("no updates")</code></pre
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2142">line 2142</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2192">line 2192</a>
     </li></ul></dd>
     
 
@@ -6308,7 +6394,7 @@ for get ops the result will be retrieved record if exists.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1509">line 1509</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1559">line 1559</a>
     </li></ul></dd>
     
 
@@ -6781,7 +6867,7 @@ The input format is the same as for the <a href="module-db.html#.batch"><code>mo
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1588">line 1588</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1638">line 1638</a>
     </li></ul></dd>
     
 
@@ -8142,7 +8228,7 @@ defined by the table columns, most use cases are json, lists, defaults</p></li><
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line704">line 704</a>
+        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line706">line 706</a>
     </li></ul></dd>
     
 
@@ -8354,7 +8440,7 @@ Returns stats how many copied or errors</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1808">line 1808</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1858">line 1858</a>
     </li></ul></dd>
     
 
@@ -9006,7 +9092,7 @@ so the callback is called as soon as the table is active or after the timeout wh
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1978">line 1978</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2028">line 2028</a>
     </li></ul></dd>
     
 
@@ -9587,7 +9673,7 @@ const { err, data } = await db.asearch("table2", { table2_$match: "john smith" }
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1360">line 1360</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1410">line 1410</a>
     </li></ul></dd>
     
 
@@ -9827,7 +9913,7 @@ const { err, data } = await db.asearch("table2", { table2_$match: "john smith" }
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1403">line 1403</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1453">line 1453</a>
     </li></ul></dd>
     
 
@@ -10167,7 +10253,7 @@ using this method. Only columns with changed properties need to be specified, ot
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2161">line 2161</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2211">line 2211</a>
     </li></ul></dd>
     
 
@@ -10461,7 +10547,7 @@ using this method. Only columns with changed properties need to be specified, ot
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line890">line 890</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line940">line 940</a>
     </li></ul></dd>
     
 
@@ -12328,7 +12414,7 @@ given by the application. If <code>options.names</code> is 1 then return just ta
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line790">line 790</a>
+        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line792">line 792</a>
     </li></ul></dd>
     
 
@@ -12601,7 +12687,7 @@ for DynamoDB and Elasticsearch a new record will be created if it does not exist
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1154">line 1154</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1204">line 1204</a>
     </li></ul></dd>
     
 
@@ -12840,7 +12926,7 @@ for DynamoDB and Elasticsearch a new record will be created if it does not exist
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line548">line 548</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line598">line 598</a>
     </li></ul></dd>
     
 
@@ -13345,7 +13431,7 @@ create indexes/columns which are not missing but being provisioned or changed.</
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1439">line 1439</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1489">line 1489</a>
     </li></ul></dd>
     
 
@@ -14867,7 +14953,7 @@ Returns prepared object to be passed to the driver's .query method.</p></li></ul
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line303">line 303</a>
+        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line305">line 305</a>
     </li></ul></dd>
     
 
@@ -15215,7 +15301,7 @@ Returns prepared object to be passed to the driver's .query method.</p></li></ul
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1203">line 1203</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1253">line 1253</a>
     </li></ul></dd>
     
 
@@ -15454,7 +15540,7 @@ Returns prepared object to be passed to the driver's .query method.</p></li></ul
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line611">line 611</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line661">line 661</a>
     </li></ul></dd>
     
 
@@ -15651,7 +15737,7 @@ db.query({
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line834">line 834</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line884">line 884</a>
     </li></ul></dd>
     
 
@@ -15753,7 +15839,7 @@ db.setProcessRow("post", "*", (req, row) => { db.queryProcessSync("elasticsearch
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line801">line 801</a>
+        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line803">line 803</a>
     </li></ul></dd>
     
 
@@ -15848,7 +15934,7 @@ To hint a driver that scanning is in progress the <code>options.scanning</code> 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1694">line 1694</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1744">line 1744</a>
     </li></ul></dd>
     
 
@@ -16366,7 +16452,7 @@ the db module <em>DOES NOT PARSE</em> the query at all.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1060">line 1060</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1110">line 1110</a>
     </li></ul></dd>
     
 
@@ -16605,7 +16691,7 @@ db.search("users", "john*", { pool: "elasticsearch" }, lib.log);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line971">line 971</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1021">line 1021</a>
     </li></ul></dd>
     
 
@@ -16982,7 +17068,7 @@ allow to handle such situations and can be used to set necessary propeties to th
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line764">line 764</a>
+        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line766">line 766</a>
     </li></ul></dd>
     
 
@@ -17099,7 +17185,7 @@ callbacks to keep the record consistent.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line832">line 832</a>
+        <a href="lib_db_prepare.js.html">lib/db/prepare.js</a>, <a href="lib_db_prepare.js.html#line834">line 834</a>
     </li></ul></dd>
     
 
@@ -17199,7 +17285,7 @@ db.setProcessRow("post", "icons", (req, row) => {
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2192">line 2192</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2242">line 2242</a>
     </li></ul></dd>
     
 
@@ -17455,7 +17541,7 @@ db.sql("SELECT * FROM users", lib.log);</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1638">line 1638</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1688">line 1688</a>
     </li></ul></dd>
     
 
@@ -17677,7 +17763,7 @@ are in the query object.</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1245">line 1245</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1295">line 1295</a>
     </li></ul></dd>
     
 
@@ -17954,7 +18040,7 @@ db.update("users", { first_name: 'John' }, opts, (err, rows, info) => {
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1320">line 1320</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line1370">line 1370</a>
     </li></ul></dd>
     
 
@@ -18223,7 +18309,7 @@ then <code>info.affected_rows</code> must be non zero.</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2127">line 2127</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line2177">line 2177</a>
     </li></ul></dd>
     
 

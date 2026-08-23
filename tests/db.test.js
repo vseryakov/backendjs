@@ -53,7 +53,7 @@ const tables = {
         },
         dflt: { value: "dflt" },
         obj: { type: "obj" },
-        list: { type: "array" },
+        list: { type: "set" },
         tags: {
             type: "list",
             validate: { max_list: 3 }
@@ -293,6 +293,7 @@ describe("DB tests", async () => {
     await it("db list", async() => {
 
         let rc = await db.alist("bk_test1", [id1, id2, id3, 1].map(id => ({ id, key1, key2 })));
+        console.log(rc)
         assert.strictEqual(rc?.data?.length, 3);
 
         rc = await db.alist("bk_test1", rc.data);
@@ -333,15 +334,15 @@ describe("DB tests", async () => {
 
     });
 
-    await it("db expr in list", async() => {
+    await it("db expr contains in list", async() => {
 
-        const op = pool.type === "elasticsearch" ? "in" :
-                   pool.type === "postgres" ? "&&" : "contains";
-
-        let rc = await db.aselect("bk_test1", { id: id3, ["tags_$" + op]: tags.slice(0, 1) });
+        let rc = await db.aselect("bk_test1", { id: id3, tags_$contains: tags.slice(0, 1) });
         assert.strictEqual(rc?.data?.length, 2);
 
-        rc = await db.aselect("bk_test1", { id: id3, ["tags_$not_" + op]: [tags[0]] });
+        rc = await db.aselect("bk_test1", { id: id3, tags_$not_contains: [tags[0]] });
+        assert.strictEqual(rc?.data?.length, 1);
+
+        rc = await db.aselect("bk_test1", { id: id3, tags_$all_in: [tags[0], tags[1]] });
         assert.strictEqual(rc?.data?.length, 1);
 
     });
@@ -358,6 +359,9 @@ describe("DB tests", async () => {
 
         rc = await db.aselect("bk_test1", { id: id3, counter: [0,2] }, { ops: { counter: 'between' } })
         assert.strictEqual(rc?.data?.length, 2);
+
+        rc = await db.aselect("bk_test1", { id: id3, counter_$not_between: [-1,1] })
+        assert.strictEqual(rc?.data?.length, 2);
     });
 
     await it("db expr pattern", async() => {
@@ -365,10 +369,13 @@ describe("DB tests", async () => {
         let rc = await db.aselect("bk_test1", { id: id3, key_$begins_with: key1 });
         assert.strictEqual(rc?.data?.length, 2);
 
-        rc = await db.aselect("bk_test1", { id: id3, key_$begins_with: key1 });
+        rc = await db.aselect("bk_test1", { id: id3, "key_$like%": key1 });
         assert.strictEqual(rc?.data?.length, 2);
 
-        rc = await db.aselect("bk_test1", { id: id3, key1_$contains: "a" });
+        rc = await db.aselect("bk_test1", { id: id3, key1_$includes: "a" });
+        assert.strictEqual(rc?.data?.length, 2);
+
+        rc = await db.aselect("bk_test1", { id: id3, key1: "a" }, { ops: { key1: "%like%" } });
         assert.strictEqual(rc?.data?.length, 2);
 
         rc = await db.aselect("bk_test1", { id: id3, dflt: null });

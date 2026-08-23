@@ -64,7 +64,15 @@ const pgPool = require(__dirname + '/pg');
 exports.defaults = {
     type: "postgres",
     config: {
-        typesMap: { list: "text[]", set: "text[]" },
+        typesMap: {
+            list: "text[]", set: "text[]"
+        },
+        opsMap: {
+            "contains": "&amp;&amp;",
+            "not contains": "not &amp;&amp;",
+            "all in": "@>",
+            "not all in": "not @>",
+        },
         features: {
             multi: 1,
             upsert: 1,
