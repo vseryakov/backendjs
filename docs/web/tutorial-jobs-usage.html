@@ -1,11 +1,9 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     
     <meta charset="utf-8">
-    <title>lib/shell/shell.js - Backendjs Documentation</title>
+    <title>Using the Job Queue - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,550 +39,624 @@
 
 <div id="main">
     
-    <h1 class="page-title">lib/shell/shell.js</h1>
-    
 
-    
-
-
-
-    
     <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>/*
- *  Author: Vlad Seryakov vseryakov@gmail.com
- *  backendjs 2018
- */
-'use strict';
 
-const util = require('node:util');
-const path = require('node:path');
-const fs = require('node:fs');
-const http = require('node:http');
-const modules = require("../modules");
-const { app, aws, lib, api, jobs, events, cache, queue, shell, stats } = modules;
+<header>
+    
+</header>
 
-shell.help.push(
-    "-help-config - show all config parameters",
-    "-exit - exit shell",
-    "-exit-timeout N - delay exit for N milliseconds",
-    "-show-info - show app and version information",
-    "-show-args ... - show collected query and args for debugging purposes",
-    "-run-file FILE.js - load a script and run it if it exports run function",
-    "-run-method MOD.METHOD - run a method from a module",
-    "-run-config FILE - load a config file",
-    "-run-api - initialize web server inside the server shell only",
-    "-run-worker - initialize job worker in server shell only",
-    "-run-ipc - initialize all cache clients in all shells",
-    "-run-jobs - initialize jobs in server and workers",
-    "-fetch -url URL [-method GET|POST] [-raw] [-user ID|LOGIN] [-csrf URL] [-hdr name=value] [-cookie name=value] [-aws service] param value param value ... - send API request to the server specified in the url as user specified by login or id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
-    "-log-watch - run logwatcher and exit, send emails in case any errors found",
-    "-submit-job -job NAME [-option value ...] param value... - submit a job, all params without dashes will be passed to the job handler, all options with dashes will be passed in options",
-    "-stats [-age S] [-interval S] [-groups tag] [-fields host_cpu_util] [-raw] [-count N] [-since DATE] [-before DATE] - show aggregated stats from bk_stats table",
-);
-
-// Exit and write to the console a message or error message if non empty
-shell.exit = function(err, _msg)
-{
-    shell.log(...arguments);
-    if (lib.isArg("-noexit")) return;
-    setTimeout(() => { process.exit(err ? 1 : 0) }, shell.exitTimeout);
+<article>
+    <h1 id="using-the-job-queue">Using the Job Queue</h1>
+<p>The <code>jobs</code> module turns backendjs into a task queue system. You submit work as plain objects, and worker processes pick it up and run it. Jobs can execute in-process (local), in a forked worker on the same host, or in a worker on a remote host — all through the same API.</p>
+<p>Every job function looks the same regardless of backend:</p>
+<pre class="prettyprint source lang-js"><code>function myJob(options, callback) {
+    // do work with `options`
+    callback();                       // success
+    callback(new Error(&quot;oops&quot;));      // failure — queued for retry
 }
-
-// Exit with error code and dump all arguments to the stderr, backtrace as well
-shell.die = function(...args)
-{
-    for (const a of args) {
-        console.error(!a ? "" : util.inspect(a, { depth: 10, showHidden: true, compact: 10 }).split("\n").map((x) => ("   " + x)).join("\n"));
-    }
-    var e = {};
-    Error.stackTraceLimit = 32;
-    Error.captureStackTrace(e, shell.die);
-    console.error(e.stack.replace("Error", "Backtrace:"), "\n");
-    process.exit(1);
-}
-
-shell.log = function(...args)
-{
-    for (const arg of args) {
-        if (arg === undefined || arg === null || arg === "") continue;
-        console.log(util.inspect(arg, { depth: null, showHidden: true, compact: 10 }));
-    }
-}
-
-shell.jsonFormat = function(...args)
-{
-    for (const arg of args) {
-        if (arg === undefined || arg === null || arg === "") continue;
-        console.log(lib.jsonFormat(arg, { preset: "compact", ignore: app.logInspect.ignore }));
-    }
-}
-
-// Returns an object with all command line params that do not start with dash(-), treat 2 subsequent parms without dashes as name value pair
-shell.getQuery = function(options)
-{
-    var query = {};
-    var index = typeof options?.index === "number" ? options.index : shell.cmdIndex;
-    for (let i = index + 2; i &lt; process.argv.length; i++) {
-        const a = process.argv[i - 1], b = process.argv[i];
-        if (a[0] === '-' &amp;&amp; b[0] !== '-') i++; else
-        if (a[0] !== '-' &amp;&amp; b[0] !== '-') query[a] = b, i++;
-    }
-    return query;
-}
-
-// Returns a list with all command line params that do not start with dash(-), only the trailing arguments will be collected
-shell.getQueryList = function()
-{
-    var query = [];
-    for (let i = process.argv.length - 1; i > shell.cmdIndex; i--) {
-        if (process.argv[i][0] === '-') break;
-        query.unshift(process.argv[i]);
-    }
-    return query;
-}
-
-/**
- * Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1.
- * By sefault all args are stored as is with dashes, if `options.camel`` is true then all args will be stored in camel form,
- * if `options.underscore is true then all args will be stored with dashes converted into underscores.
- * `options.index` can be used to get the args from any position
- */
-shell.getArgs = function(options)
-{
-    var query = {};
-    var index = typeof options?.index === "number" ? options.index : shell.cmdIndex;
-    for (let i = process.argv.length - 1; i > index + 1; i--) {
-        const a = process.argv[i - 1], b = process.argv[i];
-        if (b[0] === '-') query[options?.camel ? lib.toCamel(b.substr(1)) : options?.underscore ? b.substr(1).replace(/-/g, "_") : b.substr(1)] = 1; else
-        if (a[0] === '-') query[options?.camel ? lib.toCamel(a.substr(1)) : options?.underscore ? a.substr(1).replace(/-/g, "_") : a.substr(1)] = b || 1, i--;
-    }
-    return query;
-}
-
-// Return an argument by name from the options, options may contain parameters in camel form or with underscores, both formats will be checked
-shell.getOption = function(name, options)
-{
-    return name &amp;&amp; options ? options[lib.toCamel(name.substr(1))] || options[name.substr(1).replace(/-/g, "_")] : undefined;
-}
-
-// Return first available value for the given name, options first, then command arg and then default,
-shell.getArg = function(name, options, dflt)
-{
-    return decodeURIComponent(String(shell.getOption(name, options) || lib.getArg(name, dflt))).trim();
-}
-
-shell.getArgInt = function(name, options, dflt)
-{
-    return lib.toNumber(shell.getArg(name, options, dflt));
-}
-
-// Returns a list of all values for the given argument name, it handles duplicate arguments with the same name
-shell.getArgList = function(name, options)
-{
-    if (!name) return [];
-    var arg = shell.getOption(name, options);
-    if (arg) return Array.isArray(arg) ? arg : [ arg ];
-    var list = [];
-    for (let i = 1; i &lt; process.argv.length - 1; i++) {
-        if (process.argv[i] === name &amp;&amp; process.argv[i + 1][0] !== "-") list.push(process.argv[i + 1]);
-    }
-    return list;
-}
-
-shell.isArg = function(name, options)
-{
-    return typeof shell.getOption(name, options) !== "undefined" || lib.isArg(name);
-}
-
-shell.loadFile = function(file)
-{
-    var mod;
-    file = lib.sanitizePath(file);
-    if (!/\.js$/.test(file)) file += ".js";
-    if (fs.existsSync(file)) mod = require(path.resolve(file)); else
-    if (fs.existsSync(app.cwd + "/" + file)) mod = require(app.cwd + "/" + file); else
-    if (!mod &amp;&amp;fs.existsSync(app.home + "/" + file)) mod = require(app.home + "/" + file); else
-    if (!mod &amp;&amp; fs.existsSync(__dirname + "/../" + file)) mod = require(__dirname + "/../" + file);
-    if (!mod) app.path.modules.forEach((x) => { if (!mod &amp;&amp; fs.existsSync(x + "/../" + file)) mod = require(x + "/../" + file) });
-    if (!mod) return shell.exit("file not found " + file);
-    return mod;
-}
-
-shell.commands.exit = function()
-{
-    shell.exit();
-}
-
-shell.commands.help = function()
-{
-    for (const i in shell.help) console.log("  ", shell.help[i]);
-    shell.exit();
-}
-
-shell.commands.helpConfig = function()
-{
-    console.log("# Config parameters");
-
-    Object.keys(modules).sort().forEach((n) => {
-        if (!modules[n].args) return;
-
-        console.log(`## ${modules[n].name}`);
-        console.log("See {@link module:" + modules[n].name.replace(".", "/") + "}");
-
-        modules[n].args.forEach((y) => {
-            if (!y.name || !y.descr) return;
-            console.log("### ", n.replace(".", "-") + "-" + y.name, "\n---- ");
-            console.log(y.descr, "  ");
-            if (y.type) {
-                console.log("Type: " + y.type, "  ");
-            }
-            var name = y.name;
-            if (y.strip) name = name.replace(y.strip, "");
-            if (!y.no_camel) name = lib.toCamel(name, y.camel || "-");
-            var dflt = lib.objGet(modules[n], name);
-            if (dflt &amp;&amp; typeof dflt !== "function") {
-                console.log("Default: " + JSON.stringify(dflt), "  ");
-            }
-            if (y.example) {
-                console.log(`Example:\n\`\`\`\n${y.example}\n\`\`\`\n`);
-            }
-        });
-    });
-    process.exit(0);
-}
-
-// App version
-shell.commands.showInfo = function(_options)
-{
-    var info = {
-        home: app.home,
-        host: app.host,
-        ipaddr: app.ipaddr,
-        config: app.config,
-        version: app.version,
-        env: app.env,
-        path: app.path,
-        packages: app.packages,
-        modules: app._modules,
-    };
-    shell.jsonFormat(info);
-    shell.exit();
-}
-
-
-shell.commands.showArgs = function(_options)
-{
-    console.log("query:", shell.getQuery());
-    console.log("options:", shell.getArgs());
-    shell.exit();
-}
-
-/**
- * Load a module and optionally execute it
- *
- * @example
- *
- * var { app } = require("backendjs")
- * app.test = 123;
- * exports.run = function() {
- *   console.log("run");
- * }
- * exports.newMethod = function() {
- *   console.log(app.version, "version");
- * }
- *
- * // Save into a file a.js and run
- *
- *   bksh -run-file a.js
- *
- * // In the shell now it new methods can be executed
- *
- *    > shell.newMethod()
- * @memberof module:shell
- * @method runFile
- */
-shell.commands.runFile = function(options)
-{
-    var file = shell.getArg("-run-file", options);
-    if (!file) return shell.exit("-run-file argument is required");
-    var mod = shell.loadFile(file);
-    // Exported functions are set in the shell module
-    for (const p in mod) if (typeof mod[p] === "function") shell[p] = mod[p];
-    if (typeof mod.run === "function") mod.run(options);
-    return "continue";
-}
-
-// Load a config file
-shell.commands.runConfig = function(options)
-{
-    var file = shell.getArg("-run-config", options);
-    if (!file) return shell.exit("-run-config argument is required");
-    var args = lib.readFileSync(file, { cfg: 1 });
-    app.parseArgs(args, 0, file);
-    app.parseArgs(process.argv, 0, "cmdline");
-    return "continue";
-}
-
-shell.commands.runMethod = function(options)
-{
-    const name = shell.getArg("-run-method", options);
-    if (!name) return shell.exit("-run-method argument is required");
-
-    const func = lib.objGet(modules, name);
-    if (typeof func !== "function") shell.exit("invalid method");
-
-    const res = func(options, lib.log);
-    if (util.types.isPromise(res)) {
-        res.then(null, lib.log);
-    }
-    return "continue";
-}
-
-// Initialize ipc/cache clients
-shell.commands.runIpc = function(_options)
-{
-    queue.checkConfig();
-    cache.checkConfig();
-    return "continue";
-}
-
-// Run API server inside the shell
-shell.commands.runApi = function(_options)
-{
-    if (app.isPrimary) api.init();
-    return "continue";
-}
-
-// Dump API routes inside the shell
-shell.commands.dumpApi = function(_options)
-{
-    api.app.dump();
-    return "continue";
-}
-
-// Run jobs workers inside the shell
-shell.commands.runJobs = function(_options)
-{
-    if (app.isPrimary) {
-        jobs.initServer();
-    } else {
-        jobs.initWorker();
-    }
-    return "continue";
-}
-
-// Run jobs workers inside the shell
-shell.commands.runWorker = function(_options)
-{
-    if (app.isPrimary) jobs.initWorker();
-    return "continue";
-}
-
-// Run event workers inside the shell
-shell.commands.runEvents = function(_options)
-{
-    events.initWorker();
-    return "continue";
-}
-
-// Run logwatcher and exit
-shell.commands.logWatch = function(_options)
-{
-    const mod = require(__dirname + '/../../dist/logwatcher');
-    mod.run(shell.exit);
-}
-
-/**
- * Shell command: `fetch`
- *
- * Sends an HTTP request using {@link lib.fetch} with optional BackendJS-style API signing,
- * CSRF token bootstrap, custom headers/cookies, and response shaping/formatting.
- *
- * Request inputs:
- * - Request data is taken from {@link shell.getQuery}:
- *   - If `-method` is provided (i.e. non-empty), the query becomes `postdata`
- *   - If `-method` is not provided, the query becomes URL `query` params
- *
- * Options:
- * - `-url &lt;url>`: Target URL to request.
- * - `-method &lt;verb>`: HTTP method (e.g. `POST`, `PUT`). When set, query data is sent as body (`postdata`).
- * - `-user &lt;id>`: Load user record via `api.users.get(id)` and use its `login/secret` for request signing.
- * - `-hdr k=v` (repeatable): Adds custom request headers.
- * - `-cookie k=v` (repeatable): Adds custom request cookies.
- * - `-aws service` sign as AWS service
- *
- * Response output controls:
- * - `-raw`: print raw response body (`rc.data`) and include response headers (`rc.resheaders`) in output.
- * - `-json`: print parsed response object (`rc.obj`) as a JSON string.
- * - `-select a,b.c,...`: reduce the parsed response object to only the specified fields/paths.
- * - `-flatten`: flatten the parsed response object into dot-notation keys.
- *
- * Signing behavior:
- * - When a user is loaded (`-user`) and has `login/secret`, a `signer` hook is provided to `lib.fetch` to create a session cookie
- *
- * Control flow:
- * - Runs as a 3-step async series:
- *   1) Optional user lookup
- *   3) Main request fetch + output formatting
- * - Terminates via {@link shell.exit} on completion or error.
- *
- * @function fetch
- * @memberof module:shell
- * @param {string[]|Object} options CLI options/args for the command.
- */
-shell.commands.fetch = function(options)
-{
-    var query = shell.getQuery();
-    var url = shell.getArg("-url", options);
-    var method = shell.getArg("-method", options);
-    var login = shell.getArg("-user", options);
-    var select = lib.split(shell.getArg("-select", options));
-    var json = shell.isArg("-json", options);
-    var raw = shell.isArg("-raw", options);
-    var service = shell.isArg("-aws", options);
-    var flatten = shell.isArg("-flatten", options)
-    var headers = shell.getArgList("-hdr", options).reduce((x, y) => { y = y.split("="); x[y[0]] = y[1]; return x }, {});
-    var cookies = shell.getArgList("-cookie", options).reduce((x, y) => { y = y.split("="); x[y[0]] = y[1]; return x }, {});
-    lib.series([
-        function(next) {
-            if (!login) return next();
-            api.users.get(login, (err, row) => {
-                if (err || !row) return shell.exit(err, "ERROR: no user found with this id: " + login);
-                next(null, row);
-            });
-        },
-        function(_next, user) {
-            var opts = {
-                method,
-                postdata: method &amp;&amp; query,
-                query: !method &amp;&amp; query,
-                headers,
-                cookies,
-                signer() {
-                    if (user) {
-                        const ctx = new api.RequestContext(null, new http.ServerResponse({}));
-                        api.session.create(ctx, user);
-                        this.headers[api.session.header] = ctx.res.getHeader("Set-Cookie");
-                    } else
-
-                    if (service) {
-                        this.service = service;
-                        aws.signer.call(this);
-                    }
-                }
-            };
-            lib.fetch(url, opts, (err, rc) => {
-                if (err) shell.exit(err);
-                if (select.length) {
-                    const obj = Object.create(null);
-                    for (const i in select) lib.objSet(obj, select[i], lib.objGet(rc.obj, select[i]));
-                    rc.obj = obj;
-                }
-                if (flatten) rc.obj = lib.flatten(rc.obj);
-                shell.exit(err, raw ? rc.data : json ? lib.stringify(rc.obj) : rc.obj, raw ? rc.resheaders : null);
-            });
-        },
-    ], null, true);
-}
-
-// Send API request
-shell.commands.submitJob = function(options)
-{
-    var job = shell.getArg("-job", options);
-    if (!job) return shell.exit("-job argument is required");
-    var opts = shell.getArgs();
-    var query = shell.getQuery();
-    opts.job = undefined;
-    jobs.submit({ job: { [job]: query } }, opts, shell.exit)
-}
-
-/**
- * Shell command: `stats`
- *
- * Queries Elasticsearch-backed metrics via {@link stats.queryElasticsearch} and prints results.
- *
- * Options parsing:
- * - `-pool &lt;name>`: Elasticsearch pool to use (default: `elasticsearch`)
- * - `-groups &lt;list>`: Group-by fields (default: `tag`)
- * - `-tags &lt;list>`: Tag filters
- * - `-tsize &lt;n>`: Terms aggregation size (top N groups)
- * - `-ssize &lt;n>`: Sub-aggregation size
- * - `-trim &lt;n>`: Trim result sets (implementation-specific to stats module)
- * - `-timedelta &lt;sec>`: Bucket size / time step in seconds (converted to ms)
- * - `-age &lt;sec>`: How far back to query (default: 300s, converted to ms)
- * - `-interval &lt;sec>`: Query/rollup interval in seconds (default: 60s, converted to ms)
- * - `-fields &lt;list>`: Metric fields to query (default: `host_cpu_util`)
- * - `-count &lt;n>`: Limit number of points/rows returned
- * - `-since &lt;ts>`: Start timestamp (epoch seconds)
- * - `-before &lt;ts>`: End timestamp (epoch seconds)
- * - `-columns &lt;json>`: Optional columns configuration (JSON). Parsed with `lib.jsonParse`
- *
- * Output modes:
- * - `-raw`: prints the raw response object as JSON.
- * - default: formats each numeric series:
- *   - rounds each value
- *   - sorts values descending
- *   - joins them into a comma-separated string
- * - `-flatten`: flattens nested `rc.data` using `lib.flatten` before printing.
- * - prints a header line with relative time labels derived from `rc.timestamps`
- *   using `lib.toDuration(..., { age: 1, short: 1, round: 2 })`.
- * - `-info`: includes `rc.info` in the formatted output.
- *
- * Exits the shell process via `shell.exit(err)` when done.
- *
- * @param {string[]|Object} options Command-line args/options passed to the shell command.
- * @param {Function} callback Unused (kept for command signature compatibility).
- * @memberOf module:shell
- * @method stats
- */
-shell.commands.stats = function(options, _callback)
-{
-    var opts = {
-        pool: shell.getArg("-pool", options, "elasticsearch"),
-        groups: shell.getArg("-groups", options, "tag"),
-        tags: shell.getArg("-tags", options),
-        tsize: shell.getArgInt("-tsize", options),
-        ssize: shell.getArgInt("-ssize", options),
-        trim: shell.getArgInt("-trim", options),
-        timedelta: shell.getArgInt("-timedelta", options) * 1000,
-        age: shell.getArgInt("-age", options, 300) * 1000,
-        interval: shell.getArgInt("-interval", options, 60) * 1000,
-        fields: shell.getArg("-fields", options, "host_cpu_util"),
-        count: shell.getArgInt("-count", options),
-        since: shell.getArgInt("-since", options),
-        before: shell.getArgInt("-before", options),
-        columns: lib.jsonParse(shell.getArg("-columns", options), { empty: 1, logger: "error" }),
-    }
-
-    stats.queryElasticsearch(opts, (err, rc) => {
-        if (!err) {
-            if (shell.isArg("-raw")) {
-                shell.jsonFormat(rc);
-            } else {
-                for (const k in rc.data) {
-                    for (const p in rc.data[k]) {
-                        rc.data[k][p] = rc.data[k][p].map((x) => (Math.round(x))).sort((a, b) => (b - a)).join(", ");
-                    }
-                }
-                if (shell.isArg("-flatten")) {
-                    rc.data = lib.flatten(rc.data);
-                }
-                const header = "# key, fields, " + rc.timestamps.map((x) => (lib.toDuration(x, { age: 1, short: 1, round: 2 }))).join(", ");
-                shell.jsonFormat(header, rc.data, rc.rows, shell.isArg("-info") ? rc.info : "");
-            }
-        }
-        shell.exit(err);
-    });
-}
-
-
 </code></pre>
-        </article>
-    </section>
+<hr>
+<h2 id="anatomy-of-a-job">Anatomy of a job</h2>
+<p>A job is an object with a <code>job</code> property. The property maps a <code>&quot;module.method&quot;</code> string to its arguments:</p>
+<pre class="prettyprint source lang-json"><code>{ &quot;job&quot;: { &quot;mymod.sendEmail&quot;: { to: &quot;a@b.com&quot;, subject: &quot;Hi&quot; } } }
+</code></pre>
+<p>A job can contain <strong>multiple</strong> tasks, and they'll run one by one:</p>
+<pre class="prettyprint source lang-json"><code>{
+    &quot;job&quot;: {
+        &quot;mymod.sendEmail&quot;: { to: &quot;a@b.com&quot; },
+        &quot;mymod.logResult&quot;: { result: &quot;done&quot; }
+    }
+}
+</code></pre>
+<p>For convenience, a <strong>string</strong> shorthand is accepted and normalized automatically:</p>
+<pre class="prettyprint source lang-js"><code>// All three are equivalent:
+&quot;mymod.sendEmail&quot;
+{ job: &quot;mymod.sendEmail&quot; }
+{ job: { &quot;mymod.sendEmail&quot;: {} } }
+</code></pre>
+<p>The <code>module.method</code> name must match <code>^[a-z0-9_.]+\.[a-z0-9_]+$</code> — dot-separated, alphanumeric + dots/underscores.</p>
+<hr>
+<h2 id="a-complete-module-with-a-job">A complete module with a job</h2>
+<p>You need two pieces: a route to <strong>submit</strong> the job and a method to <strong>process</strong> it.</p>
+<p><strong>modules/email.js</strong></p>
+<pre class="prettyprint source lang-js"><code>const { app, api, modules, jobs, db, logger } = require(&quot;backendjs&quot;);
 
+module.exports = {
 
+    name: &quot;email&quot;,
 
+    // ── API route: submit and return immediately ──────────────────────────
+    configureMiddleware(options, callback) {
+        api.app.post(&quot;/emails&quot;, (context) => {
+            jobs.submit(
+                { job: { &quot;email.send&quot;: { to: context.body.to, subject: context.body.subject } } },
+                { queueName: &quot;emails&quot; },    // which worker queue to use
+                (err) => context.reply(err)   // reply once the job is enqueued
+            );
+        });
+        callback();
+    },
+
+    // ── Worker method: the actual job logic ───────────────────────────────
+    sendEmail(options, callback) {
+        logger.info(&quot;emails:&quot;, &quot;sending to&quot;, options.to, options.subject);
+        // ... send email, write to db, etc.
+        callback();
+    }
+};
+
+app.start({ server: true });
+</code></pre>
+<p><strong>bkjs.conf</strong></p>
+<pre class="prettyprint source"><code>queue-emails = sqs://my-emails
+queue-emails-visibility-timeout = 60000
+</code></pre>
+<p>Start the server (spawns 2 workers by default):</p>
+<pre class="prettyprint source lang-shell"><code>node index.js -jobs-workers 2 -jobs-worker-queue emails
+</code></pre>
+<p>Now <code>POST /emails</code> returns immediately. A worker on the same or a different host picks up the message.</p>
+<h3 id="calling-from-another-module">Calling from another module</h3>
+<p>Any module can submit a job without importing <code>jobs</code> if it calls through the module system:</p>
+<pre class="prettyprint source lang-js"><code>modules.myjob.runJob({ &quot;queueName&quot;: &quot;emails&quot; }, (err) => { ... });
+</code></pre>
+<p>Or directly:</p>
+<pre class="prettyprint source lang-js"><code>const { jobs } = require(&quot;backendjs&quot;);
+jobs.submit({ job: { &quot;email.send&quot;: { to: &quot;x@y.com&quot; } } }, { queueName: &quot;emails&quot; });
+</code></pre>
+<hr>
+<h2 id="queues">Queues</h2>
+<p>Two queues exist by default:</p>
+<table>
+<thead>
+<tr>
+<th>Queue</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>local</code></td>
+<td>Runs in the <strong>current</strong> process — no worker fork. Fast for short tasks.</td>
+</tr>
+<tr>
+<td><code>worker</code></td>
+<td>Runs in a <strong>forked worker</strong> process — survives restarts of the web server.</td>
+</tr>
+</tbody>
+</table>
+<p>You can create as many named queues as you like by defining them in <code>bkjs.conf</code> or <code>-queue-*</code> params, then workers subscribe to them via <code>-jobs-worker-queue</code>.</p>
+<p>Each queue maps to a <strong>queue driver</strong> — SQS, Redis, RabbitMQ, NATS, or an in-memory <code>local</code> queue. The driver is selected by the URI scheme in <code>-queue-&lt;name&gt;</code>:</p>
+<pre class="prettyprint source"><code>queue-letters = sqs://letters
+queue-emails  = redis://localhost:6379/0
+queue-events  = nats://localhost:4222/events
+</code></pre>
+<p>A queue can be a <strong>list</strong> of driver names — the job is submitted to the <strong>next</strong> one in round-robin, useful for load balancing:</p>
+<pre class="prettyprint source"><code>queue-events = nats://host1 nats://host2
+</code></pre>
+<p>To <strong>stop</strong> subscribing to a queue on workers, prefix the name with <code>-</code> or <code>!</code>:</p>
+<pre class="prettyprint source lang-shell"><code>node index.js -jobs-worker-queue &quot;-worker emails&quot;   # unsubscribe worker, subscribe emails
+</code></pre>
+<h3 id="default-queue-override">Default queue override</h3>
+<p>Set <code>-jobs-global-queue myqueue</code> to force all submissions to one queue (ignores the per-call <code>queueName</code>). The <code>local</code> and <code>worker</code> queues are always ignored by the global override.</p>
+<hr>
+<h2 id="submitting-jobs">Submitting jobs</h2>
+<h3 id="api">API</h3>
+<pre class="prettyprint source lang-js"><code>// Callback
+jobs.submit(jobspec, options, callback);
+
+// Async (prefixed with 'a')
+const { err, data } = await jobs.asubmit(jobspec, options);
+</code></pre>
+<h3 id="running-directly-(skip-the-queue)">Running directly (skip the queue)</h3>
+<pre class="prettyprint source lang-js"><code>// Callback
+jobs.run(jobspec, { queueName: &quot;local&quot; }, callback);
+
+// Async
+const { err, data } = await jobs.arun(jobspec, { queueName: &quot;local&quot; });
+</code></pre>
+<h3 id="submit-to-a-specific-queue">Submit to a specific queue</h3>
+<pre class="prettyprint source lang-js"><code>jobs.submit(jobspec, { queueName: &quot;orders&quot; });
+</code></pre>
+<h3 id="multiple-jobs-at-once">Multiple jobs at once</h3>
+<p>Pass an array of job specs — it submits each one and waits for all to complete:</p>
+<pre class="prettyprint source lang-js"><code>jobs.submit([
+    { job: { &quot;email.send&quot;: { to: &quot;a@b.com&quot; } } },
+    { job: { &quot;email.send&quot;: { to: &quot;c@d.com&quot; } } },
+], { queueName: &quot;emails&quot; }, (err) => {
+    // all enqueued
+});
+</code></pre>
+<hr>
+<h2 id="job-options">Job options</h2>
+<p>All options are part of the <code>options</code> object passed to <code>submit</code> or on the jobspec itself. They can also be set <strong>per-queue</strong> in <code>bkjs.conf</code>, in which case they apply to every job submitted to that queue.</p>
+<p><strong>Dedup and uniqueness</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>uniqueTtl</code></td>
+<td>Number of milliseconds. Creates a cache lock on the job. If a second job with the same key arrives while the lock is held, it waits (or is dropped).</td>
+</tr>
+<tr>
+<td><code>uniqueKey</code></td>
+<td>Custom key for the lock. Useful to serialize jobs by a business key: <code>uniqueKey: &quot;ORDER:&quot; + orderId</code></td>
+</tr>
+<tr>
+<td><code>uniqueDrop</code></td>
+<td><code>true</code> — instead of queuing a duplicate job, drop it silently.</td>
+</tr>
+<tr>
+<td><code>uniqueKeep</code></td>
+<td><code>true</code> — keep the lock after the job finishes, preventing all future duplicates.</td>
+</tr>
+<tr>
+<td><code>uniqueOnce</code></td>
+<td><code>true</code> — stop extending the visibility timeout while the job is running.</td>
+</tr>
+<tr>
+<td><code>dedupTtl</code></td>
+<td>Number of milliseconds to remember recently-seen messages. Prevent the same job being processed twice.</td>
+</tr>
+</tbody>
+</table>
+<pre class="prettyprint source lang-js"><code>// Serialize orders for the same account — 5 min gap between two executions
+jobs.submit(job, {
+    queueName: &quot;orders&quot;,
+    uniqueKey: `ORDER:${accountId}`,
+    uniqueTtl: 300000,
+});
+
+// Drop duplicate submissions while a job for this account is running
+jobs.submit(job, {
+    queueName: &quot;orders&quot;,
+    uniqueKey: `ORDER:${accountId}`,
+    uniqueDrop: true,
+    uniqueTtl: 60000,
+});
+</code></pre>
+<p><strong>Visibility and retry</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>visibilityTimeout</code></td>
+<td>Ms the job is invisible to other workers while processing. Prevents double execution.</td>
+</tr>
+<tr>
+<td><code>noVisibilityTimeout</code></td>
+<td><code>true</code> — disable auto-extending the timeout during the job.</td>
+</tr>
+<tr>
+<td><code>noRetryVisibilityTimeout</code></td>
+<td><code>true</code> — ignore 600 errors, delete the job after processing.</td>
+</tr>
+<tr>
+<td><code>retryVisibilityTimeout</code></td>
+<td>Map of error status → timeout in ms. Controls retry delays per error code.</td>
+</tr>
+</tbody>
+</table>
+<pre class="prettyprint source lang-js"><code>// 5-minute visibility window, 600+ errors cause a 30-second retry
+jobs.submit(job, {
+    queueName: &quot;orders&quot;,
+    visibilityTimeout: 300000,
+    retryVisibilityTimeout: { 600: 30000, 500: 10000 },
+});
+</code></pre>
+<p><strong>Timing</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>delay</code></td>
+<td>ms to wait before the job becomes visible (SQS only).</td>
+</tr>
+<tr>
+<td><code>startTime</code></td>
+<td>Unix ms — job will not start before this time.</td>
+</tr>
+<tr>
+<td><code>endTime</code></td>
+<td>Unix ms — job is dropped if not started by this time.</td>
+</tr>
+<tr>
+<td><code>noWait</code></td>
+<td><code>true</code>/<code>1</code> — delete the job from the queue immediately after processing. A number gives a delay before deletion.</td>
+</tr>
+</tbody>
+</table>
+<pre class="prettyprint source lang-js"><code>// Run an hour from now; delete the message immediately after it finishes
+jobs.submit(job, {
+    queueName: &quot;reports&quot;,
+    startTime: Date.now() + 3600000,
+    noWait: 1,
+});
+</code></pre>
+<p><strong>Error handling</strong></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>stopOnError</code></td>
+<td><code>true</code> — stop at the first task error. Without it, all tasks run and each error is logged.</td>
+</tr>
+<tr>
+<td><code>logger</code></td>
+<td>Log level string used when the job finishes. Default: <code>&quot;debug&quot;</code>.</td>
+</tr>
+</tbody>
+</table>
+<pre class="prettyprint source lang-js"><code>// Fail fast on first error
+jobs.submit(job, { queueName: &quot;orders&quot;, stopOnError: true });
+
+// Log job completion at &quot;warn&quot; level
+jobs.submit(job, { queueName: &quot;orders&quot;, logger: &quot;warn&quot; });
+</code></pre>
+<p><strong>Task ignore</strong></p>
+<p>A regex in <code>-jobs-task-ignore</code> silently skips any task whose name matches. Useful in development to block a slow task:</p>
+<pre class="prettyprint source"><code>jobs-task-ignore = mymod.expensiveTask
+</code></pre>
+<hr>
+<h2 id="cancellation">Cancellation</h2>
+<p>To interrupt running jobs, broadcast a cancel key via IPC. Each job function should poll and respect it:</p>
+<pre class="prettyprint source lang-js"><code>// From server or client
+const { jobs, ipc } = require(&quot;backendjs&quot;);
+jobs.cancel(&quot;order:123&quot;);
+</code></pre>
+<p>Inside the job method:</p>
+<pre class="prettyprint source lang-js"><code>processOrder(options, callback) {
+    // Poll for cancellation
+    if (jobs.isCancelled(&quot;order:&quot; + options.id)) {
+        return callback(lib.newError(&quot;Cancelled&quot;, 600, &quot;JobCancelled&quot;));
+    }
+    // ...
+}
+</code></pre>
+<hr>
+<h2 id="cron-%2F-scheduled-jobs">Cron / scheduled jobs</h2>
+<p>Define recurring jobs with cron expressions. Cron expression format (note the optional leading <strong>second</strong> field):</p>
+<pre class="prettyprint source"><code>┌─ second (0-59, optional)
+│ ┌─ minute (0-59)
+│ │ ┌─ hour (0-23)
+│ │ │ ┌─ day of month (1-31)
+│ │ │ │ ┌─ month (1-12)
+│ │ │ │ │ ┌─ day of week (0-6, 0 and 7 are Sunday)
+│ │ │ │ │ │
+* * * * * *
+</code></pre>
+<h3 id="from-a-json-file">From a JSON file</h3>
+<p>Create a file <code>crontab.json</code>:</p>
+<pre class="prettyprint source lang-js"><code>[
+    { &quot;cron&quot;: &quot;0 0 * * *&quot;, &quot;job&quot;: &quot;email.dailyDigest&quot;, &quot;queueName&quot;: &quot;reports&quot; },
+    {
+        &quot;cron&quot;: &quot;0 3 * * 1,3,5&quot;,
+        &quot;job&quot;: { &quot;reports.weekly&quot;: { type: &quot;finance&quot; } },
+        &quot;queueName&quot;: &quot;reports&quot;,
+        &quot;uniqueTtl&quot;: 600000
+    },
+    { &quot;cron&quot;: &quot;* * * * *&quot;, &quot;job&quot;: &quot;healthbeat.ping&quot;, &quot;disabled&quot;: true }
+]
+</code></pre>
+<p>Start with:</p>
+<pre class="prettyprint source lang-shell"><code>node index.js -jobs-workers 1 -jobs-cron-file crontab.json
+</code></pre>
+<p>The file is watched for changes — update it while the server runs and jobs are re-scheduled.</p>
+<h3 id="from--jobs-cron-config-or-schedulecronjobs">From <code>-jobs-cron</code> config or <code>scheduleCronjobs</code></h3>
+<pre class="prettyprint source lang-js"><code>// In bkjs.conf:
+// jobs-cron = [{&quot;cron&quot;:&quot;0 12 * * *&quot;,&quot;job&quot;:&quot;reports.summary&quot;}]
+
+const { jobs } = require(&quot;backendjs&quot;);
+
+// Programmatic:
+jobs.scheduleCronjob({
+    cron: &quot;0 0 * * * *&quot;,
+    job: &quot;reports.nightlySummary&quot;,
+    queueName: &quot;reports&quot;,
+});
+
+// Schedule a batch, replacing previous jobs of the same type:
+jobs.scheduleCronjobs(&quot;config&quot;, [
+    { cron: &quot;*/5 * * * * *&quot;, job: &quot;healthbeat.ping&quot; },
+    { cron: &quot;0 0 * * *&quot;,     job: &quot;reports.sum&quot;, queueName: &quot;reports&quot; },
+]);
+</code></pre>
+<h3 id="from-the-config-db">From the config DB</h3>
+<p>The <code>-jobs-cron</code> param can also be set from the database config. When the config DB updates, <code>scheduleCronjobs(&quot;config&quot;, newJobs)</code> is called automatically — no restart needed.</p>
+<hr>
+<h2 id="module-hooks-(lifecycle)">Module hooks (lifecycle)</h2>
+<p>Job lifecycle emits hooks you can implement on custom modules:</p>
+<pre class="prettyprint source lang-js"><code>module.exports = {
+    name: &quot;myhook&quot;,
+
+    // Called before each job runs. Return an error to skip the job.
+    configureJob(options, callback) {
+        // options = { queue, message }
+        if (options.message?.job && !isAllowed(options.message.job)) {
+            return callback(new Error(&quot;Not allowed&quot;));
+        }
+        callback();
+    },
+
+    // Called after a job finishes (err or success)
+    finishJob(options, callback) {
+        // options = { queue, message, error, elapsed }
+        console.log(&quot;Job finished in&quot;, options.elapsed, &quot;ms&quot;);
+        callback();
+    },
+}
+</code></pre>
+<p><code>configureJob</code> runs <strong>before</strong> job execution and can abort it by returning an error. <code>finishJob</code> is parallel and direct — it will not slow down queue processing.</p>
+<p>You can also listen for job events via IPC messages without implementing a module method:</p>
+<pre class="prettyprint source lang-js"><code>const { ipc } = require(&quot;backendjs&quot;);
+
+ipc.on(&quot;jobs:started&quot;, ({ job, queueName }) => console.log(&quot;started:&quot;, job, queueName));
+ipc.on(&quot;jobs:stopped&quot;, ({ job, err, queueName }) => console.log(&quot;stopped:&quot;, err ? &quot;error&quot; : &quot;ok&quot;, queueName));
+ipc.on(&quot;jobs:task:started&quot;, ({ name, job }) => console.log(&quot;task started:&quot;, name));
+ipc.on(&quot;jobs:task:stopped&quot;, ({ name, job, err }) => console.log(&quot;task stopped:&quot;, name, err));
+ipc.on(&quot;jobs:nolock&quot;, ({ job, err, queueName }) => logger.warn(&quot;job blocked by lock:&quot;, job, err));
+ipc.on(&quot;jobs:dropped&quot;, ({ job, queueName }) => logger.info(&quot;job dropped:&quot;, job, queueName));
+</code></pre>
+<hr>
+<h2 id="worker-configuration">Worker configuration</h2>
+<table>
+<thead>
+<tr>
+<th>Config</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>jobs-workers</code></td>
+<td><code>0</code> (auto = <code>cpuCount * workerCpuFactor</code>)</td>
+<td>Number of processes to fork. <code>-1</code> disables workers. <code>0</code> = auto.</td>
+</tr>
+<tr>
+<td><code>jobs-worker-cpu-factor</code></td>
+<td><code>2</code></td>
+<td>Multiplier for auto worker count (<code>cpuCount × 2</code> by default).</td>
+</tr>
+<tr>
+<td><code>jobs-worker-queue</code></td>
+<td><code>worker</code></td>
+<td>Queue name(s) workers subscribe to. List = subscribe to all.</td>
+</tr>
+<tr>
+<td><code>jobs-worker-delay</code></td>
+<td><code>50</code></td>
+<td>ms to delay worker subscription start — prevents race on simultaneous starts.</td>
+</tr>
+<tr>
+<td><code>jobs-worker-settings</code></td>
+<td>—</td>
+<td>Passed to <code>cluster.setupMaster()</code>.</td>
+</tr>
+<tr>
+<td><code>jobs-worker-env</code></td>
+<td>—</td>
+<td>Environment passed to forked workers.</td>
+</tr>
+<tr>
+<td><code>jobs-max-runtime</code></td>
+<td><code>900000</code></td>
+<td>Max ms per job. Exceeding kills the worker.</td>
+</tr>
+<tr>
+<td><code>jobs-max-lifetime</code></td>
+<td><code>12 h</code></td>
+<td>Max ms a worker lives. Exits after current job, new worker spawned.</td>
+</tr>
+<tr>
+<td><code>jobs-worker-options-&lt;queue&gt;</code></td>
+<td>—</td>
+<td>Per-queue options passed to <code>queue.subscribeQueue</code>.</td>
+</tr>
+<tr>
+<td><code>jobs-shutdown-timeout</code></td>
+<td><code>50</code></td>
+<td>ms to wait during graceful worker shutdown.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="graceful-worker-lifecycle">Graceful worker lifecycle</h3>
+<p>When a worker is idle for longer than <code>max-lifetime</code>, it stops accepting new jobs, finishes in-flight work, and exits. The server process then forks a fresh one. The <code>shutdownWorker</code> hook fires before exit — use it to close connections or flush buffers:</p>
+<pre class="prettyprint source lang-js"><code>const { modules } = require(&quot;backendjs&quot;);
+
+module.exports = {
+    name: &quot;cleanup&quot;,
+
+    shutdownWorker(options, callback) {
+        // options.shutdownReason = &quot;maxLifetime&quot; | &quot;maxRuntime&quot; | &quot;restart&quot;
+        // Close pending DB connections, flush buffers, etc.
+        callback();
+    }
+};
+</code></pre>
+<hr>
+<h2 id="running-locally-vs.-remote">Running locally vs. remote</h2>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Config / param</th>
+<th>Where the job runs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Local submit</td>
+<td><code>queueName: &quot;local&quot;</code> or default</td>
+<td>Current process, no fork</td>
+</tr>
+<tr>
+<td>Worker</td>
+<td><code>queueName: &quot;worker&quot;</code> or a custom queue with workers</td>
+<td>Forked child process on the same host</td>
+</tr>
+<tr>
+<td>Remote</td>
+<td><code>queueName</code> pointing to SQS/Redis/etc.</td>
+<td>Any host connected to the same queue</td>
+</tr>
+</tbody>
+</table>
+<p>The same API (<code>jobs.submit</code>) is used for all three — only the queue driver changes.</p>
+<hr>
+<h2 id="job-format-validation">Job format validation</h2>
+<p><code>jobs.isJob(jobspec)</code> validates and normalizes any job input. It accepts:</p>
+<ul>
+<li>string: <code>&quot;mymod.method&quot;</code> — must match <code>^[a-z0-9_.]+\.[a-z0-9_]+$</code></li>
+<li>object: <code>{ job: &quot;mymod.method&quot; }</code> or <code>{ job: { &quot;mymod.method&quot;: { … } } }</code></li>
+</ul>
+<p>It returns an <code>Error</code> with status <code>400</code> for anything else. All <code>submit</code>/<code>run</code> calls pass through this validation.</p>
+<hr>
+<h2 id="complete-example%3A-background-order-processing">Complete example: background order processing</h2>
+<pre class="prettyprint source lang-js"><code>// modules/order.js
+const { api, modules, jobs, db, logger, lib } = require(&quot;backendjs&quot;);
+
+module.exports = {
+
+    name: &quot;order&quot;,
+
+    tables: {
+        bk_order: {
+            id:       { type: &quot;uuid&quot;, primary: 1, read_only: true },
+            product:  { type: &quot;text&quot; },
+            status:   { type: &quot;text&quot;, value: &quot;pending&quot; },
+            ctime:    { type: &quot;now&quot;,  read_only: true }
+        }
+    },
+
+    // ── API ───────────────────────────────────────────────────────────────
+    configureMiddleware(options, callback) {
+
+        // Public: create an order and kick off processing
+        api.app.post(&quot;/orders&quot;, async (context) => {
+            const order = await modules.order.createOrder(context.body);
+            context.json(order);
+        });
+
+        callback();
+    },
+
+    // ── Job entry point ───────────────────────────────────────────────────
+    configureServer(options, callback) {
+        // Start cron: process pending orders every minute
+        jobs.scheduleCronjob({
+            cron: &quot;0 * * * * *&quot;,       // every minute
+            job: &quot;order.processBatch&quot;,
+            queueName: &quot;orders&quot;,
+            uniqueTtl: 60000,         // don't overlap runs
+        });
+        callback();
+    },
+
+    // ── API method to create an order ─────────────────────────────────────
+    async createOrder(body) {
+        const { err, data: order } = await db.aadd(&quot;bk_order&quot;, {
+            product: body.product
+        }, { returning: &quot;*&quot;, first: 1 });
+        if (err) throw err;
+
+        // Async-variant helper
+        const { err: submitErr } = await jobs.asubmit(
+            { job: { &quot;order.process&quot;: { orderId: order.id } } },
+            {
+                queueName: &quot;orders&quot;,
+                uniqueKey: &quot;ORDER:&quot; + order.id,
+                uniqueTtl: 120000,
+                visibilityTimeout: 60000,
+            }
+        );
+        if (submitErr) throw submitErr;
+
+        return order;
+    },
+
+    // ── Job: called in a worker ───────────────────────────────────────────
+    process(options, callback) {
+        logger.info(&quot;orders:&quot;, &quot;processing&quot;, options.orderId);
+
+        db.get(&quot;bk_order&quot;, { id: options.orderId }, (err, order) => {
+            if (err) return callback(err);
+            if (!order) return callback(lib.newError(&quot;Order not found&quot;, 404));
+
+            // Do the work…
+            db.update(&quot;bk_order&quot;, {
+                id: order.id,
+                status: &quot;completed&quot;
+            }, (err2) => {
+                if (err2) return callback(err2);
+                logger.info(&quot;orders:&quot;, &quot;done&quot;, order.id);
+                callback();
+            });
+        });
+    }
+};
+</code></pre>
+<p><strong>bkjs.conf</strong></p>
+<pre class="prettyprint source"><code>queue-orders = sqs://orders
+queue-orders-visibility-timeout = 60000
+queue-orders-options-retry-visibility-timeout = {&quot;500&quot;:30000,&quot;600&quot;:120000}
+jobs-workers = 2
+</code></pre>
+<pre class="prettyprint source lang-shell"><code>node index.js -jobs-worker-queue orders
+</code></pre>
+<hr>
+<h2 id="quick-reference">Quick reference</h2>
+<p><strong>Submit:</strong> <code>jobs.submit(jobspec, options, cb)</code> / <code>await jobs.asubmit(...)</code>
+<strong>Run locally:</strong> <code>jobs.run(jobspec, { queueName: &quot;local&quot; }, cb)</code> / <code>await jobs.arun(...)</code>
+<strong>Validate:</strong> <code>jobs.isJob(jobspec)</code> → normalized obj or Error
+<strong>Schedule:</strong> <code>jobs.scheduleCronjob({ cron, job, queueName })</code>
+<strong>Batch schedule:</strong> <code>jobs.scheduleCronjobs(&quot;config&quot;, [ …jobs ])</code>
+<strong>Cancel:</strong> <code>jobs.cancel(&quot;key&quot;)</code> → broadcasts to all workers
+<strong>Check cancel:</strong> <code>jobs.isCancelled(&quot;key&quot;)</code>
+<strong>Stats:</strong> <code>jobs.metrics.running</code>, <code>jobs.metrics.err_count</code> (via <code>configureCollectStats</code>)</p>
+</article>
+
+</section>
 
     
     

@@ -1,11 +1,9 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     
     <meta charset="utf-8">
-    <title>lib/shell/shell.js - Backendjs Documentation</title>
+    <title>Using the Users Module - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,550 +39,600 @@
 
 <div id="main">
     
-    <h1 class="page-title">lib/shell/shell.js</h1>
-    
 
-    
-
-
-
-    
     <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>/*
- *  Author: Vlad Seryakov vseryakov@gmail.com
- *  backendjs 2018
- */
-'use strict';
 
-const util = require('node:util');
-const path = require('node:path');
-const fs = require('node:fs');
-const http = require('node:http');
-const modules = require("../modules");
-const { app, aws, lib, api, jobs, events, cache, queue, shell, stats } = modules;
+<header>
+    
+</header>
 
-shell.help.push(
-    "-help-config - show all config parameters",
-    "-exit - exit shell",
-    "-exit-timeout N - delay exit for N milliseconds",
-    "-show-info - show app and version information",
-    "-show-args ... - show collected query and args for debugging purposes",
-    "-run-file FILE.js - load a script and run it if it exports run function",
-    "-run-method MOD.METHOD - run a method from a module",
-    "-run-config FILE - load a config file",
-    "-run-api - initialize web server inside the server shell only",
-    "-run-worker - initialize job worker in server shell only",
-    "-run-ipc - initialize all cache clients in all shells",
-    "-run-jobs - initialize jobs in server and workers",
-    "-fetch -url URL [-method GET|POST] [-raw] [-user ID|LOGIN] [-csrf URL] [-hdr name=value] [-cookie name=value] [-aws service] param value param value ... - send API request to the server specified in the url as user specified by login or id, resolving the user is done directly from the current db pool, param values should not be url-encoded",
-    "-log-watch - run logwatcher and exit, send emails in case any errors found",
-    "-submit-job -job NAME [-option value ...] param value... - submit a job, all params without dashes will be passed to the job handler, all options with dashes will be passed in options",
-    "-stats [-age S] [-interval S] [-groups tag] [-fields host_cpu_util] [-raw] [-count N] [-since DATE] [-before DATE] - show aggregated stats from bk_stats table",
-);
+<article>
+    <h1 id="using-the-users-module">Using the Users Module</h1>
+<p>User management is split across three small modules that work together:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>api.users</code></td>
+<td>Data layer — the user table wrapper plus <code>get</code>/<code>add</code>/<code>update</code>/<code>del</code>, password hashing, and authentication logic (session, token, MFA/TOTP).</td>
+</tr>
+<tr>
+<td><code>middleware.users</code></td>
+<td>HTTP layer — the ready-to-mount handlers for <code>/login</code>, <code>/logout</code>, <code>/profile</code>, and the guard middleware that verifies + authorizes every request.</td>
+</tr>
+<tr>
+<td><code>api.acl</code></td>
+<td>Authorization — named regex lists grouped by role that decide which paths a given role may access.</td>
+</tr>
+</tbody>
+</table>
+<p>Supporting pieces:</p>
+<ul>
+<li><code>api.session</code> — cookie session create / parse / verify, signed (and optionally encrypted) with the user's secret.</li>
+<li><code>api.token</code> — API bearer-token create / parse, reusing the same users table.</li>
+</ul>
+<p>Everything has two forms — callback and async (add the <code>a</code> prefix). This guide uses the async form.</p>
+<pre class="prettyprint source lang-js"><code>const { api, lib, db, logger } = require(&quot;backendjs&quot;);
+const { middleware } = require(&quot;backendjs&quot;);
+const { users, body } = middleware;
 
-// Exit and write to the console a message or error message if non empty
-shell.exit = function(err, _msg)
-{
-    shell.log(...arguments);
-    if (lib.isArg("-noexit")) return;
-    setTimeout(() => { process.exit(err ? 1 : 0) }, shell.exitTimeout);
-}
-
-// Exit with error code and dump all arguments to the stderr, backtrace as well
-shell.die = function(...args)
-{
-    for (const a of args) {
-        console.error(!a ? "" : util.inspect(a, { depth: 10, showHidden: true, compact: 10 }).split("\n").map((x) => ("   " + x)).join("\n"));
-    }
-    var e = {};
-    Error.stackTraceLimit = 32;
-    Error.captureStackTrace(e, shell.die);
-    console.error(e.stack.replace("Error", "Backtrace:"), "\n");
-    process.exit(1);
-}
-
-shell.log = function(...args)
-{
-    for (const arg of args) {
-        if (arg === undefined || arg === null || arg === "") continue;
-        console.log(util.inspect(arg, { depth: null, showHidden: true, compact: 10 }));
-    }
-}
-
-shell.jsonFormat = function(...args)
-{
-    for (const arg of args) {
-        if (arg === undefined || arg === null || arg === "") continue;
-        console.log(lib.jsonFormat(arg, { preset: "compact", ignore: app.logInspect.ignore }));
-    }
-}
-
-// Returns an object with all command line params that do not start with dash(-), treat 2 subsequent parms without dashes as name value pair
-shell.getQuery = function(options)
-{
-    var query = {};
-    var index = typeof options?.index === "number" ? options.index : shell.cmdIndex;
-    for (let i = index + 2; i &lt; process.argv.length; i++) {
-        const a = process.argv[i - 1], b = process.argv[i];
-        if (a[0] === '-' &amp;&amp; b[0] !== '-') i++; else
-        if (a[0] !== '-' &amp;&amp; b[0] !== '-') query[a] = b, i++;
-    }
-    return query;
-}
-
-// Returns a list with all command line params that do not start with dash(-), only the trailing arguments will be collected
-shell.getQueryList = function()
-{
-    var query = [];
-    for (let i = process.argv.length - 1; i > shell.cmdIndex; i--) {
-        if (process.argv[i][0] === '-') break;
-        query.unshift(process.argv[i]);
-    }
-    return query;
-}
-
-/**
- * Returns an object with all command line params starting with dash set with the value if the next param does not start with dash or 1.
- * By sefault all args are stored as is with dashes, if `options.camel`` is true then all args will be stored in camel form,
- * if `options.underscore is true then all args will be stored with dashes converted into underscores.
- * `options.index` can be used to get the args from any position
- */
-shell.getArgs = function(options)
-{
-    var query = {};
-    var index = typeof options?.index === "number" ? options.index : shell.cmdIndex;
-    for (let i = process.argv.length - 1; i > index + 1; i--) {
-        const a = process.argv[i - 1], b = process.argv[i];
-        if (b[0] === '-') query[options?.camel ? lib.toCamel(b.substr(1)) : options?.underscore ? b.substr(1).replace(/-/g, "_") : b.substr(1)] = 1; else
-        if (a[0] === '-') query[options?.camel ? lib.toCamel(a.substr(1)) : options?.underscore ? a.substr(1).replace(/-/g, "_") : a.substr(1)] = b || 1, i--;
-    }
-    return query;
-}
-
-// Return an argument by name from the options, options may contain parameters in camel form or with underscores, both formats will be checked
-shell.getOption = function(name, options)
-{
-    return name &amp;&amp; options ? options[lib.toCamel(name.substr(1))] || options[name.substr(1).replace(/-/g, "_")] : undefined;
-}
-
-// Return first available value for the given name, options first, then command arg and then default,
-shell.getArg = function(name, options, dflt)
-{
-    return decodeURIComponent(String(shell.getOption(name, options) || lib.getArg(name, dflt))).trim();
-}
-
-shell.getArgInt = function(name, options, dflt)
-{
-    return lib.toNumber(shell.getArg(name, options, dflt));
-}
-
-// Returns a list of all values for the given argument name, it handles duplicate arguments with the same name
-shell.getArgList = function(name, options)
-{
-    if (!name) return [];
-    var arg = shell.getOption(name, options);
-    if (arg) return Array.isArray(arg) ? arg : [ arg ];
-    var list = [];
-    for (let i = 1; i &lt; process.argv.length - 1; i++) {
-        if (process.argv[i] === name &amp;&amp; process.argv[i + 1][0] !== "-") list.push(process.argv[i + 1]);
-    }
-    return list;
-}
-
-shell.isArg = function(name, options)
-{
-    return typeof shell.getOption(name, options) !== "undefined" || lib.isArg(name);
-}
-
-shell.loadFile = function(file)
-{
-    var mod;
-    file = lib.sanitizePath(file);
-    if (!/\.js$/.test(file)) file += ".js";
-    if (fs.existsSync(file)) mod = require(path.resolve(file)); else
-    if (fs.existsSync(app.cwd + "/" + file)) mod = require(app.cwd + "/" + file); else
-    if (!mod &amp;&amp;fs.existsSync(app.home + "/" + file)) mod = require(app.home + "/" + file); else
-    if (!mod &amp;&amp; fs.existsSync(__dirname + "/../" + file)) mod = require(__dirname + "/../" + file);
-    if (!mod) app.path.modules.forEach((x) => { if (!mod &amp;&amp; fs.existsSync(x + "/../" + file)) mod = require(x + "/../" + file) });
-    if (!mod) return shell.exit("file not found " + file);
-    return mod;
-}
-
-shell.commands.exit = function()
-{
-    shell.exit();
-}
-
-shell.commands.help = function()
-{
-    for (const i in shell.help) console.log("  ", shell.help[i]);
-    shell.exit();
-}
-
-shell.commands.helpConfig = function()
-{
-    console.log("# Config parameters");
-
-    Object.keys(modules).sort().forEach((n) => {
-        if (!modules[n].args) return;
-
-        console.log(`## ${modules[n].name}`);
-        console.log("See {@link module:" + modules[n].name.replace(".", "/") + "}");
-
-        modules[n].args.forEach((y) => {
-            if (!y.name || !y.descr) return;
-            console.log("### ", n.replace(".", "-") + "-" + y.name, "\n---- ");
-            console.log(y.descr, "  ");
-            if (y.type) {
-                console.log("Type: " + y.type, "  ");
-            }
-            var name = y.name;
-            if (y.strip) name = name.replace(y.strip, "");
-            if (!y.no_camel) name = lib.toCamel(name, y.camel || "-");
-            var dflt = lib.objGet(modules[n], name);
-            if (dflt &amp;&amp; typeof dflt !== "function") {
-                console.log("Default: " + JSON.stringify(dflt), "  ");
-            }
-            if (y.example) {
-                console.log(`Example:\n\`\`\`\n${y.example}\n\`\`\`\n`);
-            }
-        });
-    });
-    process.exit(0);
-}
-
-// App version
-shell.commands.showInfo = function(_options)
-{
-    var info = {
-        home: app.home,
-        host: app.host,
-        ipaddr: app.ipaddr,
-        config: app.config,
-        version: app.version,
-        env: app.env,
-        path: app.path,
-        packages: app.packages,
-        modules: app._modules,
-    };
-    shell.jsonFormat(info);
-    shell.exit();
-}
-
-
-shell.commands.showArgs = function(_options)
-{
-    console.log("query:", shell.getQuery());
-    console.log("options:", shell.getArgs());
-    shell.exit();
-}
-
-/**
- * Load a module and optionally execute it
- *
- * @example
- *
- * var { app } = require("backendjs")
- * app.test = 123;
- * exports.run = function() {
- *   console.log("run");
- * }
- * exports.newMethod = function() {
- *   console.log(app.version, "version");
- * }
- *
- * // Save into a file a.js and run
- *
- *   bksh -run-file a.js
- *
- * // In the shell now it new methods can be executed
- *
- *    > shell.newMethod()
- * @memberof module:shell
- * @method runFile
- */
-shell.commands.runFile = function(options)
-{
-    var file = shell.getArg("-run-file", options);
-    if (!file) return shell.exit("-run-file argument is required");
-    var mod = shell.loadFile(file);
-    // Exported functions are set in the shell module
-    for (const p in mod) if (typeof mod[p] === "function") shell[p] = mod[p];
-    if (typeof mod.run === "function") mod.run(options);
-    return "continue";
-}
-
-// Load a config file
-shell.commands.runConfig = function(options)
-{
-    var file = shell.getArg("-run-config", options);
-    if (!file) return shell.exit("-run-config argument is required");
-    var args = lib.readFileSync(file, { cfg: 1 });
-    app.parseArgs(args, 0, file);
-    app.parseArgs(process.argv, 0, "cmdline");
-    return "continue";
-}
-
-shell.commands.runMethod = function(options)
-{
-    const name = shell.getArg("-run-method", options);
-    if (!name) return shell.exit("-run-method argument is required");
-
-    const func = lib.objGet(modules, name);
-    if (typeof func !== "function") shell.exit("invalid method");
-
-    const res = func(options, lib.log);
-    if (util.types.isPromise(res)) {
-        res.then(null, lib.log);
-    }
-    return "continue";
-}
-
-// Initialize ipc/cache clients
-shell.commands.runIpc = function(_options)
-{
-    queue.checkConfig();
-    cache.checkConfig();
-    return "continue";
-}
-
-// Run API server inside the shell
-shell.commands.runApi = function(_options)
-{
-    if (app.isPrimary) api.init();
-    return "continue";
-}
-
-// Dump API routes inside the shell
-shell.commands.dumpApi = function(_options)
-{
-    api.app.dump();
-    return "continue";
-}
-
-// Run jobs workers inside the shell
-shell.commands.runJobs = function(_options)
-{
-    if (app.isPrimary) {
-        jobs.initServer();
-    } else {
-        jobs.initWorker();
-    }
-    return "continue";
-}
-
-// Run jobs workers inside the shell
-shell.commands.runWorker = function(_options)
-{
-    if (app.isPrimary) jobs.initWorker();
-    return "continue";
-}
-
-// Run event workers inside the shell
-shell.commands.runEvents = function(_options)
-{
-    events.initWorker();
-    return "continue";
-}
-
-// Run logwatcher and exit
-shell.commands.logWatch = function(_options)
-{
-    const mod = require(__dirname + '/../../dist/logwatcher');
-    mod.run(shell.exit);
-}
-
-/**
- * Shell command: `fetch`
- *
- * Sends an HTTP request using {@link lib.fetch} with optional BackendJS-style API signing,
- * CSRF token bootstrap, custom headers/cookies, and response shaping/formatting.
- *
- * Request inputs:
- * - Request data is taken from {@link shell.getQuery}:
- *   - If `-method` is provided (i.e. non-empty), the query becomes `postdata`
- *   - If `-method` is not provided, the query becomes URL `query` params
- *
- * Options:
- * - `-url &lt;url>`: Target URL to request.
- * - `-method &lt;verb>`: HTTP method (e.g. `POST`, `PUT`). When set, query data is sent as body (`postdata`).
- * - `-user &lt;id>`: Load user record via `api.users.get(id)` and use its `login/secret` for request signing.
- * - `-hdr k=v` (repeatable): Adds custom request headers.
- * - `-cookie k=v` (repeatable): Adds custom request cookies.
- * - `-aws service` sign as AWS service
- *
- * Response output controls:
- * - `-raw`: print raw response body (`rc.data`) and include response headers (`rc.resheaders`) in output.
- * - `-json`: print parsed response object (`rc.obj`) as a JSON string.
- * - `-select a,b.c,...`: reduce the parsed response object to only the specified fields/paths.
- * - `-flatten`: flatten the parsed response object into dot-notation keys.
- *
- * Signing behavior:
- * - When a user is loaded (`-user`) and has `login/secret`, a `signer` hook is provided to `lib.fetch` to create a session cookie
- *
- * Control flow:
- * - Runs as a 3-step async series:
- *   1) Optional user lookup
- *   3) Main request fetch + output formatting
- * - Terminates via {@link shell.exit} on completion or error.
- *
- * @function fetch
- * @memberof module:shell
- * @param {string[]|Object} options CLI options/args for the command.
- */
-shell.commands.fetch = function(options)
-{
-    var query = shell.getQuery();
-    var url = shell.getArg("-url", options);
-    var method = shell.getArg("-method", options);
-    var login = shell.getArg("-user", options);
-    var select = lib.split(shell.getArg("-select", options));
-    var json = shell.isArg("-json", options);
-    var raw = shell.isArg("-raw", options);
-    var service = shell.isArg("-aws", options);
-    var flatten = shell.isArg("-flatten", options)
-    var headers = shell.getArgList("-hdr", options).reduce((x, y) => { y = y.split("="); x[y[0]] = y[1]; return x }, {});
-    var cookies = shell.getArgList("-cookie", options).reduce((x, y) => { y = y.split("="); x[y[0]] = y[1]; return x }, {});
-    lib.series([
-        function(next) {
-            if (!login) return next();
-            api.users.get(login, (err, row) => {
-                if (err || !row) return shell.exit(err, "ERROR: no user found with this id: " + login);
-                next(null, row);
-            });
-        },
-        function(_next, user) {
-            var opts = {
-                method,
-                postdata: method &amp;&amp; query,
-                query: !method &amp;&amp; query,
-                headers,
-                cookies,
-                signer() {
-                    if (user) {
-                        const ctx = new api.RequestContext(null, new http.ServerResponse({}));
-                        api.session.create(ctx, user);
-                        this.headers[api.session.header] = ctx.res.getHeader("Set-Cookie");
-                    } else
-
-                    if (service) {
-                        this.service = service;
-                        aws.signer.call(this);
-                    }
-                }
-            };
-            lib.fetch(url, opts, (err, rc) => {
-                if (err) shell.exit(err);
-                if (select.length) {
-                    const obj = Object.create(null);
-                    for (const i in select) lib.objSet(obj, select[i], lib.objGet(rc.obj, select[i]));
-                    rc.obj = obj;
-                }
-                if (flatten) rc.obj = lib.flatten(rc.obj);
-                shell.exit(err, raw ? rc.data : json ? lib.stringify(rc.obj) : rc.obj, raw ? rc.resheaders : null);
-            });
-        },
-    ], null, true);
-}
-
-// Send API request
-shell.commands.submitJob = function(options)
-{
-    var job = shell.getArg("-job", options);
-    if (!job) return shell.exit("-job argument is required");
-    var opts = shell.getArgs();
-    var query = shell.getQuery();
-    opts.job = undefined;
-    jobs.submit({ job: { [job]: query } }, opts, shell.exit)
-}
-
-/**
- * Shell command: `stats`
- *
- * Queries Elasticsearch-backed metrics via {@link stats.queryElasticsearch} and prints results.
- *
- * Options parsing:
- * - `-pool &lt;name>`: Elasticsearch pool to use (default: `elasticsearch`)
- * - `-groups &lt;list>`: Group-by fields (default: `tag`)
- * - `-tags &lt;list>`: Tag filters
- * - `-tsize &lt;n>`: Terms aggregation size (top N groups)
- * - `-ssize &lt;n>`: Sub-aggregation size
- * - `-trim &lt;n>`: Trim result sets (implementation-specific to stats module)
- * - `-timedelta &lt;sec>`: Bucket size / time step in seconds (converted to ms)
- * - `-age &lt;sec>`: How far back to query (default: 300s, converted to ms)
- * - `-interval &lt;sec>`: Query/rollup interval in seconds (default: 60s, converted to ms)
- * - `-fields &lt;list>`: Metric fields to query (default: `host_cpu_util`)
- * - `-count &lt;n>`: Limit number of points/rows returned
- * - `-since &lt;ts>`: Start timestamp (epoch seconds)
- * - `-before &lt;ts>`: End timestamp (epoch seconds)
- * - `-columns &lt;json>`: Optional columns configuration (JSON). Parsed with `lib.jsonParse`
- *
- * Output modes:
- * - `-raw`: prints the raw response object as JSON.
- * - default: formats each numeric series:
- *   - rounds each value
- *   - sorts values descending
- *   - joins them into a comma-separated string
- * - `-flatten`: flattens nested `rc.data` using `lib.flatten` before printing.
- * - prints a header line with relative time labels derived from `rc.timestamps`
- *   using `lib.toDuration(..., { age: 1, short: 1, round: 2 })`.
- * - `-info`: includes `rc.info` in the formatted output.
- *
- * Exits the shell process via `shell.exit(err)` when done.
- *
- * @param {string[]|Object} options Command-line args/options passed to the shell command.
- * @param {Function} callback Unused (kept for command signature compatibility).
- * @memberOf module:shell
- * @method stats
- */
-shell.commands.stats = function(options, _callback)
-{
-    var opts = {
-        pool: shell.getArg("-pool", options, "elasticsearch"),
-        groups: shell.getArg("-groups", options, "tag"),
-        tags: shell.getArg("-tags", options),
-        tsize: shell.getArgInt("-tsize", options),
-        ssize: shell.getArgInt("-ssize", options),
-        trim: shell.getArgInt("-trim", options),
-        timedelta: shell.getArgInt("-timedelta", options) * 1000,
-        age: shell.getArgInt("-age", options, 300) * 1000,
-        interval: shell.getArgInt("-interval", options, 60) * 1000,
-        fields: shell.getArg("-fields", options, "host_cpu_util"),
-        count: shell.getArgInt("-count", options),
-        since: shell.getArgInt("-since", options),
-        before: shell.getArgInt("-before", options),
-        columns: lib.jsonParse(shell.getArg("-columns", options), { empty: 1, logger: "error" }),
-    }
-
-    stats.queryElasticsearch(opts, (err, rc) => {
-        if (!err) {
-            if (shell.isArg("-raw")) {
-                shell.jsonFormat(rc);
-            } else {
-                for (const k in rc.data) {
-                    for (const p in rc.data[k]) {
-                        rc.data[k][p] = rc.data[k][p].map((x) => (Math.round(x))).sort((a, b) => (b - a)).join(", ");
-                    }
-                }
-                if (shell.isArg("-flatten")) {
-                    rc.data = lib.flatten(rc.data);
-                }
-                const header = "# key, fields, " + rc.timestamps.map((x) => (lib.toDuration(x, { age: 1, short: 1, round: 2 }))).join(", ");
-                shell.jsonFormat(header, rc.data, rc.rows, shell.isArg("-info") ? rc.info : "");
-            }
-        }
-        shell.exit(err);
-    });
-}
-
-
+app.start({ api: true });
 </code></pre>
-        </article>
-    </section>
+<hr>
+<h2 id="enabling-the-module-in-config">Enabling the module in config</h2>
+<p>The module does nothing until you give it a table name. Add it to <code>bkjs.conf</code> and the users table is created for you on startup:</p>
+<pre class="prettyprint source"><code>api-users-table = bk_user
+</code></pre>
+<p><code>configure</code> turns the default <code>schema</code> (see below) into a <code>db.tables</code> entry, expanding the <code>1</code>-sized <code>length</code>/<code>max</code> placeholders to the configured <code>max-length</code>.</p>
+<h3 id="module-config-parameters">Module config parameters</h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>api-users-table</code></td>
+<td>string</td>
+<td>—</td>
+<td>Name of the user table. Required to enable anything.</td>
+</tr>
+<tr>
+<td><code>api-users-max-length</code></td>
+<td>int (≥10)</td>
+<td><code>140</code></td>
+<td>Max length for <code>login</code>/<code>name</code> columns.</td>
+</tr>
+<tr>
+<td><code>api-users-mfa-age</code></td>
+<td>int (≥30000)</td>
+<td><code>600000</code></td>
+<td>Age of a MFA code in ms (10 min default).</td>
+</tr>
+<tr>
+<td><code>api-users-err-&lt;case&gt;</code></td>
+<td>string</td>
+<td>—</td>
+<td>Override any error message (e.g. <code>api-users-err-invalid-login = ...</code>).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="schema">Schema</h3>
+<p>The default schema is exposed as <code>api.users.schema</code> — customize it before <code>configure</code> runs by overriding columns. Each value is a <code>DbTableColumn</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>login</code></td>
+<td>string, primary</td>
+<td>Email, username or any unique identifier used to log in. Case-sensitive.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>uuid, unique index</td>
+<td>Auto-generated UUIDv4, the stable user id.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Full name (required on <code>add</code>).</td>
+</tr>
+<tr>
+<td><code>roles</code></td>
+<td>set</td>
+<td>List of role names used by ACL authorization (lowercased on write).</td>
+</tr>
+<tr>
+<td><code>flags</code></td>
+<td>set</td>
+<td>Free-form tags / feature flags.</td>
+</tr>
+<tr>
+<td><code>secret</code></td>
+<td>string</td>
+<td>Hashed password, produced by <code>lib.prepareSecret</code> (<code>scrypt</code> <code>salt:key</code>).</td>
+</tr>
+<tr>
+<td><code>totp_secret</code></td>
+<td>text</td>
+<td>Base32 TOTP secret. Its mere presence enforces a TOTP code on every login.</td>
+</tr>
+<tr>
+<td><code>mfa_code</code></td>
+<td>text</td>
+<td>One-time verification. Stored as <code>code,expires,method</code>. Presence enforces an MFA code.</td>
+</tr>
+<tr>
+<td><code>pushkey</code></td>
+<td>text</td>
+<td>Push tokens, format <code>[service://]token[@app]</code>.</td>
+</tr>
+<tr>
+<td><code>passkey</code></td>
+<td>text</td>
+<td>WebAuthn passkey material.</td>
+</tr>
+<tr>
+<td><code>sessions</code></td>
+<td>set<int></td>
+<td>Live cookie sessions as a list of expiration times in ms.</td>
+</tr>
+<tr>
+<td><code>create_time</code></td>
+<td>now, read_only</td>
+<td>Auto-set at creation.</td>
+</tr>
+<tr>
+<td><code>update_time</code></td>
+<td>now</td>
+<td>Auto-updated on every write.</td>
+</tr>
+<tr>
+<td><code>access_time</code></td>
+<td>bigint</td>
+<td>Last request time while authenticated.</td>
+</tr>
+<tr>
+<td><code>login_time</code></td>
+<td>bigint</td>
+<td>Last successful login.</td>
+</tr>
+<tr>
+<td><code>expire_time</code></td>
+<td>bigint</td>
+<td>If set and in the past, access is denied. Use to disable accounts.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="crud-operations">CRUD operations</h2>
+<p>All find/update/delete operations locate a user by <code>login</code> or <code>id</code>. A plain string is accepted and coerced to <code>{ login }</code> or <code>{ id }</code> depending on whether it looks like a UUID (<code>lib.isUuid</code>, with the table's optional id prefix).</p>
+<h3 id="get-a-user">Get a user</h3>
+<pre class="prettyprint source lang-js"><code>// by login
+const { err, data: user } = await api.users.aget(&quot;john@mail.com&quot;);
 
+// by id
+const { err, data: user } = await api.users.aget(&quot;00000000-0000-0000-0000-000000000001&quot;);
 
+// explicit
+const { err, data } = await api.users.aget({ login: &quot;john@mail.com&quot; });
+</code></pre>
+<p>Looking up by <code>id</code> goes through <code>db.select</code> with a <code>cacheKeyName: &quot;id&quot;</code>, so cached lookups are cheap (see <em>Caching</em> below).</p>
+<h3 id="add-a-user">Add a user</h3>
+<p><code>login</code> and <code>name</code> are required. Never store a plaintext password — hash it first:</p>
+<pre class="prettyprint source lang-js"><code>// Hash a plaintext password -> &quot;secret:salt&quot;
+const { err, secret } = await lib.aprepareSecret(&quot;sup3rSecret!&quot;);
+if (err) throw err;
 
+const { data: user } = await api.users.aadd({
+     login: &quot;john@mail.com&quot;,
+     name:  &quot;John Doe&quot;,
+     roles: [&quot;user&quot;],
+     flags: [&quot;premium&quot;],
+     secret,
+}, { returning: &quot;*&quot;, first: 1 });
+
+console.log(user.id);   // auto-generated UUID
+</code></pre>
+<p>Note: <code>api.users.add</code> normalizes a non-UUID <code>id</code> away so the DB always generates a fresh UUID.</p>
+<h3 id="update-a-user">Update a user</h3>
+<p>Updates by <code>login</code> (required). Any other field is applied; <code>name</code>/<code>id</code> that don't parse are dropped.</p>
+<pre class="prettyprint source lang-js"><code>const { err, data } = await api.users.aupdate({
+     login: &quot;john@mail.com&quot;,
+     name: &quot;John Q. Doe&quot;,
+     roles: [&quot;admin&quot;],
+     expire_time: Date.now() + 30 * 86400000,   // disable after 30 days
+});
+</code></pre>
+<h3 id="delete-a-user">Delete a user</h3>
+<pre class="prettyprint source lang-js"><code>await api.users.adel(&quot;john@mail.com&quot;);
+await api.users.adel({ id: &quot;...&quot; });
+</code></pre>
+<p>Deletion by <code>id</code> resolves the <code>login</code> first (the <code>login</code> column is the primary key), so the record that comes back in <code>returning: &quot;old&quot;</code> is complete.</p>
+<h3 id="field-cleanup-for-api-responses">Field cleanup for API responses</h3>
+<p>Never return internal fields (<code>secret</code>, <code>sessions</code>, <code>totp_secret</code>, …) to a client. <code>cleanup</code> strips everything marked for privacy via the schema and <code>db.cleanupResult</code>:</p>
+<pre class="prettyprint source lang-js"><code>api.users.cleanup(user);   // safe to send to the browser
+</code></pre>
+<hr>
+<h2 id="shell-commands">Shell commands</h2>
+<p>Users and tokens can be created from the CLI with no application code. Each command exits with the new <code>id</code> (or token) on stdout.</p>
+<pre class="prettyprint source lang-sh"><code># Create a session user, auto-hashes the secret
+bksh -user-add login admin secret XXXXX name &quot;Admin&quot; roles admin
+# => '136ea1b9fb1778bd2d37096d'
+
+# Create an API token (bearer), the token string is returned on stdout
+bksh -user-add-token name &quot;API client&quot; flags api -prefix api_
+
+# Look up users
+bksh -user-get id-or-login ...
+
+# Change a password (re-hashes), update fields
+bksh -user-update login john@mail.com name &quot;John&quot;
+
+# Delete users
+bksh -user-del id-or-login ...
+
+# Hash a single password to paste into config / DB
+bksh -user-secret 'plaintext'
+
+# Trigger an MFA email code to one or more users
+bksh -user-send-mfa [-subject S] [-text T] login-or-id ...
+</code></pre>
+<hr>
+<h2 id="password-hashing">Password hashing</h2>
+<p>Passwords are never stored in the clear. <code>secret</code> holds a salted <code>scrypt</code> hash formatted <code>key:salt</code>.</p>
+<pre class="prettyprint source lang-js"><code>// Store (used by -user-add and the user-add flows)
+const { err, secret } = await lib.aprepareSecret(&quot;plaintext&quot;); // => &quot;base64key:base64salt&quot;
+await api.users.aadd({ login, name, secret });
+
+// Verify
+const { err, ok } = await lib.acheckSecret(user.secret, &quot;plaintext&quot;);
+// ok === true when the password matches; timing-safe compared
+</code></pre>
+<p><code>api.users.checkSecret</code> / <code>acheckSecret</code> wrap a lookup + hash compare and return the matching user on success, <code>{ status: 401 }</code> otherwise:</p>
+<pre class="prettyprint source lang-js"><code>const { err, user } = await api.users.acheckSecret({ login: &quot;john@mail.com&quot;, secret: &quot;plaintext&quot; });
+</code></pre>
+<hr>
+<h2 id="cookie-session-authentication">Cookie session authentication</h2>
+<p>This is the browser-facing flow. A session is a cookie signed by the user's secret (encrypted when <code>api.session.secret</code> is configured). Live sessions are tracked in <code>user.sessions</code> as a list of expiration timestamps.</p>
+<p><code>verifySession</code> (used inside the middleware) does, in order:</p>
+<ol>
+<li>Parse the session cookie with <code>api.session.parse</code>. No cookie → <code>401 errInvalidSession</code>.</li>
+<li>If already attached (<code>context.user.id === session.id</code>) reuse it.</li>
+<li>Look up the user by <code>session.id</code>. Not found → <code>401</code>.</li>
+<li>If <code>expire_time</code> is set and in the past → <code>401</code> (account disabled/expired).</li>
+<li>Require the <code>session.exp</code> to be present in <code>user.sessions</code> <strong>and</strong> the cookie signature to verify against <code>user.secret</code> (<code>api.session.verify</code>). Either failing → <code>401</code>.</li>
+<li>Attach <code>context.user = user</code>.</li>
+</ol>
+<p>A failed lookup or an expired session leaves the client unauthenticated; the guard middleware then either replies <code>401</code> or redirects to <code>login-redirect</code> (see config).</p>
+<hr>
+<h2 id="api-token-authentication">API token authentication</h2>
+<p>For server-to-server / API access, tokens reuse the same users table — a token <em>is</em> a user where <code>login</code> holds the public token prefix and <code>secret</code> holds the hashed token secret. See <code>api.token.create</code> / <code>api.token.parse</code>.</p>
+<p>A bearer token is sent as:</p>
+<pre class="prettyprint source"><code>Authorization: Bearer &lt;prefix>&lt;uuid>&lt;uuid>
+Authorization: Basic base64(&lt;prefix>&lt;uuid>&lt;uuid>)
+</code></pre>
+<p><code>token.parse</code> splits at <code>lastIndexOf(&quot;_&quot;) + 33</code> to separate id (public) from secret (private, never exposed). <code>verifyToken</code> then:</p>
+<ol>
+<li>Parses the token. Missing → <code>401</code>.</li>
+<li>Looks up the user by the public <code>login</code> part. Not found → <code>401</code>.</li>
+<li>Checks <code>expire_time</code>.</li>
+<li>Compares the stored <code>secret</code> (a SHA-256 hash) against <code>lib.hash(token.secret)</code> in a timing-safe way.</li>
+<li>Attaches <code>context.user</code>.</li>
+</ol>
+<p>Create a token programmatically:</p>
+<pre class="prettyprint source lang-js"><code>const context = new (require(&quot;backendjs&quot;).api.RequestContext)();
+const session = require(&quot;backendjs&quot;).api.token.create(context, { prefix: &quot;api_&quot; });
+// session = { type, id: &quot;api_&lt;uuid>&quot;, secret: hash(uuid), token: &quot;api_&lt;uuid>&lt;uuid>&quot; }
+
+await api.users.aadd({
+     login:  session.id,
+     name:   &quot;API client&quot;,
+     roles:  [&quot;api&quot;],
+     secret: session.secret,
+}, { returning: &quot;*&quot;, first: 1 });
+
+// Hand `session.token` to the client; it sends it in the Authorization header
+</code></pre>
+<hr>
+<h2 id="mfa-%2F-totp">MFA / TOTP</h2>
+<p>Two mechanisms, both opt-in by having a value stored on the user. When <code>login</code> runs and either is set, a <code>code</code> must accompany the credentials, otherwise the callback receives an error with <code>code: &quot;MFA&quot;</code> so the UI can prompt for the second factor.</p>
+<h3 id="totp-(authenticator-apps)">TOTP (authenticator apps)</h3>
+<p><code>totp_secret</code> present ⇒ TOTP required every login.</p>
+<pre class="prettyprint source lang-js"><code>// Enable TOTP for a user
+const user = await api.users.aget(&quot;john@mail.com&quot;);
+api.users.prepareTOTP(user);                       // sets user.totp_secret (base32)
+await api.users.aupdate({ login: user.login, totp_secret: user.totp_secret });
+
+// ... client adds the secret to a TOTP app, then logs in with:
+await api.users.alogin({
+     body: { login: &quot;john@mail.com&quot;, secret: &quot;plaintext&quot;, totp_code: &quot;123456&quot; },
+});
+</code></pre>
+<p><code>totp_code</code> is checked against <code>lib.totp(user.totp_secret, ...)</code> (RFC-ish HOTP: 30s interval, 6 digits).</p>
+<h3 id="email-%2F-one-time-code-mfa">Email / one-time code MFA</h3>
+<p><code>mfa_code</code> present ⇒ a one-time code required. <code>prepareMFA</code> mints a 6-digit code and stores it as <code>code,expires,method</code>.</p>
+<pre class="prettyprint source lang-js"><code>const user = await api.users.aget(&quot;john@mail.com&quot;);
+const code = api.users.prepareMFA(user, { method: &quot;email&quot; }); // sets user.mfa_code
+await api.users.aupdate({ login: user.login, mfa_code: user.mfa_code });
+
+const { sendmail } = require(&quot;backendjs&quot;);
+await sendmail.asend({
+     to:      user.login,
+     subject: &quot;Your verification code&quot;,
+     text:    `Your verification code is ${code}`,
+});
+
+// Client logs in with the code; it is cleared on success
+await api.users.alogin({
+     body: { login: &quot;john@mail.com&quot;, secret: &quot;plaintext&quot;, mfa_code: String(code) },
+});
+</code></pre>
+<h3 id="the-login-flow%2C-step-by-step">The login flow, step by step</h3>
+<p><code>api.users.login(context, callback)</code> (and <code>alogin</code>) is the heart of the module:</p>
+<ol>
+<li>Validate <code>context.body</code> for <code>login</code> + <code>secret</code> (both required); <code>totp_code</code>/<code>mfa_code</code> optional. Validation errors are returned via <code>api.validate</code> with the size limits applied automatically.</li>
+<li><code>checkSecret</code> — lookup by login/id and verify the password.</li>
+<li>Reject if <code>expire_time</code> is in the past.</li>
+<li>If <code>totp_secret</code> is set, require a matching <code>totp_code</code>. If <code>mfa_code</code> is set, require a matching, still-valid <code>mfa_code</code>. A <em>failed or missing</em> required code returns <code>401</code> with <code>code: &quot;MFA&quot;</code> <strong>and the partially-verified user</strong> in the data position, so you can send the code back:</li>
+</ol>
+<pre class="prettyprint source lang-js"><code>api.app.post(&quot;/login&quot;, body, (context) => {
+     api.users.login(context, async (err, user) => {
+         if (err?.code === &quot;MFA&quot; && user.mfa_code) {
+             const code = api.users.prepareMFA(user);
+             await api.users.aupdate({ login: user.login, mfa_code: user.mfa_code });
+             await sendmail.asend({ to: user.login, subject: &quot;Verification code&quot;, text: `Code: ${code}` });
+             return context.reply(err);        // 401, MFA requested
+         }
+         context.reply(err, api.users.cleanup(user));
+     });
+});
+</code></pre>
+<ol start="5">
+<li>On success: <code>prepareSession</code> mints a new cookie session, prunes expired sessions, pushes the new <code>exp</code>, and <code>update</code> persists <code>login_time</code>, <code>access_time</code>, and <code>sessions</code> (clearing <code>mfa_code</code>).</li>
+</ol>
+<blockquote>
+<p>Note: the session write is intentionally <em>not</em> atomic — simultaneous logins from many places overwriting <code>sessions</code> are not supported.</p>
+</blockquote>
+<hr>
+<h2 id="middleware-handlers">Middleware handlers</h2>
+<p><code>middleware.users</code> exposes ready-to-mount <code>(context, [next])</code> handlers. Import via <code>const { users } = require(&quot;backendjs&quot;).middleware;</code> or <code>require(&quot;backendjs&quot;).middleware.users</code>.</p>
+<h3 id="guard-middleware">Guard middleware</h3>
+<p>The guard runs <code>verifySession</code> (cookie) or <code>verifyToken</code> (bearer) and then <code>authorize</code>. On auth failure the cookie guard either <strong>redirects</strong> to <code>login-redirect</code> (302) or <strong>replies</strong> with the 401 — configured per deployment.</p>
+<pre class="prettyprint source lang-js"><code>// Cookie-guarded routes (redirect to login when unauthenticated)
+const { users } = require(&quot;backendjs&quot;).middleware;
+api.app.use(&quot;/portal/*&quot;, users);                 // -> users.handle
+
+// Bearer-token-guarded API routes (always 401 on failure)
+api.app.use(&quot;/api/*&quot;, { handle: users.handleToken });
+</code></pre>
+<h3 id="login">Login</h3>
+<pre class="prettyprint source lang-js"><code>// Must be public. Body must contain { login, secret }.
+api.app.post(&quot;/login&quot;, body, users.login);
+</code></pre>
+<p><code>users.login</code> calls <code>api.users.login</code> and replies with the cleaned user or the error.</p>
+<h3 id="logout">Logout</h3>
+<pre class="prettyprint source lang-js"><code>api.app.post(&quot;/logout&quot;, users.logout);
+</code></pre>
+<p>Requires a valid session. Clears the current session cookie and removes expired sessions. Passing <code>?force=1</code> in the query clears <strong>all</strong> of the user's sessions.</p>
+<h3 id="profile">Profile</h3>
+<pre class="prettyprint source lang-js"><code>api.app.get(&quot;/profile&quot;, users.profile);
+</code></pre>
+<p>Requires a valid session and returns the cleaned current user as JSON — handy as a &quot;is my session still alive?&quot; probe.</p>
+<hr>
+<h2 id="authorization-(acl)">Authorization (ACL)</h2>
+<p>After a user is authenticated, <code>middleware.users.authorize</code> decides whether this role may reach this path. Rules come from <code>api.acl</code>, configured via <code>api-acl-*</code>. At least one allow must match and zero denies may match, else the request is blocked.</p>
+<p><code>authorize</code> returns <code>undefined</code> on success, or one of these errors:</p>
+<table>
+<thead>
+<tr>
+<th>Result</th>
+<th>HTTP</th>
+<th><code>code</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>denied</td>
+<td><code>403</code></td>
+<td><code>DENY</code></td>
+<td>A deny rule matched one of the user's roles.</td>
+</tr>
+<tr>
+<td>no match</td>
+<td><code>403</code></td>
+<td><code>NOMATCH</code></td>
+<td>No allow rule matched, and no public <code>*</code> ACL matched.</td>
+</tr>
+<tr>
+<td>allowed</td>
+<td>—</td>
+<td>—</td>
+<td>An allow rule matched, or the path matched a <code>*</code> ACL.</td>
+</tr>
+</tbody>
+</table>
+<p>The error messages come from configured <code>middleware-users-err-deny</code> / <code>middleware-users-err-nomatch</code> (via the <code>err-(.+)</code> config pattern).</p>
+<p>Define ACLs as groups of regexes named and assigned to roles:</p>
+<pre class="prettyprint source"><code># A named ACL is a list of path regexes
+api-acl-add-admin  = ^/admin
+api-acl-add-api    = ^/api
+api-acl-add-public = ^/profile
+api-acl-add-public = ^/app
+
+# Assign ACLs to a role. A leading &quot;-&quot; means deny that ACL for the role.
+api-acl-allow-admin  = admin, -public
+api-acl-allow-user   = user, public, -admin
+</code></pre>
+<p>ACL matching (<code>api.acl.isMatched</code>) returns the first matched ACL name, or the negative match when an entry starts with <code>-</code>. <code>isAllowed</code> / <code>isDenied</code> iterate the roles on <code>context.user.roles</code>.</p>
+<h3 id="global-%2F-programmatic-mounting-modes">Global / programmatic mounting modes</h3>
+<p>The guard can be wired two ways.</p>
+<p><strong>Programmatic (full control)</strong> — mount handlers yourself:</p>
+<pre class="prettyprint source lang-js"><code>const { api, middleware } = require(&quot;backendjs&quot;);
+const { users, body } = middleware;
+
+api.app.post(&quot;/login&quot;,  body, users.login);
+api.app.post(&quot;/logout&quot;, users.logout).get(&quot;/profile&quot;, users.profile);
+
+api.app.use(&quot;/api/*&quot;,  users);                       // cookie guard
+api.app.all(&quot;/api/*&quot;,  body, { handle: users.handleToken });  // token guard
+</code></pre>
+<p><strong>Global config</strong> — let <code>configureMiddleware</code> wire the routes from config. The <code>#priority</code> prefix orders the guard before your application handlers:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>middleware-users-enable</code></td>
+<td>Comma-list of paths guarded by the <strong>cookie</strong> session guard (e.g. <code>/app/*, /admin/*</code>).</td>
+</tr>
+<tr>
+<td><code>middleware-users-enable-token</code></td>
+<td>Comma-list of paths guarded by the <strong>token</strong> guard (e.g. <code>/api/*</code>).</td>
+</tr>
+<tr>
+<td><code>middleware-users-login-path</code></td>
+<td>Path for the login handler (<code>POST</code>).</td>
+</tr>
+<tr>
+<td><code>middleware-users-logout-path</code></td>
+<td>Path for the logout handler (<code>POST</code>).</td>
+</tr>
+<tr>
+<td><code>middleware-users-profile-path</code></td>
+<td>Path for the profile handler (<code>GET</code>).</td>
+</tr>
+<tr>
+<td><code>middleware-users-login-redirect</code></td>
+<td>Location to <code>302</code> to when the cookie guard blocks (e.g. <code>/login.html</code>).</td>
+</tr>
+<tr>
+<td><code>middleware-users-priority</code></td>
+<td>Sort priority (<code>#NUM</code>) for the guard routes.</td>
+</tr>
+<tr>
+<td><code>middleware-users-err-&lt;case&gt;</code></td>
+<td>Override any error message, e.g. <code>middleware-users-err-deny</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><code>enable</code>/<code>enable-token</code> paths are mounted under the same priority as the login/logout/profile routes so the guard always runs first.</p>
+<hr>
+<h2 id="rate-limiting">Rate limiting</h2>
+<p>Authentication endpoints should always be rate-limited. The <code>middleware.limiter</code> module keys rules by IP, path, user, or session. Example config: 1 login/second per IP, 10/second globally, and a user may logout at most once per 10 seconds:</p>
+<pre class="prettyprint source"><code>middleware-limiter-enable = true
+middleware-limiter-ip-post-/login     = rate:1
+middleware-limiter-path-post-/login   = rate:10
+middleware-limiter-user-post-/logout  = rate:1, interval:10
+</code></pre>
+<p>Pair login with <code>middleware-validate</code> to enforce that credentials are well-formed and to add brute-force backoff.</p>
+<hr>
+<h2 id="a-complete-configuration">A complete configuration</h2>
+<p>This matches the <code>users</code> role in <code>tests/bkjs.conf</code> — a working example with cookie and token guards plus ACLs.</p>
+<pre class="prettyprint source"><code>api-users-table = bk_user
+
+middleware-body-enable = true
+
+# Cookie-guarded areas
+middleware-users-enable         = /app/*, /admin/*, /staff/*
+middleware-users-login-path     = /login
+middleware-users-logout-path    = /logout
+middleware-users-profile-path   = /profile
+middleware-users-login-redirect = /login.html
+
+# Public endpoints
+api-acl-add-* = ^/(app|profile|logout)
+
+# Role-gated endpoints
+api-acl-add-admin = ^/admin
+api-acl-allow-admin = admin
+
+api-acl-add-staff = ^/staff
+api-acl-allow-staff = staff
+
+# Token-guarded API area: only the &quot;api&quot; role may use bearer tokens
+middleware-users-enable-token = /api/*
+api-acl-add-api = ^/api
+api-acl-allow-api = api
+</code></pre>
+<p>Result: <code>/app/*</code>, <code>/admin/*</code>, <code>/staff/*</code> require a logged-in session; <code>/admin/*</code> additionally needs the <code>admin</code> role and <code>/staff/*</code> needs <code>staff</code>. <code>/api/*</code> requires a valid bearer token held by a user with the <code>api</code> role. Unauthenticated cookie requests to a guarded path are redirected to <code>/login.html</code>.</p>
+<hr>
+<h2 id="caching">Caching</h2>
+<p>Caching user lookups avoids DB hits on the hot authentication path. This is configuration only:</p>
+<pre class="prettyprint source"><code>db-cache-tables = bk_user
+db-cache-ttl-bk_user = 3600000
+db-cache-name-bk_user = redis
+</code></pre>
+<p>Lookups by <code>id</code> already request <code>cacheKeyName: &quot;id&quot;</code>, so id-based session verification serves from cache when enabled.</p>
+<hr>
+<h2 id="how-the-module-fits-the-test-suite">How the module fits the test suite</h2>
+<p><code>tests/users.test.js</code> exercises the whole stack against a real server. The relevant flow:</p>
+<ul>
+<li>A <code>before</code> hook seeds a token user: it reads a UUID user, sets its <code>secret</code> to <code>lib.hash(token)</code>, and builds <code>authorization = &quot;Bearer &quot; + login + token</code>.</li>
+<li><strong>token access</strong> — <code>/api/*</code> fails with <code>401</code> until the <code>Authorization</code> header is sent, then succeeds.</li>
+<li><strong>user access</strong> — <code>/</code> serves content, guarded paths (<code>/app/*</code>, <code>/api/*</code>, <code>/profile</code>) redirect to <code>/login.html</code> for anonymous clients; <code>POST /login</code> with the wrong secret gives <code>401</code>, the right one <code>200</code> and sets a session cookie; afterward <code>/app/1</code> works but <code>/admin/1</code> is <code>403</code> (no role).</li>
+<li><strong>admin access</strong> — same, logged in as the <code>admin</code> user, so <code>/admin/1</code> returns <code>200</code> but <code>/staff/1</code> is <code>403</code>.</li>
+<li><strong>TOTP access</strong> / <strong>MFA access</strong> — after enabling <code>totp_secret</code>/<code>mfa_code</code>, login first returns <code>401</code> with <code>code: &quot;MFA&quot;</code>, then succeeds when the correct <code>totp_code</code>/<code>mfa_code</code> is supplied.</li>
+</ul>
+<hr>
+<h2 id="quick-reference">Quick reference</h2>
+<p><strong>Data (<code>api.users</code>)</strong></p>
+<ul>
+<li><code>aget(query|id|login)</code> → user by <code>login</code> or <code>id</code></li>
+<li><code>aadd(record, opts)</code> → create (<code>login</code>, <code>name</code> required)</li>
+<li><code>aupdate({ login, ... })</code> → update by login</li>
+<li><code>adel(query|id|login)</code> → delete</li>
+<li><code>acheckSecret({ login|id, secret })</code> → <code>{ err, user }</code></li>
+<li><code>verifySession(context, cb)</code> / <code>verifyToken(context, cb)</code> → attach <code>context.user</code></li>
+<li><code>cleanup(user)</code> → strip private fields for API responses</li>
+</ul>
+<p><strong>Passwords / tokens (<code>lib</code>, <code>api.token</code>)</strong></p>
+<ul>
+<li><code>lib.aprepareSecret(text)</code> / <code>lib.acheckSecret(hash, text)</code></li>
+<li><code>api.token.create(context, { prefix })</code> → token session; store <code>id</code>/<code>secret</code> in the user</li>
+<li><code>api.token.parse(context)</code> → parse <code>Authorization</code> header</li>
+</ul>
+<p><strong>MFA / TOTP (<code>api.users</code>)</strong></p>
+<ul>
+<li><code>prepareTOTP(user)</code> → set <code>totp_secret</code></li>
+<li><code>prepareMFA(user, { method })</code> → set <code>mfa_code</code> + returns the code</li>
+<li><code>login(context, cb)</code> / <code>alogin(context)</code> → full auth, enforces MFA, returns <code>{ err, user }</code></li>
+</ul>
+<p><strong>Middleware (<code>middleware.users</code>)</strong></p>
+<ul>
+<li><code>handle(context, next)</code> — cookie session guard (redirect or 401)</li>
+<li><code>handleToken(context, next)</code> — bearer token guard (401)</li>
+<li><code>login</code> / <code>logout</code> / <code>profile</code> — ready-to-mount route handlers</li>
+</ul>
+<p><strong>Shell</strong></p>
+<ul>
+<li><code>bksh -user-add login L secret S [name N] [roles R]</code></li>
+<li><code>bksh -user-add-token [name N] flags FLAGS [-prefix P]</code></li>
+<li><code>bksh -user-update / -user-del / -user-get / -user-secret / -user-send-mfa</code></li>
+</ul>
+</article>
+
+</section>
 
     
     
