@@ -361,6 +361,12 @@ describe("DB tests", async () => {
 
         rc = await db.aselect("bk_test1", { id: id3 }, { sort: "ctime", desc: true });
         assert.strictEqual(rc?.data?.[0]?.counter, 0);
+
+        if (config.sql) {
+            rc = await db.asql("SELECT * FROM bk_test1 WHERE id=$1 and key=$2", [id1, key]);
+            assert.strictEqual(rc?.data?.[0]?.id, id1);
+        }
+
     });
 
     await it("db scan", async() => {
