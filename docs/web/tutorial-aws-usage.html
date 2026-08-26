@@ -1,11 +1,9 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     
     <meta charset="utf-8">
-    <title>lib/lib/fetch.js - Backendjs Documentation</title>
+    <title>Using the AWS Module - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,846 +39,428 @@
 
 <div id="main">
     
-    <h1 class="page-title">lib/lib/fetch.js</h1>
-    
 
-    
-
-
-
-    
     <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>/*
- *  Author: Vlad Seryakov vseryakov@gmail.com
- *  backendjs 2018
- */
-'use strict';
-const path = require('node:path');
-const fs = require('node:fs');
-const stream = require('node:stream');
-const http = require('node:http');
-const https = require('node:https');
-const qs = require("node:querystring");
-const lib = require(__dirname + '/../lib');
-const logger = require(__dirname + '/../logger');
 
-const REUSE_COLS = ["protocol","href","path","pathname","host","hostname","port","search"];
-
-var _id = 1;
-
-/**
- * Make requests using HTTP(S) and pass it to the callback if provided
- *
- * @param {string} [url] - full URL for request
- * @param {object|FetchRequest} [options] - request options or existing FetchRequest to reuse, see {@link module:lib.FetchRequest},
- * either url or options must be provided or both, the url takes precedence over options.url
- * @param {function} [callback] - callback as (err, request) where request is a {FetchRequest} object combined with input options and updated fields
- * @return {object} - HTTP request
- *
- * @example
- * lib.fetch("http://api.host.com/user/123", (err, req) => {
- *    if (req.status == 200) console.log(req.obj);
- * });
- *
- * @example &lt;caption>get a file if not downloaded already&lt;/caption>
- * var file = "/tmp/logo.png";
- * lib.fetch("https://bucket.s2.amazonaws.com/logo.png", { file, conditional: 1 }, (err, req) => {
- *     if (req.status >= 200) ...
- * });
- * @example &lt;caption>post JSON with authorization&lt;/caption>
- * var data = {
- *    postdata: { ... },
- *    headers: { Authorization: "Bearer " + jwt },
- *    retryCount: 3
- * };
- * lib.fetch("https://some.api.com/endpoint", data, (err, req) => {
- *     console.log(req.status, req.obj);
- * });
- * @memberof module:lib
- * @method fetch
- */
-lib.fetch = function(url, options, callback)
-{
-    if (typeof options === "function") callback = options, options = null;
-
-    if (typeof url !== "string") {
-        if (typeof url?.url === "string" &amp;&amp; typeof url === "object") {
-            options = url;
-            url = url.url;
-        } else
-
-        if (typeof options?.url === "string" &amp;&amp; typeof options === "object") {
-            url = options.url;
-        }
-    }
-
-    const fetchReq = !(options instanceof FetchRequest) ? new FetchRequest(options) : options;
-
-    const opts = fetchReq.init(url, callback);
-    if (!opts) return;
-
-    fetchReq.logger("dev", "new:");
-
-    const mod = opts.protocol === "https:" ? https : http;
-    let req;
-
-    try {
-        req = mod.request(opts, (res) => {
-            fetchReq.onConnect(req, res);
-
-            res.on("data", (chunk) => {
-                fetchReq.onData(res, chunk);
-            });
-
-            res.on("end", () => {
-                fetchReq.onEnd(res, callback);
-            });
-
-            res.on("close", () => {
-                if (!res.complete) fetchReq.onEnd(res, callback);
-                if (!req.complete &amp;&amp; fetchReq.streaming) req.destroy();
-            });
-        });
-
-        req.on('error', (err) => {
-            fetchReq.onError(err, callback);
-        });
-
-        req.on("timeout", () => {
-            req.destroy(lib.newError("timeout", 529, "ETIMEDOUT"));
-        });
-
-        req.once('response', () => {
-          fetchReq.ip = req.socket?.localAddress;
-        });
-    } catch (err) {
-        fetchReq.onError(err, callback);
-        return req;
-    }
-
-    if (fetchReq.hardTimeout) {
-        fetchReq._timer = setTimeout(() => {
-            req.destroy(lib.newError("timeout", 529, "ETIMEDOUT"))
-        }, fetchReq.hardTimeout);
-    }
-
-    if (fetchReq.postdata) {
-        req.write(fetchReq.postdata);
-    } else
-
-    if (fetchReq.poststream) {
-        stream.pipeline(fetchReq.poststream, req, (err) => {
-            fetchReq.logger(err ? "error" : "dev", 'poststream:', err?.stack);
-        });
-        return req;
-    }
-
-    if (fetchReq.streaming) {
-        req.flushHeaders();
-    } else {
-        req.end();
-    }
-    return req;
-}
-
-/**
- * Request object to support {@link module:lib.fetch}
- * @param {object} options - properties from FetchRequest
- *
- * @property {string} url - full URL where to make request
- * @property {string} method=GET - GET, POST, PUT, ...
- * @property {int} port - port to use for localhost if no full URI is provided
- * @property {object} headers - object with headers to pass to HTTP request, properties must be all lower case
- * @property {object} cookies - an object with cookies to send with request, if even empty rescookies will be set in the response
- * @property {object|string} query - additional query parameters to be added to the url as an object or as encoded string
- * @property {string|object|buffer} body - if method is GET it is used as query parameters otherwise same as postdata
- * @property {string|object|buffer} postdata - data to be sent with the request in the POST body as JSON
- * @property {object} formdata - data to be sent with the POST request as x-www-form-urlencoded, it uses node:querystring to stringify objects
- * @property {string} postfile - file to be uploaded in the POST body, not as multipart
- * @property {int} postsize - file size to be uploaded if obtained separately
- * @property {stream.Readable} poststream - a readable stream to stream content from
- * @property {object[]} multipart - an array of objects for multipart/form-data post, { name: "..", data: ".." [ file: ".."] }, for files a Buffer can be used in data
- * @property {string} file - file name where to save response, in case of error response the error body will be saved as well
- * @property {stream.Writable} stream - a writable stream where to save data
- * @property {boolean} noparse - do not parse known content types like json, xml
- * @property {boolean} chunked - post files using chunked encoding
- * @property {boolean} binary - return a Buffer with received data
- * @property {function} signer - a function to sign the request called as `signer(this)`
- * @property {boolean} streaming - if true do not issue req.end to allow more data top send
- * @property {Date|int} mtime - a Date or timestamp to be used in conditional requests
- * @property {boolean} conditional - add If-Modified-Since header using `options.mtime` if present or if `file` is given use file last modified timestamp, mtime
- * @property {int} httpTimeout - timeout in milliseconds after which the request is aborted if no data received
- * @property {int} hardTimeout - abort the request after this amount of time in ms, must be big enough to allow for all data to be received
- * @property {int} maxSize - if the content being downloaded becomes greater than this size the request will be aborted
- * @property {int} retryCount - how many times to retry the request on error or timeout
- * @property {int} retryTimeout - timeout in milliseconds for retries, with every subsequent timeout it will be multiplied by `retryMultiplier`
- * @property {boolean|function} retryOnError - retry request if received non 2xx response status,
- *       if this is a function then it must return true in order to retry the request, it runs in this context and passes this as well,
- *       otherwise it is treated as a boolean value, if truthy then retry on all non-2xx responses
- * @property {function} retryPrepare - a function(this) to be called before retrying, it can update any parameter, runs in this context and passes this as well,
- * retry will use: `origUrl`, `retryTimeout`, `retryMultiplier`
- * @property {int} errorCount - how many times to retry on aborted connections, default is retryCount
- * @property {boolean} raise - on not ok status raise an eror on return with JSON body if present or generic message
- * @property {boolean} noredirects - if true then do not follow redirect locations for 30-[1,2,3,7] statuses
- * @property {function} preparse -  a function to be called before parsing the xml/json content, called in the context of the http object
- * @property {string[]} passheaders -  a list of headers to be passed in redirects
- * @property {string} user - authorization user, if also `password`` is provided then it will use Basic authorization, if only user is provided then Bearer
- * @property {string} password - for Basic authorization
- * @property {AbortSignal} signal - An AbortSignal that may be used to abort an ongoing request.
- * @property {number} maxHeaderSize - Optionally overrides the value of --max-http-header-size (the maximum length of response headers in bytes) for responses received from the server. Default: 16384 (16 KiB).
- * @property {boolean} setDefaultHeaders - Specifies whether or not to automatically add default headers such as Connection, Content-Length, Transfer-Encoding, and Host. If set to false then all necessary headers must be added manually. Defaults to true.
- * @property {boolean} setHost - Specifies whether or not to automatically add the Host header. If provided, this overrides setDefaultHeaders. Defaults to true.
- * @property {Array} uniqueHeaders - A list of request headers that should be sent only once. If the header's value is an array, the items will be joined using ; .
- * @property {boolean} joinDuplicateHeaders - It joins the field line values of multiple headers in a request with ,  instead of discarding the duplicates. See message.headers for more information. Default: false.
- * @property {string} localAddress - Local interface to bind for network connections.
- * @property {number} localPort - Local port to connect from.
- * @property {string} data - response data if file was not specified
- * @property {object} obj - if the content type is a known type like json or xml this property will hold a reference to the parsed document or null in case or parse error
- * @property {int} status - HTTP response status code
- * @property {Date} date - Date object with the last modified time of the requested file
- * @property {object} resheaders - response headers as an object
- * @property {object} rescookies - parsed cookies from the response if request `cookies`` is not empty
- * @property {int} size - size of the response body or file
- * @property {string} type - response content type
- * @property {boolean} ok - true if the status is between 200 and 299
- */
-
-class FetchRequest {
-    id = process.pid + "." + _id++;
-    done = 0;
-    size = 0;
-    err = null;
-    fd = 0;
-    status = 0;
-    ok = false;
-    date = null;
-    obj = null;
-    stime = Date.now();
-    headers = Object.create(null);
-    resheaders = Object.create(null);
-    #options = Object.create(null);
-
-    constructor(options)
-    {
-        options ??= "";
-
-        this.url = this.origUrl = lib.isString(options.url);
-        this.redirects = lib.toNumber(options.redirects, { min: 0 });
-        this.retryCount = lib.toNumber(options.retryCount, { min: 0 });
-        this.retryTimeout = lib.toNumber(options.retryTimeout, { min: 0, dflt: 500 });
-        this.retryMultiplier = lib.toNumber(options.retryMultiplier, { min: 1, dflt: 2 });
-        this.httpTimeout = lib.toNumber(options.httpTimeout, { min: 0, dflt: 60000 });
-        this.hardTimeout = lib.toNumber(options.hardTimeout, { min: 0 });
-        this.errorCount = lib.toNumber(options.errorCount, { min: 0, dflt: this.retryCount });
-
-        this.method = options.method || "GET";
-        this.query = options.query || this.method === "GET" &amp;&amp; options.body;
-        this.postdata = this.method === "GET" ? undefined : options.postdata || options.body;
-        this.data = options.binary ? [] : '';
-
-        if (options.headers) {
-            this.headers = Object.assign(this.headers, options.headers);
-        }
-
-        for (const p in options) {
-            if (lib.badProperties.has(p)) continue;
-            this.#options[p] = options[p];
-            this[p] ??= options[p];
-        }
-    }
-
-    init(url, callback)
-    {
-        if (this.poststream &amp;&amp; !stream.isReadable(this.poststream)) {
-            return lib.tryCall(callback, lib.newError("invalid poststream", 400), this);
-        }
-
-        if (this.stream &amp;&amp; !stream.isWritable(this.stream)) {
-            return lib.tryCall(callback, lib.newError("invalid stream", 400), this);
-        }
-
-        url = lib.isString(url);
-        if (url) {
-            this.origUrl = url;
-        } else {
-            url = this.url;
-        }
-
-        let query = this.query;
-
-        if (lib.isObject(query)) {
-            for (const p in query) {
-                if (query[p] === undefined) delete query[p];
-            }
-            query = qs.stringify(query);
-        } else {
-            query = lib.isString(query);
-        }
-        if (query) {
-            if (!url.includes("?")) url += "?";
-            if (url.includes("&amp;")) url += "&amp;";
-            url += query;
-        }
-        // orig url + query parameters
-        this.url = url;
-
-        const u = URL.parse(this.url);
-        if (!u) {
-            return lib.tryCall(callback, lib.newError("invalid url", 400), this);
-        }
-
-        const opts = {};
-        for (const c of REUSE_COLS) {
-            opts[c] = u[c];
-        }
-
-        opts.path = opts.pathname + opts.search;
-        opts.method = this.method;
-        opts.headers = this.headers;
-        opts.agent = this.agent || null;
-        opts.rejectUnauthorized = this.rejectUnauthorized;
-        opts.timeout = this.httpTimeout;
-        opts.maxHeaderSize = this.maxHeaderSize;
-        opts.setDefaultHeaders = this.setDefaultHeaders;
-        opts.setHost = this.setHost;
-        opts.uniqueHeaders = this.uniqueHeaders;
-        opts.joinDuplicateHeaders = this.joinDuplicateHeaders;
-        opts.localAddress = this.localAddress;
-        opts.localPort = this.localPort;
-        opts.signal = this.signal;
-
-        for (const c of REUSE_COLS) {
-            this[c] = opts[c];
-        }
-
-        // Use file name from the url when only the path is given
-        if (this.file &amp;&amp; this.file[this.file.length - 1] === "/") {
-            this.file += path.basename(this.pathname);
-        }
-
-        if (!this.headers.accept) {
-            this.headers.accept = '*/*';
-        }
-        if (this.user) {
-            if (this.password) {
-                this.headers.authorization = "Basic " + Buffer.from(this.user + ":" + this.password).toString("base64");
-            } else {
-                this.headers.authorization = "Bearer " + this.user;
-            }
-        }
-        if (this.cookies) {
-            this.headers.cookie = lib.objKeys(this.cookies).map(x => `${x}=${lib.encodeURIComponent(this.cookies[x])}`).join("; ");
-        }
-
-        if (!this.prepare(callback)) return null;
-
-        for (const p in this.headers) {
-            const h = this.headers[p];
-            if (lib.isEmpty(h) || /[\r\n]/.test(h)) delete this.headers[p];
-        }
-
-        // Set again if changed
-        opts.method = this.method = this.method || "GET";
-        for (const c of REUSE_COLS) {
-            this[c] = opts[c];
-        }
-        return opts;
-    }
-
-    prepare(callback)
-    {
-        // Data to be sent over in the body
-        if (!this.preparePost(callback)) return;
-
-        // Conditional, time related
-        if (!this.prepareConditional(callback)) return;
-
-        if (typeof this.signer === "function") {
-            this.signer.call(this, this);
-        }
-
-        return true;
-    }
-
-    preparePost(callback)
-    {
-        switch (lib.typeName(this.formdata)) {
-        case "object":
-        case "array":
-            this.method = "POST";
-            this.postdata = qs.stringify(this.formdata);
-            this.headers['content-type'] = "application/x-www-form-urlencoded";
-            this.formdata = undefined;
-            break;
-        }
-
-        if (lib.isArray(this.multipart)) {
-            this.method = "POST";
-            this.boundary = lib.uuid();
-            const buf = [];
-            for (const i in this.multipart) {
-                const part = this.multipart[i];
-                if (!part?.name) continue;
-                let data = `--${this.boundary}\r\nContent-Disposition: form-data; name="${part.name}"`;
-                data += part.file ? `; filename="${path.basename(part.file)}"\r\n` : "\r\n";
-                if (Buffer.isBuffer(part.data)) {
-                    data += `Content-Type: ${part.type || "application/octet-stream"}\r\n\r\n`;
-                    buf.push(Buffer.from(data));
-                    buf.push(part.data);
-                    buf.push(Buffer.from("\r\n"));
-                } else {
-                    data += `\r\n${part.data || ""}\r\n`;
-                    buf.push(Buffer.from(data));
-                }
-            }
-            buf.push(Buffer.from(`--${this.boundary}--`));
-            this.postdata = Buffer.concat(buf);
-            this.headers["content-type"] = `multipart/form-data; boundary=${this.boundary}`;
-            this.headers['content-length'] = this.postdata.length;
-        } else
-
-        if (this.postdata) {
-            if (this.method === "GET") {
-                this.method = "POST";
-            }
-            switch (lib.typeName(this.postdata)) {
-            case "string":
-                this.headers['content-length'] = Buffer.byteLength(this.postdata, 'utf8');
-                break;
-
-            case "buffer":
-                this.headers['content-length'] = this.postdata.length;
-                break;
-
-            case "object":
-            case "array":
-                this.postdata = lib.stringify(this.postdata);
-                this.headers['content-type'] = "application/json; charset=utf-8";
-                this.headers['content-length'] = Buffer.byteLength(this.postdata, 'utf8');
-                break;
-
-            default:
-                this.postdata = String(this.postdata);
-                this.headers['content-length'] = Buffer.byteLength(this.postdata, 'utf8');
-            }
-        } else
-
-        if (this.postfile) {
-            if (this.method === "GET") {
-                this.method = "POST";
-            }
-            if (this.chunked) {
-                this.headers['transfer-encoding'] = 'chunked';
-            } else {
-                if (typeof this.postsize !== "number") {
-                    fs.stat(this.postfile, (err, stats) => {
-                        if (err) return callback(err, this);
-
-                        this.mtime = stats.mtime.getTime();
-                        this.postsize = stats.size;
-                        lib.fetch(this, callback);
-                    });
-                    return;
-                }
-                this.headers['content-length'] = this.postsize;
-
-                if (!this.headers["content-type"]) {
-                    this.headers["content-type"] = lib.getMimeType(this.postfile);
-                }
-            }
-            this.poststream = fs.createReadStream(this.postfile);
-        }
-        return true;
-    }
-
-    prepareConditional(callback)
-    {
-        if (this.conditional) {
-            this.conditional = undefined;
-            if (this.mtime) {
-                this.headers["if-modified-since"] = lib.toDate(this.mtime).toUTCString();
-            } else
-
-            if (this.file) {
-                fs.stat(this.file, (err, stats) => {
-                    if (!err &amp;&amp; stats.size > 0) {
-                        this.mtime = stats.mtime.getTime();
-                        this.headers["if-modified-since"] = lib.toDate(this.mtime).toUTCString();
-                    }
-                    lib.fetch(this, callback);
-                });
-                return;
-            }
-        }
-        return true;
-    }
-
-    onData(res, chunk)
-    {
-        if (this.stream) {
-            this.writeStream(res, chunk);
-        } else
-
-        if (this.file) {
-            this.writeFile(res, chunk);
-        } else
-
-        if (this.binary) {
-            this.data.push(chunk);
-        } else {
-            this.data += chunk.toString();
-        }
-        this.size += Buffer.isBuffer(chunk) ? chunk.length: Buffer.byteLength(chunk, "utf8");
-        this.logger("dev", "onData:");
-
-        if (this.maxSize > 0 &amp;&amp; this.size > this.maxSize) {
-            this._destroy(lib.newError("too large", 413, "toolarge"), "onData:");
-        }
-    }
-
-    writeStream(res, chunk)
-    {
-        try {
-            if (!this.stream.write(chunk)) {
-                res.pause();
-                this.stream.once("drain", () => { res.resume() });
-            }
-        } catch (err) {
-            this._destroy(err, "writeStream:");
-        }
-    }
-
-    writeFile(res, chunk)
-    {
-        try {
-            if (!this.fd) {
-                this.fd = fs.openSync(this.file, 'w');
-            }
-            if (this.fd) {
-                res.pause();
-                fs.write(this.fd, chunk, 0, chunk.length, null, (err) => {
-                    if (!err) {
-                        return res.resume();
-                    }
-                    this._destroy(err, "writeFile:");
-                });
-            }
-        } catch (err) {
-            this._destroy(err, "writeFile:");
-        }
-    }
-
-    onConnect(req, res)
-    {
-        this._destroy = (err, name) => {
-            this.logger("error", name, err);
-            this.err = err;
-            req.destroy();
-        }
-
-        if (!this.binary &amp;&amp; !this.stream &amp;&amp; !this.file) {
-            res.setEncoding("utf8")
-        }
-
-        if (this.stream) {
-            this.stream.once("error", this._destroy);
-        }
-    }
-
-    onError(err, callback)
-    {
-        this.close();
-        if (this.done) return;
-
-        if (!this.quiet) {
-            this.logger(this.errorCount ? "debug" : "error", "onError:", err);
-        }
-
-        if (this.errorCount-- > 0) {
-            this.lastError = err;
-
-            if (typeof this.retryPrepare === "function") {
-                this.retryPrepare.call(this, this);
-            }
-            this.#retry(callback);
-        } else {
-            this.#options = undefined;
-            err.status = this.status = this.done = 529;
-            if (typeof callback === "function") callback(err, this);
-        }
-    }
-
-    onEnd(res, callback)
-    {
-        this.close();
-        if (this.done) return;
-        this.logger("dev", "onEnd:", "postdata:", this.postdata);
-
-        const headers = Object.assign(this.resheaders, res.headers);
-
-        this.status = res.statusCode || 0;
-        this.ok = this.status >= 200 &amp;&amp; this.status &lt; 300;
-        this.type = (headers['content-type'] || '').split(';')[0];
-        this.date = headers.date ? lib.toDate(headers.date) : null;
-        if (!this.size) {
-            this.size = lib.toNumber(headers['content-length']);
-        }
-        if (this.cookies) {
-            this.rescookies = this.parseSetCookies(headers["set-cookie"]);
-        }
-        if (Array.isArray(this.data)) {
-            this.data = Buffer.concat(this.data);
-        }
-
-        // Retry the same request on status codes configured explicitely
-        if ((this.status &lt; 200 || this.status >= 400) &amp;&amp;
-            ((typeof this.retryOnError === "function" &amp;&amp; this.retryOnError.call(this)) || lib.toBool(this.retryOnError)) &amp;&amp;
-            this.retryCount-- > 0) {
-            this.lastError = `${this.status}: ${this.data.slice(0, 256)}`;
-
-            if (!this.quiet) {
-                this.logger("debug", "onEnd:", "retry:", this.retryTotal, this.retryCount, this.retryTimeout);
-            }
-
-            if (typeof this.retryPrepare === "function") {
-                this.retryPrepare.call(this, this);
-            }
-            this.#retry(callback);
-            this.done = this.status || 1;
-            return;
-        }
-
-        if (this.checkRedirect(callback)) return;
-
-        if (typeof this.preparse === "function") {
-            this.preparse.call(this);
-        }
-
-        // Parse JSON and store in the options, set error if cannot be parsed, the caller will deal with it
-        if (this.data &amp;&amp; !this.binary &amp;&amp; !this.noparse) {
-            const opts = { datatype: this.data_type, logger: this.datalogger, url: this.url };
-            switch (this.type) {
-            case "text/json":
-            case "application/json":
-            case "application/x-amz-json-1.0":
-            case "application/x-amz-json-1.1":
-            case "application/problem+json":
-                for (const p in this) if (p.substr(0, 5) === "json_") opts[p.substr(5)] = this[p];
-                this.obj = lib.jsonParse(this.data, opts);
-                break;
-
-            case "text/xml":
-            case "application/xml":
-            case "application/rss+xml":
-            case "application/problem+xml":
-                for (const p in this) if (p.substr(0, 4) === "xml_") opts[p.substr(4)] = this[p];
-                this.obj = lib.xmlParse(this.data, opts);
-                break;
-            }
-        }
-        this.logger("debug", "onEnd:", "elapsed:", this.elapsed, "data:", this.data);
-
-        // Return an error on status
-        if ((this.status &lt; 200 || this.status > 299) &amp;&amp; !this.err &amp;&amp; this.raise) {
-            if (this.obj?.message) {
-                this.err = this.obj;
-                this.err.status = this.status;
-            } else
-
-            if (!lib.isEmpty(this.obj)) {
-                this.err = { message: lib.inspect(this.obj), status: this.status };
-            } else {
-                this.err = { message: "Error " + this.status + (this.data ? ": " + this.data.slice(0, 256) : ""), status: this.status };
-            }
-            if (this.err.status === 429 &amp;&amp; !this.err.code) this.err.code = "OverCapacity";
-        }
-
-        this.#options = undefined;
-        this.done = 1;
-        if (typeof callback === "function") callback(this.err, this);
-    }
-
-    close()
-    {
-        this.etime = Date.now();
-        this.elapsed = this.etime - this.stime;
-        clearTimeout(this._timer);
-        this._timer = undefined;
-
-        if (this.fd) {
-            try {
-                fs.closeSync(this.fd)
-            } catch (e) {
-                this.logger("warn", "close:", e)
-            }
-            this.fd = 0;
-        }
-
-        if (this.stream) {
-            if (!this.stream.writableEnded) {
-                try {
-                    this.stream.end()
-                } catch (e) {
-                    this.logger("warn", "close:", e)
-                }
-            }
-            this.stream.off("error", this._destroy);
-            this.stream = undefined;
-        }
-        this._destroy = undefined;
-    }
-
-    logger(level, name, ...args) {
-        logger.logger(level, name, "fetch", this.id, this.method, this.url, this.status, this.size, this.type, this.lastError, ...args);
-    }
-
-    #retry(callback) {
-        const opts = this.#options;
-        this.#options = undefined;
-        opts.retryTotal = lib.toNumber(this.retryTotal) + 1;
-        opts.retryCount = this.retryCount;
-        opts.errorCount = this.errorCount;
-        const delay = lib.objMult(this, "retryTimeout", this.retryMultiplier, "old");
-        opts.retryTimeout = this.retryTimeout;
-        setTimeout(lib.fetch.bind(null, this.origUrl, opts, callback), delay);
-        this.logger("dev", "retry:", opts);
-    }
-
-    checkRedirect(callback)
-    {
-        switch (this.status) {
-        case 301:
-        case 302:
-        case 303:
-        case 307:
-        case 308:
-            if (this.noredirects) break;
-            if (++this.redirects >= 10) break;
-            let url = this.resheaders.location || "";
-            if (url.indexOf("://") === -1) {
-                url = this.url.split("/").slice(0, 3).join("/") + url;
-            }
-
-            const opts = this.#options;
-            this.#options = undefined;
-
-            if (this.status &lt; 307) {
-                opts.method = "GET";
-                opts.query = opts.body = opts.postdata = undefined;
-            }
-
-            opts.redirects = this.redirects;
-            opts.headers = Object.create(null);
-            for (const i in this.passheaders) {
-                opts.headers[this.passheaders[i]] = this.headers[this.passheaders[i]];
-            }
-
-            lib.fetch(url, opts, callback);
-            return true;
-        }
-    }
-
-    /**
-     * Parse Set-Cookie header and return an object of cookies: { NAME: { value: VAL, secure: true, expires: N ... } }
-     */
-    parseSetCookies(header) {
-
-        const headers = Array.isArray(header) ? header.filter(x => lib.isString(x)) : [lib.isString(header)];
-
-        const cookies = Object.create(null);
-        const RX = /([^=]+)\s*=?\s*([\s\S]*)/;
-
-        for (const item of headers) {
-            const parts = item.split(";");
-            const pair = parts[0].match(RX);
-            if (!pair) continue;
-
-            const name = pair[1].trim();
-            const cookie = { value: (pair[2] || "").trim() };
-            if (cookie.value.includes("%")) {
-                cookie.value = lib.decodeURIComponent(cookie.value);
-            }
-
-            for (let i = 1; i &lt; parts.length; i++) {
-                const p = parts[i].match(RX);
-                if (!p) continue;
-                const key = p[1].trim().toLowerCase();
-                let value = (p[2] || "").trim();
-                if (value.includes("%")) {
-                    value = lib.decodeURIComponent(value);
-                }
-                switch (key) {
-                case "expires":
-                    if (value) cookie.expires = lib.toMtime(value);
-                    break;
-
-                case "path":
-                case "domain":
-                    if (value) cookie[key] = value;
-                    break;
-
-                case "samesite":
-                    if (value) cookie.sameSite = value;
-                    break;
-
-                case "secure":
-                    cookie.secure = true;
-                    break;
-
-                case "httponly":
-                    cookie.httpOnly = true;
-                    break;
-                }
-            }
-            cookies[name] = cookie;
-        }
-        this.logger("dev", "parseSetCookies:", cookies);
-        return cookies;
-    }
-}
-
-lib.FetchRequest = FetchRequest;
-
-/**
- * Async/await version of {@link module:lib.fetch}, never rejects meaning no exceptions
- * @param {string} url - can be full URL or an object with parts of the url, same format as in url.format
- * @param {object|FetchRequest} [options] - customize request with input options
- * @return {object} - result as an object `{ ok, err, status, data, obj, request }` where data/obj are properties
- *  from the request for convenience and quick access
- *
- * @example
- * const { ok, err, data } = await lib.afetch("http://api.host.com/file.txt");
- *
- * const { status, err, obj } = await lib.afetch("http://api.host.com/user/123");
- *
- * const { err, obj } = await lib.afetch({ url: "http://api.host.com/user/123", query: { t: 1 } });
- *
- * const { err, obj } = await lib.afetch({ url: "http://api.host.com/user/123", postdata: { name: "myname" } });
- *
- * const { err, status, request } = await lib.afetch({ url: "http://api.host.com/user/123", method: "PUT", body: { name: "myname" } });
- *
- * const { err } = = await lib.afetch("http://127.0.0.1:8000/upload", {
- *                        multipart: [ { name: "file", file: "files2.txt", data: Buffer.from("....") } ]
- *                   });
- * @method afetch
- * @memberOf module:lib
- * @async
- */
-lib.afetch = function(url, options)
-{
-    return new Promise((resolve, _reject) => {
-        lib.fetch(url, options, (err, request) => {
-            resolve({ err, ok: request.ok, status: request.status, data: request.data, obj: request.obj, request });
-        });
-    });
-}
+<header>
+    
+</header>
+
+<article>
+    <h1 id="using-the-aws-module">Using the AWS Module</h1>
+<p>The <code>aws</code> module is a dependency-free AWS toolkit built on top of the raw HTTP API. It does
+<strong>not</strong> require the <code>@aws-sdk/*</code> or <code>aws-sdk</code> packages — instead it signs requests itself
+(AWS Signature Version 4, <a href="module-aws.html#.signQuery"><code>module:aws.signQuery</code></a>) and talks to each service directly. XML
+responses are parsed into objects with <code>fast-xml-parser</code>, JSON is returned as is.</p>
+<pre class="prettyprint source lang-js"><code>const { aws, logger } = require(&quot;backendjs&quot;);
 </code></pre>
-        </article>
-    </section>
+<p>Every method comes in two forms, use whichever you prefer:</p>
+<pre class="prettyprint source lang-js"><code>// callback
+aws.s3GetFile(&quot;s3://bucket/key&quot;, (err, rc) => { ... });
 
+// async — add the 'a' prefix, resolves { err, data, request }
+const { err, data } = await aws.aqueryS3(&quot;bucket&quot;, &quot;key&quot;, { method: &quot;GET&quot; });
+</code></pre>
+<hr>
+<h2 id="how-credentials-work">How credentials work</h2>
+<p>The module picks credentials from the first source that provides them:</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Config / CLI</td>
+<td><code>-key</code>, <code>-secret</code>, <code>-token</code>, <code>-region</code></td>
+</tr>
+<tr>
+<td>Environment</td>
+<td><code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code></td>
+</tr>
+<tr>
+<td>EC2/ECS instance</td>
+<td>instance role + IMDS (metadata host <code>169.254.169.254</code>)</td>
+</tr>
+<tr>
+<td>ECS container</td>
+<td><code>AWS_CONTAINER_CREDENTIALS_FULL_URI</code> / <code>RELATIVE_URI</code></td>
+</tr>
+<tr>
+<td>SDK profile file</td>
+<td><code>~/.aws/credentials</code> + <code>~/.aws/config</code> via <code>-sdk-profile</code></td>
+</tr>
+</tbody>
+</table>
+<p>When backendjs detects it is running inside AWS, <code>app.env.type</code> is set to <code>&quot;aws&quot;</code> and
+<code>app.env</code> is populated with <code>id</code>, <code>region</code>, <code>zone</code>, <code>image</code>, <code>instance_type</code>, etc. — no
+extra code needed. This happens automatically in <code>module:aws.configure</code>, which is wired
+into the normal startup sequence.</p>
+<p>For local development, use the <code>bksh</code> shell to load credentials from your SDK profile:</p>
+<pre class="prettyprint source lang-shell"><code># bin/bksh -aws-sdk-profile default
 
+> aws.queryS3(&quot;&quot;, &quot;/&quot;, (err, rc) => {
+>     console.log(rc?.ListAllMyBucketsResult?.Buckets)
+> })
+</code></pre>
+<hr>
+<h2 id="loading-external-config">Loading external config</h2>
+<p><code>aws.readConfig</code> pulls configuration from up to three external sources <strong>before</strong> the database
+pools are initialized, and can refresh it on an interval.</p>
+<p><strong>From an S3 bucket</strong> (different file per run mode via <code>@..@</code> placeholders):</p>
+<pre class="prettyprint source"><code># bkjs-aws.conf  (running in AWS)          # bkjs-dev.conf  (local)
+aws-config-s3-file = s3://mybucket/config/bkjs-@type@.conf
+</code></pre>
+<pre class="prettyprint source"><code># s3 object bkjs-production.conf
+[roles=production]
+db-dynamodb-pool = default
+db-pool = dynamodb
+app-log-level    = info
+</code></pre>
+<p><strong>From AWS Systems Manager parameter store</strong> — every parameter under the prefix is applied
+as if passed on the command line:</p>
+<pre class="prettyprint source"><code>aws-config-parameters = /bkjs/config/
+</code></pre>
+<p><strong>From Secrets Manager</strong> — filters support <code>@..@</code> placeholders and resolve the run mode:</p>
+<pre class="prettyprint source"><code>aws-config-secrets = production,production-@tag@,production-@role@
+</code></pre>
+<pre class="prettyprint source lang-shell"><code># two matching secrets, one per mode, each holding `key = value` lines
+aws secretsmanager create-secret --name bkjs-production --secret-string &quot;api-key = 9887&quot;
+aws secretsmanager create-secret --name bkjs-dev         --secret-string &quot;api-key = 0000&quot;
+</code></pre>
+<p>To reload on a schedule (interval is in minutes):</p>
+<pre class="prettyprint source"><code>aws-config-s3-interval = 30
+</code></pre>
+<hr>
+<h2 id="dynamodb">DynamoDB</h2>
+<p>The <code>db</code> module uses DynamoDB when <code>BKJS_ROLES=dynamodb</code>, but you can also call the raw
+helpers directly. All values are auto-converted via <a href="module-aws.html#.toDynamoDB"><code>module:aws.toDynamoDB</code></a> /
+<a href="module-aws.html#.fromDynamoDB"><code>module:aws.fromDynamoDB</code></a>, so you write plain objects. These are callback-based
+helpers; the <code>db</code> module already calls them internally (<code>lib/db/dynamodb.js</code>), so the forms
+below are what you typically use yourself:</p>
+<pre class="prettyprint source lang-js"><code>// Create a table: composite key, a local index, pay-per-request billing
+aws.ddbCreateTable(&quot;users&quot;, {
+    keys:  [&quot;id&quot;, &quot;name&quot;],
+    attrs: { id: &quot;S&quot;, name: &quot;S&quot;, gender: &quot;S&quot;, mtime: &quot;N&quot; },
+    local: { mtime: { mtime: &quot;N&quot;, projection: &quot;ALL&quot; } },
+    stream: &quot;NEW_IMAGE&quot;,
+}, (err, item) => { ... });
 
+// Insert — condition that `name` must not already exist
+aws.ddbPutItem(&quot;users&quot;, { id: 1, name: &quot;john&quot;, mtime: Date.now() },
+    { query: { name: null } }, (err, rc) => { ... });
+
+// Update with per-column operators; `null` deletes the attribute
+aws.ddbUpdateItem(&quot;users&quot;, { id: 1 }, { gender: &quot;male&quot;, icons: &quot;1.png&quot; },
+    { ops: { icons: &quot;add&quot; }, query: { id: 1 }, returning: &quot;*&quot; }, (err, rc) => {
+        console.log(rc.Item.gender, rc.Item.icons);   // rc.Item is auto-converted back
+    });
+
+// Query a GSI by range key
+aws.ddbQueryTable(&quot;users&quot;, { id: 1, name: &quot;john&quot; },
+    { select: &quot;id,name&quot;, ops: { name: &quot;gt&quot; } }, (err, rc) => {
+        console.log(rc.Items);   // auto-converted to plain objects
+    });
+
+// Scan with a raw filter expression
+aws.ddbScanTable(&quot;users&quot;, &quot;id=:id AND name=:name&quot;,
+    { values: { id: 1, name: &quot;a&quot; } }, (err, rc) => { ... });
+
+// Delete
+aws.ddbDeleteItem(&quot;users&quot;, { id: 1 }, (err) => { ... });
+</code></pre>
+<p>Batch and transaction helpers group several operations:</p>
+<pre class="prettyprint source lang-js"><code>// Two writes at once, in one API call
+aws.ddbBatchWriteItem({ users: [ { put: { id: 1, name: &quot;tt&quot; } }, { del: { id: 2 } }] }, callback);
+
+// Atomic multi-table transaction — anything failing rolls everything back
+aws.ddbTransactWriteItems([
+    { op: &quot;get&quot;,    table: &quot;accounts&quot;, query: { id: 1 }, options: { query: { balance: 100 } } },
+    { op: &quot;update&quot;, table: &quot;accounts&quot;, keys: { id: 1 }, query: { balance: -10 }, options: { ops: { balance: &quot;incr&quot; } } },
+], callback);
+</code></pre>
+<p>For local development point the queries at a DynamoDB Local endpoint:</p>
+<pre class="prettyprint source"><code>ddb-endpoint = http://localhost:8000
+</code></pre>
+<hr>
+<h2 id="s3-storage">S3 storage</h2>
+<p>S3 paths are expressed as <code>s3://bucket/key</code> and <code>@..@</code> placeholders are supported.
+<code>modules.files</code> is a thin wrapper over these helpers, so most code just calls <code>files</code> —
+but the raw calls are useful for custom flows.</p>
+<pre class="prettyprint source lang-js"><code>// Download (also used by readConfig to pull S3-hosted config)
+aws.s3GetFile(&quot;s3://mybucket/config/bkjs.conf&quot;, { httpTimeout: 1000 }, (err, rc) => {
+    if (rc.status === 200) app.parseConfig(rc.data);
+});
+
+// Upload a Buffer or a filename
+aws.s3PutFile(&quot;s3://mybucket/out/report.json&quot;, myBuffer,
+    { contentType: &quot;application/json&quot;, acl: &quot;private&quot; }, (err, rc) => { ... });
+
+// List everything under a prefix (auto-paginates)
+aws.s3List(&quot;s3://mybucket/logs/&quot;, (err, rows, prefixes) => {
+    console.log(rows, prefixes);
+});
+
+// Copy one object to another, optional ACL / content-type
+aws.s3CopyFile(&quot;s3://mybucket/b/dest&quot;, &quot;s3://mybucket/a/src&quot;,
+    { acl: &quot;public-read&quot; }, callback);
+</code></pre>
+<p>To stream an object straight into an HTTP response (e.g. to serve a download), use
+<a href="module-aws.html#.s3Proxy"><code>module:aws.s3Proxy</code></a>, which is what <code>modules.files</code> uses:</p>
+<pre class="prettyprint source lang-js"><code>// in a middleware
+modules.files.get(context.req, &quot;reports/123.pdf&quot;, (err, rc) => {
+    aws.s3Proxy(context.res, rc.bucket, rc.path, { attachment: &quot;report.pdf&quot; });
+});
+</code></pre>
+<hr>
+<h2 id="message-queues-(sqs)">Message queues (SQS)</h2>
+<p>SQS is one of the backends for the <a href="module-jobs.html"><code>module:jobs</code></a> queue — set <code>queue-name = sqs://my-queue</code>
+in your config and jobs flow through AWS automatically. For direct use:</p>
+<pre class="prettyprint source lang-js"><code>// Send, with optional delay, FIFO group and message attributes
+aws.sqsSendMessage(&quot;https://queue.amazonaws.com/123/my.fifo&quot;, &quot;hello world&quot;, {
+    delay: 5000,
+    groupName: &quot;order-42&quot;,
+    attrs:   { priority: 5, kind: &quot;critical&quot; },
+}, callback);
+
+// Receive up to N messages with long-poll
+aws.sqsReceiveMessage(&quot;https://queue.amazonaws.com/123/my-queue&quot;, {
+    count: 10,
+    timeout: 5000,
+}, (err, rows) => {
+    rows.forEach((m) => console.log(m.MessageId, m.Body));
+});
+</code></pre>
+<h3 id="handling-event-driven-work">Handling event-driven work</h3>
+<p>SNS (and EventBridge) notifications that are delivered to an SQS queue are intercepted by
+<a href="module-aws.html#.configureJob"><code>module:aws.configureJob</code></a> before they ever reach your jobs. For SNS alarms it dispatches
+to any <code>awsProcessNotification</code> handler you define; for <code>aws.ec2</code> / <code>aws.ecs</code> EventBridge
+events it maps them to <code>awsProcessInstanceStateChange</code> / <code>awsProcessTaskStateChange</code>.</p>
+<pre class="prettyprint source lang-js"><code>// a module can react to CloudWatch/SNS alarms
+module.exports = {
+    name: &quot;monitoring&quot;,
+
+    awsProcessNotification(alarm, options, callback) {
+        logger.warn(&quot;alarm fired:&quot;, alarm.alarmName, alarm.subject, alarm.newStateValue);
+        callback();
+    }
+};
+</code></pre>
+<hr>
+<h2 id="compute%3A-ec2%2C-ecs%2C-and-ssm">Compute: EC2, ECS, and SSM</h2>
+<pre class="prettyprint source lang-js"><code>// Launch on-demand instances. Any native EC2 param is accepted with a capital first
+// letter, plus a set of convenience options (imageId, instanceType, keyName, targetGroup,
+// elasticIp, alarms, device, ...). Callback gets (err, rawResponse, info) where info holds
+// the prepared instance objects and the context needed to continue configuring them.
+aws.ec2RunInstances({
+    min: 2,
+    imageId: &quot;ami-0123456789abcdef0&quot;,
+    instanceType: &quot;t4g.small&quot;,
+    name: &quot;my-worker-%i&quot;,          // %i is replaced with the instance index
+    tags: { app: &quot;backendjs&quot; },
+    targetGroup: &quot;arn:aws:elasticloadbalancing:...&quot;,
+    alarms: [ { metric: &quot;CPUUtilization&quot;, threshold: 90 } ],
+    waitRunning: 1, waitTimeout: 120000,
+}, (err, _rc, info) => {
+    info.instances.forEach((i) => {
+        console.log(i.instanceId, i.privateIpAddress, i.name);
+    });
+});
+</code></pre>
+<p><code>ec2RunInstances</code> already waits for <code>running</code>, applies tags, registers the instance with the
+target group, attaches the Elastic IP and creates the CloudWatch alarms — see
+<code>module:aws.ec2AfterRunInstances</code> for what it does under the hood.</p>
+<pre class="prettyprint source lang-js"><code>// Look up instances by tag, state, group, vpc, ...
+aws.ec2DescribeInstances({ tagName: &quot;my-worker-%i&quot;, stateName: &quot;running&quot; },
+    (err, list) => { ... });
+
+// Register / deregister with an Application Load Balancer target group
+aws.elb2RegisterInstances(&quot;arn:aws:elasticloadbalancing:.../tg/my-tg&quot;, &quot;i-0abc123&quot;, callback);
+aws.elb2DeregisterInstances(&quot;arn:aws:elasticloadbalancing:.../tg/my-tg&quot;, [&quot;i-0abc123&quot;], callback);
+
+// Run a shell command on remote instances via SSM
+aws.ssmSendCommand(&quot;uptime&quot;, [&quot;i-0abc123&quot;], { region: &quot;us-east-1&quot; }, (err, rc) => {
+    aws.ssmWaitForCommand(rc.CommandId, &quot;i-0abc123&quot;, (err, output) => {
+        console.log(output.Status, output.StandardOutputContent);
+    });
+});
+</code></pre>
+<p>The same <code>bksh</code> shell can drive these from the command line, e.g. <code>bksh -aws-run-instances -image-name ...</code>.</p>
+<hr>
+<h2 id="monitoring%3A-cloudwatch">Monitoring: CloudWatch</h2>
+<pre class="prettyprint source lang-js"><code>// Create / update an alarm. A topic ARN to notify on each state can be given.
+aws.cwPutMetricAlarm({
+    name:  &quot;worker-high-cpu&quot;,
+    metric: &quot;CPUUtilization&quot;,
+    namespace: &quot;AWS/EC2&quot;,
+    dimensions: { InstanceId: &quot;i-0abc123&quot; },
+    op: &quot;>=&quot;, threshold: 90, period: 60, evaluationPeriods: 3,
+    alarm: &quot;arn:aws:sns:...:my-topic&quot;,
+}, callback);
+
+// Publish custom metrics
+aws.cwPutMetricData(&quot;MyApp&quot;, {
+    requests: 12,
+    latency: { value: [0, 200, 2400, 12], Host: &quot;i-0abc123&quot; },   // [min, max, sum, count]
+}, callback);
+
+// Fetch time-series for one or more metrics over the last 5 minutes
+aws.cwGetMetricData({
+    age: 300000,
+    metrics: [
+        { name: &quot;NetworkOut&quot;, label: &quot;Traffic&quot;, stat: &quot;Average&quot;,
+          dimensions: { InstanceId: &quot;i-0abc123&quot; } },
+        { name: &quot;CPUUtilization&quot;, label: &quot;CPU&quot;, dimensions: { InstanceId: &quot;i-0abc123&quot; } },
+    ],
+}, (err, rc) => {
+    rc.data.forEach((m) => console.log(m.label, m.data.length, &quot;points&quot;));
+});
+</code></pre>
+<p>CloudWatch <strong>Logs</strong> helpers (<a href="module-aws.html#.cwlFilterLogEvents"><code>module:aws.cwlFilterLogEvents</code></a>,
+<a href="module-aws.html#.cwPutLogEvents"><code>module:aws.cwPutLogEvents</code></a>) let you read and write log streams:</p>
+<pre class="prettyprint source lang-js"><code>aws.cwlFilterLogEvents({
+    name: &quot;/backendjs/prod&quot;, filter: &quot;ERROR&quot;,
+    stime: Date.now() - 3600000, limit: 500,
+}, (err, rc) => rc.events.forEach((e) => console.log(e.message)));
+</code></pre>
+<hr>
+<h2 id="notifications%3A-sns-and-ses">Notifications: SNS and SES</h2>
+<pre class="prettyprint source lang-js"><code>// Send a push to a device endpoint (modules.push uses this)
+aws.snsPublish(&quot;arn:aws:sns:us-west-2:123:app/APNE/my-app&quot;, {
+    alert: &quot;title&quot;, body: &quot;hello&quot;
+}, callback);
+
+// Create a topic and get its ARN back
+aws.snsCreateTopic(&quot;my-notifications&quot;, (err, arn) => { ... });
+
+// Send an email (text or HTML)
+aws.sesSendEmail(&quot;alice@example.com&quot;, &quot;Hi&quot;, &quot;This is the body&quot;, {
+    from: &quot;admin@example.com&quot;, html: false, cc: &quot;bob@example.com&quot;
+}, callback);
+</code></pre>
+<p>Set the platform application ARN used for push once, globally: <code>-sns-app-arn arn:...</code>.</p>
+<hr>
+<h2 id="dns%3A-route53">DNS: Route53</h2>
+<pre class="prettyprint source lang-js"><code>// UPSERT an A record for a host at the current machine's IP address.
+// `names` may be a FQDN string (app.env / app placeholders are expanded) or an array
+// of { name, value, type, ttl, zoneId, alias } objects.
+aws.route53Change(&quot;api.example.com&quot;, { type: &quot;A&quot;, ttl: 300 }, callback);
+
+aws.route53Change([
+    { name: &quot;web1.example.com&quot;, value: &quot;10.0.0.5&quot;, type: &quot;A&quot; },
+    { name: &quot;cdn.example.com&quot;,  value: &quot;my-elb-1234.us-east-1.elb.amazonaws.com&quot;, type: &quot;CNAME&quot;, alias: 1 },
+], callback);
+</code></pre>
+<p>This is also used on server startup when <code>host-name</code> is configured, so that the running
+instance registers a live DNS entry pointing at its private IP.</p>
+<hr>
+<h2 id="secrets%2C-certificates%2C-and-bedrock">Secrets, certificates, and Bedrock</h2>
+<pre class="prettyprint source lang-js"><code>// Read a secret
+aws.getSecretValue(&quot;bkjs/db&quot;, { region: &quot;us-east-1&quot; }, (err, rc) => {
+    console.log(JSON.parse(rc.SecretString));
+});
+
+// Read several secrets at once
+aws.batchGetSecretValue({ filters: &quot;production,production-@tag@&quot; },
+    (err, list) => list.forEach((s) => console.log(s.Name, s.SecretString)));
+
+// List ACM certificates (paginated)
+aws.listCertificates({ status: &quot;ISSUED&quot; }, (err, list) => { ... });
+
+// Temporary credentials via a different role (cross-account access)
+aws.stsAssumeRole({ role: &quot;arn:aws:iam::123456789012:role/reader&quot;, name: &quot;job-worker&quot; },
+    (err, creds) => {
+        // creds.credentials = { key, secret, token, expiration }
+        aws.s3GetFile(&quot;s3://other-account-bucket/key&quot;,
+            { credentials: creds.credentials }, (err, rc) => { ... });
+    });
+</code></pre>
+<p>For AI workloads, Bedrock is reachable directly through the SigV4 request helpers:</p>
+<pre class="prettyprint source lang-js"><code>aws.bedrockConverse(&quot;anthropic.claude-&lt;model>&quot;, {
+    prompt: &quot;Explain backendjs in one sentence&quot;,
+    system: &quot;You are concise.&quot;,
+    maxTokens: 64,
+}, (err, obj) => console.log(obj?.completion?.[0]?.content?.[0]?.text));
+</code></pre>
+<hr>
+<h2 id="other-databases%3A-rds-data-api">Other databases: RDS Data API</h2>
+<p>Run SQL against an Aurora Serverless cluster without a driver:</p>
+<pre class="prettyprint source lang-js"><code>aws.rdsDataExecuteStatement({
+    resourceArn: &quot;arn:aws:rds:us-east-1:123456789012:cluster:mydbcluster&quot;,
+    secretArn:   &quot;arn:aws:secretsmanager:us-east-1:123456789012:secret:mysecret&quot;,
+    database:    &quot;mydb&quot;,
+    sql: &quot;select id, name from mytable where id = :id&quot;,
+    parameters: [{ name: &quot;id&quot;, value: { longValue: 1 } }],
+    convertResult: true,      // rows returned as plain objects
+}, (err, obj) => console.log(obj.records));
+</code></pre>
+<hr>
+<h2 id="calling-a-service-directly">Calling a service directly</h2>
+<p>When a convenience helper is not provided, drop down to the two raw request builders. These
+are also where the <code>a</code>-prefixed async form is available:</p>
+<p><code>queryEndpoint</code> (and its <code>a</code>-prefixed <code>aqueryEndpoint</code>) handles the EC2-style services that
+speak query strings + XML:</p>
+<pre class="prettyprint source lang-js"><code>// equivalent to aws.queryEC2 / aws.querySTS / aws.querySQS / ...
+aws.queryEndpoint(&quot;ec2&quot;, &quot;2016-11-15&quot;, &quot;DescribeInstances&quot;, { &quot;Filter.1.Name&quot;: &quot;instance-id&quot; },
+    { region: &quot;us-east-1&quot; }, (err, rc) => { ... });
+</code></pre>
+<p><code>queryService</code> (and <code>aqueryService</code>) handles the JSON/<code>X-Amz-Target</code> services (SSM, ACM, ECR,
+Secrets, CloudWatch Logs, ECS):</p>
+<pre class="prettyprint source lang-js"><code>aws.queryService({ endpoint: &quot;ssm&quot;, target: &quot;AmazonSSM&quot;, action: &quot;GetParameter&quot; },
+    { Name: &quot;my/param&quot; }, (err, rc) => { ... });
+</code></pre>
+<p>All the named helpers (<code>queryEC2</code>, <code>querySSM</code>, <code>queryECS</code>, <code>querySecrets</code>, ...) are thin
+wrappers over one of these two — use them when available because they pin the correct
+service version for you.</p>
+<hr>
+<h2 id="per-service-tuning">Per-service tuning</h2>
+<p>Each <code>query*</code> call accepts standard options that control retries, region and endpoints:</p>
+<table>
+<thead>
+<tr>
+<th>option</th>
+<th>effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region</code></td>
+<td>override the region used (per service region limits apply, e.g. route53domains → <code>us-east-1</code>)</td>
+</tr>
+<tr>
+<td><code>retryCount</code></td>
+<td>max retries; each service has a default in <code>aws.retryCount</code></td>
+</tr>
+<tr>
+<td><code>retryTimeout</code></td>
+<td>back-off between retries</td>
+</tr>
+<tr>
+<td><code>retryOnError(err,res)</code></td>
+<td>per-request retry predicate; uses <code>aws.retryOnError</code> by default</td>
+</tr>
+<tr>
+<td><code>endpoint</code></td>
+<td>custom base URL, handy for local stacks (e.g. DynamoDB Local)</td>
+</tr>
+<tr>
+<td><code>credentials</code></td>
+<td><code>{ key, secret, token }</code> to sign with a different identity</td>
+</tr>
+<tr>
+<td><code>httpTimeout</code></td>
+<td>per-request timeout in ms</td>
+</tr>
+</tbody>
+</table>
+<p>The full set of config options (<code>-key</code>, <code>-secret</code>, <code>-target-group</code>, <code>-image-id</code>,
+<code>-config-s3-file</code>, <code>-ddb-endpoint</code>, ...) is listed on the top-level
+<a href="module-aws.html"><code>module:aws</code></a> object under <code>args</code>.</p>
+</article>
+
+</section>
 
     
     
