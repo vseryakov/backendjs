@@ -12,7 +12,7 @@
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { app, db, lib, logger } = require("../");
+const { db, lib } = require("../");
 const { ainit, astop } = require("./utils");
 
 const roles = process.env.BKJS_ROLES || "sqlite";
@@ -71,13 +71,18 @@ const tables = {
     },
 };
 
-var id1 = "10000000000000000000000000000000", id2 = "20000000000000000000000000000000", id3 = "30000000000000000000000000000000";
-var key1 = "abc", key2 = 999;
+var id1 = "10000000000000000000000000000000"
+var id2 = "20000000000000000000000000000000"
+var id3 = "30000000000000000000000000000000";
+var id4 = "40000000000000000000000000000000";
+var key1 = "abc", key2 = 999, key = key1 + "|" + key2;
 var tags = ["tag1", "tag2", "tag3"];
 var list = ["a", "b", "c"];
+var bignum = 1000000000;
+var name = "test name";
 var row = {
     id: id1,
-    name: "test name",
+    name,
     email: "test@email.com",
     json: '{ "a": 1, "b": "b" }',
     realnum: 1.12345,
@@ -86,15 +91,14 @@ var row = {
     tags: tags.slice(0),
     weights: [1,2,"3",4,"5"],
     nospecial: "[plain, text!]###########################",
-    bignum: lib.randomInt(10000000, 1000000000),
+    bignum,
 }
-var next_token = null;
 var pool, config;
 
 describe("DB tests", async () => {
 
     before(async () => {
-        await ainit({ roles })
+        await ainit({ cache: true, roles })
 
         db.tables = {};
         db.describeTables(tables);
@@ -192,18 +196,19 @@ describe("DB tests", async () => {
         let rc = await db.aadd("bk_test1", row);
         assert.match(rc?.err?.message, /too large/);
 
-        row.name = row.name.replaceAll("1", "");
-
-
         row.tags.push(...row.tags.map(x => x + 1));
         rc = await db.aadd("bk_test1", row);
         assert.match(rc?.err?.message, /too large/);
 
-        row.tags = tags.slice(0);
-
     });
 
     await it("db add", async() => {
+
+        row.key1 = key1;
+        row.key2 = key2;
+        row.name = name;
+        row.notempty = 1;
+        row.tags = tags.slice(0);
 
         let rc = await db.aadd("bk_test1", row, { returning: "*", first: true });
         assert.strictEqual(rc?.err, null);
@@ -219,38 +224,70 @@ describe("DB tests", async () => {
         assert.strictEqual(rc?.err, null);
         assert.strictEqual(rc?.data, null);
 
-        rc = await db.aadd("bk_test1", row);
+        rc = await db.aadd("bk_test1", row, { result_query: true, first: true });
         assert.strictEqual(rc?.err, null);
-
+        assert.strictEqual(rc?.data?.key, key);
 
         row.id = id2;
-        rc = await db.aadd("bk_test1", row);
+        rc = await db.aadd("bk_test1", row, { info_query: true });
         assert.strictEqual(rc?.err, null);
-
-
-        row.id = id3;
-        rc = await db.aadd("bk_test1", row);
-        assert.strictEqual(rc?.err, null);
-
-        row.key1 = key1;
-        row.key2 = key1;
-        row.tags = tags.slice(1, 2);
-        row.dflt = null;
-        rc = await db.aadd("bk_test1", row);
-        assert.strictEqual(rc?.err, null);
-
-        row.key1 = key2;
-        row.key2 = key2;
-        row.counter = 0;
-        row.tags = tags.slice(0, 1);
-        rc = await db.aadd("bk_test1", row);
-        assert.strictEqual(rc?.err, null);
-
+        assert.strictEqual(rc?.info?.query?.key, key);
     });
 
-    await it("db incr", async() => {
+    await it("db bulk", async() => {
 
-        let rc = await db.aincr("bk_test1", { id: id1, key1, key2, counter: 3 });
+        const bulk = [
+            {
+                table: "bk_test1",
+                op: "add",
+                query: Object.assign({}, row, { id: id4 }),
+            },
+            {
+                table: "bk_test1",
+                op: "add",
+                query: Object.assign({}, row, { id: id4, key2: key1 }),
+            },
+        ]
+        let rc = await db.abulk(bulk);
+        assert.ok(!rc?.err);
+        assert.strictEqual(rc?.data?.length, 0);
+
+        await lib.sleep(1000)
+
+        rc = await db.aget("bk_test1", { id: id4, key1, key2 });
+        assert.strictEqual(rc?.err, null);
+        assert.strictEqual(rc?.data?.key, key);
+    });
+
+    await it("db transaction", async() => {
+
+        const bulk = [
+            {
+                table: "bk_test1",
+                op: "add",
+                query: Object.assign({}, row, { id: id3 }),
+            },
+            {
+                table: "bk_test1",
+                op: "add",
+                query: Object.assign({}, row, { id: id3, key1, key2: key1, tags: tags.slice(1, 2), dflt: null }),
+            },
+            {
+                table: "bk_test1",
+                op: "add",
+                query: Object.assign({}, row, { id: id3, key1: key2, key2, tags: tags.slice(0, 1), dflt: null, counter: 0 }),
+            },
+        ]
+        const rc = await db.atransaction(bulk);
+        assert.ok(!rc?.err);
+        assert.strictEqual(rc?.data?.length, 0);
+
+        await lib.sleep(1000)
+    });
+
+    await it("db update", async() => {
+
+        let rc = await db.aincr("bk_test1", { id: id1, key1, key2, counter: 3, dflt_$not_exists: 1 });
         assert.strictEqual(rc?.err, null);
 
         rc = await db.aincr("bk_test1", { id: id2, key1, key2, counter: 1 });
@@ -260,6 +297,13 @@ describe("DB tests", async () => {
         assert.strictEqual(rc?.err, null);
 
         rc = await db.aincr("bk_test1", { id: id3, key1, key2: key1, counter: -2 });
+        assert.strictEqual(rc?.err, null);
+
+        rc = await db.aupdate("bk_test1", { id: id1, key1, key2, tags_$add: ["tag5","tag6"] }, { returning: "*", first: true });
+        assert.strictEqual(rc?.err, null);
+        assert.deepStrictEqual(rc?.data?.tags, [...tags, "tag5", "tag6"]);
+
+        rc = await db.aupdate("bk_test1", { id: id1, key1, key2, tags_$del: ["tag6"] });
         assert.strictEqual(rc?.err, null);
     });
 
@@ -275,10 +319,11 @@ describe("DB tests", async () => {
         assert.deepStrictEqual(rc?.data?.counter, 3)
         assert.deepStrictEqual(rc?.data?.obj, row.obj);
         assert.deepStrictEqual(rc?.data?.list, list)
-        assert.deepStrictEqual(rc?.data?.tags, tags);
+        assert.deepStrictEqual(rc?.data?.tags, [...tags, "tag5"]);
         assert.deepStrictEqual(rc?.data?.weights, row.weights.map(x => parseInt(x)));
         assert.strictEqual(rc?.data?.nospecial, row.nospecial.replace(lib.rxSpecial, ""));
         assert.strictEqual(rc?.data?.bignum, row.bignum);
+        assert.strictEqual(rc?.data?.dflt, "dflt");
 
         rc = await db.aget("bk_test1", { id: id2, key1, key2 });
         assert.strictEqual(rc?.data?.id, id2);
@@ -288,12 +333,15 @@ describe("DB tests", async () => {
         assert.strictEqual(rc?.data?.id, id3);
         assert.deepStrictEqual(rc?.data?.counter, 2)
 
+        db.aliases.t = "bk_test1";
+        rc = await db.aget("t", { id: id1, key1, key2 });
+        assert.strictEqual(rc?.data?.id, id1);
+
     });
 
     await it("db list", async() => {
 
         let rc = await db.alist("bk_test1", [id1, id2, id3, 1].map(id => ({ id, key1, key2 })));
-        console.log(rc)
         assert.strictEqual(rc?.data?.length, 3);
 
         rc = await db.alist("bk_test1", rc.data);
@@ -313,6 +361,19 @@ describe("DB tests", async () => {
 
         rc = await db.aselect("bk_test1", { id: id3 }, { sort: "ctime", desc: true });
         assert.strictEqual(rc?.data?.[0]?.counter, 0);
+    });
+
+    await it("db scan", async() => {
+        const list = [];
+
+        await db.ascan("bk_test1", { id: id3 }, { count: 1, sync: true }, rows => { list.push(...rows) });
+        assert.strictEqual(list.length, 3);
+
+        await db.ascan("bk_test1", { id: id1 }, { }, (row, next) => {
+            list.push(row);
+            next();
+        });
+        assert.strictEqual(list.length, 4);
     });
 
     await it("db expr in", async() => {
@@ -386,306 +447,40 @@ describe("DB tests", async () => {
 
     });
 
-    await it("other", { skip: 1 }, async() => {
-        lib.series([
-            function(next) {
-                // Check pagination
-                next_token = null;
-                var rc = [];
-                lib.forEachSeries([2, 3], function(n, next2) {
-                    db.select("test2", { id: id2 }, { sort: "id2", start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
-                        next_token = info.next_token;
-                        rc.push.apply(rc, rows);
-                        next2(err);
-                    });
-                }, function(err) {
-                    // Redis cannot sort due to hash implementation, known bug
-                    var isok = db.pool == "redis" ? rc.length>=5 : rc.length==5 && (rc[0].id2 == 1 && rc[rc.length-1].id2 == 5);
-                    assert(err || !isok, "err10:", rc.length, isok, rc, next_token);
-                    next();
-                })
-            },
-            function(next) {
-                // Check pagination with small page size with condition on the range key
-                next_token = null;
-                lib.forEachSeries([2, 3], function(n, next2) {
-                    db.select("test2", { id: id2, id2: '0' }, { sort: "id2", ops: { id2: 'gt' }, start: next_token, count: n, select: 'id,id2' }, function(err, rows, info) {
-                        next_token = info.next_token;
-                        var isok = db.pool == "redis" ? rows.length>=n : rows.length==n;
-                        assert(err || !isok || !info.next_token, "err11:", rows.length, n, info, rows);
-                        next2();
-                    });
-                },
-                function(err) {
-                    if (err) return next(err);
-                    db.select("test2", { id: id2, id2: '0' }, { ops: { id2: 'gt' }, sort: "id2", start: next_token, count: 5, select: 'id,id2' }, function(err, rows, info) {
-                        next_token = info.next_token;
-                        var isnum = db.pool == "redis" ? rows.length>=3 : rows.length==4;
-                        var isok = rows.every(function(x) { return x.id2 > '0' });
-                        assert(err || !isnum || !isok, "err12:", isok, rows.length, rows, info);
-                        next();
-                    });
-                });
-            },
-            function(next) {
-                assert(null, next_token, "err13: next_token must be null", next_token);
-                next();
-            },
-            function(next) {
-                // Scan all records
-                var rows = [];
-                db.scan("test2", {}, { count: 2 }, function(row, next2) {
-                    rows.push(row);
-                    next2();
-                }, function(err) {
-                    assert(err || rows.length!=11, "err19:", rows.length);
-                    next();
-                });
-            },
-            function(next) {
-                db.put("test1", { id: id, email: id, num: 1 }, { info_obj: 1 }, function(err, rows, info) {
-                    rec = info.obj;
-                    assert(err || 0, "err24:");
-                    next();
-                });
-            },
-            function(next) {
-                db.update("test1", { id: id, email: "test", num: 1 }, { query: { id: id, email: id }, skip_columns: ["mtime"], updateOps: { num: "incr" } }, function(err, rc, info) {
-                    assert(err || info.affected_rows!=1, "err25:", info);
-                    next();
-                });
-            },
-            function(next) {
-                db.get("test1", { id: id }, {}, function(err, row) {
-                    assert(err || !row || row.mtime != rec.mtime, "err25-1:", row, rec);
-                    next();
-                });
-            },
-            function(next) {
-                db.update("test1", { id: id, email: "test", num: 1 }, { query: { id: id, email: "test" }, updateOps: { num: "incr" } }, function(err, rc, info) {
-                    assert(err || info.affected_rows!=1, "err26:", info);
-                    next();
-                });
-            },
-            function(next) {
-                db.update("test1", { id: id, email: "test", num: 100 }, { query: { id: id, email: id }, returning: "*" }, function(err, rc, info) {
-                    assert(err || info.affected_rows, "err27:", info, rc);
-                    next();
-                });
-            },
-            function(next) {
-                db.update("test1", { id: id, email: "test", num: 2 }, { query: { id: id, num: 1 }, ops: { num: "gt" } }, function(err, rc, info) {
-                    assert(err || !info.affected_rows, "err28:", info);
-                    next();
-                });
-            },
-            function(next) {
-                db.get("test1", { id: id }, {}, function(err, row) {
-                    assert(err || !row || row.num != 2, "err29:", row);
-                    next();
-                });
-            },
-            function(next) {
-                db.put("test3", { id: id, num: 1, obj: { n: 1, v: 2 }, list: [{ n: 1 },{ n: 2 }], tags: "1,2,3", text: "123", mapped: "1", notempty: "1" }, { info_obj: 1 }, function(err, rc, info) {
-                    rec = info.obj;
-                    assert(err, "err34:", info);
-                    next();
-                });
-            },
-            function(next) {
-                var q = { id: id, num: 2, mtime: rec.mtime, obj: "1", action1: 1 };
-                if (!configOptions.noListOps) q.tags = "4";
-                db.update("test3", q, { updateOps: { tags: "add" } }, function(err, rc, info) {
-                    assert(err || !info.affected_rows, "must update 1 row:", info);
-                    next();
-                });
-            },
-            function(next) {
-                db.get("test3", { id: id + " " }, {}, function(err, row) {
-                    assert(err || row?.num != 2 || row.obj?.n != 1, "num must be 2 and obj.n must be 1", row)
-                    assert(!row.list || !row.list[0] || row.list[0].n != 1, "list must have 0 item n.1", row);
-                    if (!configOptions.noListOps) {
-                        expect(row.tags?.length == 4 && row.tags == "1,2,3,4", "tags must be 1,2,3,4", row);
-                    }
-                    expect(row.text && !row.mapped, "text must be not null but mapped must be null", row);
-                    next();
-                });
-            },
-            function(next) {
-                db.incr("test3", { id: id + " ", action1: 2, mapped: "2", tags: [3,4,5] }, function(err, rc, info) {
-                    assert(err || !info.affected_rows, "err37:", info);
-                    next();
-                });
-            },
-            function(next) {
-                db.get("test3", { id: id }, {}, function(err, row) {
-                    assert(err || !row || (!configOptions.noCustomColumns && row.action1 != 3), "action1 must be 3", row, db.customColumn);
-                    expect(row.mapped == "none", "mapped must be none", row)
-                    expect(row.tags?.length === 3 && row.tags == "3,4,5", "tags must be a list", row)
-                    next();
-                });
-            },
-            function(next) {
-                db.update("test3", { id: id, tags: [6,7] }, { updateOps: { tags: "add" } }, next);
-            },
-            function(next) {
-                db.update("test3", { id: id, tags: "6" }, { updateOps: { tags: "del" } }, next);
-            },
-            function(next) {
-                db.update("test3", { id: id, tags: [] }, { updateOps: { tags: "add" } }, next);
-            },
-            function(next) {
-                db.get("test3", { id: id }, function(err, row) {
-                    expect(configOptions.noListOps || row?.tags == "3,4,5,7", "tags must have 4 items", row, configOptions)
-                    next();
-                });
-            },
-            function(next) {
-                configOptions.maxSize = configOptions.maxList = 50;
-                var str = "", list = [];
-                for (let i = 0; i < 128; i++) list.push((str += i));
-                    var q = {
-                        id: id, obj: { test: str }, tags: list, list: list, text: str,
-                        sen1: "a b, c!",
-                        sen2: "<tag>test",
-                        spec: "$t<e>st@/.!",
-                    };
-                    db.update("test3", q, function(err, rc, info) {
-                        expect(!err && info.affected_rows, "update failed:", info);
-                        next();
-                    });
-                },
-                function(next) {
-                    db.get("test3", { id: id }, {}, function(err, row) {
-                        assert(err ||
-                           row?.text != "123" ||
-                           row?.tags?.length > 5 ||
-                           row?.list?.length != 2 ||
-                           row?.obj?.n != 1, "max size limits failed:", row);
-                        expect(row.spec == "$test@/.", "spec regexp failed", row.spec)
-                        expect(row.sen1 == "a b, c!", "sen1 regexp failed", row.sen1)
-                        expect(!row.sen2, "sen2 regexp failed", row.sen2)
-                        next();
-                    });
-                },
-                function(next) {
-                    db.aliases.t = "test3";
-                    db.get("t", { id: id }, {}, function(err, row) {
-                        expect(row.id == id, "must get row by alias", row)
-                        next();
-                    });
-                },
-                function(next) {
-                    db.cache.tables.push("test1","test3");
-                    db.cache2.test3 = 30000;
-                    db.get("test3", { id: id }, { cached: 1 }, (err, row, info) => {
-                        assert(err || row?.id != id || row?.num != 2, "err7:", row);
-                        expect(info.cached === 0, "expect test3 cached = 0", row, info)
+    await it("db pagination", async() => {
 
-                        db.get("test1", { id: id }, (err, row, info) => {
-                            expect(info.cached === 0, "expect test1 cached = 0", row, info)
-                            setTimeout(next, 100);
-                        });
-                    });
-                },
-                function(next) {
-                    db.getCache("test3", { id: id }, {}, (data, cached) => {
-                        var row = lib.jsonParse(data);
-                        assert(!data || cached != 2 || row?.num != 2, "err7-lru-cache:", row, cached);
-                        next();
-                    });
-                },
-                function(next) {
-                    db.get("test1", { id: id }, (err, row, info) => {
-                        expect(info.cached === 1, "expect test1 cached = 1", row, info)
-                        next();
-                    });
-                },
-                function(next) {
-                    db.get("test3", { id: id }, (err, row, info) => {
-                        expect(info.cached === 2, "expect test3 cached = 2", row, info)
-                        next();
-                    });
-                }
-            ], callback);
+        let rc = await db.aselect("bk_test1", { id: id3 }, { sort: "ctime", count: 1 });
+        assert.strictEqual(rc?.data?.length, 1);
+        assert.ok(rc?.info?.next_token);
+
+        const ctime = rc.data[0].ctime;
+
+        rc = await db.aselect("bk_test1", { id: id3 }, { sort: "ctime", start: rc.info.next_token, count: 1 })
+        assert.strictEqual(rc?.data?.length, 1);
+        assert.ok(rc?.info?.next_token);
+        assert.ok(rc.data[0].ctime > ctime);
     });
 
-    await it("check config logic", async () => {
-        db.config = db.pool;
-        db.initConfigTable();
+    await it("db cache", async() => {
 
-        const { err } = await db.acreateTables({ pools: [db.pool] });
-        assert.ok(!err);
+        db.cache.tables.push("bk_test1");
+        db.cache.ttl.bk_test1 = 30000;
+        db.cache.name.bk_test1 = "local";
 
-        app.appName = "app";
-        app.version = "bkjs/1.0.0";
-        app.roles = "test,dev";
-        app.role = "shell";
-        app.tag = "qa";
-        app.region = "us-east-1";
+        let rc = await db.aget("bk_test1", { id: id1, key1, key2 });
+        assert.strictEqual(rc?.data?.id, id1);
+        assert.strictEqual(rc?.info?.cached, 0)
 
-        db.configMap = {
-            top: "roles",
-            main: "role, tag",
-            other: "role, region",
-        }
+        db.cache2.bk_test1 = 30000;
 
-        let types = db.configTypes();
+        rc = await db.aget("bk_test1", { id: id1, key1, key2 });
+        assert.strictEqual(rc?.info?.cached, 1)
 
-        assert.partialDeepStrictEqual(types, [app.roles]);
-        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.role]);
-        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.role+"-"+app.role]);
-        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.role+"-"+app.region]);
-        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.tag]);
-        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.tag+"-"+app.role]);
-        assert.partialDeepStrictEqual(types, [app.roles+"-"+app.tag+"-"+app.region]);
-
-        db.configMap.top = "roles,appName";
-        types = db.configTypes();
-
-        assert.partialDeepStrictEqual(types, [app.appName]);
-        assert.partialDeepStrictEqual(types, [app.appName+"-"+app.role+"-"+app.region]);
-        assert.partialDeepStrictEqual(types, [app.appName+"-"+app.tag+"-"+app.region]);
-
-        const type1 = app.roles + "-" + app.role;
-        const type2 = app.roles + "-" + app.tag;
-        const type3 = type1 + "-" + app.role;
-
-        await db.adelAll("bk_config", { type: [type1, type2, type3] });
-
-        await db.aput("bk_config", { type: type1, name: "param1", value: "ok" })
-        await lib.sleep(50);
-        await db.aput("bk_config", { type: type1, name: "param2", value: "hidden", status: "hidden" })
-        await lib.sleep(50);
-        await db.aput("bk_config", { type: type2, name: "param2", value: "version", version: ">1.0.0" })
-        await lib.sleep(50);
-        await db.aput("bk_config", { type: type1, name: "param3", value: "stime", stime: Date.now()+200 })
-        await lib.sleep(50);
-        await db.aput("bk_config", { type: type2, name: "param3", value: "etime", etime: Date.now()+500 })
-        await lib.sleep(100);
-
-        let rc = await db.agetConfig();
-        assert.partialDeepStrictEqual(rc.data, [ { name: "param1" }, { name: "param3", value: "etime" } ]);
-
-        app.version = "bkjs/1.1.0";
-        rc = await db.agetConfig();
-        assert.partialDeepStrictEqual(rc.data, [{ name: "param1" }, { name: "param2" }, { name: "param3" }]);
-
-        await lib.sleep(200);
-
-        app.version = "bkjs/1.0.0";
-        rc = await db.agetConfig();
-        assert.partialDeepStrictEqual(rc.data, [ { name: "param1" }, { name: "param3", value: "stime" } ]);
-
-        await db.aput("bk_config", { type: type3, name: "param1", value: "zero", stime: 0, etime: 0 })
-        await lib.sleep(250);
-
-        rc = await db.agetConfig();
-        assert.partialDeepStrictEqual(rc.data, [ { name: "param1", value: "ok" }, { name: "param3", value: "stime" }, { name: "param1", value: "zero" }]);
-
+        rc = await db.aget("bk_test1", { id: id1, key1, key2 });
+        assert.strictEqual(rc?.info?.cached, 2)
     });
 
-    it("check cleanup rules", () => {
+    it("db cleanup", () => {
 
         var tables = {
             cleanup: {

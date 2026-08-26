@@ -1,11 +1,9 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     
     <meta charset="utf-8">
-    <title>lib/metrics/Histogram.js - Backendjs Documentation</title>
+    <title>LRUCache - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,74 +39,351 @@
 
 <div id="main">
     
-    <h1 class="page-title">lib/metrics/Histogram.js</h1>
+    <h1 class="page-title">LRUCache</h1>
     
 
     
 
 
 
+
+<section>
+
+
+
+<header>
     
-    <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>
-const perf_hooks = require("node:perf_hooks");
+        <h2>
+        
+            LRUCache
+        
+        </h2>
+        
+            <div class="class-description usertext"><p>Simple LRU cache in memory, supports get,put,del operations only, TTL can be specified in milliseconds as future time</p></div>
+        
+    
+</header>
 
-module.exports = class Histogram {
+<article>
+    
+        <div class="container-overview">
+        
+            
 
-    /**
-    *  - Histogram - Keeps a resevoir of statistically relevant values biased towards the last 5 minutes to explore their distribution
-    *    - count: The number of observed values.
-    *    - min: The lowest observed value.
-    *    - max: The highest observed value.
-    *    - mean: The average of all observed values.
-    *    - dev: The standard deviation of all observed values.
-    *    - med: median, 50% of all values in the resevoir are at or below this value.
-    *    - p75: See median, 75% percentile.
-    *    - p95: See median, 95% percentile.
-    *    - p99: See median, 99% percentile.
-    *    - p999: See median, 99.9% percentile.
-    * @param {object} [options]
-    * @class Histogram
-    */
-'use strict';
-    constructor(options) {
-        if (options?.reset) this._reset = options?.reset;
-        this._handle = perf_hooks.createHistogram();
-    }
+    
+    <h2 class="subsection-title">Constructor</h2>
+    
 
-    update(value) {
-        this.lastUpdate = Date.now();
-        this._handle.record(typeof value === "number" &amp;&amp; value > 0 ? value : 1);
-    }
+    <h4 class="name" id="LRUCache"><span class="type-signature"></span>new LRUCache<span class="signature">(max<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
 
-    reset() {
-        this._handle.reset();
-    }
+    
 
-    toJSON(options) {
-        this.lastJSON = Date.now();
 
-        const rc = {
-            count: this._handle.count,
-            min: this._handle.min,
-            max: this._handle.max,
-            mean: this._handle.mean,
-            dev: this._handle.stddev,
-            med: this._handle.percentile(50),
-            p25: this._handle.percentile(25),
-            p75: this._handle.percentile(75),
-            p95: this._handle.percentile(95),
-            p99: this._handle.percentile(99),
-        };
-        if (this._reset || options?.reset) this.reset();
-        return rc;
-    }
-}
 
-</code></pre>
-        </article>
-    </section>
+
+<dl class="details">
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="lib_lib_lru.js.html">lib/lib/lru.js</a>, <a href="lib_lib_lru.js.html#line19">line 19</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-parameters">Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+        <th>Default</th>
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>max</code></td>
+            
+
+            <td class="type">
+            
+                number
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+                <td class="default">
+                
+                    <code>10000</code>
+                
+                </td>
+            
+
+            <td class="description last"><p>max number of items in the cache</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <h5 class="h5-examples">Example</h5>
+    
+    <pre class="prettyprint"><code>const { lib } = require("backendjs")
+
+const lru = new lib.LRUCache(1000)</code></pre>
+
+
+
+
+
+        
+        </div>
+    
+
+    
+
+    
+
+    
+
+    
+    
+    
+
+     
+
+    
+
+    
+        <a name="members">
+            <h2 class="subsection-title">Members</h2>
+        </a>
+
+        
+            
+<h4 class="name" id="map"><span class="type-signature"></span>map<span class="type-signature"> :Map</span></h4>
+
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Map to hold items</p></li></ul></dd>
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="lib_lib_lru.js.html">lib/lib/lru.js</a>, <a href="lib_lib_lru.js.html#line24">line 24</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+        
+            
+<h4 class="name" id="max"><span class="type-signature"></span>max<span class="type-signature"> :number</span></h4>
+
+
+
+
+
+<dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Max items to keep in the map</p></li></ul></dd>
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="lib_lib_lru.js.html">lib/lib/lru.js</a>, <a href="lib_lib_lru.js.html#line27">line 27</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+        
+
+    
+
+
+    
+
+    
+</article>
+
+</section>
 
 
 
