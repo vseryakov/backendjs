@@ -3,7 +3,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>QueueClient - Backendjs Documentation</title>
+    <title>Using the `lib` Module - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -39,1581 +39,699 @@
 
 <div id="main">
     
-    <h1 class="page-title">QueueClient</h1>
-    
 
-    
-
-
-
-
-<section>
-
-
+    <section>
 
 <header>
-    
-        <h2>
-            <span class="ancestors"><a href="module-queue.html">module:queue</a>.</span>
-        
-        
-            QueueClient
-        
-        </h2>
-        
-            <div class="class-description usertext"><p>Base class for the queue clients, implements queue protocol in the same class,
-not supported methods just do nothing without raising any errors</p></div>
-        
     
 </header>
 
 <article>
-    
-        <div class="container-overview">
-        
-            
-
-    
-    <h2 class="subsection-title">Constructor</h2>
-    
-
-    <h4 class="name" id="QueueClient"><span class="type-signature"></span>new QueueClient<span class="signature">(options)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line19">line 19</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-parameters">Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>options</code></td>
-            
-
-            <td class="type">
-            
-                object
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
+    <h1 id="using-the-lib-module">Using the <code>lib</code> Module</h1>
+<p>The <code>lib</code> module is the Swiss-army knife of backendjs — a rich collection of utilities you can use directly, without adding a single external npm dependency. Need to parse JSON, format strings, generate UUIDs, make HTTP requests, validate input, or manage a connection pool? It's already there.</p>
+<blockquote>
+<p><strong>Why it matters:</strong> Instead of pulling in <code>lodash</code>, <code>moment</code>, <code>uuid</code>, <code>crypto-js</code>, <code>axios</code>, etc., backendjs gives you all of that in one import. Every method you need lives under <code>lib</code>.</p>
+</blockquote>
+<hr>
+<pre class="prettyprint source lang-js"><code>const { lib } = require(&quot;backendjs&quot;);
+</code></pre>
+<hr>
+<h2 id="quick-categories">Quick categories</h2>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Where it lives</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔍 Type checking</td>
+<td><code>is.js</code></td>
+<td><code>isObject</code>, <code>isNumber</code>, <code>isArray</code>, <code>isFunc</code>, …</td>
+</tr>
+<tr>
+<td>✅ Validation</td>
+<td><code>validate.js</code></td>
+<td>Schema-based validation and type coercion</td>
+</tr>
+<tr>
+<td>🌊 Flow control</td>
+<td><code>flow.js</code></td>
+<td><code>forEach</code>, <code>forEachLimit</code>, <code>parallel</code>, <code>series</code></td>
+</tr>
+<tr>
+<td>🔤 Strings</td>
+<td><code>str.js</code>, <code>conv.js</code></td>
+<td>regex, trim, split, sprintf, compress, word find</td>
+</tr>
+<tr>
+<td>🔄 Conversions</td>
+<td><code>conv.js</code></td>
+<td><code>toNumber</code>, <code>toBool</code>, <code>toTitle</code>, <code>toCamel</code>, <code>toBase64</code>, …</td>
+</tr>
+<tr>
+<td>🗂️ Objects &amp; arrays</td>
+<td><code>obj.js</code></td>
+<td><code>clone</code>, <code>flatten</code>, <code>extend</code>, <code>arrayUnique</code></td>
+</tr>
+<tr>
+<td>📅 Date &amp; time</td>
+<td><code>time.js</code></td>
+<td><code>strftime</code>, <code>localEpoch</code>, timezone parsing, DST</td>
+</tr>
+<tr>
+<td>📁 Files &amp; paths</td>
+<td><code>file.js</code></td>
+<td><code>readFile</code>, <code>moveFile</code>, <code>findByGlob</code>, <code>watchFiles</code></td>
+</tr>
+<tr>
+<td>🌐 HTTP / fetch</td>
+<td><code>fetch.js</code></td>
+<td><code>fetch</code>, <code>afetch</code> — get/post JSON or files</td>
+</tr>
+<tr>
+<td>🖥️ Process exec</td>
+<td><code>proc.js</code></td>
+<td><code>execProcess</code>, <code>spawnProcess</code>, <code>spawnSeries</code></td>
+</tr>
+<tr>
+<td>🖥️ OS info</td>
+<td><code>system.js</code></td>
+<td><code>cpuStats</code>, <code>memoryStats</code>, <code>networkInterfaces</code></td>
+</tr>
+<tr>
+<td>🔐 Crypto</td>
+<td><code>crypto.js</code></td>
+<td>AES encrypt/decrypt, sign, TOTP, random gen</td>
+</tr>
+<tr>
+<td>#️⃣ Hashing</td>
+<td><code>hash.js</code>, <code>hashids.js</code></td>
+<td>MD5/SHA256/… and short human-readable ids</td>
+</tr>
+<tr>
+<td>🆔 UUID / Snowflake</td>
+<td><code>uuid.js</code></td>
+<td>UUID v4, v5, and snowflake IDs</td>
+</tr>
+<tr>
+<td>🍪 JWT</td>
+<td><code>jwt.js</code></td>
+<td>Full JWT sign/verify with multiple algorithms</td>
+</tr>
+<tr>
+<td>🧠 Memory cache</td>
+<td><code>lru.js</code></td>
+<td><code>LRUCache</code> with TTL and max size</td>
+</tr>
+<tr>
+<td>🔁 Resource pool</td>
+<td><code>pool.js</code></td>
+<td>Managed pools for DB connections, etc.</td>
+</tr>
+<tr>
+<td>🍱 i18n</td>
+<td><code>lib.js</code> (top)</td>
+<td><code>lib.__()</code> for translation</td>
+</tr>
+<tr>
+<td>⏱️ Respawn throttle</td>
+<td><code>respawn.js</code></td>
+<td>Avoid crash-loops on service restarts</td>
+</tr>
+<tr>
+<td>📋 MIME types</td>
+<td><code>mime.js</code></td>
+<td><code>getMimeType</code>, <code>getExtension</code></td>
+</tr>
+</tbody>
 </table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-        </div>
-    
-
-    
-
-    
-
-    
-
-    
-    
-    
-
-     
-
-    
-
-    
-
-
-    
-        <a name="methods">
-            <h2 class="subsection-title">Methods</h2>
-        </a>
-
-        
-            
-
-    
-
-    <h4 class="name" id="_poll_del"><span class="type-signature"></span>_poll_del<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Delete an item from the queue by id</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line241">line 241</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="_poll_emit"><span class="type-signature"></span>_poll_emit<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Error safe emit, catch and report errors</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line269">line 269</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="_poll_get"><span class="type-signature"></span>_poll_get<span class="signature">()</span><span class="type-signature"> &rarr; {Array.&lt;object>}</span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Return a list of items from the queue</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line230">line 230</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5 class="h5-returns">Returns:</h5>
-
-        <table class="params">
-    <thead>
-    <tr>
-        <th>Type</th>
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-        <tr>
-            <td class="type">
-                Array.&lt;object>
-            </td>
-            <td class="description last">
-                
-                <ul>
-<li>{ id, data }</li>
+<hr>
+<h2 id="1-%F0%9F%94%8D-type-checking">1 🔍 Type checking</h2>
+<p>Most <code>is*</code> helpers are <strong>value-returning, not boolean</strong>: they return the validated value itself (or a <code>dflt</code> fallback) when the check passes, and <code>undefined</code>/the default otherwise. This lets you check and use the value in a single call. Only the pure predicates (<code>isPositive</code>, <code>isNumeric</code>, <code>isEmpty</code>, <code>isPrefixed</code>, <code>isTrue</code>, <code>isMatched</code>, <code>includes</code>) return a strict <code>true</code>/<code>false</code>.</p>
+<p>Value-returning (<code>returns value, or dflt / undefined</code>):</p>
+<pre class="prettyprint source lang-js"><code>lib.isObject({ a: 1 })     // { a: 1 }
+lib.isObject(&quot;x&quot;)           // undefined
+
+lib.isNumber(42)            // 42
+lib.isNumber(&quot;x&quot;)           // NaN
+lib.isString(val, &quot;&quot;)       // the string, or &quot;&quot; if not a string
+lib.isArray(val, [])        // the array, or [] if not a non-empty array
+lib.isFunc(cb, lib.noop)    // the function, or lib.noop if not a function
+lib.isDate(d)               // the Date, or undefined if invalid
+lib.isRegExp(r)             // the RegExp, or undefined
+lib.isUuid(str, &quot;uuid&quot;)     // the uuid string, or undefined
+lib.isUnicode(str)          // the string if it contains Unicode chars, else undefined
+</code></pre>
+<p>Boolean-returning (strict <code>true</code>/<code>false</code>):</p>
+<pre class="prettyprint source lang-js"><code>lib.isPositive(n)           // true if n > 0
+lib.isNumeric(s)            // true if s is a number or a string that looks like one
+lib.isEmpty(val)            // true if null / undefined / empty
+lib.isPrefixed(str, &quot;sk-&quot;)  // true if str starts with the prefix
+lib.isTrue(v, cond, op, type)  // true if v matches: &quot;5&quot;, 10, &quot;&lt;=&quot;, &quot;number&quot;
+</code></pre>
+<p><strong>Safe, generic call</strong> (returns the function result, or <code>undefined</code>):</p>
+<pre class="prettyprint source lang-js"><code>// call(obj, method, ...): if obj is a function, call it; else call a method on the object
+lib.call(func, arg1)         // → func(arg1)
+lib.call(obj, fn, arg1)      // → fn.call(obj, arg1)
+lib.call(ctx, &quot;method&quot;, a)   // → ctx.method(a)
+</code></pre>
+<p><strong>Type-aware helpers</strong> (return a detected type/name):</p>
+<pre class="prettyprint source lang-js"><code>lib.typeName(null)                   // &quot;null&quot;
+lib.typeName(Buffer.from(&quot;x&quot;))       // &quot;buffer&quot;
+lib.typeName(new Error(&quot;o&quot;))         // &quot;error&quot;
+
+lib.autoType(&quot;42&quot;)                   // &quot;number&quot;
+lib.autoType(&quot;true&quot;)                 // &quot;bool&quot;
+lib.includes([1, 2, 3], 2)           // true (boolean)
+lib.isSimilar(&quot;test&quot;, &quot;tset&quot;)        // ~0.97 similarity score in 0..1
+lib.isMatched(user, { role: &quot;admin&quot; })  // true (deep match)
+
+---
+
+## 2 ✅ Validation & type coercion
+
+The **two-pass** pattern in backendjs is: coerce first, then validate. Use `lib.validate()` to feed a raw query through a schema — types, required fields, lengths, regex patterns — and get back either a clean `data` object or an `err`. `validate()` returns `{ err, data }`: `err` is `{ status, message, name, code }` (or `null`), `data` is the cleaned, typed object with defaults filled in.
+
+```js
+const schema = {
+    name: {
+        type: &quot;string&quot;,
+        required: true,
+        label: &quot;Name&quot;,
+        not_empty: true,
+    },
+    age: {
+        type: &quot;int&quot;,
+        min_num: 0,
+        max_num: 150,
+    },
+    role: {
+        type: &quot;string&quot;,
+        values: [&quot;admin&quot;, &quot;user&quot;, &quot;mod&quot;],
+    },
+    tags: {
+        type: &quot;list&quot;,
+        separator: &quot;|&quot;,
+        min_list: 0,
+        max_list: 10,
+        no: /^[a-z0-9_-]+$/i,
+    },
+    email: {
+        type: &quot;email&quot;,
+        required: true,
+    },
+    active: {
+        type: &quot;bool&quot;,
+        dflt: true,   // assign default when missing
+    },
+};
+
+const { err, data } = lib.validate(query, schema);
+// err    — { status, message, name, code } | null
+// data   — cleaned, typed object (defaults filled in)
+</code></pre>
+<p>For single values just use the helpers:</p>
+<pre class="prettyprint source lang-js"><code>lib.validNumber(&quot;x&quot;, 0)      // 0  — first valid number from args
+lib.validBool(1, false)      // true
+lib.validFunc(cb, noop)
+lib.validVersion(&quot;1.2.3&quot;, &quot;>=1.0.0&quot;)  // true
+</code></pre>
+<hr>
+<h2 id="3-%F0%9F%8C%8A-flow-control">3 🌊 Flow control</h2>
+<p>Drop-in replacements for <code>async</code>/<code>lodash</code> iteration — every variant returns results through a callback (or use <code>a</code>-prefixed async versions):</p>
+<pre class="prettyprint source lang-js"><code>// Parallel iteration
+await lib.forEach(items, (item, next) => {
+    processAsync(item, err => next(err));
+});
+
+// Limited concurrency
+await lib.forEachLimit(items, 10, (item, next) => { ... next(); });
+
+// Series
+await lib.forEachSeries(items, (item, next) => { ... next(); });
+
+// Parallel & Series tasks
+await lib.parallel([
+    async (cb) => { cb(null, 1); },
+    async (cb) => { cb(null, 2); },
+]);
+
+// While / do-while
+await lib.whilst(test, iterator, cb);
+await lib.doWhilst(iterator, test, cb);
+
+// With an accumulator
+await lib.forEachItem({ accum: [] }, (list, next) => {
+    this.accum.push(...list);
+}, (err) => { ... });
+</code></pre>
+<hr>
+<h2 id="4-%F0%9F%94%A4-strings-%26-conversions">4 🔤 Strings &amp; conversions</h2>
+<h3 id="string-utilities">String utilities</h3>
+<pre class="prettyprint source lang-js"><code>lib.trim(str, &quot; \n&quot;)
+lib.split(&quot;a,b|c&quot;, /[,|]/)
+lib.wrap(text, { length: 80 })
+lib.sprintf(&quot;%s has %d items&quot;, &quot;alice&quot;, 3)
+lib.replaceRegexp(str, /foo/g, &quot;bar&quot;)
+lib.testRegexp(str, /foo/)
+lib.matchRegexp(str, /foo-(\d+)/, 1)
+lib.matchAllRegexp(str, /\w+/g)
+lib.testRegexpObj(obj, rx)
+lib.lzCompress(data)            // Lempel–Ziv
+lib.lzDecompress(data)
+lib.findWords([&quot;foo&quot;, &quot;bar&quot;], text)
+lib.AhoCorasick([&quot;needle&quot;])     // multi-pattern search
+lib.phraseSplit(&quot;foo bar baz&quot;)  // respects quoted strings
+lib.zeropad(7, 4)               // &quot;0007&quot;
+</code></pre>
+<h3 id="conversions-%E2%80%94-all-lib.to%E2%80%A6">Conversions — all <code>lib.to…</code></h3>
+<pre class="prettyprint source lang-js"><code>lib.toNumber(&quot;42.5&quot;,    { float: true })
+lib.toBool(&quot;yes&quot;,       { dflt: false })
+lib.toDate(&quot;2024-01-01&quot;)
+lib.toMtime(&quot;7d&quot;)
+lib.toTitle(&quot;hello world&quot;)   // &quot;Hello World&quot;
+lib.toCamel(&quot;foo_bar-baz&quot;)   // &quot;fooBarBaz&quot;
+lib.toUncamel(&quot;fooBarBaz&quot;, &quot;_&quot;)  // &quot;foo_bar_baz&quot;
+lib.toVersion(&quot;1.2.3&quot;)
+lib.toDigits(&quot;a1b2c3&quot;)       // &quot;123&quot;
+lib.toBase64url(&quot;hello&quot;)
+lib.fromBase64url(str, true) // binary
+lib.toUrl(&quot;hello world&quot;)
+lib.toPrice(1234.5)
+lib.toEmail(&quot;  foo@example.com  &quot;)
+lib.toSize(1048576)          // &quot;1M&quot;
+lib.toSkip32(&quot;inc&quot;, 12345, 1)
+lib.toRFC3339(date)
+lib.toCookie(&quot;sid&quot;, &quot;abc&quot;, { httpOnly: true })
+
+// JSON helpers
+lib.stringify(obj, null, 2)
+lib.inspect(obj, { errstack: true })
+lib.unicode2Ascii(&quot;résumé&quot;)
+lib.escapeUnicode(str)
+lib.unescape(str)
+lib.textToXml(str)
+lib.textToEntity(str)
+lib.entityToText(str)
+
+// Templates
+lib.toTemplate(&quot;Hello @name@!&quot;, { name: &quot;Alice&quot; })
+lib.toFormat(&quot;id-%id-amount-%amount&quot;, { id: 1, amount: 10 })
+lib.toMap(&quot;a:1,b:2:c:3&quot;)     // -> { a: 1, b: 2, c: 3 }
+
+// Duration & time format
+lib.toDuration(3600, &quot;seconds&quot;)
+lib.toMilliseconds(&quot;5m&quot;)
+</code></pre>
+<hr>
+<h2 id="5-%F0%9F%97%82%EF%B8%8F-objects-%26-arrays">5 🗂️ Objects &amp; arrays</h2>
+<pre class="prettyprint source lang-js"><code>lib.clone(obj)
+lib.flatten(obj, { separator: &quot;.&quot; })   // -> { &quot;a.b&quot;: 1, ... }
+lib.extend({}, defaults, overrides)
+lib.shuffle(list)
+lib.arrayLength(list)
+lib.arrayRemove(list, item)
+lib.arrayUnique(list, &quot;id&quot;)
+lib.arrayEqual(a, b)
+lib.arrayFlatten(list)
+lib.arrayUpdate(cmd, list, &quot;id&quot;)
+lib.objGet(obj, &quot;a.b.c&quot;)              // dotted path
+lib.objSet(obj, &quot;a.b&quot;, 1)
+lib.objIncr(obj, &quot;count&quot;, 1)
+lib.objMult(obj, &quot;count&quot;, 2)
+lib.objKeys(obj)
+lib.objSize(obj)
+</code></pre>
+<hr>
+<h2 id="6-%F0%9F%93%85-date-%26-time">6 📅 Date &amp; time</h2>
+<pre class="prettyprint source lang-js"><code>lib.now()                         // seconds since epoch
+lib.localEpoch(&quot;s&quot;)               // seconds since _epoch (2026-01-01)
+lib.localEpoch(&quot;m&quot;)               // microseconds
+lib.clock()                       // microseconds since 1970
+lib.daysInMonth(2025, 2)          // 28
+lib.weekOfYear(date)              // 9
+lib.weekDate(2025, 9)             // -> [2025-02-24, Wed]
+lib.isDST(date)
+lib.tzName(&quot;PDT&quot;)                 // &quot;Pacific Daylight Time&quot;
+lib.parseTime(&quot;14:30&quot;)
+lib.isTimeRange(t1, t2)
+lib.strftime(new Date(), &quot;%Y-%m-%d %H:%M:%S %Z&quot;)
+</code></pre>
+<hr>
+<h2 id="7-%F0%9F%93%81-file-system">7 📁 File system</h2>
+<p>Every operation has a sync and an async (<code>a</code>-prefixed) form:</p>
+<pre class="prettyprint source lang-js"><code>const { err, data, info } = await lib.afileRead(&quot;users.csv&quot;);
+// info — { path, size, mtime, ... }
+
+// Stream line-by-line from a file (or stdin):
+await lib.readLines(process.stdin, { type: &quot;text&quot; }, (line) => {
+    console.log(line);
+});
+// or iterate sync:
+lib.forEachLineSync(&quot;data.csv&quot;, { separator: &quot;,&quot; }, (row) => { ... });
+
+// Write
+await lib.writeLines(&quot;out.txt&quot;, [&quot;a&quot;, &quot;b&quot;, &quot;c&quot;]);
+
+// Move / copy / remove
+await lib.moveFile(&quot;old&quot;, &quot;new&quot;, true);
+await lib.copyFile(&quot;src&quot;, &quot;dst&quot;, false);
+await lib.unlink(&quot;file.txt&quot;);
+await lib.unlinkPath(&quot;/tmp/cache&quot;);  // remove a directory tree
+
+// Find files by glob
+const found = lib.findFileSync(&quot;/app&quot;, { include: [&quot;*.{js,ts}&quot;] });
+const found = await lib.findFile(&quot;/app&quot;, { include: [&quot;*.md&quot;] }, (err, files) => {});
+const filtered = lib.findFileSync(&quot;/app&quot;, {
+    include: [&quot;*.{js,ts}&quot;],
+    filter: (file, stat) => stat.size > 100
+});
+
+// Watch for changes
+await lib.watchFiles({ dir: &quot;/watched&quot;, include: &quot;*.js&quot; }, (file, stat) => {
+    console.log(&quot;changed:&quot;, file);
+});
+
+// Path helpers (sanitizes, validates)
+lib.sanitizePath(&quot;/../../../etc/passwd&quot;)   // &quot;../etc/passwd&quot;
+lib.validatePath(&quot;/foo/bar&quot;)               // absolute path
+lib.makePath(&quot;/new/dir&quot;)                   // mkdir -p
+</code></pre>
+<hr>
+<h2 id="8-%F0%9F%8C%90-http-fetch">8 🌐 HTTP fetch</h2>
+<p>Full <code>fetch()</code> replacement built on Node http/https:</p>
+<pre class="prettyprint source lang-js"><code>lib.fetch(&quot;https://api.example.com/user/123&quot;, {
+    headers: { &quot;Authorization&quot;: &quot;Bearer &quot; + jwt },
+    retryCount: 3,
+    retryTimeout: 500,
+    timeout: 5000,
+    type: &quot;json&quot;,             // auto-JSON
+    // or type: &quot;file&quot;, download to /tmp/x.jpg
+}, (err, req) => {
+    console.log(req.status);
+    console.log(req.obj);     // parsed JSON
+});
+
+// Async variant
+const { status, obj } = await lib.afetch(url, options);
+</code></pre>
+<hr>
+<h2 id="9-%F0%9F%96%A5%EF%B8%8F-process-execution">9 🖥️ Process execution</h2>
+<pre class="prettyprint source lang-js"><code>lib.execProcess(&quot;git status&quot;, (err, out, code) => {
+    console.log(out);
+});
+
+lib.spawnProcess(&quot;node&quot;, [&quot;server.js&quot;], { env: {...}, timeout: 30000 }, (err, code) => {});
+
+// Run commands in series (one after another):
+await lib.spawnSeries([&quot;git pull&quot;, &quot;npm install&quot;, &quot;npm build&quot;]);
+</code></pre>
+<hr>
+<h2 id="10-%F0%9F%96%A5%EF%B8%8F-system-info">10 🖥️ System info</h2>
+<pre class="prettyprint source lang-js"><code>lib.networkInterfaces()
+{ ifaces: [{ name, description, addrs }] }
+
+lib.networkStats(&quot;eth0&quot;)
+
+// CPU / memory / heap
+const { cpu } = lib.cpuStats()
+const { memory } = lib.memoryStats()
+const { heap } = lib.heapStats()
+
+lib.dropPrivileges(uid, gid)       // become nobody
+lib.ip2int(&quot;192.168.1.1&quot;)
+lib.int2ip(3232235777)
+lib.inCidr(&quot;192.168.1.5&quot;, &quot;192.168.1.0/24&quot;)
+lib.cidrRange(&quot;192.168.1.0/24&quot;)
+lib.domain(&quot;www.example.co.uk&quot;)
+</code></pre>
+<hr>
+<h2 id="11-%F0%9F%94%90-crypto-%26-secrets">11 🔐 Crypto &amp; secrets</h2>
+<pre class="prettyprint source lang-js"><code>lib.random(16);            // 16 random bytes (Buffer)
+lib.randomBytes(32, &quot;base64&quot;);
+lib.randomUShort();
+lib.randomShort();
+lib.randomUInt();
+lib.randomFloat();
+lib.randomInt(1, 100);
+lib.randomNum(1, 10, 2);  // 2-decimal float
+
+lib.encrypt(key, data, { iv, salt });
+lib.decrypt(key, data, { iv, salt });
+lib.sign(data, &quot;secret&quot;, &quot;sha256&quot;, &quot;hex&quot;);
+lib.timingSafeEqual(a, b);
+
+// TOTP (2FA):
+lib.totp(&quot;JBSWY3DPEHPK3PXP&quot;, { digits: 6, period: 30 });
+
+// Secret verification (bcrypt-like):
+const { hash, err } = await lib.aprepareSecret(&quot;password&quot;);
+const { ok, err } = await lib.acheckSecret(hash, &quot;password&quot;);
+</code></pre>
+<hr>
+<h2 id="12-%23%EF%B8%8F%E2%83%A3-hashing">12 #️⃣ Hashing</h2>
+<pre class="prettyprint source lang-js"><code>// Algorithms: md5, sha1, sha256, sha512, ripemd160
+const digest = lib.hash(&quot;hello&quot;, &quot;sha256&quot;, &quot;hex&quot;);
+
+// MurmurHash3 (fast string hash)
+const h = lib.murmurHash3(&quot;myKey&quot;);
+</code></pre>
+<p><strong>Hashids</strong> — short human-readable IDs (encode numbers → obfuscated strings):</p>
+<pre class="prettyprint source lang-js"><code>// First time: create with salt
+const hashids = lib.getHashid({ salt: &quot;my-app&quot; });
+const encoded = hashids.encode(12345);   // &quot;3278413&quot;
+
+// From a config with minLen
+const hashids2 = lib.getHashid({ min: 8 });
+const id = hashids2.encode(1);           // 8-char padded
+
+const num = hashids.decode(id);           // [1]
+</code></pre>
+<p><em>(Cached per salt — same salt gives the same instance.)</em></p>
+<hr>
+<h2 id="13-%F0%9F%86%94-uuid-%26-snowflake">13 🆔 UUID &amp; Snowflake</h2>
+<pre class="prettyprint source lang-js"><code>lib.uuid()                    // &quot;xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx&quot;
+lib.uuid(&quot;short&quot;)             // short dash-less
+lib.uuidv5(&quot;example.com&quot;)     // deterministic v5
+lib.uuidv5({ ns: &quot;url&quot;, text: &quot;...&quot; })
+
+// Snowflake IDs (globally unique, time-ordered)
+const sf = lib.sfuuid();     // &quot;18234760&quot;
+lib.sfuuid({ id: &quot;my-service&quot; });
+
+// Parse a snowflake back
+const { created, id } = lib.sfuuidParse(sf);
+</code></pre>
+<hr>
+<h2 id="14-%F0%9F%8D%AA-json-%2F-config-%2F-cookie-parsing">14 🍪 JSON / Config / Cookie parsing</h2>
+<pre class="prettyprint source lang-js"><code>// JSON
+const obj = lib.jsonParse('{&quot;a&quot;: 1}');
+lib.stringify(obj, null, 2);
+
+// XML (minimal)
+lib.xmlParse(&quot;&lt;root>&lt;item>1&lt;/item>&lt;/root>&quot;);
+
+// Config-like: key=value files
+lib.configParse(&quot;name=Alice\nage=30&quot;);
+
+// Cookie header
+lib.parseCookies(&quot;sid=abc; user=joe&quot;);
+</code></pre>
+<hr>
+<h2 id="15-%F0%9F%8D%94-i18n">15 🍔 i18n</h2>
+<pre class="prettyprint source lang-js"><code>lib.locale = &quot;en&quot;;
+
+// Load a JSON dictionary
+lib.loadLocale(&quot;./locales/en.json&quot;);
+lib.loadLocale(&quot;./locales/pt.json&quot;);
+
+// Translate
+lib.__(&quot;Hello&quot;);                  // &quot;Hola&quot; (from pt) — falls back to English key
+lib.__(&quot;Hello %s!&quot;, &quot;World&quot;);     // &quot;Hola World!&quot; — with sprintf
+lib.__({ phrase: &quot;Hello %s&quot;, locale: &quot;pt&quot; });  // switch language
+</code></pre>
+<hr>
+<h2 id="16-%F0%9F%A7%A0-caching-%26-pools">16 🧠 Caching &amp; pools</h2>
+<h3 id="lrucache-%E2%80%94-in-memory-key%2Fvalue-with-ttl">LRUCache — in-memory key/value with TTL</h3>
+<pre class="prettyprint source lang-js"><code>const lru = new lib.LRUCache(1000);  // max 1000 items
+
+lru.put(&quot;k1&quot;, { a: 1 }, 60e3);      // TTL 60 sec
+console.log(lru.get(&quot;k1&quot;));          // { a: 1 }
+lru.del(&quot;k1&quot;);                       // remove
+console.log(lru.size);               // 0
+console.log(lru.max);                // 1000
+</code></pre>
+<h3 id="pool-%E2%80%94-manage-finite-resources-(db-conns%2C-worker-slots)">Pool — manage finite resources (DB conns, worker slots)</h3>
+<pre class="prettyprint source lang-js"><code>const pool = new lib.Pool({
+    min: 1,
+    max: 5,
+    max_queue: 50,
+    timeout: 5000,
+    idle: 300000,
+    create: (p, cb) => { openConn(cb); },
+    destroy: (item) => { item.close(); },
+    reset: (item) => { /* reset connection state */ },
+    validate: (item) => { return !item.stale },
+});
+await pool.init();
+
+// Use
+let item;
+try {
+    item = await pool.ause();        // or await pool.use(cb)
+    await item.doWork();
+} finally {
+    pool.release(item);
+}
+await pool.shutdown();
+</code></pre>
+<hr>
+<h2 id="16%F0%9F%94%81-respawn-%2F-crash-loop-throttler">16🔁 Respawn / crash-loop throttler</h2>
+<p>For background services that restart:</p>
+<pre class="prettyprint source lang-js"><code>function restart() {
+    lib.respawn.check(() => {
+        startWorker();   // throttled — won't restart faster than interval
+        // After N rapid respawns, delays until delay threshold
+    });
+}
+</code></pre>
+<hr>
+<h2 id="17-%F0%9F%86%95-safe-error-creation">17 🆕 Safe error creation</h2>
+<pre class="prettyprint source lang-js"><code>// HTTP-style errors with status / code
+lib.newError(&quot;not found&quot;, 404)
+lib.newError(&quot;not found&quot;, 404, &quot;NOTFOUND&quot;)
+lib.newError(&quot;bad input&quot;, { status: 422, path: &quot;/users&quot;, code: &quot;BADINPUT&quot; })
+// → Error { message: &quot;bad input&quot;, status: 422, path: &quot;/users&quot;, code: &quot;BADINPUT&quot; }
+</code></pre>
+<hr>
+<h2 id="18-%F0%9F%94%A7-misc-helpers">18 🔧 Misc helpers</h2>
+<pre class="prettyprint source lang-js"><code>lib.noop()                              // empty function — no-arg callback default
+lib.log(...args)                        // pretty-print for debugging
+lib.traceError(err)                     // formatted error line
+lib.tryCall(fn, args)                   // safe callback (warns if not a function)
+lib.tryLater(fn, ms, args)              // defer callback by N ms
+lib.tryCatch(() => { riskyCode() })     // returns err, logs it, safe
+lib.tryRequire(&quot;optional-dep&quot;)          // load w/o throwing
+lib.getArg(&quot;--port&quot;)                    // CLI argument reader
+lib.getArgInt(&quot;-n&quot;, 10)
+lib.isArg(&quot;--verbose&quot;)
+lib.sprintf(&quot;%.2f&quot;, 3.14)              // string formatting
+lib.toFormat(&quot;id-%id&quot;, { id: 42 })     // named template
+lib.sleep(1000)                        // async sleep
+lib.sortByVersion(list, &quot;name&quot;)        // version-aware sort
+lib.matchAllRegexp(str, rx)            // global match
+</code></pre>
+<hr>
+<h2 id="quick-reference-table">Quick reference table</h2>
+<p>Use <code>lib.</code> + name + <code>(...)</code> for callback style; prepend <code>a</code> for async/await on async methods.</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Key methods</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Type</strong></td>
+<td><code>isObject</code>, <code>isNumber</code>, <code>isString</code>, <code>isDate</code>, <code>isArray</code>, <code>isFunc</code>, <code>isUuid</code>, <code>isEmpty</code>, <code>isPositive</code>, <code>isNumeric</code></td>
+</tr>
+<tr>
+<td><strong>Validate</strong></td>
+<td><code>validate(schema)</code>, <code>validNumber</code>, <code>validBool</code>, <code>validFunc</code>, <code>validVersion</code></td>
+</tr>
+<tr>
+<td><strong>Flow</strong></td>
+<td><code>forEach</code>, <code>forEachLimit</code>, <code>forEachSeries</code>, <code>parallel</code>, <code>series</code>, <code>while</code>, <code>doWhile</code>, <code>forEachItem</code></td>
+</tr>
+<tr>
+<td><strong>String</strong></td>
+<td><code>sprintf</code>, <code>trim</code>, <code>split</code>, <code>wrap</code>, <code>replaceRegexp</code>, <code>matchRegexp</code>, <code>toMatch</code>, <code>lzCompress</code>, <code>lzDecompress</code>, <code>findWords</code>, <code>AhoCorasick</code></td>
+</tr>
+<tr>
+<td><strong>Conv</strong></td>
+<td><code>toNumber</code>, <code>toBool</code>, <code>toTitle</code>, <code>toCamel</code>, <code>toUrl</code>, <code>toBase64url</code>, <code>toSize</code>, <code>toDuration</code>, <code>toMilliseconds</code>, <code>jsonToBase64</code>, <code>toRFC3339</code>, <code>toCookie</code>, <code>toFormat</code>, <code>toTemplate</code></td>
+</tr>
+<tr>
+<td><strong>Obj/Array</strong></td>
+<td><code>clone</code>, <code>flatten</code>, <code>extend</code>, <code>shuffle</code>, <code>arrayRemove</code>, <code>arrayUnique</code>, <code>arrayEqual</code>, <code>objGet</code>, <code>objSet</code>, <code>objIncr</code>, <code>objMult</code>, <code>objKeys</code>, <code>objSize</code></td>
+</tr>
+<tr>
+<td><strong>Time</strong></td>
+<td><code>now</code>, <code>localEpoch</code>, <code>clock</code>, <code>strftime</code>, <code>daysInMonth</code>, <code>weekOfYear</code>, <code>weekDate</code>, <code>isDST</code>, <code>parseTime</code></td>
+</tr>
+<tr>
+<td><strong>File</strong></td>
+<td><code>readFile</code>, <code>moveFile</code>, <code>copyFile</code>, <code>writeLines</code>, <code>watchFiles</code>, <code>findFile</code>, <code>sanitizePath</code>, <code>validatePath</code>, <code>makePath</code>, <code>unlink</code>, <code>forEachLine</code>, <code>readLines</code></td>
+</tr>
+<tr>
+<td><strong>HTTP</strong></td>
+<td><code>fetch</code> / <code>afetch</code></td>
+</tr>
+<tr>
+<td><strong>Process</strong></td>
+<td><code>execProcess</code>, <code>spawnProcess</code>, <code>spawnSeries</code></td>
+</tr>
+<tr>
+<td><strong>System</strong></td>
+<td><code>networkInterfaces</code>, <code>cpuStats</code>, <code>memoryStats</code>, <code>heapStats</code>, <code>ip2int</code>, <code>int2ip</code>, <code>inCidr</code>, <code>cidrRange</code></td>
+</tr>
+<tr>
+<td><strong>Crypto</strong></td>
+<td><code>random</code>, <code>randomBytes</code>, <code>encrypt</code>, <code>decrypt</code>, <code>sign</code>, <code>timingSafeEqual</code>, <code>totp</code>, <code>prepareSecret</code></td>
+</tr>
+<tr>
+<td><strong>Hash</strong></td>
+<td><code>hash</code>, <code>murmurHash3</code>, <code>getHashid</code> (encode/decode)</td>
+</tr>
+<tr>
+<td><strong>UUID</strong></td>
+<td><code>uuid</code>, <code>uuidv5</code>, <code>sfuuid</code>, <code>sfuuidParse</code></td>
+</tr>
+<tr>
+<td><strong>Parse</strong></td>
+<td><code>jsonParse</code>, <code>xmlParse</code>, <code>configParse</code>, <code>parseCookies</code></td>
+</tr>
+<tr>
+<td><strong>JWT</strong></td>
+<td><code>JWT.sign</code>, <code>JWT.verify</code>, <code>JWT.exportJwk</code></td>
+</tr>
+<tr>
+<td><strong>Cache</strong></td>
+<td><code>lib.LRUCache(n)</code></td>
+</tr>
+<tr>
+<td><strong>Pool</strong></td>
+<td><code>lib.Pool({min, max, create, destroy})</code></td>
+</tr>
+<tr>
+<td><strong>i18n</strong></td>
+<td><code>lib.__(&quot;key&quot;)</code>, <code>lib.loadLocale(file)</code></td>
+</tr>
+<tr>
+<td><strong>General</strong></td>
+<td><code>newError</code>, <code>sprintf</code>, <code>tryCall</code>, <code>tryCatch</code>, <code>tryRequire</code>, <code>tryLater</code>, <code>log</code>, <code>noop</code>, <code>sleep</code>, <code>getArg</code>, <code>isArg</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="tips">Tips</h2>
+<ul>
+<li><strong>No external deps needed</strong> — the library gives you formatting (<code>sprintf</code>), type coercion (<code>to*</code>), validation (<code>validate</code>), crypto (<code>encrypt/decrypt</code>), HTTP (<code>fetch</code>), UUIDs, hashing, pools, and i18n all in one. Drop <code>lodash</code>, <code>moment</code>, <code>uuid</code>, and similar from your <code>package.json</code>.</li>
+<li><strong>Type coercion is built-in</strong> — <code>validate()</code> doesn't just check types… it converts them. Pass <code>&quot;42&quot;</code> and get a real number; pass <code>&quot;true&quot;</code> and get a boolean, all based on the schema's <code>type</code>.</li>
+<li><strong>Async forms use the <code>a</code> prefix</strong> — <code>a</code> stands for &quot;async&quot;. Every async callback method has an identical <code>a…</code> async form returning <code>{ err, data, info }</code>.</li>
+<li><strong>i18n is just JSON</strong> — put translation dictionaries in <code>locales/*.json</code> and call <code>loadLocale()</code>. Use <code>lib.__()</code> everywhere.</li>
+<li><strong>Hashids caches per salt</strong> — pass the same salt and you get the same instance, encoded values stay deterministic within an app, but encode differently between apps (salted).</li>
+<li><strong>LRU has TTL</strong> — each entry can have a per-item TTL in milliseconds. Pass <code>0</code> for no expiration.</li>
+<li><strong>Pool resets resources</strong> — the <code>reset</code> callback runs on every checkout. Use it to clean up a DB connection before reuse.</li>
+<li><strong>Errors carry <code>status</code></strong> — <code>lib.newError(&quot;msg&quot;, 404, &quot;NOTFOUND&quot;)</code> returns an <code>Error</code> with <code>.status</code> and <code>.code</code> so you can short-circuit middleware without extra logic.</li>
 </ul>
-                
-            </td>
-        </tr>
-    </tbody>
-</table>
-
-    
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="_poll_run"><span class="type-signature"></span>_poll_run<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Perform a single run, pull messages, process all and schedule next run</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line246">line 246</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="_poll_run_item"><span class="type-signature"></span>_poll_run_item<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Run a single item</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line283">line 283</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="_poll_update"><span class="type-signature"></span>_poll_update<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Update visibilityTimeout for the item in ms</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line235">line 235</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="group"><span class="type-signature"></span>group<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Return the group name for the given queue, extract from <code>queueName#</code> or use <code>options.groupName</code>,
-empty string if no group is defined.</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line96">line 96</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="listen"><span class="type-signature"></span>listen<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Listen for incoming messages</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line143">line 143</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="poll"><span class="type-signature"></span>poll<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>This method must take care how to retrieve messages during a single poll cycle, this is called by the <code>schedule</code> method
-automatically in the listen. The typical implementation when using default SQS like logic is just to use <code>this._poll_run</code></p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line192">line 192</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <h5 class="h5-examples">Example</h5>
-    
-    <pre class="prettyprint"><code>poll(options) {
-    this._poll_run(options);
-}</code></pre>
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="purge"><span class="type-signature"></span>purge<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Purge all messages from the queue</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line178">line 178</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="schedule"><span class="type-signature"></span>schedule<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Schedule next poller iteration after <code>pollInterval</code> timeout, check configured <code>maxPollRate</code>, make sure it polls no more than
-configured number of times per second. If not ready then keep polling until the ready signal is sent.</p>
-<p>Two events can be used for back pressure support: <code>pause</code> and <code>unpause</code> to stop/restart queue processing</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line200">line 200</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="subject"><span class="type-signature"></span>subject<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Return the full subject for the given queue to be used for submitting messages, as <code>queueName.subject</code>
-or <code>queueName</code> if no subject is defined.</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line82">line 82</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="submit"><span class="type-signature"></span>submit<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Submit a job to a queue</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line171">line 171</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="subscription"><span class="type-signature"></span>subscription<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Return full subscription name as <code>queueName@subject#group</code> to be used by message listener</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line108">line 108</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
-    <h4 class="name" id="unlisten"><span class="type-signature"></span>unlisten<span class="signature">()</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-
-<dl class="details">
-    
-    <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Stop listening for messages</p></li></ul></dd>
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_queue_client.js.html">lib/queue/client.js</a>, <a href="lib_queue_client.js.html#line156">line 156</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-    
-
-    
 </article>
 
 </section>
-
-
-
 
     
     
