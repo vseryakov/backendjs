@@ -1,11 +1,9 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     
     <meta charset="utf-8">
-    <title>lib/db/sqlpool.js - Backendjs Documentation</title>
+    <title>Using the API Module - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,379 +39,257 @@
 
 <div id="main">
     
-    <h1 class="page-title">lib/db/sqlpool.js</h1>
-    
 
-    
-
-
-
-    
     <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>/*
- *  Author: Vlad Seryakov vseryakov@gmail.com
- *  backendjs 2018
- */
-'use strict';
 
-const logger = require(__dirname + '/../logger');
-const lib = require(__dirname + '/../lib');
-const sql = require(__dirname + '/sql');
-const DbPool = require(__dirname + '/pool');
+<header>
+    
+</header>
 
-exports.defaults = {
-    config: {
-        sql: true,
-        schema: [],
-        features: {
-            limit: 25,
-            not_null: true,
-            auto: true,
-            ifexists: true,
-        },
-        typesMap: {
-            real: "real", float: "float", number: "numeric", numeric: "numeric", decimal: "numeric",
-            bigint: "bigint", smallint: "smallint", int: "bigint", int32: "bigint", int64: "bigint",
-            now: "bigint", mtime: "bigint", clock: "bigint",
-            ttl: "bigint", timeout: "bigint", random: "bigint", counter: "bigint",
-            list: "varchar", set: "varchar", obj: "json", array: "json", object: "json",
-            bool: "boolean",
-            text: "varchar", string: "varchar", str: "varchar", keyword: "varchar",
-            uuid: "varchar", suuid: "varchar", sfuuid: "varchar", email: "varchar",
-            url: "varchar", phone: "varchar", e164: "varchar",
-            "": "varchar",
-        },
-        opsMap: {
-            begins_with: 'like%', ne: "&lt;>", eq: '=', le: '&lt;=', lt: '&lt;', ge: '>=', gt: '>'
-        },
-        keywords: new Set([
-            'ABORT','ACTION','ADD','AFTER','ALL','ALTER','ANALYZE','AND','AS','ASC','ATTACH','AUTOINCREMENT',
-            'BEFORE','BEGIN','BETWEEN','BY',
-            'CASCADE','CASE','CAST','CHECK','COLLATE','COLUMN','COMMIT','CONFLICT','CONSTRAINT','COUNT','CREATE','CROSS','CURRENT_DATE','CURRENT_TIME','CURRENT_TIMESTAMP',
-            'DATABASE','DEFAULT','DEFERRABLE','DEFERRED','DELETE','DESC','DETACH','DISTINCT','DROP',
-            'EACH','ELSE','END','ESCAPE','EXCEPT','EXCLUSIVE','EXISTS','EXPLAIN',
-            'FAIL','FOR','FOREIGN','FROM','FULL',
-            'GLOB','GROUP',
-            'HAVING',
-            'IF','IGNORE','IMMEDIATE','IN','INDEX','INDEXED','INITIALLY','INNER','INSERT','INSTEAD','INTERSECT','INTO','IS','ISNULL',
-            'JOIN',
-            'KEY',
-            'LEFT','LIKE','LIMIT',
-            'MATCH',
-            'NATURAL','NO','NOT','NOTNULL','NULL',
-            'OF','OFFSET','ON','OR',"ORDER","OUTER","PLAN","PRAGMA","PRIMARY",
-            "QUERY",
-            "RAISE","RECURSIVE","REFERENCES","REGEXP","REINDEX","RELEASE","RENAME","REPLACE","RESTRICT","RIGHT","ROLLBACK","ROW",
-            "SAVEPOINT","SELECT","SET",
-            "TABLE","TEMP","TEMPORARY","THEN","TO","TRANSACTION","TRIGGER",
-            "UNION","UNIQUE","UPDATE","USER","USING",
-            "VACUUM","VALUES","VIEW","VIRTUAL",
-            "WHEN","WHERE","WITH","WITHOUT"
-        ])
-    },
-};
+<article>
+    <h1 id="using-the-api-module">Using the API Module</h1>
+<p>The API module is the HTTP layer of backendjs. A request flows through a small trie <strong>router</strong> (<code>api.app</code>) that dispatches to a chain of <strong>middleware</strong> handlers. Every built-in feature — body parsing, uploads, CORS, CSRF, rate limiting, validation, static files, redirects — is just a middleware you can mount explicitly in code or enable from config.</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>api.Router</code> / <code>api.app</code></td>
+<td>Trie-based router that matches <code>method + path</code> and runs matching handlers in priority order.</td>
+</tr>
+<tr>
+<td><code>middleware.body</code></td>
+<td>Parse JSON / form-urlencoded request bodies into <code>context.body</code>.</td>
+</tr>
+<tr>
+<td><code>middleware.multipart</code></td>
+<td>Parse <code>multipart/form-data</code> uploads into <code>context.files</code> + <code>context.body</code>.</td>
+</tr>
+<tr>
+<td><code>middleware.cors</code></td>
+<td>Set CORS headers and answer preflight <code>OPTIONS</code>.</td>
+</tr>
+<tr>
+<td><code>middleware.csrf</code></td>
+<td>Enforce <code>Origin</code> / <code>Sec-Fetch-Site</code> checks on unsafe methods.</td>
+</tr>
+<tr>
+<td><code>middleware.limiter</code></td>
+<td>Rate limit by IP, path, session or user.</td>
+</tr>
+<tr>
+<td><code>middleware.validate</code></td>
+<td>Validate query/body/path params (and optionally rate limit by a param value).</td>
+</tr>
+<tr>
+<td><code>middleware.routing</code></td>
+<td>Config-driven URL rewrites and redirects.</td>
+</tr>
+<tr>
+<td><code>middleware.static</code></td>
+<td>Serve static files from the configured web folders.</td>
+</tr>
+</tbody>
+</table>
+<pre class="prettyprint source lang-js"><code>const { api, middleware } = require(&quot;backendjs&quot;);
+const { body, cors, csrf, limiter, validate, routing, static: statik } = middleware;
 
-/**
- * Create a database pool for SQL like databases, see {@link dbPool}
- * @param {object} options - an object defining the pool, the following properties define the pool:
- * @param {string} options.pool - pool name/type, if not specified the SQLite is used
- * @param {int} options.max - max number of clients to be allocated in the pool
- * @param {int} options.idle - after how many milliseconds an idle client will be destroyed
- * @param {object} [defaults] - an object with default pool methods for init and shutdown and other properties, see {@link Pool}
- */
-class SqlPool extends DbPool {
-
-    constructor(options, defaults)
-    {
-        // SQL databases cannot support unlimited connections, keep reasonable default to keep it from overloading
-        if (!lib.isPositive(options.max)) options.max = 25;
-
-        super(options, lib.extend({}, exports.defaults, defaults));
-    }
-
-    // Call column caching callback with our pool name
-    cacheColumns(client, options, callback)
-    {
-        // Use current database name for schema if not specified
-        if (!this.config.schema.length) {
-            this.config.schema.push(client.name);
-        }
-
-        client.query("SELECT c.table_name,c.column_name,LOWER(c.data_type) AS data_type,c.column_default,c.ordinal_position,c.is_nullable " +
-                     "FROM information_schema.columns c,information_schema.tables t " +
-                     "WHERE c.table_schema IN (" + sql.valueIn(this.config.schema) + ") AND c.table_name=t.table_name " +
-                     (lib.isArray(options?.tables) ? `AND t.table_name IN (${sql.valueIn(options?.tables)})` : "") +
-                     "ORDER BY 5", (err, rows) => {
-            this.dbcolumns = {};
-            for (const i in rows) {
-                const table = rows[i].table_name.toLowerCase()
-                if (!this.dbcolumns[table]) this.dbcolumns[table] = Object.create(null);
-
-                // Split type cast and ignore some functions in default value expressions
-                let isserial = false, val = rows[i].column_default ? String(rows[i].column_default).replace(/'/g,"").split("::")[0] : null;
-                if (val &amp;&amp; val.startsWith("nextval")) {
-                    val = null;
-                    isserial = true;
-                }
-                if (val &amp;&amp; val.startsWith("ARRAY")) {
-                    val = val.replace("ARRAY", "").
-                              replaceAll("[", "{").
-                              replaceAll("]", "}");
-                }
-
-                this.dbcolumns[table][rows[i].column_name.toLowerCase()] = {
-                    id: rows[i].ordinal_position,
-                    value: val,
-                    data_type: rows[i].data_type,
-                    isnull: rows[i].is_nullable === "YES",
-                    isserial
-                };
-            }
-            lib.tryCall(callback, err);
-        });
-    }
-
-    /**
-     * Prepare for execution, return an object with formatted or transformed SQL query for the database driver of this pool
-     * @param {DbRequest} req
-     */
-    prepare(req)
-    {
-        switch (req.op) {
-        case "list":
-        case "select":
-        case "search":
-            sql.select(req);
-            break;
-
-        case "create":
-            sql.create(req);
-            break;
-
-        case "upgrade":
-            sql.upgrade(req);
-            break;
-
-        case "drop":
-            sql.drop(req);
-            break;
-
-        case "get":
-            sql.get(req);
-            break;
-
-        case "add":
-        case "put":
-            sql.insert(req);
-            break;
-
-        case "incr":
-            if (req.config.features.upsert) {
-                sql.insert(req);
-            } else {
-                sql.update(req);
-            }
-            break;
-
-        case "update":
-            if (req.options.upsert &amp;&amp; req.config.features.upsert) {
-                sql.insert(req);
-                break;
-            }
-        case "updateall":
-            sql.update(req);
-            break;
-
-        case "del":
-        case "delall":
-            sql.delete(req);
-            break;
-        }
-    }
-
-    /**
-     * Execute a query in req.text
-     * @param {object} client
-     * @param {DbRequest} req
-     * @param {function} callback
-     */
-    query(client, req, callback)
-    {
-        logger.debug("query:", "sqlpool", req);
-
-        if (req.op === "bulk") {
-            return req.options.transaction ?
-                        this.queryTransaction(client, req, callback) :
-                        this.queryBulk(client, req, callback);
-        }
-
-        if (typeof req.text === "string" &amp;&amp; req.text.length) {
-            client.query(req, callback);
-        } else
-
-        if (lib.isArray(req.text)) {
-            // run all at once, driver handles it
-            if (req.config.features?.bulk) {
-                return client.query(req, callback);
-            }
-            // or run each separately
-            lib.forEachLimit(req.text, req.options.concurrency, (text, next) => {
-                client.query({ text, options: req.options }, next);
-            }, callback, true);
-        } else {
-            callback(req.op !== "upgrade" ? lib.newError("sql text missing") : null, []);
-        }
-    }
-
-    /**
-     * Support for pagination, for SQL this is the OFFSET for the next request
-     * @param {object} client
-     * @param {DbRequest} req
-     * @param {object[]} rows
-     * @return {object}
-     */
-    nextToken(_client, req, rows)
-    {
-        return req.options?.count &amp;&amp; rows.length === req.options.count ? lib.toNumber(req.options.start) + lib.toNumber(req.options.count) : null;
-    }
-
-    /**
-     * Return full placeholder for the given index, i.e. $1, ?, ....
-     * @param {DbRequest} req
-     * @param {int} [index] - if not provided req.values.length is used
-     * @return {string}
-     */
-    placeholder(req, index)
-    {
-        return "$" + (index || req.values.length);
-    }
-
-    /**
-     * Build expression
-     * @param {DbRequest} req
-     * @param {string} name - property name
-     * @param {any} value - current value
-     * @param {DbRequestColumn} [column] - column definition returned by {@link module.db:prepareColumn}
-     * @return {string}
-     */
-    prepareExpr(_req, _name, _value, _column)
-    {
-    }
-
-    /**
-    * SQL SET expression for a column
-    * @param {DbRequest} req
-    * @param {object} expr
-    * @param {string} expr.name - property name
-    * @param {string} expr.type - column type
-    * @param {string} expr.column - quoted column name to use in SQL
-    * @param {any} expr.value - current value
-    * @param {string} expr.op - default op
-    * @param {string} expr.placeholder - placeholder position, like $1,
-    *    unsetting this property means the value should not be added to req.values
-    * @param {string} expr.text - must be set to complete SET statement, if not set this property is skipped
-    */
-    prepareUpdateExpr(req, expr)
-    {
-        switch (expr.op) {
-        case "unset":
-        case "remove":
-            expr.text = expr.column + "=NULL";
-            expr.placeholder = undefined;
-            break;
-
-        case "not_exists":
-            // Update only if the value is null, otherwise skip
-            expr.text = `${expr.column}=COALESCE(${req.table}.${expr.column},${expr.placeholder})`;
-            break;
-
-        case "incr":
-            // Increment a number
-            expr.text = `${expr.column}=COALESCE(${req.table}.${expr.column},0)+${expr.placeholder}`;
-            break;
-
-        case "add":
-            // Add to a list
-            expr.text = `${expr.column}=TRIM(COALESCE(${req.table}.${expr.column},'')||','||${expr.placeholder},',')`;
-            break;
-
-        case "del":
-            // Delete from a list
-            expr.text = `${expr.column}=TRIM(REPLACE(${req.table}.${expr.column},${expr.placeholder},''),',')`;
-            break;
-
-        case "append":
-            // Append to a value
-            expr.text = `${expr.column}=COALESCE(${req.table}.${expr.column},'')||${expr.placeholder}`;
-            break;
-
-        case "prepend":
-            // Append to a value
-            expr.text = `${expr.column}=${expr.placeholder}||COALESCE(${req.table}.${expr.column},'')`;
-            break;
-
-        default:
-            expr.text = `${expr.column}=${expr.placeholder}`;
-        }
-    }
-
-    queryTransaction(client, req, callback)
-    {
-        if (!/BEGIN.+TRANSACTION/i.test(req.query[0]?.text)) {
-            req.query.splice(0, 0, { text: "BEGIN TRANSACTION" });
-        }
-
-        const info = { affected_rows: 0 }, errors = [];
-
-        lib.forEachSeries(req.query, (item, next) => {
-            client.query(item, (err, _rc, meta) => {
-                if (err) {
-                    item.error = err;
-                    errors.push(item);
-                } else
-                if (meta?.affected_rows) {
-                    info.affected_rows += meta.affected_rows;
-                }
-                next(err);
-            });
-        }, (err) => {
-            const text = `${err || errors?.length ? "ROLLBACK" : "COMMIT"} TRANSACTION`;
-            client.query(text, (e) => {
-                if (e) errors.push({ text, error: e });
-                callback(err, errors, info);
-            });
-        }, true);
-    }
-
-    queryBulk(client, req, callback)
-    {
-        var info = { affected_rows: 0 }, errors = [];
-
-        lib.forEachLimit(req.query, req.options.concurrency, (item, next) => {
-            client.query(item, (err, _rc, meta) => {
-                if (err) {
-                    item.error = err;
-                    errors.push(item);
-                } else
-                if (meta?.affected_rows) {
-                    info.affected_rows += meta.affected_rows;
-                }
-                next();
-            });
-        }, (err) => {
-            callback(err, errors, info);
-        }, true);
-    }
-}
-
-exports.Pool = SqlPool;
+app.start({ api: true });
 </code></pre>
-        </article>
-    </section>
+<p>Every middleware is a <code>(context, next)</code> function, or an object with a <code>handle(context, next)</code> method. Call <code>next()</code> to pass control on, <code>next(err)</code> to stop with an error, or send a response directly (<code>context.send</code>, <code>context.reply</code>, <code>context.sendFile</code>).</p>
+<hr>
+<h2 id="the-router">The router</h2>
+<p><code>api.app</code> is an instance of <code>api.Router</code>, a simple prefix-tree (trie) router. You register routes with <code>use</code> or the method shortcuts <code>get</code>/<code>post</code>/<code>put</code>/<code>patch</code>/<code>delete</code>/<code>all</code>:</p>
+<pre class="prettyprint source lang-js"><code>api.app.get(&quot;/users/:id&quot;, handler);          // named param -> context.params.id
+api.app.get(&quot;/api/:type/*&quot;, handler);        // wildcard -> context.params['0']
+api.app.post(&quot;/data&quot;, body, handler);        // chain multiple handlers
+api.app.all(&quot;/health&quot;, handler);             // any method
+</code></pre>
+<p>Matching notes:</p>
+<ul>
+<li><code>:name</code> captures a path segment into <code>context.params.name</code>; <code>*</code> captures the rest into indexed params (<code>'0'</code>, <code>'1'</code>, …).</li>
+<li>When several routes match, <strong>all</strong> matching handlers run, ordered by an auto-assigned priority number.</li>
+<li>Set an explicit priority with <code>#NUM</code> in the method to control order regardless of registration order — e.g. <code>api.app.use(&quot;GET#0&quot;, &quot;/*&quot;, guard)</code> runs first. This is how global middleware inserts itself ahead of app handlers.</li>
+<li>A handler can call <code>next(&quot;restart&quot;)</code> after <code>context.setUrl(...)</code> to re-run routing against the new path (used by <code>routing</code>).</li>
+</ul>
+<p>Most middleware supports two modes:</p>
+<ul>
+<li><strong>Programmatic</strong> — mount it yourself on specific paths in code.</li>
+<li><strong>Global config</strong> — set <code>middleware-&lt;name&gt;-enable = true</code> and let <code>configureMiddleware</code> wire the routes on startup. Some also support <code>enable = fixed</code>, which registers only what's in the config at start (no dynamic per-request lookups) while still allowing existing rules to be updated.</li>
+</ul>
+<hr>
+<h2 id="body-parser">Body parser</h2>
+<p>Parses JSON and <code>x-www-form-urlencoded</code> request bodies into <code>context.body</code>. Default max size is 64k; reads are guarded by a timeout to defend against slow-body attacks.</p>
+<pre class="prettyprint source lang-js"><code>// Programmatic
+api.app.post(&quot;/api/data&quot;, body, (context) => {
+    if (context.body?.id) { ... }
+});
+</code></pre>
+<pre class="prettyprint source"><code># Global — parse bodies for all POST/PUT/PATCH automatically
+middleware-body-enable = true
+middleware-body-max-size = 128000
+middleware-body-content-type = text/xml, image/png   # extra content types
+</code></pre>
+<hr>
+<h2 id="multipart-uploads">Multipart uploads</h2>
+<p>Parses <code>multipart/form-data</code> using <code>formidable</code>. Files land in <code>context.files</code>, other fields in <code>context.body</code>. Temp files are cleaned up automatically when the request context is destroyed.</p>
+<pre class="prettyprint source lang-js"><code>api.app.post(&quot;/upload&quot;, (context) => {
+    if (context.files.file) console.log(context.files.file.path, context.files.file.name);
+});
+</code></pre>
+<pre class="prettyprint source"><code>middleware-multipart-enable = true
+middleware-multipart-max-size = 25000000
+middleware-multipart-max-files = 10
+</code></pre>
+<hr>
+<h2 id="cors">CORS</h2>
+<p>Sets the <code>access-control-*</code> headers and short-circuits preflight <code>OPTIONS</code> requests with <code>204</code>. Defaults allow all origins with credentials and the common methods.</p>
+<pre class="prettyprint source lang-js"><code>api.app.use(&quot;/api/*&quot;, { origin: &quot;*&quot;, headers: [&quot;bk-sid&quot;], handle: cors.handle });
+</code></pre>
+<pre class="prettyprint source"><code>middleware-cors-origin = https://app.host.com
+middleware-cors-headers = bk-sid
+middleware-cors-max-age = 86400
+</code></pre>
+<hr>
+<h2 id="csrf-protection">CSRF protection</h2>
+<p>Guards unsafe methods (everything except GET/HEAD) by requiring and checking the <code>Origin</code> and <code>Sec-Fetch-Site</code> headers. Protection is <strong>explicit</strong> — only paths you configure are checked. Any matched path requires both headers to be present.</p>
+<pre class="prettyprint source"><code>middleware-csrf-enable = true
 
+# Only allow specific origins for /account
+middleware-csrf-origin-/account/* = https://host.com, http://localhost
 
+# Only allow same-origin for the whole API
+middleware-csrf-sec-fetch-site-/api/* = same-origin
+</code></pre>
+<pre class="prettyprint source lang-js"><code>api.app.post(&quot;/account&quot;, { origin: [&quot;host1.com&quot;], secFetchSite: &quot;same-origin&quot;, handle: csrf.handle });
+</code></pre>
+<hr>
+<h2 id="rate-limiter">Rate limiter</h2>
+<p>Throttles requests by <strong>IP</strong>, <strong>path</strong>, <strong>session</strong>, or <strong>user</strong>. Like CSRF, there are no defaults — only configured paths are limited. <code>rate</code> (requests per interval) is required; add <code>interval</code>, <code>ttl</code>, etc. as needed.</p>
+<ul>
+<li><code>ip</code> — per client IP.</li>
+<li><code>path</code> — a single global bucket for the path.</li>
+<li><code>session</code> — session id parsed from cookie/header (no verification).</li>
+<li><code>user</code> — verified authenticated user (mount after the users guard).</li>
+</ul>
+<p>Path wildcards matter: <code>/api/*</code> rates all sub-paths together, while <code>/api/:id/*</code> rates each <code>:id</code> value separately.</p>
+<pre class="prettyprint source"><code>middleware-limiter-enable = true
 
+# 100 req/s per IP for the API
+middleware-limiter-ip-*-/api/* = rate:100, ttl:900000
+
+# 1 login/s per IP
+middleware-limiter-ip-post-/login = rate:1
+</code></pre>
+<pre class="prettyprint source lang-js"><code>api.app.post(&quot;/account&quot;, { ip: { rate: 100 }, path: { rate: 200 }, handle: limiter.handle });
+</code></pre>
+<hr>
+<h2 id="validate">Validate</h2>
+<p>Validates <code>query</code>, <code>body</code>, or path <code>params</code> before your handler runs, returning an error immediately on bad input. Validated/coerced values are written back so later handlers reuse them. It can <strong>also</strong> rate limit by a parameter's value — handy for multi-tenant limits keyed by <code>accountId</code>, <code>clientId</code>, etc.</p>
+<pre class="prettyprint source"><code>middleware-validate-enable = true
+
+# Require a numeric accountId in the path, allow 100 req/s per account
+middleware-validate-params-get,post-accountId-/account/:accountId/* = type:int,required:true,min:100000,rate:100
+
+# Validate login email on POST /login
+middleware-validate-body-post-login-/login = type:email,max:128,required:true
+</code></pre>
+<p>Rate options use a <code>rate_</code> prefix (<code>rate_interval</code>, <code>rate_ttl</code>, <code>rate_user</code>, <code>rate_session</code>, …). Because the router only extracts path params without checking them, this is also the way to enforce a type/format on <code>:params</code>.</p>
+<pre class="prettyprint source lang-js"><code>api.app.post(&quot;/account&quot;, {
+    body: {
+        accountId: { type: &quot;int&quot;, required: true, rate: 100 },
+        amount: { type: &quot;number&quot;, max: 1000 },
+    },
+    handle: validate.handle,
+});
+</code></pre>
+<hr>
+<h2 id="routing-(rewrite-%26-redirect)">Routing (rewrite &amp; redirect)</h2>
+<p>Config-driven URL rewriting and redirects. Prefix the target with a <code>30X</code> code to redirect; otherwise the URL is rewritten and routing restarts. Values support <code>@PATH@</code>, <code>@SEARCH@</code> and similar placeholders.</p>
+<pre class="prettyprint source"><code>middleware-routing-enable = true
+
+# Rewrite: serve the SPA entry for all /app paths
+middleware-routing-/app/* = /index.html
+
+# Redirect anonymous users to the login page
+middleware-routing-/login/* = 302/login.html?path=@PATH@
+</code></pre>
+<p>To rewrite from code:</p>
+<pre class="prettyprint source lang-js"><code>api.app.get(&quot;/old/path&quot;, (context, next) => {
+    context.setUrl(&quot;/new/path&quot;);
+    next(&quot;restart&quot;);
+});
+</code></pre>
+<hr>
+<h2 id="static-files">Static files</h2>
+<p>Serves static assets from the configured web folders (<code>app.path.web</code>, which includes imported packages), plus the built-in backendjs <code>web</code> folder for the bundled Alpine/Bootstrap assets. Supports caching headers, ETag, <code>Last-Modified</code>, and pre-compressed (gzip/br/zstd) files.</p>
+<pre class="prettyprint source"><code>middleware-static-enable = true
+middleware-static-max-age = 86400000
+middleware-static-etag = true
+middleware-static-precompressed = \.js$|\.css$
+app-path-web = /path/to/public/files
+</code></pre>
+<pre class="prettyprint source lang-js"><code>api.app.get(&quot;/blog/*&quot;, { root: &quot;dist/&quot;, precompressed: /\.js$/, handle: statik.handle });
+api.app.get(&quot;/public/*&quot;, { root: &quot;web&quot;, noCache: true, handle: statik.handle });
+</code></pre>
+<p>Static routing uses a high priority number (<code>9999</code>) so it runs after your application handlers, acting as a fallback.</p>
+<hr>
+<h2 id="putting-it-together">Putting it together</h2>
+<p>A typical global config chains the middleware in priority order so cross-cutting concerns run before your handlers:</p>
+<pre class="prettyprint source"><code># Parse bodies and uploads
+middleware-body-enable = true
+middleware-multipart-enable = true
+
+# Security
+middleware-csrf-enable = true
+middleware-csrf-sec-fetch-site-/api/* = same-origin
+
+# Throttling + validation
+middleware-limiter-enable = true
+middleware-limiter-ip-post-/login = rate:1
+middleware-validate-enable = true
+middleware-validate-body-post-login-/login = type:email,max:128,required:true
+
+# Static assets last
+middleware-static-enable = true
+</code></pre>
+<p>Or wire it explicitly in code for full control over the chain:</p>
+<pre class="prettyprint source lang-js"><code>const { api, middleware } = require(&quot;backendjs&quot;);
+const { body, cors, csrf, limiter, validate } = middleware;
+
+api.app.use(&quot;/api/*&quot;, cors, csrf, limiter);
+api.app.post(&quot;/api/data&quot;, body, validate, (context) => {
+    context.reply(null, { ok: true });
+});
+</code></pre>
+<hr>
+<h2 id="quick-reference">Quick reference</h2>
+<p><strong>Router (<code>api.app</code>)</strong></p>
+<ul>
+<li><code>get/post/put/patch/delete(path, ...handlers)</code> — register per method</li>
+<li><code>all(path, ...handlers)</code> — any method</li>
+<li><code>use([method[#priority]], path, ...handlers)</code> — general registration</li>
+<li><code>context.params</code> — captured <code>:name</code> and <code>*</code> values</li>
+<li><code>next()</code> / <code>next(err)</code> / <code>next(&quot;restart&quot;)</code> — continue, fail, or re-route</li>
+</ul>
+<p><strong>Middleware (<code>middleware.*</code>)</strong> — each has a <code>handle(context, next)</code> and a <code>&lt;name&gt;-enable</code> config</p>
+<ul>
+<li><code>body</code> — JSON / form bodies → <code>context.body</code></li>
+<li><code>multipart</code> — uploads → <code>context.files</code></li>
+<li><code>cors</code> — CORS headers + preflight</li>
+<li><code>csrf</code> — Origin / Sec-Fetch-Site checks</li>
+<li><code>limiter</code> — rate limit by ip/path/session/user</li>
+<li><code>validate</code> — param validation (+ optional rate limit)</li>
+<li><code>routing</code> — rewrite / redirect</li>
+<li><code>static</code> — serve static files</li>
+</ul>
+</article>
+
+</section>
 
     
     

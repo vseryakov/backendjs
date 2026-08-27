@@ -36,6 +36,6 @@ module.exports = {
             title: "Backendjs Documentation",
             description: "A Node.js library to create Web backends with minimal dependencies.",
         },
-        tutorialsOrder: ["start", "reference", "lib-usage", "db-usage", "aws-usage", "jobs-usage", "users-usage", "bkjs"]
+        tutorialsOrder: ["start", "reference", "api-usage", "lib-usage", "db-usage", "aws-usage", "jobs-usage", "users-usage", "bkjs"]
     }
 };
