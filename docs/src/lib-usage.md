@@ -1,4 +1,4 @@
-# Using the `lib` Module
+# Using the Library Module
 
 The `lib` module is the Swiss-army knife of backendjs — a rich collection of utilities you can use directly, without adding a single external npm dependency. Need to parse JSON, format strings, generate UUIDs, make HTTP requests, validate input, or manage a connection pool? It's already there.
 
@@ -87,6 +87,7 @@ lib.autoType("true")                 // "bool"
 lib.includes([1, 2, 3], 2)           // true (boolean)
 lib.isSimilar("test", "tset")        // ~0.97 similarity score in 0..1
 lib.isMatched(user, { role: "admin" })  // true (deep match)
+```
 
 ---
 
