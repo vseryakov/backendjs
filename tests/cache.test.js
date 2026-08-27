@@ -6,23 +6,23 @@
  */
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { app, cache, lib } = require("../");
-const { init } = require("./utils");
+const { cache, lib } = require("../");
+const { ainit, astop } = require("./utils");
 
-describe("Cache tests", () => {
+describe("Cache tests", async () => {
 
     const cacheName = lib.split(process.env.BKJS_ROLES)[0] || "local";
     var opts = {
         cacheName,
     };
 
-    before((t, done) => {
-        init({ cache: 1, roles: process.env.BKJS_ROLES || "local" }, done)
+    before(async () => {
+        await ainit({ cache: 1, roles: process.env.BKJS_ROLES || "local" })
     });
 
 
-    after((t, done) => {
-        app.stop(done)
+    after(async () => {
+        await astop()
     });
 
     await it("cache lock", async () => {
@@ -69,14 +69,14 @@ describe("Cache tests", () => {
         await cache.aincr("a", 1, opts);
 
         rc = await cache.aget("a", opts)
-        assert.strictEqual(rc?.data, "2")
+        assert.strictEqual(lib.toNumber(rc?.data), 2)
 
         await cache.aput("a", "3", opts);
 
         await cache.aput("a", "1", Object.assign({ setmax: 1 }, opts));
 
         rc = await cache.aget("a", opts);
-        assert.strictEqual(rc?.data, "3")
+        assert.strictEqual(lib.toNumber(rc?.data), 3)
 
         await cache.aincr("a", 1, opts);
 
@@ -90,10 +90,17 @@ describe("Cache tests", () => {
 
         rc = await cache.aget("b", opts);
         assert.ifError(rc?.data)
+
+        rc = await cache.aget("d", Object.assign({ set: 1 }, opts));
+        assert.ifError(rc?.data)
+
+        rc = await cache.aget("d", opts);
+        assert.strictEqual(lib.toNumber(rc?.data), 1)
+
     });
 
     await it("cache advanced", async () => {
-        if (cacheName == "local") return done()
+        if (cacheName == "local") return
 
         await cache.aput("*", { a: 1, b: 2, c: 3 }, Object.assign({ mapName: "m" }, opts));
 
@@ -103,19 +110,19 @@ describe("Cache tests", () => {
 
         await cache.adel("b", Object.assign({ mapName: "m" }, opts));
 
-        let rc = await cache.get("c", Object.assign({ mapName: "m" }, opts))
-        assert.strictEqual(val, "4")
+        let rc = await cache.aget("c", Object.assign({ mapName: "m" }, opts))
+        assert.strictEqual(rc?.data, "4")
 
-        rc = await cache.get("*", Object.assign({ mapName: "m" }, opts))
-        assert.deepEqual(val, { a: "1", c: "4" })
+        rc = await cache.aget("*", Object.assign({ mapName: "m" }, opts))
+        assert.deepEqual(rc.data, { a: "1", c: "4" })
 
         await cache.adel("m1", opts)
         await cache.aincr("m1", { count: 1, a: "a", mtime: Date.now().toString() }, opts)
 
         await cache.aincr("*", { count: 1, b: "b", mtime: Date.now().toString() }, Object.assign({ mapName: "m1" }, opts))
 
-        rc = await cache.get("*", Object.assign({ mapName: "m1" }, opts))
-        assert.partialDeepStrictEqual(val, { count: "2", a: "a", b: "b" })
+        rc = await cache.aget("*", Object.assign({ mapName: "m1" }, opts))
+        assert.partialDeepStrictEqual(rc.data, { count: "2", a: "a", b: "b" })
 
         await cache.adel(["counter1","counter2"], opts);
 
