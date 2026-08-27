@@ -146,32 +146,32 @@ lib.validVersion("1.2.3", ">=1.0.0")  // true
 
 ## 3 🌊 Flow control
 
-Drop-in replacements for `async`/`lodash` iteration — every variant returns results through a callback (or use `a`-prefixed async versions):
+Drop-in replacements for `async`/`lodash` iteration — every variant returns results through a callback:
 
 ```js
 // Parallel iteration
-await lib.forEach(items, (item, next) => {
+lib.forEach(items, (item, next) => {
     processAsync(item, err => next(err));
-});
+}, lib.log);
 
 // Limited concurrency
-await lib.forEachLimit(items, 10, (item, next) => { ... next(); });
+lib.forEachLimit(items, 10, (item, next) => { ... next(); }, callback);
 
 // Series
-await lib.forEachSeries(items, (item, next) => { ... next(); });
+lib.forEachSeries(items, (item, next) => { ... next(); }, callback);
 
 // Parallel & Series tasks
-await lib.parallel([
+lib.parallel([
     async (cb) => { cb(null, 1); },
     async (cb) => { cb(null, 2); },
-]);
+], lib.log);
 
 // While / do-while
-await lib.whilst(test, iterator, cb);
-await lib.doWhilst(iterator, test, cb);
+lib.whilst(test, iterator, cb);
+lib.doWhilst(iterator, test, cb);
 
 // With an accumulator
-await lib.forEachItem({ accum: [] }, (list, next) => {
+lib.forEachItem({ accum: [] }, (list, next) => {
     this.accum.push(...list);
 }, (err) => { ... });
 ```
@@ -232,7 +232,6 @@ lib.entityToText(str)
 
 // Templates
 lib.toTemplate("Hello @name@!", { name: "Alice" })
-lib.toFormat("id-%id-amount-%amount", { id: 1, amount: 10 })
 lib.toMap("a:1,b:2:c:3")     // -> { a: 1, b: 2, c: 3 }
 
 // Duration & time format
@@ -286,38 +285,39 @@ lib.strftime(new Date(), "%Y-%m-%d %H:%M:%S %Z")
 
 ## 7 📁 File system
 
-Every operation has a sync and an async (`a`-prefixed) form:
+Every operation has a sync and an async:
 
 ```js
-const { err, data, info } = await lib.afileRead("users.csv");
+const { err, data, info } = await lib.areadFile("users.csv");
 // info — { path, size, mtime, ... }
 
 // Stream line-by-line from a file (or stdin):
-await lib.readLines(process.stdin, { type: "text" }, (line) => {
+lib.readLines(process.stdin, { type: "text" }, (line) => {
     console.log(line);
-});
+}, lib.log);
+
 // or iterate sync:
 lib.forEachLineSync("data.csv", { separator: "," }, (row) => { ... });
 
 // Write
-await lib.writeLines("out.txt", ["a", "b", "c"]);
+lib.writeLines("out.txt", ["a", "b", "c"]);
 
 // Move / copy / remove
-await lib.moveFile("old", "new", true);
-await lib.copyFile("src", "dst", false);
-await lib.unlink("file.txt");
-await lib.unlinkPath("/tmp/cache");  // remove a directory tree
+lib.moveFile("old", "new", true);
+lib.copyFile("src", "dst", false);
+lib.unlink("file.txt");
+lib.unlinkPath("/tmp/cache");  // remove a directory tree
 
 // Find files by glob
 const found = lib.findFileSync("/app", { include: ["*.{js,ts}"] });
-const found = await lib.findFile("/app", { include: ["*.md"] }, (err, files) => {});
 const filtered = lib.findFileSync("/app", {
     include: ["*.{js,ts}"],
     filter: (file, stat) => stat.size > 100
 });
+lib.findFile("/app", { include: ["*.md"] }, (err, files) => {});
 
 // Watch for changes
-await lib.watchFiles({ dir: "/watched", include: "*.js" }, (file, stat) => {
+lib.watchFiles({ dir: "/watched", include: "*.js" }, (file, stat) => {
     console.log("changed:", file);
 });
 
@@ -362,7 +362,7 @@ lib.execProcess("git status", (err, out, code) => {
 lib.spawnProcess("node", ["server.js"], { env: {...}, timeout: 30000 }, (err, code) => {});
 
 // Run commands in series (one after another):
-await lib.spawnSeries(["git pull", "npm install", "npm build"]);
+await lib.aspawnSeries(["git pull", "npm install", "npm build"]);
 ```
 
 ---
@@ -542,7 +542,7 @@ await pool.shutdown();
 
 ---
 
-## 16🔁 Respawn / crash-loop throttler
+## 16 🔁 Respawn / crash-loop throttler
 
 For background services that restart:
 
@@ -583,7 +583,7 @@ lib.getArg("--port")                    // CLI argument reader
 lib.getArgInt("-n", 10)
 lib.isArg("--verbose")
 lib.sprintf("%.2f", 3.14)              // string formatting
-lib.toFormat("id-%id", { id: 42 })     // named template
+lib.toFormat("csv", [{ id: 42, name: "...." }])  // CSV file
 lib.sleep(1000)                        // async sleep
 lib.sortByVersion(list, "name")        // version-aware sort
 lib.matchAllRegexp(str, rx)            // global match
