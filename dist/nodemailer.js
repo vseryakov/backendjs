@@ -552,7 +552,7 @@ var require_package = __commonJS({
   "../../.bkjs/lib/node_modules/nodemailer/package.json"(exports2, module2) {
     module2.exports = {
       name: "nodemailer",
-      version: "9.0.5",
+      version: "9.0.6",
       description: "Easy as cake e-mail sending from your Node.js applications",
       main: "lib/nodemailer.js",
       scripts: {
@@ -579,19 +579,19 @@ var require_package = __commonJS({
       },
       homepage: "https://nodemailer.com/",
       devDependencies: {
-        "@aws-sdk/client-sesv2": "3.1104.0",
+        "@aws-sdk/client-sesv2": "3.1119.0",
         bunyan: "1.8.15",
         c8: "12.0.0",
-        eslint: "10.8.0",
+        eslint: "10.9.1",
         "eslint-config-prettier": "10.1.8",
-        globals: "17.9.0",
+        globals: "17.11.0",
         libbase64: "1.3.0",
-        libmime: "5.4.1",
+        libmime: "5.4.2",
         libqp: "2.1.1",
         prettier: "3.9.6",
         proxy: "1.0.2",
         "proxy-test-server": "1.0.0",
-        "smtp-server": "3.19.2"
+        "smtp-server": "3.19.3"
       },
       engines: {
         node: ">=6.0.0"
@@ -641,6 +641,23 @@ var require_errors = __commonJS({
   }
 });
 
+// ../../.bkjs/lib/node_modules/nodemailer/lib/shared/objects.js
+var require_objects = __commonJS({
+  "../../.bkjs/lib/node_modules/nodemailer/lib/shared/objects.js"(exports2, module2) {
+    "use strict";
+    module2.exports.isProtoKey = (key) => key === "__proto__";
+    module2.exports.copyOwnKeys = (target, source, skip) => {
+      Object.keys(source || {}).forEach((key) => {
+        if (module2.exports.isProtoKey(key) || skip && skip(key)) {
+          return;
+        }
+        target[key] = source[key];
+      });
+      return target;
+    };
+  }
+});
+
 // ../../.bkjs/lib/node_modules/nodemailer/lib/fetch/index.js
 var require_fetch = __commonJS({
   "../../.bkjs/lib/node_modules/nodemailer/lib/fetch/index.js"(exports2, module2) {
@@ -654,7 +671,43 @@ var require_fetch = __commonJS({
     var packageData2 = require_package();
     var net = require("net");
     var errors2 = require_errors();
+    var { isProtoKey } = require_objects();
     var MAX_REDIRECTS = 5;
+    var TLS_OPTION_KEYS = [
+      "ALPNProtocols",
+      "ca",
+      "cert",
+      "checkServerIdentity",
+      "ciphers",
+      "crl",
+      "dhparam",
+      "ecdhCurve",
+      "honorCipherOrder",
+      "key",
+      "maxVersion",
+      "minVersion",
+      "passphrase",
+      "pfx",
+      "rejectUnauthorized",
+      "secureContext",
+      "secureOptions",
+      "secureProtocol",
+      "servername",
+      "sessionIdContext",
+      "sigalgs"
+    ];
+    function parseFetchUrl(url) {
+      let parsed;
+      try {
+        parsed = urllib.parse(url);
+      } catch (_err) {
+        return false;
+      }
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return false;
+      }
+      return parsed;
+    }
     module2.exports = function(url, options) {
       return nmfetch2(url, options);
     };
@@ -665,14 +718,27 @@ var require_fetch = __commonJS({
       options.cookies = options.cookies || new Cookies();
       options.redirects = options.redirects || 0;
       options.maxRedirects = isNaN(options.maxRedirects) ? MAX_REDIRECTS : options.maxRedirects;
+      const fetchRes = options.fetchRes;
+      const parsed = parseFetchUrl(url);
+      if (!parsed) {
+        if (options.body && typeof options.body.destroy === "function") {
+          options.body.on("error", () => false);
+          options.body.destroy();
+        }
+        setImmediate(() => {
+          const err = new Error("Unsupported protocol for URL " + url);
+          err.code = errors2.EFETCH;
+          err.sourceUrl = url;
+          fetchRes.emit("error", err);
+        });
+        return fetchRes;
+      }
       if (options.cookie) {
         [].concat(options.cookie || []).forEach((cookie) => {
           options.cookies.set(cookie, url);
         });
         options.cookie = false;
       }
-      const fetchRes = options.fetchRes;
-      const parsed = urllib.parse(url);
       let method = (options.method || "").toString().trim().toUpperCase() || "GET";
       let finished = false;
       let cookies;
@@ -683,6 +749,9 @@ var require_fetch = __commonJS({
         "user-agent": "nodemailer/" + packageData2.version
       };
       Object.keys(options.headers || {}).forEach((key) => {
+        if (isProtoKey(key.toLowerCase().trim())) {
+          return;
+        }
         headers[key.toLowerCase().trim()] = options.headers[key];
       });
       if (options.userAgent) {
@@ -753,7 +822,11 @@ var require_fetch = __commonJS({
         agent: false
       };
       if (options.tls) {
-        Object.assign(reqOptions, options.tls);
+        Object.keys(options.tls).forEach((key) => {
+          if (TLS_OPTION_KEYS.includes(key)) {
+            reqOptions[key] = options.tls[key];
+          }
+        });
       }
       if (parsed.protocol === "https:" && parsed.hostname && parsed.hostname !== reqOptions.host && !net.isIP(parsed.hostname) && !reqOptions.servername) {
         reqOptions.servername = parsed.hostname;
@@ -820,8 +893,22 @@ var require_fetch = __commonJS({
           }
           options.method = "GET";
           options.body = false;
-          const redirectUrl = urllib.resolve(url, res.headers.location);
-          const redirectParsed = urllib.parse(redirectUrl);
+          let redirectUrl;
+          try {
+            redirectUrl = urllib.resolve(url, res.headers.location);
+          } catch (_err) {
+            redirectUrl = res.headers.location;
+          }
+          const redirectParsed = parseFetchUrl(redirectUrl);
+          if (!redirectParsed) {
+            finished = true;
+            const err = new Error("Unsupported protocol for URL " + redirectUrl);
+            err.code = errors2.EFETCH;
+            err.sourceUrl = redirectUrl;
+            fetchRes.emit("error", err);
+            req.abort();
+            return;
+          }
           const crossHost = redirectParsed.hostname !== parsed.hostname;
           const downgrade = parsed.protocol === "https:" && redirectParsed.protocol === "http:";
           if (options.headers && (crossHost || downgrade)) {
@@ -902,9 +989,12 @@ var require_shared = __commonJS({
     var fs = require("fs");
     var nmfetch2 = require_fetch();
     var errors2 = require_errors();
+    var objects = require_objects();
     var dns = require("dns");
     var net = require("net");
     var os = require("os");
+    var isProtoKey = module2.exports.isProtoKey = objects.isProtoKey;
+    module2.exports.copyOwnKeys = objects.copyOwnKeys;
     var DNS_TTL = 5 * 60 * 1e3;
     var CACHE_CLEANUP_INTERVAL = 30 * 1e3;
     var MAX_CACHE_SIZE = 1e3;
@@ -1173,7 +1263,7 @@ var require_shared = __commonJS({
         } else if (key.indexOf(".") >= 0) {
           return;
         }
-        if (!(lKey in obj)) {
+        if (!isProtoKey(lKey) && !(lKey in obj)) {
           obj[lKey] = value;
         }
       });
@@ -1247,7 +1337,7 @@ var require_shared = __commonJS({
         if (sepPos > 0) {
           const key = entry.substring(0, sepPos).trim();
           const value = entry.substring(sepPos + 1).trim();
-          if (key) {
+          if (key && !isProtoKey(key)) {
             params[key] = value;
           }
         }
@@ -1307,18 +1397,19 @@ var require_shared = __commonJS({
             }
             callback(null, value);
           });
-        } else if (/^https?:\/\//i.test(content.path || content.href)) {
+        } else if (/^data:/i.test(content.path || content.href)) {
+          const parsedDataUri = module2.exports.parseDataURI(content.path || content.href);
+          return callback(null, parsedDataUri && parsedDataUri.data ? parsedDataUri.data : Buffer.alloc(0));
+        } else if (content.href || /^https?:\/\//i.test(content.path)) {
+          const url = content.href || content.path;
           if (options.disableUrlAccess) {
             return setImmediate(() => {
-              const err = new Error("Url access rejected for " + (content.path || content.href));
+              const err = new Error("Url access rejected for " + url);
               err.code = errors2.EURLACCESS;
               callback(err);
             });
           }
-          return resolveStream(nmfetch2(content.path || content.href, { headers: content.httpHeaders, tls: content.tls }), callback);
-        } else if (/^data:/i.test(content.path || content.href)) {
-          const parsedDataUri = module2.exports.parseDataURI(content.path || content.href);
-          return callback(null, parsedDataUri && parsedDataUri.data ? parsedDataUri.data : Buffer.alloc(0));
+          return resolveStream(nmfetch2(url, { headers: content.httpHeaders, tls: content.tls }), callback);
         } else if (content.path) {
           if (options.disableFileAccess) {
             return setImmediate(() => {
@@ -1340,8 +1431,11 @@ var require_shared = __commonJS({
       const target = args.shift() || {};
       args.forEach((source) => {
         Object.keys(source || {}).forEach((key) => {
+          if (isProtoKey(key)) {
+            return;
+          }
           if (["tls", "auth"].includes(key) && source[key] && typeof source[key] === "object") {
-            target[key] = Object.assign(target[key] || {}, source[key]);
+            target[key] = module2.exports.copyOwnKeys(target[key] || {}, source[key]);
           } else {
             target[key] = source[key];
           }
@@ -3810,6 +3904,7 @@ var require_mime_funcs = __commonJS({
     var base64 = require_base64();
     var qp = require_qp();
     var mimeTypes = require_mime_types();
+    var { isProtoKey } = require_objects();
     module2.exports = {
       /**
        * Checks if a value is plaintext string (uses only printable 7bit chars)
@@ -4107,6 +4202,11 @@ var require_mime_funcs = __commonJS({
           value: false,
           params: {}
         };
+        const setParam = (name, value2) => {
+          if (!isProtoKey(name)) {
+            response.params[name] = value2;
+          }
+        };
         let key = false;
         let value = "";
         let type = "value";
@@ -4137,7 +4237,7 @@ var require_mime_funcs = __commonJS({
               if (key === false) {
                 response.value = value.trim();
               } else {
-                response.params[key] = value.trim();
+                setParam(key, value.trim());
               }
               type = "key";
               value = "";
@@ -4151,16 +4251,20 @@ var require_mime_funcs = __commonJS({
           if (key === false) {
             response.value = value.trim();
           } else {
-            response.params[key] = value.trim();
+            setParam(key, value.trim());
           }
         } else if (value.trim()) {
-          response.params[value.trim().toLowerCase()] = "";
+          setParam(value.trim().toLowerCase(), "");
         }
         Object.keys(response.params).forEach((key2) => {
           let actualKey, nr, match, value2;
           if (match = key2.match(/(\*(\d+)|\*(\d+)\*|\*)$/)) {
             actualKey = key2.substr(0, match.index);
             nr = Number(match[2] || match[3]) || 0;
+            if (isProtoKey(actualKey)) {
+              delete response.params[key2];
+              return;
+            }
             if (!response.params[actualKey] || typeof response.params[actualKey] !== "object") {
               response.params[actualKey] = {
                 charset: false,
@@ -4260,15 +4364,16 @@ var require_mime_funcs = __commonJS({
        */
       splitMimeEncodedString: (str, maxlen) => {
         const lines = [];
-        let curLine, match, chr, done;
+        let curLine, fallbackLine, match, chr, done;
         maxlen = Math.max(maxlen || 0, 12);
         while (str.length) {
           curLine = str.substr(0, maxlen);
           if (match = curLine.match(/[=][0-9A-F]?$/i)) {
             curLine = curLine.substr(0, match.index);
           }
+          fallbackLine = curLine.length ? curLine : str.substr(0, maxlen);
           done = false;
-          while (!done) {
+          while (!done && curLine.length) {
             done = true;
             if (match = str.substr(curLine.length).match(/^[=]([0-9A-F]{2})/i)) {
               chr = parseInt(match[1], 16);
@@ -4278,9 +4383,10 @@ var require_mime_funcs = __commonJS({
               }
             }
           }
-          if (curLine.length) {
-            lines.push(curLine);
+          if (!curLine.length) {
+            curLine = fallbackLine;
           }
+          lines.push(curLine);
           str = str.substr(curLine.length);
         }
         return lines;
@@ -4327,6 +4433,41 @@ var require_addressparser = __commonJS({
         return address;
       }
       return '"' + user.replace(/["\\]/g, "\\$&") + '"@' + address.substr(lastAt + 1);
+    }
+    var HAS_WHITESPACE = /\s/;
+    var QUOTED_LOCAL_ADDR = /^("(?:[^"\\]|\\[\s\S])*"@\S+)(?:\s+([\s\S]+))?$/;
+    var ADDR_SPEC = /^[^@\s]+@[^@\s]+$/;
+    var LOOSE_ADDR_SPEC = /^[^@\s]+@\S+$/;
+    function _recoverAddrSpec(data) {
+      if (!HAS_WHITESPACE.test(data.address)) {
+        return;
+      }
+      let address;
+      let rest;
+      const quoted = data.address.match(QUOTED_LOCAL_ADDR);
+      if (quoted) {
+        if (!quoted[2]) {
+          return;
+        }
+        address = quoted[1];
+        rest = [quoted[2]];
+      } else {
+        if (data.address.indexOf('"') >= 0) {
+          return;
+        }
+        const parts = data.address.split(/\s+/);
+        let addrIndex = parts.findIndex((part) => ADDR_SPEC.test(part));
+        if (addrIndex < 0) {
+          addrIndex = parts.findIndex((part) => LOOSE_ADDR_SPEC.test(part));
+        }
+        if (addrIndex < 0) {
+          return;
+        }
+        address = parts.splice(addrIndex, 1)[0];
+        rest = parts;
+      }
+      data.address = address;
+      data.text = [data.text].concat(rest).filter((part) => part).join(" ");
     }
     function _handleAddress(tokens, depth) {
       let isGroup = false;
@@ -4408,7 +4549,7 @@ var require_addressparser = __commonJS({
       } else {
         if (!data.address.length && data.text.length) {
           for (let i = data.text.length - 1; i >= 0; i--) {
-            if (!data.textWasQuoted[i] && /^[^@\s]+@[^@\s]+$/.test(data.text[i])) {
+            if (!data.textWasQuoted[i] && ADDR_SPEC.test(data.text[i])) {
               data.address = data.text.splice(i, 1);
               data.textWasQuoted.splice(i, 1);
               break;
@@ -4443,6 +4584,7 @@ var require_addressparser = __commonJS({
         const addressFromQuotedText = !data.address.length && data.textWasQuoted.some((wasQuoted) => wasQuoted);
         data.text = data.text.join(" ");
         data.address = data.address.join(" ");
+        _recoverAddrSpec(data);
         const address = {
           address: data.address || data.text || "",
           name: data.text || data.address || ""
@@ -5079,11 +5221,7 @@ var require_mime_node = __commonJS({
           const options = {};
           const formattedHeaders = FORMATTED_HEADERS;
           if (value && typeof value === "object" && !formattedHeaders.includes(key)) {
-            Object.keys(value).forEach((key2) => {
-              if (key2 !== "value") {
-                options[key2] = value[key2];
-              }
-            });
+            shared2.copyOwnKeys(options, value, (optionKey) => optionKey === "value");
             value = (value.value || "").toString();
             if (!value.trim()) {
               return;
@@ -5349,11 +5487,7 @@ var require_mime_node = __commonJS({
         });
         this._envelope.to = this._envelope.to.map((to) => to.address).filter((address) => address);
         const standardFields = ["to", "cc", "bcc", "from"];
-        Object.keys(envelope).forEach((key) => {
-          if (!standardFields.includes(key)) {
-            this._envelope[key] = envelope[key];
-          }
-        });
+        shared2.copyOwnKeys(this._envelope, envelope, (key) => standardFields.includes(key));
         return this;
       }
       /**
@@ -5503,7 +5637,7 @@ var require_mime_node = __commonJS({
               if (normalized === address.address && typeof address.name === "string") {
                 return [address];
               }
-              const copy = Object.assign({}, address);
+              const copy = shared2.copyOwnKeys({}, address);
               copy.address = normalized;
               copy.name = address.name || "";
               return [copy];
@@ -5805,7 +5939,7 @@ var require_mail_composer = __commonJS({
     "use strict";
     var MimeNode = require_mime_node();
     var mimeFuncs = require_mime_funcs();
-    var { parseDataURI } = require_shared();
+    var { parseDataURI, copyOwnKeys } = require_shared();
     var MailComposer = class {
       constructor(mail) {
         this.mail = mail || {};
@@ -5958,7 +6092,7 @@ var require_mail_composer = __commonJS({
         if (!this._icalEvent) {
           let icalEvent;
           if (typeof this.mail.icalEvent === "object" && (this.mail.icalEvent.content || this.mail.icalEvent.path || this.mail.icalEvent.href || this.mail.icalEvent.raw)) {
-            icalEvent = Object.assign({}, this.mail.icalEvent);
+            icalEvent = copyOwnKeys({}, this.mail.icalEvent);
           } else {
             icalEvent = {
               content: this.mail.icalEvent
@@ -6255,7 +6389,7 @@ var require_mail_composer = __commonJS({
               detectedType = parts[0].trim();
             }
           }
-          return Object.assign({}, element, {
+          return Object.assign(copyOwnKeys({}, element), {
             path: false,
             href: false,
             content: Buffer.alloc(0),
@@ -6609,6 +6743,7 @@ var require_dkim = __commonJS({
     var fs = require("fs");
     var path = require("path");
     var crypto = require("crypto");
+    var { copyOwnKeys } = require_objects();
     var DKIM_ALGO = "sha256";
     var MAX_MESSAGE_SIZE = 2 * 1024 * 1024;
     var DKIMSigner = class {
@@ -6775,7 +6910,8 @@ var require_dkim = __commonJS({
         }
         let options = this.options;
         if (extraOptions && Object.keys(extraOptions).length) {
-          options = Object.assign({}, extraOptions, this.options);
+          options = copyOwnKeys({}, extraOptions);
+          copyOwnKeys(options, this.options);
         }
         const signer = new DKIMSigner(options, this.keys, inputStream, output);
         setImmediate(() => {
@@ -6916,6 +7052,7 @@ var require_mail_message = __commonJS({
     var shared2 = require_shared();
     var MimeNode = require_mime_node();
     var mimeFuncs = require_mime_funcs();
+    var hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
     var MailMessage = class {
       constructor(mailer, data) {
         this.mailer = mailer;
@@ -6924,19 +7061,10 @@ var require_mail_message = __commonJS({
         data = data || {};
         const options = mailer.options || {};
         const defaults = mailer._defaults || {};
-        Object.assign(this.data, data);
+        shared2.copyOwnKeys(this.data, data);
         this.data.headers = this.data.headers || {};
-        Object.keys(defaults).forEach((key) => {
-          if (!(key in this.data)) {
-            this.data[key] = defaults[key];
-          } else if (key === "headers") {
-            Object.keys(defaults.headers).forEach((key2) => {
-              if (!(key2 in this.data.headers)) {
-                this.data.headers[key2] = defaults.headers[key2];
-              }
-            });
-          }
-        });
+        shared2.copyOwnKeys(this.data, defaults, (key) => hasOwn(this.data, key));
+        shared2.copyOwnKeys(this.data.headers, defaults.headers, (key) => hasOwn(this.data.headers, key));
         ["disableFileAccess", "disableUrlAccess", "normalizeHeaderKey"].forEach((key) => {
           if (key in options) {
             this.data[key] = options[key];
@@ -7014,11 +7142,7 @@ var require_mail_message = __commonJS({
                 content: value
               };
               if (args[0][args[1]] && typeof args[0][args[1]] === "object" && !Buffer.isBuffer(args[0][args[1]])) {
-                Object.keys(args[0][args[1]]).forEach((key) => {
-                  if (!(key in node) && !["content", "path", "href", "raw"].includes(key)) {
-                    node[key] = args[0][args[1]][key];
-                  }
-                });
+                shared2.copyOwnKeys(node, args[0][args[1]], (key) => key in node || ["content", "path", "href", "raw"].includes(key));
               }
               args[0][args[1]] = node;
               resolveNext();
@@ -7067,6 +7191,9 @@ var require_mail_message = __commonJS({
           }
           data.normalizedHeaders = {};
           Object.keys(data.headers || {}).forEach((key) => {
+            if (shared2.isProtoKey(key)) {
+              return;
+            }
             let value = [].concat(data.headers[key] || []).shift();
             value = value && value.value || value;
             if (value) {
@@ -11692,7 +11819,7 @@ var require_ses_transport = __commonJS({
               );
               return callback(err);
             }
-            const sesMessage = Object.assign(
+            const sesMessage = shared2.copyOwnKeys(
               {
                 Content: {
                   Raw: {
@@ -11706,7 +11833,7 @@ var require_ses_transport = __commonJS({
                   ToAddresses: envelope.to
                 }
               },
-              mail.data.ses || {}
+              mail.data.ses
             );
             this.getRegion((err2, region) => {
               if (err2 || !region) {
