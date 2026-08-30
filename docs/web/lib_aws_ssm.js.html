@@ -5,7 +5,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>lib/aws/sqs.js - Backendjs Documentation</title>
+    <title>lib/aws/ssm.js - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,7 +41,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">lib/aws/sqs.js</h1>
+    <h1 class="page-title">lib/aws/ssm.js</h1>
     
 
     
@@ -57,108 +57,126 @@
  */
 'use strict';
 
-const lib = require(__dirname + '/../lib');
-const aws = require(__dirname + '/../aws');
+const lib = require('../lib');
+const aws = require('../aws');
 
 /**
- * AWS SQS (Simple Queue Service) API request.
- * @memberOf module:aws
- * @method querySQS
- * @param {string} action - SQS API action, e.g. `SendMessage`, `ReceiveMessage`
+ * AWS Systems Manager (SSM) API request.
+ * @memberof module:aws
+ * @method querySSM
+ * @param {string} action - SSM API action, e.g. `GetParameter`, `SendCommand`
  * @param {object} obj - API-specific request parameters
- * @param {object} [options] - request options passed to {@link module:aws.queryEndpoint}
+ * @param {object} [options] - request options passed to {@link module:aws.queryService}
  * @param {function} callback - `(err, data, request)`
  */
-aws.querySQS = function(action, obj, options, callback)
+aws.querySSM = function(action, obj, options, callback)
 {
-    this.queryEndpoint("sqs", '2012-11-05', action, obj, options, callback);
+    this.queryService({ endpoint: "ssm", target: "AmazonSSM", action }, obj, options, callback);
 }
 
 /**
- * AWS SQS API request, async version of {@link module:aws.querySQS}.
- * @memberOf module:aws
- * @method aquerySQS
- * @async
- * @param {string} action - SQS API action
- * @param {object} obj - API-specific request parameters
- * @param {object} [options] - request options
- * @returns {Promise&lt;object>} - `{ err, data, request }`
- */
-aws.aquerySQS = function(action, obj, options)
-{
-    return this.aqueryEndpoint("sqs", '2012-11-05', action, obj, options);
-}
-
-/**
- * Receive message(s) from an SQS queue, the callback will receive a list of messages if no error.
- * @param {string} url - queue URL
+ * Run a shell command on instances via SSM (AWS-RunShellScript document).
+ * @memberof module:aws
+ * @method ssmSendCommand
+ * @param {string|string[]} cmds - one command or a list of commands to run
+ * @param {string|string[]} instances - one instance id or a list of instance ids
  * @param {object} [options]
- * @param {number} [options.count] - how many messages to receive
- * @param {number} [options.timeout] - how long to wait, in milliseconds, this is for Long Poll
- * @param {number} [options.visibilityTimeout] - the duration (in milliseconds) that the received messages are hidden from subsequent retrieve requests
- * @param {string} [options.attempt] - request attempt id for FIFO queues after being retrieved by a ReceiveMessage request.
- * @param {function} [callback] as (err, rows) with received items
- * @memberOf module:aws
- * @method sqsReceiveMessage
+ * @param {function} callback
  */
-aws.sqsReceiveMessage = function(url, options, callback)
+aws.ssmSendCommand = function(cmds, instances, options, callback)
+{
+    if (typeof options === "function") callback = options, options = null;
+    const params = {
+        DocumentName: "AWS-RunShellScript",
+        InstanceIds: Array.isArray(instances) ? instances : [instances],
+        Parameters: { commands: Array.isArray(cmds) ? cmds : [cmds] }
+    };
+    this.querySSM("SendCommand", params, options, callback);
+}
+
+/**
+ * Poll an SSM command invocation until it finishes (leaves Pending/InProgress/Delayed) or times out.
+ * @memberof module:aws
+ * @method ssmWaitForCommand
+ * @param {string} cmdId - the SSM command id
+ * @param {string} instanceId - the instance id
+ * @param {object} [options]
+ * @param {number} [options.waitTimeout=60000] - how long to wait in ms
+ * @param {number} [options.waitDelay=1000] - delay in ms between polls
+ * @param {function} callback - `(err, output)`
+ */
+aws.ssmWaitForCommand = function(cmdId, instanceId, options, callback)
 {
     if (typeof options === "function") callback = options, options = null;
 
-    var params = { QueueUrl: url };
-    if (options) {
-        if (options.count) params.MaxNumberOfMessages = lib.toNumber(options.count, { min: 0, max: 10 });
-        if (options.visibilityTimeout > 999) params.VisibilityTimeout = Math.round(options.visibilityTimeout/1000);
-        if (options.timeout > 999) params.WaitTimeSeconds = Math.round(options.timeout/1000);
-        if (options.attempt) params.ReceiveRequestAttemptId = options.attempt;
-    }
-    this.querySQS("ReceiveMessage", params, options, (err, obj) => {
-        var rows = [];
-        if (!err) {
-            rows = obj?.ReceiveMessageResponse?.ReceiveMessageResult?.Message;
-            if (!Array.isArray(rows)) rows = rows ? [ rows ] : [];
-        }
-        if (typeof callback === "function") callback(err, rows);
-    });
+    options = lib.clone(options, { retryOnError: 1 });
+    options.retryCount = lib.toNumber(options.retryCount, { min: 3 });
+    options.retryTimeout = lib.toNumber(options.retryTimeout, { min: 500 });
+    options.waitDelay = lib.toNumber(options.waitDelay, { dflt: 1000, min: 500 });
+    const expires = Date.now() + lib.toNumber(options.waitTimeout, { dflt: 60000, min: 100 });
+    const status = ["Pending","InProgress","Delayed"];
+    let output = {}, num = 0;
+    const params = {
+        CommandId: cmdId,
+        InstanceId: instanceId,
+    };
+    lib.doWhilst(
+        function(next) {
+            aws.querySSM("GetCommandInvocation", params, options, (err, rc) => {
+              if (err) return next(err);
+              output = rc || {};
+              setTimeout(next, num++ ? options.waitDelay : 0);
+          });
+      },
+      function() {
+          return lib.includes(status, output.Status) &amp;&amp; Date.now() &lt; expires;
+      },
+      function(err) {
+          lib.tryCall(callback, err, output);
+      }, true);
 }
 
 /**
- * Send a message to the SQS queue.
- * The options can specify the following:
- * @param {string} url - queue URL
- * @param {string} body - body contens
+ * Retrieve information about one or more parameters under a specified level in a
+ * hierarchy from AWS System Manager
+ * @param {string} path - The hierarchy for the parameter. Hierarchies start with a forward slash (/). The hierarchy is the
+ * parameter name except the last part of the parameter. For the API call to succeed, the last part of the parameter name can't be in the path.
+ * A parameter name hierarchy can have a maximum of 15 levels. Here is an example of a hierarchy: /Finance/Prod/IAD/WinServ2016/license33
  * @param {object} [options]
- * @param {number} [options.delay] - how long to delay this message in milliseconds
- * @param {string} [options.groupName] - a group name for FIFO queues
- * @param {string} [options.dedupId] - deduplication id for FIFO queues
- * @param {object} [options.attrs] - an object with additional message attributes to send, use only string, numbers or binary values,
- *  all other types will be converted into strings
- * @param {function} [callback]
- * @memberOf module:aws
- * @method sqsSendMessage
+ * @param {object[]} [options.filters] - { Key: string, Option: string, Values: string[] }
+ *  - Key can be Type, KeyId, and Label
+ *  - Option can be Equal or BeginsWith, for Label only Equals
+ *  - Values a list of strings to matche
+ * @param {function} callback
+ * @memberof module:aws
+ * @method ssmGetParametersByPath
  */
-aws.sqsSendMessage = function(url, body, options, callback)
+aws.ssmGetParametersByPath = function(path, options, callback)
 {
     if (typeof options === "function") callback = options, options = null;
 
-    var params = { QueueUrl: url, MessageBody: body };
-    if (options) {
-        if (options.delay > 999) params.DelaySeconds = Math.round(options.delay/1000);
-        if (options.groupName) params.MessageGroupId = options.groupNme;
-        if (options.dedupId) params.MessageDeduplicationId = options.dedupId;
-        if (options.attrs) {
-            let n = 1;
-            for (var p in options.attrs) {
-                const type = typeof options.attrs[p] === "number" ? "Number" : typeof options.attrs[p] === "string" ? "String" : "Binary";
-                params["MessageAttribute." + n + ".Name"] = p;
-                params["MessageAttribute." + n + ".Value." + type + "Value"] = options.attrs[p];
-                params["MessageAttribute." + n + ".Value.DataType"] = type;
-                n++;
-            }
-        }
-    }
-    this.querySQS("SendMessage", params, options, callback);
+    const list = [];
+    const q = { Path: path, Recursive: true };
+    if (options.filters) q.ParameterFilters = options.filters;
+
+    lib.doWhilst(
+        function(next) {
+            aws.querySSM("GetParametersByPath", q, options, (err, rc) => {
+              if (!err) {
+                  q.NextToken = rc.NextToken;
+                  list.push.apply(list, rc.Parameters);
+              }
+              next(err);
+          });
+      },
+      function() {
+          return q.NextToken;
+      },
+      function(err) {
+          lib.tryCall(callback, err, list);
+      }, true);
 }
+
 </code></pre>
         </article>
     </section>

@@ -5,7 +5,7 @@
 <head>
     
     <meta charset="utf-8">
-    <title>lib/aws/sqs.js - Backendjs Documentation</title>
+    <title>lib/aws/lambda.js - Backendjs Documentation</title>
     
     <meta name="description" content="A Node.js library to create Web backends with minimal dependencies." />
     
@@ -41,7 +41,7 @@
 
 <div id="main">
     
-    <h1 class="page-title">lib/aws/sqs.js</h1>
+    <h1 class="page-title">lib/aws/lambda.js</h1>
     
 
     
@@ -58,107 +58,282 @@
 'use strict';
 
 const lib = require(__dirname + '/../lib');
+const app = require(__dirname + '/../app');
 const aws = require(__dirname + '/../aws');
 
 /**
- * AWS SQS (Simple Queue Service) API request.
- * @memberOf module:aws
- * @method querySQS
- * @param {string} action - SQS API action, e.g. `SendMessage`, `ReceiveMessage`
+ * AWS Lambda Invoke API request.
+ * @memberof module:aws
+ * @method lambdaInvoke
+ * @param {string} name - Lambda function name,
+ * Function name – my-function (name-only), my-function:v1 (with alias).
+ * Function ARN – arn:aws:lambda:us-west-2:123456789012:function:my-function.
+ * Partial ARN – 123456789012:function:my-function.
+ * @param {object} body - function payload
  * @param {object} obj - API-specific request parameters
- * @param {object} [options] - request options passed to {@link module:aws.queryEndpoint}
+ * @param {object} [options] - request options passed to {@link module:aws.queryService}
+ * @param {string} [options.qualifier] - Specify a version or alias to invoke a published version of the function.
+ * Length Constraints: Minimum length of 1. Maximum length of 128.
+ * Pattern: \$(LATEST(\.PUBLISHED)?)|[a-zA-Z0-9-_$]+
+ * @param {string} [options.invocationType] - Event for async,  RequestResponse or DryRun
+ * @param {string} [options.logType] - Set to Tail to include the execution log in the response.
+ * Applies to synchronously invoked functions only.
+ * @param {string} [options.clientContext] - Up to 3,583 bytes of base64-encoded data about the invoking client to pass to the
+ * function in the context object. Lambda passes the ClientContext object to your function for synchronous invocations only.
+ * @param {string} [options.durableExecutionName] - A unique name for the durable execution.
+ * @param {string} [options.tenantId] - The identifier of the tenant in a multi-tenant Lambda function.
  * @param {function} callback - `(err, data, request)`
+ * The data object will contains the following properties:
+ * - payload - response payload object
+ * - functionError - error from the function
+ * - logResult - last 4K of output
+ * - executedVersion
+ * - durableExecutionArn
+ * @example
+ * # aws.lambdaInvoke("myFunction", { data: 1234 }, { logType: "Tail" }, lib.log)
+ *
+ * {
+ *    payload: { ... }
+ *    logResult: "....",
+ *    executedVersion: "$LATEST",
+ *    durableExecutionName: "...."
+ * }
  */
-aws.querySQS = function(action, obj, options, callback)
+aws.lambdaInvoke = function(name, body, options, callback)
 {
-    this.queryEndpoint("sqs", '2012-11-05', action, obj, options, callback);
-}
+    if (typeof options == "function") callback = options, options = null;
 
-/**
- * AWS SQS API request, async version of {@link module:aws.querySQS}.
- * @memberOf module:aws
- * @method aquerySQS
- * @async
- * @param {string} action - SQS API action
- * @param {object} obj - API-specific request parameters
- * @param {object} [options] - request options
- * @returns {Promise&lt;object>} - `{ err, data, request }`
- */
-aws.aquerySQS = function(action, obj, options)
-{
-    return this.aqueryEndpoint("sqs", '2012-11-05', action, obj, options);
-}
+    const region = this.getServiceRegion("lambda", options?.region || this.region || 'us-east-1');
 
-/**
- * Receive message(s) from an SQS queue, the callback will receive a list of messages if no error.
- * @param {string} url - queue URL
- * @param {object} [options]
- * @param {number} [options.count] - how many messages to receive
- * @param {number} [options.timeout] - how long to wait, in milliseconds, this is for Long Poll
- * @param {number} [options.visibilityTimeout] - the duration (in milliseconds) that the received messages are hidden from subsequent retrieve requests
- * @param {string} [options.attempt] - request attempt id for FIFO queues after being retrieved by a ReceiveMessage request.
- * @param {function} [callback] as (err, rows) with received items
- * @memberOf module:aws
- * @method sqsReceiveMessage
- */
-aws.sqsReceiveMessage = function(url, options, callback)
-{
-    if (typeof options === "function") callback = options, options = null;
+    let url = `https://lambda.${region}.amazonaws.com/2015-03-31/functions/${name}/invocations`;
 
-    var params = { QueueUrl: url };
-    if (options) {
-        if (options.count) params.MaxNumberOfMessages = lib.toNumber(options.count, { min: 0, max: 10 });
-        if (options.visibilityTimeout > 999) params.VisibilityTimeout = Math.round(options.visibilityTimeout/1000);
-        if (options.timeout > 999) params.WaitTimeSeconds = Math.round(options.timeout/1000);
-        if (options.attempt) params.ReceiveRequestAttemptId = options.attempt;
+    if (options?.qualifier) {
+        url += "?Qualifier=" + options.qualifier;
     }
-    this.querySQS("ReceiveMessage", params, options, (err, obj) => {
-        var rows = [];
-        if (!err) {
-            rows = obj?.ReceiveMessageResponse?.ReceiveMessageResult?.Message;
-            if (!Array.isArray(rows)) rows = rows ? [ rows ] : [];
+
+    const opts = this.getServiceOptions(Object.assign({ region, service: "lambda", postdata: body }), options);
+
+    if (options?.invocationType) {
+        opts.headers["X-Amz-Invocation-Type"] = options.invocationType;
+    }
+    if (options?.logType) {
+        opts.headers["X-Amz-Log-Type"] = options.logType;
+    }
+    if (options?.clientContext) {
+        opts.headers["X-Amz-Client-Context"] = options.clientContext;
+    }
+    if (options?.durableExecutionName) {
+        opts.headers["X-Amz-Durable-Execution-Name"] = options.durableExecutionName;
+    }
+    if (options?.tenantId) {
+        opts.headers["X-Amz-Tenant-Id"] = options.tenantId;
+    }
+
+    this.fetch(url, opts, (err, rc) => {
+        if (rc.status &lt; 200 || rc.status >= 399) {
+            err = aws.parseError(rc);
         }
-        if (typeof callback === "function") callback(err, rows);
+        rc.logger(err ? rc.logger_error || "error" : "debug", "lambdaInvoke:", err, "postdata:", rc.postdata, "data:", rc.data);
+        const obj = { payload: rc.obj };
+        for (const p in rc.resheaders) {
+            switch (p) {
+            case "x-amz-function-error":
+            case "x-amz-log-result":
+            case "x-amz-executed-version":
+            case "x-amz-durable-execution-arn":
+                obj[lib.toCamel(p.substr(6))] = rc.resheaders[p];
+                break;
+            }
+        }
+        if (typeof callback === "function") callback(err, obj, rc);
     });
 }
 
-/**
- * Send a message to the SQS queue.
- * The options can specify the following:
- * @param {string} url - queue URL
- * @param {string} body - body contens
- * @param {object} [options]
- * @param {number} [options.delay] - how long to delay this message in milliseconds
- * @param {string} [options.groupName] - a group name for FIFO queues
- * @param {string} [options.dedupId] - deduplication id for FIFO queues
- * @param {object} [options.attrs] - an object with additional message attributes to send, use only string, numbers or binary values,
- *  all other types will be converted into strings
- * @param {function} [callback]
- * @memberOf module:aws
- * @method sqsSendMessage
- */
-aws.sqsSendMessage = function(url, body, options, callback)
-{
-    if (typeof options === "function") callback = options, options = null;
+const mockContext = {
+  functionName: '',
+  functionVersion: '$LATEST',
+  invokedFunctionArn: 'arn:aws:lambda:us-east-1:123456789012:function:mock-function:$LATEST',
+  memoryLimitInMB: 128,
+  awsRequestId: process.id,
+  logGroupName: 'logger',
+  logStreamName: 'lambda',
+  identity: {},
+  clientContext: {},
+  callbackWaitsForEmptyEventLoop: true,
+  getRemainingTimeInMillis: () => 3000,
+  done: (err, res) => {},
+  fail: (err) => {},
+  succeed: (res) => {}
+};
 
-    var params = { QueueUrl: url, MessageBody: body };
-    if (options) {
-        if (options.delay > 999) params.DelaySeconds = Math.round(options.delay/1000);
-        if (options.groupName) params.MessageGroupId = options.groupNme;
-        if (options.dedupId) params.MessageDeduplicationId = options.dedupId;
-        if (options.attrs) {
-            let n = 1;
-            for (var p in options.attrs) {
-                const type = typeof options.attrs[p] === "number" ? "Number" : typeof options.attrs[p] === "string" ? "String" : "Binary";
-                params["MessageAttribute." + n + ".Name"] = p;
-                params["MessageAttribute." + n + ".Value." + type + "Value"] = options.attrs[p];
-                params["MessageAttribute." + n + ".Value.DataType"] = type;
-                n++;
+/**
+ * Wrap Lambda SQS handler to use with Events, each event is wrapped into SQS Event record and passed to the
+ * real Lambda handler. The function context `this` must point to real Lambda handler.
+ * @param {object} event - SQS Event with records
+ * @param {object} [context] - user context
+ * @param {function} [callback] - callback to return back to events processor, use err.status >= 600 to keep
+ * the event in the queue for retry, err.status >= 400 to drop
+ * @returns {undefined}
+ * @memberof module:aws
+ * @method lambdaEventsProxySQS
+ * @example &lt;caption>Assume there is a Lambda package and we want to run it locally via backendjs Events system instead of testing
+ * inside AWS. Save a script `test-lambda.js` &lt;/caption>
+ *
+ * const { app, db, lib, events } = require("backendjs");
+ * const handler = require("lambda-package");
+ *
+ * app.start({ worker: true }, async () => {
+ *     await db.acreateTables();
+ *
+ *     const file = process.argv.find(x => x.endsWith(".json"));
+ *     if (file) {
+ *         lib.forEachLineSync(file, { json: true }, (event) => {
+ *             events.putEvent("test", event);
+ *         });
+ *         await lib.sleep(1000);
+ *     }
+ *
+ *     events.subscribe("", aws.lambdaEventsProxySQS, handler);
+ * });
+ *
+ * @example &lt;caption>save minimal bkjs.conf to use local Sqlite queue&lt;/caption>
+ *
+ * db-pool=sqlite
+ * db-sqlite-pool=var/test
+ * queue-default=db://
+ * events-routing=default:.*
+ *
+ * @example &lt;caption>Now to test events start it from command line, pass a file with events
+ * to publish, one event per line in JSON oformat
+ * &lt;/caption>
+ * node test-lambda.js events.json
+ *
+ */
+aws.lambdaEventsProxySQS = async function(event, callback)
+{
+    const handler = lib.isFunc(this, lib.isFunc(this?.handler));
+    if (!handler) return callback({ status: 500, message: "no handler" });
+
+    const sqsEvent = {
+        Records: [
+            {
+                messageId: event.id,
+                receiptHandle: event.id,
+                body: event.data,
+                attributes: {
+                    ApproximateReceiveCount: 1,
+                    SentTimestamp: event.time,
+                    SenderId: event.origin,
+                    ApproximateFirstReceiveTimestamp: Date.now(),
+                },
+                qmessageAttributes: {},
+                md5OfBody: "",
+                eventSource: "aws:sqs",
+                eventSourceARN: `arn:aws:sqs:${aws.region}:123456789012:${event.received}`,
+                awsRegion: aws.region,
             }
-        }
+        ]
+    };
+
+    try {
+        const rc = await handler(sqsEvent, mockContext);
+
+        const err = rc?.batchItemFailures?.[0] ? { status: 600 } : null;
+        callback(err);
+    } catch (err) {
+        callback(err);
     }
-    this.querySQS("SendMessage", params, options, callback);
 }
+
+
+const apiContext = {
+  "resource": "/my/path",
+  "path": "/my/path",
+  "httpMethod": "GET",
+  "headers": {
+      "header1": "value1",
+      "header2": "value2",
+      "header3": "value1,value2"
+  },
+  "multiValueHeaders": {
+    "header1": ["value1"],
+    "header2": ["value1","value2"],
+    "header3": ["value1,value2"]
+  },
+  "queryStringParameters": {
+      "parameter1": "value1",
+      "parameter2": "value2",
+      "parameter3": "value1,value2"
+  },
+  "multiValueQueryStringParameters": {
+    "parameter1": ["value1"],
+    "parameter2": ["value1","value2"],
+    "parameter3": ["value1,value2"]
+  },
+  "requestContext": {
+    "accountId": "123456789012",
+    "apiId": "id",
+    "authorizer": {
+      "claims": null,
+      "scopes": null
+    },
+    "domainName": "id.execute-api.us-east-1.amazonaws.com",
+    "domainPrefix": "id",
+    "extendedRequestId": "request-id",
+    "httpMethod": "GET",
+    "identity": {
+      "accessKey": null,
+      "accountId": null,
+      "caller": null,
+      "cognitoAuthenticationProvider": null,
+      "cognitoAuthenticationType": null,
+      "cognitoIdentityId": null,
+      "cognitoIdentityPoolId": null,
+      "principalOrgId": null,
+      "sourceIp": "IP",
+      "user": null,
+      "userAgent": "user-agent",
+      "userArn": null,
+      "clientCert": {
+        "clientCertPem": "CERT_CONTENT",
+        "subjectDN": "www.example.com",
+        "issuerDN": "Example issuer",
+        "serialNumber": "a1:a1:a1:a1:a1:a1:a1:a1:a1:a1:a1:a1:a1:a1:a1:a1",
+        "validity": {
+          "notBefore": "May 28 12:30:02 2019 GMT",
+          "notAfter": "Aug  5 09:36:04 2021 GMT"
+        }
+      }
+    },
+    "path": "/my/path",
+    "protocol": "HTTP/1.1",
+    "requestId": "id=",
+    "requestTime": "04/Mar/2020:19:15:17 +0000",
+    "requestTimeEpoch": 1583349317135,
+    "resourceId": null,
+    "resourcePath": "/my/path",
+    "stage": "$default"
+  },
+  "pathParameters": null,
+  "stageVariables": null,
+  "body": "Hello from Lambda!",
+  "isBase64Encoded": false
+}
+
+aws.lambdaEventsProxyAPIGateway = async function(event, callback)
+{
+    const handler = lib.isFunc(this, lib.isFunc(this?.handler));
+    if (!handler) return callback({ status: 500, message: "no handler" });
+
+    return {
+        "isBase64Encoded": false,
+        "statusCode": 200,
+        "headers": { "headername": "headervalue" },
+        "multiValueHeaders": { "headerName": ["headerValue", "headerValue2"] },
+        "body": "Hello from Lambda!"
+    }
+}
+
 </code></pre>
         </article>
     </section>
