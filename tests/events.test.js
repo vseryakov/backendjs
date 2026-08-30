@@ -1,16 +1,16 @@
 
 /**
- * To test different queues:
+ * To test different queues (Sqlite is default):
  *
- * Redis: `node --test tests/events.test.js`
+ * Redis: `BKJS_ROLES=redis,redis-events node --test tests/events.test.js`
  *
  * NATS: `BKJS_ROLES=redis,nats-events --test tests/events.test.js`
  *
  * SQS: `BKJS_ROLES=redis,sqs-events --test tests/events.test.js`
  *
- * DB Sqlite: `BKJS_ROLES=redis,sqlite,db-events node --test tests/events.test.js`
+ * DB Sqlite: `BKJS_ROLES=sqlite,db-events node --test tests/events.test.js`
  *
- * DB Postgres: `BKJS_ROLES=redis,postgres,db-events node --test tests/events.test.js`
+ * DB Postgres: `BKJS_ROLES=postgres,db-events node --test tests/events.test.js`
  *
  */
 
@@ -18,7 +18,7 @@ const cluster = require("node:cluster");
 const { app, lib, events, queue } = require("../");
 const { ainit, astop, testEvent } = require("./utils");
 
-const roles = process.env.BKJS_ROLES || "redis-events";
+const roles = process.env.BKJS_ROLES || "sqlite,db-events";
 
 const queueName = lib.split(roles).at(-1).replace("-event", "")
 
@@ -59,7 +59,7 @@ describe("Events tests", async () => {
         await events.aputEvent("SUBJECT1", { file, data: "subject1" });
         await lib.sleep(500)
 
-        var data = lib.readFileSync(file).split("\n");
+        const data = lib.readFileSync(file).split("\n");
 
         switch (queueName) {
         case "sqs":
@@ -80,7 +80,7 @@ describe("Events tests", async () => {
         await events.aputEvent("SUBJECT1", { file, data: "subject12" });
         await lib.sleep(500)
 
-        var data = lib.readFileSync(file).split("\n");
+        const data = lib.readFileSync(file).split("\n");
 
         switch (queueName) {
         case "nats":
