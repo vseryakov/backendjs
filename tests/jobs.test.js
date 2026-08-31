@@ -31,9 +31,7 @@ const queueName = lib.split(roles).at(-1).replace("-jobs", "");
 jobs.testJob = testJob;
 
 if (cluster.isWorker) {
-    return app.start({ worker: 1, roles, config: __dirname + "/bkjs.conf" }, () => {
-        process.exit();
-    });
+    return app.start({ worker: true, roles, config: __dirname + "/bkjs.conf" });
 }
 
 describe("Jobs tests", async () => {
@@ -41,10 +39,9 @@ describe("Jobs tests", async () => {
     before(async () => {
         await ainit({ jobs: 1, roles })
 
-        const purge = lib.getArgInt("-purge");
-        if (purge > 0) {
+        if (process.env.BKJS_PURGE) {
             await queue.apurge(queueName);
-            await lib.sleep(purge)
+            await lib.sleep(1000)
         }
 
     });

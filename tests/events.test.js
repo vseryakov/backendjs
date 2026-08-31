@@ -25,9 +25,7 @@ const queueName = lib.split(roles).at(-1).replace("-event", "")
 events.testEvent = testEvent;
 
 if (cluster.isWorker) {
-    return app.start({ events: 1, roles, config: __dirname + "/bkjs.conf" }, () => {
-        process.exit();
-    });
+    return app.start({ events: 1, roles, config: __dirname + "/bkjs.conf" });
 }
 
 const { describe, it, before, after } = require('node:test');
@@ -39,10 +37,9 @@ describe("Events tests", async () => {
     before(async () => {
         await ainit({ events: 1, roles })
 
-        const purge = lib.getArgInt("-purge");
-        if (purge > 0) {
+        if (process.env.BKJS_PURGE) {
             await queue.apurge(queueName);
-            await lib.sleep(purge)
+            await lib.sleep(1000)
         }
     });
 
