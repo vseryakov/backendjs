@@ -86,6 +86,14 @@ await db.acreateTables();
 
 ```js
 // Simple insert
+
+db.add("users", {
+    email: "alice@example.com",
+    name: "Alice",
+    tags: ["admin", "active"]
+}, lib.log);
+
+// async
 await db.aadd("users", { 
     email: "alice@example.com", 
     name: "Alice",
@@ -93,6 +101,12 @@ await db.aadd("users", {
 });
 
 // Get the inserted record back
+db.add("users", {
+    email: "bob@example.com",
+    name: "Bob"
+}, { returning: "*", first: true }, lib.log);
+
+// async
 const { data: user } = await db.aadd("users", {
     email: "bob@example.com",
     name: "Bob"

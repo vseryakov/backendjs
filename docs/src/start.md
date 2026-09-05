@@ -22,7 +22,7 @@ A very basic backendjs Web server looks like the following:
 ```js
 const { app, api } = require('backendjs');
 
-app.start({ api: 1 });
+app.start({ api: true });
 
 api.app.get("/", (context) => { context.send(200, "Hello, World!") });
 
@@ -73,7 +73,7 @@ const mod = {
 }
 app.addModule(mod);
 
-app.start({ api: 1 });
+app.start({ api: true });
 console.log('Server running on http://%s:%s/counter', api.bind, api.port);
 ```
 
