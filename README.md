@@ -31,7 +31,7 @@ logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
    - Essential dependencies like `redis`, `pg`, `ws`, `croner`, `nodemailer` are bundled in the package inside the dist/ folder to minimize dependency on npm install.
 
 2. **Database Abstraction**
-   - Supports multiple databases: **SQLite, Rqlite, PostgreSQL-wire compatible (PostgreSQL, DSQL, CockroachDB), DynamoDB, Elasticsearch**.
+   - Supports multiple databases: **SQLite, Rqlite, PostgreSQL-wire compatible (PostgreSQL, DSQL, CockroachDB), RDS Data API, DynamoDB, Elasticsearch**.
    - Provides a simple unified API for CRUD operations for all databases, caching, and transactions, access to native engine allows to send raw SQL or JSON directy.
    - Supports **primary keys, indexes, and schema migrations**.
 
@@ -50,7 +50,7 @@ logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
    - Includes simple but powerful input validation via declarative schemas.
 
 6. **AWS Integration**
-   - Supports **AWS services** like **S3, SQS, SNS, DynamoDB, and EC2**, the AWS signatire V4 is implemented internally and the
+   - Supports **AWS services** like **S3, SQS, SNS, DynamoDB, and EC2**, the AWS signature V4 is implemented internally and the
    rest of AWS API is used directly, no aws-sdk involved.
    - Automated instance/containers metadata retrieval and configuration.
 
