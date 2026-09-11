@@ -13,7 +13,7 @@ describe("forEachLine tests", async (t) => {
 
     fs.writeFileSync(file, "");
     for (let i = 0; i < nlines-2; i++) fs.appendFileSync(file, line + "\n");
-    fs.appendFileSync(file, "[2,3,4]\n[1,2,3]\n");
+    fs.appendFileSync(file, "[2,3,4]\n[1,2,3]");
 
     await it("must read all", async () => {
         var count = 0, opts = {};
