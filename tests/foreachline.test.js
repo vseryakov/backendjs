@@ -129,4 +129,19 @@ describe("forEachLine tests", async (t) => {
         await forEachLine(file, opts, (ls) => { for (const l of ls) count += lib.toNumber(l) });
         assert.strictEqual(count, nlines*6+3);
     });
+
+    await it("exact buffer-size with nl must read all", async () => {
+        var count = 0, opts = { buflength: 100 };
+        fs.writeFileSync(file, "a".repeat(99) + "\n");
+        lib.forEachLineSync(file, opts, (l) => { count++ });
+        assert.strictEqual(count, 1);
+    });
+
+    await it("exact buffer-size without nl must read all", async () => {
+        var count = 0, opts = { buflength: 100 };
+        fs.writeFileSync(file, "a".repeat(99));
+        lib.forEachLineSync(file, opts, (l) => { count++ });
+        assert.strictEqual(count, 1);
+    });
+
 })
