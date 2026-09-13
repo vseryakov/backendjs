@@ -200,9 +200,12 @@ const { data } = await db.aselect(&quot;users&quot;, { name_$begins_with: &quot;
 // Contains substring
 const { data } = await db.aselect(&quot;users&quot;, { email_$includes: &quot;@gmail.com&quot; });
 
-// Is null / not null
+// Is null
 const { data } = await db.aselect(&quot;users&quot;, { phone: null });
+
+// Not null
 const { data } = await db.aselect(&quot;users&quot;, { phone_$not_null: &quot;&quot; });
+const { data } = await db.aselect(&quot;users&quot;, { phone_$ne: null });
 
 // Range
 const { data } = await db.aselect(&quot;users&quot;, { counter: [5, 10] }, { 
@@ -288,6 +291,11 @@ const { data } = await db.aselect(&quot;users&quot;, { counter: [5, 10] }, {
 <td>is not null</td>
 <td><code>col_$not_null</code></td>
 <td><code>{ verified_$not_null: &quot;&quot; }</code></td>
+</tr>
+<tr>
+<td>is not null</td>
+<td><code>col_$ne: null</code></td>
+<td><code>{ verified_$ne: null }</code></td>
 </tr>
 </tbody>
 </table>

@@ -95,7 +95,7 @@ logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 <li>
 <p><strong>Database Abstraction</strong></p>
 <ul>
-<li>Supports multiple databases: <strong>SQLite, Rqlite, PostgreSQL-wire compatible (PostgreSQL, DSQL, CockroachDB), DynamoDB, Elasticsearch</strong>.</li>
+<li>Supports multiple databases: <strong>SQLite, Rqlite, PostgreSQL-wire compatible (PostgreSQL, DSQL, CockroachDB), RDS Data API, DynamoDB, Elasticsearch</strong>.</li>
 <li>Provides a simple unified API for CRUD operations for all databases, caching, and transactions, access to native engine allows to send raw SQL or JSON directy.</li>
 <li>Supports <strong>primary keys, indexes, and schema migrations</strong>.</li>
 </ul>
@@ -126,7 +126,7 @@ logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 <li>
 <p><strong>AWS Integration</strong></p>
 <ul>
-<li>Supports <strong>AWS services</strong> like <strong>S3, SQS, SNS, DynamoDB, and EC2</strong>, the AWS signatire V4 is implemented internally and the
+<li>Supports <strong>AWS services</strong> like <strong>S3, SQS, SNS, DynamoDB, and EC2</strong>, the AWS signature V4 is implemented internally and the
 rest of AWS API is used directly, no aws-sdk involved.</li>
 <li>Automated instance/containers metadata retrieval and configuration.</li>
 </ul>

@@ -194,9 +194,12 @@ const { data } = await db.aselect("users", { name_$begins_with: "A" });
 // Contains substring
 const { data } = await db.aselect("users", { email_$includes: "@gmail.com" });
 
-// Is null / not null
+// Is null
 const { data } = await db.aselect("users", { phone: null });
+
+// Not null
 const { data } = await db.aselect("users", { phone_$not_null: "" });
+const { data } = await db.aselect("users", { phone_$ne: null });
 
 // Range
 const { data } = await db.aselect("users", { counter: [5, 10] }, { 
@@ -222,6 +225,7 @@ const { data } = await db.aselect("users", { counter: [5, 10] }, {
 | ends with | `col_$ends_with` | `{ email_$ends_with: ".edu" }` |
 | is null | `col: null` | `{ deleted_at: null }` |
 | is not null | `col_$not_null` | `{ verified_$not_null: "" }` |
+| is not null | `col_$ne: null` | `{ verified_$ne: null }` |
 
 ---
 

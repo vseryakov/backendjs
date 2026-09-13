@@ -205,20 +205,27 @@ lib.forEachLine = function(file, options, lineCallback, endCallback)
 lib.readLines = function(ctx, options, lineCallback, endCallback)
 {
     fs.read(ctx.fd, ctx.buffer, 0, ctx.buffer.length, ctx.pos, (_err, nread) => {
+        var lines;
         ctx.pos = null;
         ctx.nread = nread;
         options.npos += nread;
-        var lines;
+
         if (nread) {
             ctx.data += ctx.buffer.slice(0, nread).toString(options.encoding || 'utf8');
             lines = ctx.data.split(options.rxLine || this.rxLine);
             if (ctx.data.endsWith("\n")) {
                 ctx.data = "";
                 lines.length--;
-            } else {
+            } else
+            if (nread === ctx.buffer.length) {
                 ctx.data = lines.pop();
             }
+        } else
+
+        if (ctx.data &amp;&amp; !options.tail) {
+            lines = [ctx.data];
         }
+
         lib.forEachLimit(lines, options.concurrency, (line, next) => {
             function doNext(err) {
                 return options.nlines % 100 ? next(err) : setImmediate(next, err);
@@ -343,9 +350,9 @@ lib.forEachLineSync = function(file, options, lineCallback)
 
     const start = Date.now();
     const buffer = Buffer.alloc(options.buflength || 4096);
-    var batch = options.count > 0 ? [] : null, bsize = 0;
-    var pos = options.start > 0 ? options.pos : null;
-    var data = "", lines;
+    let batch = options.count > 0 ? [] : null, bsize = 0;
+    let pos = options.start > 0 ? options.pos : null;
+    let data = "", lines;
 
     options.npos = pos || 0;
 
@@ -360,12 +367,18 @@ lib.forEachLineSync = function(file, options, lineCallback)
             if (data.endsWith("\n")) {
                 data = "";
                 lines.length--;
-            } else {
+            } else
+
+            if (nread === buffer.length) {
                 data = lines.pop();
             }
+        } else
+
+        if (data) {
+            lines = [data];
         }
 
-        for (let i = 0; i &lt; lines.length; i++) {
+        for (let i = 0; i &lt; lines?.length; i++) {
             options.nlines++;
             if (!options.nlines === 1 &amp;&amp; options.header) {
                 if (typeof options.header !== "function") continue;

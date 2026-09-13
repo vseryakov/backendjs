@@ -343,11 +343,26 @@ db.prepareColumn = function(req, name, value)
 
     let op = aop ||
              req?.options?.ops?.[name] ||
-             (value === null &amp;&amp; "null" || Array.isArray(value) &amp;&amp; "in") ||
+             (Array.isArray(value) &amp;&amp; "in") ||
              col?.ops?.[req?.op] || "eq";
 
     op = op.toLowerCase().replaceAll("_", " ");
     op = req?.config?.opsMap?.[op] || op;
+
+    if (value === null) {
+        switch (op) {
+        case "eq":
+        case "=":
+        case "==":
+            op = "null";
+            break;
+        case "ne":
+        case "&lt;>":
+        case "!=":
+            op = "not null";
+            break;
+        }
+    }
 
     const type = db.getColumnType(req, col?.type);
     const join = req?.options?.joinOps?.[alias] || req?.options?.joinOps?.[name];

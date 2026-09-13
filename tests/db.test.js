@@ -451,6 +451,9 @@ describe("DB tests", async () => {
         rc = await db.aselect("bk_test1", { id: id3, dflt_$not_null: "" });
         assert.strictEqual(rc?.data?.length, 1);
 
+        rc = await db.aselect("bk_test1", { id: id3, dflt_$ne: null });
+        assert.strictEqual(rc?.data?.length, 1);
+
     });
 
     await it("db pagination", async() => {
