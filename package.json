@@ -4,10 +4,23 @@
   "name": "backendjs",
   "description": "A library for building backends",
   "main": "lib/index",
+  "module": "lib/index.mjs",
   "homepage": "https://github.com/vseryakov/backendjs",
   "repository": {
     "type": "git",
     "url": "https://github.com/vseryakov/backendjs.git"
+  },
+  "exports": {
+    ".": {
+      "import": "./lib/index.mjs",
+      "require": "./lib/index.js",
+      "default": "./lib/index.js"
+    },
+    "./package.json": {
+      "default": "./package.json"
+    },
+    "./lib/*": "./lib/*.js",
+    "./lib/*.js": "./lib/*.js"
   },
   "peerDependencies": {
     "sharp": "0.35.4",
@@ -56,6 +69,7 @@
   "scripts": {
     "build": "npm run docs",
     "devbuild": "npm run build",
+    "types": "tsc lib/*.js --ignoreConfig --declaration --declarationMap --allowJs --emitDeclarationOnly --outDir types",
     "node": "./bkjs install-node",
     "biome": "biome lint --colors=off --max-diagnostics=1000",
     "eslint": "eslint lib/*",

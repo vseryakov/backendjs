@@ -82,6 +82,11 @@ app.start({ api: true });
 
 logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 </code></pre>
+<p>Or as ESM module:</p>
+<pre class="prettyprint source lang-js"><code>import { app, api, db, logger } from 'backendjs'
+...same as above ...
+
+</code></pre>
 <h2 id="features"><strong>Features</strong></h2>
 <ol>
 <li>

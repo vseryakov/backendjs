@@ -23,6 +23,14 @@ app.start({ api: true });
 logger.log(`Server running on http://${api.bind}:${api.port}`, app.env);
 ```
 
+Or as ESM module:
+
+```js
+import { app, api, db, logger } from 'backendjs'
+...same as above ...
+
+```
+
 ## **Features**
 
 1. **Modular Architecture**

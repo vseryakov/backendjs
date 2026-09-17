@@ -163,7 +163,10 @@
       oldValueJSON = newJSON;
       firstTime = false;
     });
-    return () => release(effectReference);
+    return () => {
+      dequeueJob(effectReference);
+      release(effectReference);
+    };
   }
   async function transaction(callback) {
     startTransaction();
@@ -239,6 +242,13 @@
           queuedMutations.shift()();
       }
     });
+  }
+  function flushPendingMutations() {
+    while (queuedMutations.length > 0)
+      queuedMutations.shift()();
+    let records = observer.takeRecords();
+    if (records.length > 0)
+      onMutate(records);
   }
   function mutateDom(callback) {
     if (!currentlyObserving)
@@ -837,21 +847,6 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
     return directiveOrder.indexOf(typeA) - directiveOrder.indexOf(typeB);
   }
 
-  // packages/alpinejs/src/utils/dispatch.js
-  function dispatch(el, name, detail = {}, options = {}) {
-    return el.dispatchEvent(
-      new CustomEvent(name, {
-        detail,
-        bubbles: true,
-        // Allows events to pass the shadow DOM barrier.
-        composed: true,
-        cancelable: true,
-        // Allows overriding the default event options.
-        ...options
-      })
-    );
-  }
-
   // packages/alpinejs/src/utils/walk.js
   function walk(el, callback) {
     if (typeof ShadowRoot === "function" && el instanceof ShadowRoot) {
@@ -867,6 +862,169 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
       walk(node, callback, false);
       node = node.nextElementSibling;
     }
+  }
+
+  // packages/alpinejs/src/clone.js
+  var isCloning = false;
+  function skipDuringClone(callback, fallback = () => {
+  }) {
+    return (...args) => isCloning ? fallback(...args) : callback(...args);
+  }
+  function onlyDuringClone(callback) {
+    return (...args) => isCloning && callback(...args);
+  }
+  var interceptors = [];
+  function interceptClone(callback) {
+    interceptors.push(callback);
+  }
+  function cloneNode(from, to) {
+    interceptors.forEach((i) => i(from, to));
+    isCloning = true;
+    dontRegisterReactiveSideEffects(() => {
+      initTree(to, (el, callback) => {
+        callback(el, () => {
+        });
+      });
+    });
+    isCloning = false;
+  }
+  var isCloningLegacy = false;
+  function clone(oldEl, newEl) {
+    if (!newEl._x_dataStack)
+      newEl._x_dataStack = oldEl._x_dataStack;
+    isCloning = true;
+    isCloningLegacy = true;
+    dontRegisterReactiveSideEffects(() => {
+      cloneTree(newEl);
+    });
+    isCloning = false;
+    isCloningLegacy = false;
+  }
+  function cloneTree(el) {
+    let hasRunThroughFirstEl = false;
+    let shallowWalker = (el2, callback) => {
+      walk(el2, (el3, skip) => {
+        if (hasRunThroughFirstEl && isRoot(el3))
+          return skip();
+        hasRunThroughFirstEl = true;
+        callback(el3, skip);
+      });
+    };
+    initTree(el, shallowWalker);
+  }
+  function dontRegisterReactiveSideEffects(callback) {
+    let cache = effect;
+    overrideEffect((callback2, el) => {
+      let storedEffect = cache(callback2);
+      release(storedEffect);
+      return () => {
+      };
+    });
+    callback();
+    overrideEffect(cache);
+  }
+
+  // packages/alpinejs/src/deferInit.js
+  var activeDefers = 0;
+  function deferInit(el, promise) {
+    let record = el._x_deferInit;
+    if (!record) {
+      record = el._x_deferInit = {
+        pending: 0,
+        ownsIgnore: !el._x_ignore,
+        queuedAttributes: /* @__PURE__ */ new Map()
+      };
+      if (record.ownsIgnore)
+        el._x_ignore = true;
+      activeDefers++;
+    }
+    record.pending++;
+    Promise.resolve(promise).catch((error2) => {
+      try {
+        handleError(error2, el);
+      } catch (error3) {
+        setTimeout(() => {
+          throw error3;
+        }, 0);
+      }
+    }).then(() => settle(el, record));
+  }
+  function settle(el, record) {
+    record.pending--;
+    if (record.pending > 0)
+      return;
+    flushPendingMutations();
+    if (record.pending > 0)
+      return;
+    if (el._x_deferInit !== record)
+      return;
+    delete el._x_deferInit;
+    if (record.ownsIgnore)
+      delete el._x_ignore;
+    activeDefers--;
+    if (!el.isConnected)
+      return;
+    replayQueuedAttributes(record);
+    initTree(el);
+  }
+  function queueAttributesForDeferredTree(el, attrs) {
+    if (activeDefers === 0)
+      return false;
+    let root = findClosest(el, (i) => i._x_deferInit);
+    if (!root)
+      return false;
+    queueInto(root._x_deferInit, el, attrs.map(({ name }) => name));
+    return true;
+  }
+  function queueInto(record, el, names) {
+    let entry = record.queuedAttributes.get(el);
+    if (!entry || entry.marker !== el._x_marker) {
+      entry = { marker: el._x_marker, names: /* @__PURE__ */ new Set() };
+      record.queuedAttributes.set(el, entry);
+    }
+    names.forEach((name) => entry.names.add(name));
+  }
+  function replayQueuedAttributes(record) {
+    record.queuedAttributes.forEach((entry, el) => {
+      if (!el.isConnected)
+        return;
+      if (!el._x_marker)
+        return;
+      if (el._x_marker !== entry.marker)
+        return;
+      let suspendedAncestor = findClosest(el, (i) => i._x_deferInit);
+      if (suspendedAncestor) {
+        queueInto(suspendedAncestor._x_deferInit, el, Array.from(entry.names));
+        return;
+      }
+      let attrs = Array.from(entry.names).filter((name) => el.hasAttribute(name)).map((name) => ({ name, value: el.getAttribute(name) }));
+      if (attrs.length === 0)
+        return;
+      directives(el, attrs).forEach((handle) => handle());
+    });
+  }
+  interceptClone((from, to) => {
+    if (activeDefers === 0)
+      return;
+    if (!from || from.nodeType !== 1 || !to || to.nodeType !== 1)
+      return;
+    if (findClosest(from, (i) => i._x_deferInit))
+      to._x_ignore = true;
+  });
+
+  // packages/alpinejs/src/utils/dispatch.js
+  function dispatch(el, name, detail = {}, options = {}) {
+    return el.dispatchEvent(
+      new CustomEvent(name, {
+        detail,
+        bubbles: true,
+        // Allows events to pass the shadow DOM barrier.
+        composed: true,
+        cancelable: true,
+        // Allows overriding the default event options.
+        ...options
+      })
+    );
   }
 
   // packages/alpinejs/src/utils/warn.js
@@ -888,6 +1046,8 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
     onElAdded((el) => initTree(el, walk));
     onElRemoved((el) => destroyTree(el));
     onAttributesAdded((el, attrs) => {
+      if (queueAttributesForDeferredTree(el, attrs))
+        return;
       directives(el, attrs).forEach((handle) => handle());
     });
     let outNestedComponents = (el) => !closestRoot(el.parentElement, true);
@@ -1385,66 +1545,6 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
     return rawValue;
   }
 
-  // packages/alpinejs/src/clone.js
-  var isCloning = false;
-  function skipDuringClone(callback, fallback = () => {
-  }) {
-    return (...args) => isCloning ? fallback(...args) : callback(...args);
-  }
-  function onlyDuringClone(callback) {
-    return (...args) => isCloning && callback(...args);
-  }
-  var interceptors = [];
-  function interceptClone(callback) {
-    interceptors.push(callback);
-  }
-  function cloneNode(from, to) {
-    interceptors.forEach((i) => i(from, to));
-    isCloning = true;
-    dontRegisterReactiveSideEffects(() => {
-      initTree(to, (el, callback) => {
-        callback(el, () => {
-        });
-      });
-    });
-    isCloning = false;
-  }
-  var isCloningLegacy = false;
-  function clone(oldEl, newEl) {
-    if (!newEl._x_dataStack)
-      newEl._x_dataStack = oldEl._x_dataStack;
-    isCloning = true;
-    isCloningLegacy = true;
-    dontRegisterReactiveSideEffects(() => {
-      cloneTree(newEl);
-    });
-    isCloning = false;
-    isCloningLegacy = false;
-  }
-  function cloneTree(el) {
-    let hasRunThroughFirstEl = false;
-    let shallowWalker = (el2, callback) => {
-      walk(el2, (el3, skip) => {
-        if (hasRunThroughFirstEl && isRoot(el3))
-          return skip();
-        hasRunThroughFirstEl = true;
-        callback(el3, skip);
-      });
-    };
-    initTree(el, shallowWalker);
-  }
-  function dontRegisterReactiveSideEffects(callback) {
-    let cache = effect;
-    overrideEffect((callback2, el) => {
-      let storedEffect = cache(callback2);
-      release(storedEffect);
-      return () => {
-      };
-    });
-    callback();
-    overrideEffect(cache);
-  }
-
   // packages/alpinejs/src/utils/bind.js
   function bind(el, name, value, modifiers = []) {
     if (!el._x_bindings)
@@ -1680,6 +1780,7 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
       innerHash = JSON.stringify(innerGet());
     });
     return () => {
+      dequeueJob(reference);
       release(reference);
     };
   }
@@ -1804,7 +1905,7 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
     get transaction() {
       return transaction;
     },
-    version: "3.16.3",
+    version: "3.17.3",
     flushAndStopDeferringMutations,
     dontAutoEvaluateFunctions,
     disableEffectScheduling,
@@ -1842,6 +1943,7 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
     setStyles,
     // INTERNAL
     mutateDom,
+    deferInit,
     directive,
     entangle,
     throttle,
@@ -3476,9 +3578,37 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
   function isClickEvent(event) {
     return ["contextmenu", "click", "mouse"].some((i) => event.includes(i));
   }
+  var nonKeyModifiers = [
+    // x-on's own modifiers:
+    "window",
+    "document",
+    "prevent",
+    "stop",
+    "once",
+    "capture",
+    "self",
+    "away",
+    "outside",
+    "passive",
+    "dot",
+    "camel",
+    "preserve-scroll",
+    // x-model's own modifiers:
+    "blur",
+    "change",
+    "lazy",
+    "number",
+    "boolean",
+    "trim",
+    "fill",
+    "unintrusive",
+    "parent"
+  ];
   function isListeningForASpecificKeyThatHasntBeenPressed(e, modifiers) {
-    let keyModifiers = modifiers.filter((i) => {
-      return !["window", "document", "prevent", "stop", "once", "capture", "self", "away", "outside", "passive", "preserve-scroll", "blur", "change", "lazy"].includes(i);
+    let keyModifiers = modifiers.filter((modifier, index) => {
+      if (modifier === "false" && modifiers[index - 1] === "passive")
+        return false;
+      return !nonKeyModifiers.includes(modifier);
     });
     if (keyModifiers.includes("debounce")) {
       let debounceIndex = keyModifiers.indexOf("debounce");
@@ -3865,7 +3995,9 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
     }
     initInterceptors(reactiveData, cleanup);
     let undo = addScopeToNode(el, reactiveData);
-    reactiveData["init"] && evaluate(el, reactiveData["init"]);
+    skipDuringClone(() => {
+      reactiveData["init"] && evaluate(el, reactiveData["init"]);
+    })();
     cleanup(() => {
       reactiveData["destroy"] && evaluate(el, reactiveData["destroy"]);
       undo();
@@ -4065,7 +4197,7 @@ ${expression ? 'Expression: "' + expression + '"\n\n' : ""}`, el);
   function parseForExpression(expression) {
     let forIteratorRE = /,([^,\}\]]*)(?:,([^,\}\]]*))?$/;
     let stripParensRE = /^\s*\(|\)\s*$/g;
-    let forAliasRE = /([\s\S]*?)\s+(?:in|of)\s+([\s\S]*)/;
+    let forAliasRE = /([\s\S]*?)\b(?:in|of)\b([\s\S]*)/;
     let inMatch = expression.match(forAliasRE);
     if (!inMatch)
       return;
