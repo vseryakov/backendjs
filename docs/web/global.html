@@ -1132,7 +1132,7 @@ each property defines a type by name/key, this is for complex parameters with <c
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line230">line 230</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line248">line 248</a>
     </li></ul></dd>
     
 
@@ -3216,7 +3216,7 @@ properties starting with _ or $ are ignored and used for other specific purposes
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line136">line 136</a>
+        <a href="lib_db.js.html">lib/db.js</a>, <a href="lib_db.js.html#line170">line 170</a>
     </li></ul></dd>
     
 
@@ -3285,7 +3285,7 @@ properties starting with _ or $ are ignored and used for other specific purposes
 
             <td class="type">
             
-                string
+                DbColumnType | String
             
             </td>
 
@@ -3299,25 +3299,7 @@ properties starting with _ or $ are ignored and used for other specific purposes
 
             
 
-            <td class="description last"><p>column type, supported types:</p>
-<ul>
-<li><strong>int, bigint, log, real, float, number</strong> -  numeric types</li>
-<li><strong>bool, boolean</strong> -  stored as boolean type</li>
-<li><strong>text, varchar, str, string, keyword</strong> -  text types</li>
-<li><strong>date, time, timestamp</strong> -  Date stored in database supported type, usually as text in SQL</li>
-<li><strong>mtime</strong> -  timestamp in milliseconds</li>
-<li><strong>json</strong> -  stored as JSON text but converted to/from native Javascript objects</li>
-<li><strong>obj, object</strong> -  native JSON object type</li>
-<li><strong>array</strong> -  native JSON array type</li>
-<li><strong>list</strong> -  store a list of primitive types, strings and/or numbers</li>
-<li><strong>set</strong> - a unique set of string or numbers if supported natively, otherwise same as list</li>
-<li><strong>random</strong> -  generates a random number in <a href="module-db.html#.add"><code>module:db.add</code></a>/<a href="module-db.html#.put"><code>module:db.put</code></a> methods, uses optional .max/.min properties</li>
-<li><strong>uuid, suuid, sfuuid</strong> -  autogenerate the column value with UUID,
-optional <strong>prefix</strong> property will be prepended, <em><em>{ type: &quot;uuid&quot;, prefix: &quot;u</em>&quot; }</em>_,
-see <a href="module-lib.html#.uuid"><code>module:lib.uuid</code></a>, <a href="module-lib.html#.suuid"><code>module:lib.suuid</code></a>, <code>module:lib.tuuid</code></li>
-<li><strong>now</strong> -  defines a column to be automatically filled with the current timestamp in milliseconds</li>
-<li><strong>counter</strong> -  defines a columns that will be automatically incremented by the <a href="module-db.html#.incr"><code>module:db.incr</code></a> command, on creation it is set with 0</li>
-</ul></td>
+            <td class="description last"><p>column type, supported types: <code>module:db.DbColumnType</code></p></td>
         </tr>
 
     
