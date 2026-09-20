@@ -1,8 +1,10 @@
+
 // Handle Push events to display messages
 console.log("ServiceWorker loaded: Push Notifications");
-self.addEventListener("push", (e) => {
+
+self.addEventListener("push", (event) => {
     const options = {};
-    const data = e.data && e.data.json() || {};
+    const data = event.data && event.data.json() || {};
     for (const p of ["actions", "badge", "body" ,"data", "dir", "icon", "image", "lang", "renotify", "requireInteraction", "silent", "tag", "timestamp", "vibrate"]) {
         if (typeof data[p] != "undefined") options[p] = data[p];
     }
