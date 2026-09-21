@@ -745,16 +745,16 @@ sql.createIndexes = function(req)
         if (req.pool.dbindexes[index] || req.pool.dbindexes[index.toLowerCase()]) continue;
 
         const columns = indexes[name].map(x => sql.column(req, x));
-        const key = indexes[name][0];
+        const key = req.query[indexes[name][0]];
 
-        const copts = req.query[key]?.["_$" + req.pool.type]?.[name] || req.query[key]?._$db?.[name];
+        const copts = key?.["_$" + req.pool.type]?.[name] || key?._$db?.[name];
         const topts = req.query["_$" + req.pool.type]?.[name] || req.query._$db?.[name];
         const _sql = copts?.sql || topts?.sql;
 
         if (_sql) {
             text.push(lib.toTemplate(_sql, [{ index, columns }, req]));
         } else {
-            const type = lib.isString(copts?.[name]);
+            const type = lib.isString(copts?.[name]) || key?.unique &amp;&amp; "UNIQUE";
             text.push(`CREATE ${type} INDEX ${ifNotExists} ${index} ON ${req.table} (${columns}) ${copts?.sql_extra || topts?.sql_extra || ""}`);
         }
     }

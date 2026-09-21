@@ -115,10 +115,10 @@ lib.uuidv5 = function(text, namespace)
 }
 
 /**
- * Short unique id within a microsecond or local epoch
+ * Short unique id within a microsecond or local epoch, the use case for this is when ids are generated once in a while only.
  * @param {string} [prefix] - prepend with prefix
  * @param {object} [options] - same options as for {@link module:lib.getHashid}
- * @param {int} [options.epoch] - local epoch type via {@link module:lib.localEpoch}, default is milliseconds, `m` for microseconds, `s` for seconds
+ * @param {string} [options.epoch] - local epoch type via {@link module:lib.localEpoch}, default is milliseconds, `m` for microseconds, `s` for seconds
  * @return {string} generated hash
  * @memberof module:lib
  * @method suuid
