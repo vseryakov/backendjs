@@ -403,9 +403,10 @@ the worker processes if they die and restart them automatically.</p>
   {
     "name": "context-options",
     "type": "map",
+    "obj": "context-options",
     "merge": 1,
     "descr": "Options for every request context",
-    "example": "trustProxy:false, secretNoHash:true"
+    "example": "trustProxy:false, noHashSecret:true"
   },
   {
     "name": "defaults-([a-z0-9_]+)-(.+)",
@@ -497,7 +498,7 @@ the worker processes if they die and restart them automatically.</p>
     <dd class="tag-default"><ul class="dummy">
             <li class="object-value"><details><summary></summary><pre class="prettyprint wrap"><code>{
   "trustProxy": true,
-  "secretNoHash": false
+  "noHashSecret": false
 }</code></pre></details></li>
         </ul></dd>
     

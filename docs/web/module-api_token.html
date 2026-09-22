@@ -221,7 +221,7 @@ the <code>login</code> and <code>secret</code> columns use properties from the g
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_token.js.html">lib/api/token.js</a>, <a href="lib_api_token.js.html#line63">line 63</a>
+        <a href="lib_api_token.js.html">lib/api/token.js</a>, <a href="lib_api_token.js.html#line65">line 65</a>
     </li></ul></dd>
     
 
@@ -380,8 +380,11 @@ the <code>login</code> and <code>secret</code> columns use properties from the g
     <dt class="tag-description">Description:</dt>
     <dd class="tag-description"><ul class="dummy"><li><p>Create an API token to be saved in the database, stores it in <code>context.session</code>. The format is compatible
 with <a href="module-api_session.html"><code>module:api/session</code></a>.</p>
-<p>Generated login and secret are random UUIDv4, so secret hash without a salt is more about database exposure
-of the secret and not weak encryption.</p>
+<p>Generated login and secret are random UUIDv4, so the secret hash without a salt is more about database exposure
+of secrets and not weak encryption.</p>
+<p>Still if the context options contains <code>noHashSecret: true</code> then
+session secret will not be hashed when comparing with user secret, for cases when
+storing raw secret is acceptable. Use <a href="module-api.html#.contextOptions"><code>module:api.contextOptions</code></a></p>
 <p>The session object contains the following properties:</p>
 <ul>
 <li><code>type</code>: <code>token</code></li>
@@ -396,7 +399,7 @@ of the secret and not weak encryption.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_api_token.js.html">lib/api/token.js</a>, <a href="lib_api_token.js.html#line93">line 93</a>
+        <a href="lib_api_token.js.html">lib/api/token.js</a>, <a href="lib_api_token.js.html#line95">line 95</a>
     </li></ul></dd>
     
 
@@ -577,7 +580,7 @@ of the secret and not weak encryption.</p>
 
         <tr>
             
-                <td class="name"><code>nohash</code></td>
+                <td class="name"><code>noHashSecret</code></td>
             
 
             <td class="type">
@@ -679,7 +682,7 @@ await db.aput("bk_user", user);</code></pre>
 
     
 
-    <h4 class="name" id=".verify"><span class="type-signature type-signature-static">(static) </span>verify<span class="signature">(context, secret)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id=".verify"><span class="type-signature type-signature-static">(static) </span>verify<span class="signature">(context, secret, options<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
 
     
 
@@ -692,7 +695,7 @@ await db.aput("bk_user", user);</code></pre>
     <dd class="tag-description"><ul class="dummy"><li><p>Verify API token from Authorization header and sets user in the context on success, this can be used standalone or as middleware.</p>
 <p>It must be in format: <code>Authorization: Basic base64(token)</code> or <code>Authorization: Bearer token</code>,</p>
 <p>An API tokens are created by <code>module:api/token.create</code> and parsed by <a href="module-api_token.html#.parse"><code>module:api/token.parse</code></a>.</p>
-<p>if context options contains <code>secretNoHash: true</code> then session secret will not be hashed when comparing with user secret, for cases when
+<p>If the context options contains <code>noHashSecret: true</code> then session secret will not be hashed when comparing with user secret, for cases when
 storing raw secret is acceptable. Use <a href="module-api.html#.contextOptions"><code>module:api.contextOptions</code></a></p></li></ul></dd>
     
 
@@ -759,6 +762,8 @@ storing raw secret is acceptable. Use <a href="module-api.html#.contextOptions">
         <th>Type</th>
 
         
+        <th>Attributes</th>
+        
 
         
 
@@ -781,6 +786,14 @@ storing raw secret is acceptable. Use <a href="module-api.html#.contextOptions">
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
 
             
 
@@ -801,10 +814,106 @@ storing raw secret is acceptable. Use <a href="module-api.html#.contextOptions">
             </td>
 
             
+                <td class="attributes">
+                
+
+                
+
+                
+                </td>
+            
 
             
 
             <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>options</code></td>
+            
+
+            <td class="type">
+            
+                object
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last">
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+        <th>Attributes</th>
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>noHashSecret</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>do not hash the secret</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
         </tr>
 
     

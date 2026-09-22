@@ -98,18 +98,20 @@ module.exports = {
  *
  * An API tokens are created by {@link module:api/token.create} and parsed by {@link module:api/token.parse}.
  *
- * if context options contains `secretNoHash: true` then session secret will not be hashed when comparing with user secret, for cases when
+ * If the context options contains `noHashSecret: true` then session secret will not be hashed when comparing with user secret, for cases when
  * storing raw secret is acceptable. Use {@link module:api.contextOptions}
  *
  * @param {RequestContext} context
  * @param {string} secret
+ * @param {object} [options]
+ * @param {boolean} [options.noHashSecret] - do not hash the secret
  * @memberof module:api/token
  * @method verify
  */
-mod.verify = function(context, secret)
+mod.verify = function(context, secret, options)
 {
     const session = mod.parse(context);
-    const hash = context.options.secretNoHash ? session.secret : lib.hash(session.secret);
+    const hash = options?.noHashSecret || context.options?.noHashSecret ? session.secret : lib.hash(session.secret);
     return session &amp;&amp; lib.timingSafeEqual(secret, hash);
 }
 
@@ -147,8 +149,12 @@ mod.parse = function(context)
  * Create an API token to be saved in the database, stores it in `context.session`. The format is compatible
  * with {@link module:api/session}.
  *
- * Generated login and secret are random UUIDv4, so secret hash without a salt is more about database exposure
- * of the secret and not weak encryption.
+ * Generated login and secret are random UUIDv4, so the secret hash without a salt is more about database exposure
+ * of secrets and not weak encryption.
+ *
+ * Still if the context options contains `noHashSecret: true` then
+ * session secret will not be hashed when comparing with user secret, for cases when
+ * storing raw secret is acceptable. Use {@link module:api.contextOptions}
  *
  * The session object contains the following properties:
  * - `type`: `token`
@@ -159,7 +165,7 @@ mod.parse = function(context)
  * @param {RequestContext} context
  * @param {object} [options]
  * @param {string} [options.prefix] - prefix for the login part
- * @param {boolean} [options.nohash] - do not hash the secret
+ * @param {boolean} [options.noHashSecret] - do not hash the secret
  * @return {object} a session object
  * @memberof module:api/token
  * @method prepare
@@ -181,11 +187,12 @@ mod.create = function(context, options)
 
     const id = lib.uuid(prefix);
     const secret = lib.uuid();
+    const hash = options?.noHashSecret || context.options?.noHashSecret ? secret : lib.hash(secret);
 
     context.session = Object.create(null, {
         type: { value: "token", enumerable: true },
         id: { value: id, enumerable: true },
-        secret: { value: options?.nohash ? secret : lib.hash(secret) },
+        secret: { value: hash },
         token: { value: `${id}${secret}` },
     });
 

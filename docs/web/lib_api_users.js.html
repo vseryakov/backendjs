@@ -165,17 +165,17 @@ module.exports = {
         login: {
             primary: 1,
             keyword: true,
-            length: 1,
+            length: -1,
             validate: {
-                max: 1
+                max: -1
             },
         },
         id: {
             type: "uuid",
             index: 1,
+            unique: true,
             keyword: true,
             cleanup: false,
-            _$db: { index: "UNIQUE" },
             _$dynamodb: { projections: "ALL" },
         },
         name: {
@@ -183,7 +183,7 @@ module.exports = {
             length: 1,
             validate: {
                 not_empty: true,
-                max: 1
+                max: -1
             },
             cleanup: false,
         },
@@ -196,7 +196,7 @@ module.exports = {
         flags: {
             type: "set",
             validate: {
-                max: 1
+                max: -1
             },
         },
         create_time: { type: "now", read_only: 1 },
@@ -254,8 +254,8 @@ mod.configure = function(_options, callback)
     if (this.table) {
 
         for (const col of Object.values(this.schema)) {
-            if (col.length === 1) col.length = this.maxLength;
-            if (col.validate?.max === 1) col.validate.max = this.maxLength;
+            if (col.length === -1) col.length = this.maxLength;
+            if (col.validate?.max === -1) col.validate.max = this.maxLength;
         }
         this.tables = { [this.table]: this.schema };
     }
