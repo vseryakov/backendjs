@@ -295,6 +295,11 @@ describe("DB tests", async () => {
 
         rc = await db.aincr("bk_test1", { id: id3, key1, key2, counter: 2 });
         assert.strictEqual(rc?.err, null);
+        assert.strictEqual(rc?.info?.affected_rows, 1);
+
+        rc = await db.aupdate("bk_test1", { id: id3, key1, key2, counter: 1 }, { query: { counter: 1 } });
+        assert.strictEqual(rc?.err, null);
+        assert.strictEqual(rc?.info?.affected_rows, 0);
 
         rc = await db.aincr("bk_test1", { id: id3, key1, key2: key1, counter: -2 });
         assert.strictEqual(rc?.err, null);
