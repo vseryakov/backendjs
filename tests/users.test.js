@@ -25,7 +25,7 @@ describe('Users middleware tests', async () => {
         const { data } = await api.users.aget(uuid);
         if (data) {
             await api.users.aupdate({ login: data.login, secret: lib.hash(authorization) })
-            authorization = "Bearer " + data.login + authorization;
+            authorization = "Bearer p_" + data.login + authorization;
         }
     });
 
