@@ -9,6 +9,8 @@ case "$BKJS_CMD" in
   help|install-help)
     echo ""
     echo "  install-node [-path PATH] [-version V] [-force] [-clean] [-tgz TGZ] - install binary release of the node into ~/.bkjs or specified path"
+    echo "  install-symlink - link backendjs in node_modules with bkjs/bksh in the path"
+    echo "  install-deps - build bundled dependencies and store in dist/"
     ;;
 
   install-node)
@@ -43,6 +45,7 @@ case "$BKJS_CMD" in
 
   install-symlink)
     set -e
+    ln -sf node_modules/.bin bin
     mkdir -p node_modules/.bin
     cd node_modules
     ln -sF $BKJS_DIR backendjs
