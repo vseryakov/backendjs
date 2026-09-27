@@ -2559,7 +2559,8 @@
    * Any ad-hoc button will be added in the form `btn_Label`.
    *
    * NOTE: All actions by default close the popup window, a callback must return `null` in order to keep the popup window
-   * visible, this is useful when validating the input. Manually closing the popup is done via the `close` method.
+   * visible, even in async callbacks, this is useful when validating the input.
+   * Manually closing the popup is done via the `close` method.
    *
    * ### About the **buttons** option:
    *
@@ -2578,12 +2579,17 @@
    *
    * Clicking on the `Order` button will call the Order callback.
    *
-   * Customizing default button labels can be done via `text_NAME` properties, for example
+   * Customizing default button labels can be done via several element that follow the naming convention:
+   * - `class_NAME` - custom class modifier in addition to common `class_buttons`
+   * - `text_NAME` - custom button label, may have HTML
+   * - `badge_NAME` - <i> before the label, for icons
+   * - `icon_NAME` - <i> after the label, for icons
    *
    * ```javascript
    * app.bootpopup({
    *   buttons:["ok","cancel"],
    *   text_ok: "Submit",
+   *   badge_ok: "bi bi-cog"
    * })
    * ```
    *
@@ -3027,6 +3033,9 @@
             this.callback(event.target.dataset.callback, event);
           }
         }, this.eventOptions);
+        if (this.options["badge_" + name]) {
+          btn.append($elem("i", { class: this.options["badge_" + name] }));
+        }
         btn.append(...this.sanitize(this.options["text_" + name] || name));
         if (this.options["icon_" + name]) {
           btn.append($elem("i", { class: this.options["icon_" + name] }));
@@ -3444,7 +3453,7 @@
     for (const p in opts) {
       if (p == "html") {
         html = opts.nosanitize ? $parse(opts[p]) : self.sanitize(opts[p]);
-      } else if (!/^(tab_|attrs_|click_|list_|class_|text_|icon_|size_|label|for)/.test(p)) {
+      } else if (!/^(tab_|attrs_|click_|list_|class_|text_|icon_|badge_|size_|label|for)/.test(p)) {
         attrs[p] = opts[p];
       }
     }
