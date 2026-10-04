@@ -423,6 +423,21 @@ aws.rdsDataExecuteStatement({
 
 ---
 
+## Using Lambda and API Gateway
+
+To run backendjs inside a Lambda function via API Gateway takes only 2 lines: `index.mjs`
+
+```js
+import { aws } from "backendjs";
+
+exports.handler = aws.lambdaAPIGatewayHandler;
+ ```
+
+Now all requests will be handled by the API module the same way as if running local server,
+all middleware and routes work the same way.
+
+---
+
 ## Calling a service directly
 
 When a convenience helper is not provided, drop down to the two raw request builders. These

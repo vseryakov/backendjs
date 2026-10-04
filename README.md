@@ -107,6 +107,7 @@ The runtime can be configured via:
 
 - **Docker**: Can be containerized for easy deployment, no init-shim required.
 - **AWS ECS/EC2**: Can be deployed on AWS for cloud scalability.
+- **AWS Lambda**: Can be used in Lambda directly or via API Gateway.
 
 ---
 

@@ -273,7 +273,7 @@ await api.users.alogin({
 
 ### Email / one-time code MFA
 
-`mfa_code` present ⇒ a one-time code required. `prepareMFA` mints a 6-digit code and stores it as `code,expires,method`.
+`mfa_code` present ⇒ a one-time code required. `prepareMFA` generates a 6-digit code and stores it as `code,expires,method`.
 
 ```js
 const user = await api.users.aget("john@mail.com");
@@ -316,7 +316,7 @@ api.app.post("/login", body, (context) => {
 });
 ```
 
-5. On success: `prepareSession` mints a new cookie session, prunes expired sessions, pushes the new `exp`, and `update` persists `login_time`, `access_time`, and `sessions` (clearing `mfa_code`).
+5. On success: `prepareSession` creates a new cookie session, prunes expired sessions, pushes the new `exp`, and `update` persists `login_time`, `access_time`, and `sessions` (clearing `mfa_code`).
 
 > Note: the session write is intentionally *not* atomic — simultaneous logins from many places overwriting `sessions` are not supported.
 
