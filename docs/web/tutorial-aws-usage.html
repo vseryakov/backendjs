@@ -401,7 +401,8 @@ aws.stsAssumeRole({ role: &quot;arn:aws:iam::123456789012:role/reader&quot;, nam
 <p>To run backendjs inside a Lambda function via API Gateway takes only 2 lines: <code>index.mjs</code></p>
 <pre class="prettyprint source lang-js"><code>import { aws } from &quot;backendjs&quot;;
 
-exports.handler = aws.lambdaAPIGatewayHandler;
+export const handler = aws.lambdaAPIGatewayHandler;
+
 </code></pre>
 <p>Now all requests will be handled by the API module the same way as if running local server,
 all middleware and routes work the same way.</p>

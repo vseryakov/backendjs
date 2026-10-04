@@ -430,7 +430,8 @@ To run backendjs inside a Lambda function via API Gateway takes only 2 lines: `i
 ```js
 import { aws } from "backendjs";
 
-exports.handler = aws.lambdaAPIGatewayHandler;
+export const handler = aws.lambdaAPIGatewayHandler;
+
  ```
 
 Now all requests will be handled by the API module the same way as if running local server,

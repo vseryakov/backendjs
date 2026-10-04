@@ -515,7 +515,7 @@ aws.lambdaAPIGatewayProxy = async function(context, callback)
  *
  * import { aws } from "backendjs";
  *
- * exports.handler = aws.lambdaAPIGatewayHandler;
+ * export const handler = aws.lambdaAPIGatewayHandler;
  *
  */
 aws.lambdaAPIGatewayHandler = async function(event, lambdaContext)
@@ -552,11 +552,13 @@ class APIGatewayRequest extends http.IncomingMessage {
 
     constructor(event, context) {
         super();
-        this.event = event;
-        this.lambda = context;
+        this.lambdaEvent = event;
+        this.lambdaContext = context;
+        this.v2 = event.rawPath &amp;&amp; event.requestContext?.http &amp;&amp; true;
+
         this.httpVersion = "HTTP/1.1";
         this.method = event.requestContext?.http?.method || event.httpMethod;
-        this.url = event.rawPath || event.path;
+        this.url = this.v2 ? event.rawPath : event.path;
 
         let query = event.rawQueryString || "";
         if (!query) {
@@ -564,14 +566,18 @@ class APIGatewayRequest extends http.IncomingMessage {
             for (const key in params) {
                 const val = params[key];
                 if (Array.isArray(val)) {
-                    query += "&amp;" + val.map(v => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`).join('&amp;');
+                    if (query) query += "&amp;";
+                    query += val.map(v => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`).join('&amp;');
                 } else {
                     if (val === undefined) continue;
-                    query += `&amp;${encodeURIComponent(key)}=${encodeURIComponent(val)}`;
+                    if (query) query += "&amp;";
+                    query += `${encodeURIComponent(key)}=${encodeURIComponent(val)}`;
                 }
             }
         }
-        if (query) this.url += "?" + query;
+        if (query) {
+            this.url += "?" + query;
+        }
 
         this.#data = event.isBase64Encoded ? Buffer.from(event.body, "base64") : event.body || "";
         this.setEncoding('utf8');
@@ -579,18 +585,19 @@ class APIGatewayRequest extends http.IncomingMessage {
 
         if (event.multiValueHeaders) {
             for (const key in event.multiValueHeaders) {
-                const val = event.headers[key];
+                const val = event.multiValueHeaders[key];
                 if (!val?.length) continue;
-                this.headers[key] = val.map(encodeHeader).join("; ");
+                this.headers[key] = val.map(encodeHeader).join(key === "set-cookie" ? "; " : ", ");
+            }
+            if (this.elb) {
+                event.headers = undefined;
             }
         }
 
-        if (event.headers) {
-            for (const key in event.headers) {
-                const val = event.headers[key];
-                if (val === undefined || val === null) continue;
-                this.headers[key] ??= encodeHeader(val);
-            }
+        for (const key in event.headers) {
+            const val = event.headers[key];
+            if (val === undefined || val === null) continue;
+            this.headers[key] ??= encodeHeader(val);
         }
 
         if (Array.isArray(event.cookies)) {
@@ -622,8 +629,8 @@ class APIGatewayResponse extends http.OutgoingMessage {
         super();
         this.req = req;
         this.statusCode = 200;
-        this.event = event;
-        this.lambda = context;
+        this.lambdaEvent = event;
+        this.lambdaContext = context;
         this.v2 = event.rawPath &amp;&amp; event.requestContext?.http &amp;&amp; true;
         this.elb = event.requestContext?.elb &amp;&amp; true;
     }
@@ -645,7 +652,7 @@ class APIGatewayResponse extends http.OutgoingMessage {
 
         const headers = this.getHeaders();
 
-        const isBase64Encoded = !/^text\/|(xml|json)$/.test(headers["content-type"]);
+        const isBase64Encoded = !/^text\/|(xml|json)\b/.test(headers["content-type"]);
 
         if (chunk?.length) {
             this.write(chunk, encoding);
@@ -661,7 +668,7 @@ class APIGatewayResponse extends http.OutgoingMessage {
             body: this.#data?.toString(isBase64Encoded ? "base64" : "utf8") || "",
         };
 
-        if (this.event.multiValueHeaders) {
+        if (this.lambdaEvent.multiValueHeaders) {
             result.multiValueHeaders = {};
             for (const key in headers) {
                 const val = headers[key];
@@ -671,7 +678,8 @@ class APIGatewayResponse extends http.OutgoingMessage {
             result.headers = {};
             for (const key in headers) {
                 const val = headers[key];
-                result.headers[key] = Array.isArray(val) ? val.join("; ") : val;
+                result.headers[key] = this.elb ? val[0] :
+                                      Array.isArray(val) ? val.join("; ") : val;
             }
         }
 
@@ -682,8 +690,8 @@ class APIGatewayResponse extends http.OutgoingMessage {
 
         this.result = result;
 
-        this.event = undefined;
-        this.lambda = undefined;
+        this.lambdaEvent = undefined;
+        this.lambdaContext = undefined;
         this.emit("finish");
     }
 }
