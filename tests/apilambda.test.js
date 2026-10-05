@@ -82,7 +82,7 @@ const baseV2Event = {
     stageVariables: {},
 };
 
-describe('request', () => {
+describe('Lambda request', async () => {
 
     const APIGatewayRequest = aws.APIGatewayRequest;
 
@@ -249,12 +249,9 @@ describe('request', () => {
         assert.strictEqual(decodeURIComponent(xCity), '炎');
     });
 
-    after(async () => {
-        await astop()
-    })
 });
 
-describe('handler', async () => {
+describe('Lambda handler', async () => {
 
     it('Should route a V1 REST event by its path even when a base path mapping adds rawPath', async () => {
         api.app.reset();

@@ -77,7 +77,7 @@ line2=line2
         app.parseArgs(argv);
         logger.debug("config:", db._config);
 
-        assert.strictEqual(db.aliases.t, "test6");
+        assert.strictEqual(db.aliases.t, "Test6");
 
         assert.strictEqual(db._config.sqlite?.max, 10);
 

@@ -338,7 +338,7 @@ describe("DB tests", async () => {
         assert.strictEqual(rc?.data?.id, id3);
         assert.deepStrictEqual(rc?.data?.counter, 2)
 
-        db.aliases.t = "bk_test1";
+        db.aliases.t = "bk_Test1";
         rc = await db.aget("t", { id: id1, key1, key2 });
         assert.strictEqual(rc?.data?.id, id1);
 

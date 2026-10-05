@@ -59,7 +59,8 @@ describe("lib.encrypt", function () {
   });
 
   it("uses custom iv_length/tag_length", function () {
-    const opts = { encode: "binary", iv_length: 12, tag_length: 16 }; // common GCM IV size
+    const opts = { encode: "binary", decode: "binary", iv_length: 12, tag_length: 16 }; // common GCM IV size
+
     const enc = lib.encrypt("secret", "hello", opts);
 
     const iv = enc.subarray(0, opts.iv_length);
@@ -67,6 +68,8 @@ describe("lib.encrypt", function () {
 
     assert.strictEqual(iv.length, 12);
     assert.strictEqual(tag.length, 16);
+
+    opts.encode = ""
 
     const dec = lib.decrypt("secret", enc, opts);
 
@@ -110,7 +113,7 @@ describe("lib.decrypt", function () {
 
   it("roundtrips hex encoded data", function () {
     const enc = lib.encrypt("secret", "hello", { encode: "hex" });
-    assert.strictEqual(lib.decrypt("secret", enc, { encode: "hex" }), "hello");
+    assert.strictEqual(lib.decrypt("secret", enc, { decode: "hex" }), "hello");
   });
 
   it("returns empty string with wrong key", function () {
