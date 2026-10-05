@@ -706,6 +706,10 @@
    * @param {string|object} options
    * @param {string} [dflt]
    * @returns {object|undefined}
+   * @example
+   * app.$ready(() => {
+   *     app.render("index")
+   * })
    */
   function render(options, dflt) {
     var tmpl = resolve(options, dflt);

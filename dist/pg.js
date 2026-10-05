@@ -1014,7 +1014,14 @@ var require_utils = __commonJS({
   "../../.bkjs/lib/node_modules/pg/lib/utils.js"(exports2, module2) {
     "use strict";
     var defaults = require_defaults();
+    var nodeUtils = require("util");
     var { isDate } = require("util/types");
+    var invalidDateDeprecationNotice = nodeUtils.deprecate(
+      () => {
+      },
+      "Sending an invalid date to Postgres is deprecated and will throw an error in the next major version of pg. Ensure any Date object passed as a query parameter is valid.",
+      "PG_INVALID_DATE"
+    );
     function escapeElement(elementRepresentation) {
       const escaped = elementRepresentation.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
       return '"' + escaped + '"';
@@ -1054,6 +1061,9 @@ var require_utils = __commonJS({
           return Buffer.from(val.buffer, val.byteOffset, val.byteLength);
         }
         if (isDate(val)) {
+          if (isNaN(val.getTime())) {
+            invalidDateDeprecationNotice();
+          }
           if (defaults.parseInputDatesAsUTC) {
             return dateToStringUTC(val);
           } else {
@@ -1104,7 +1114,7 @@ var require_utils = __commonJS({
       return ret;
     }
     function normalizeQueryConfig(config, values, callback) {
-      config = typeof config === "string" ? { text: config } : config;
+      config = typeof config === "string" ? { text: config } : cloneQueryConfig(config);
       if (values) {
         if (typeof values === "function") {
           config.callback = values;
@@ -1116,6 +1126,12 @@ var require_utils = __commonJS({
         config.callback = callback;
       }
       return config;
+    }
+    function cloneQueryConfig(config) {
+      if (config == null) {
+        return config;
+      }
+      return Object.defineProperties(Object.create(Object.getPrototypeOf(config)), Object.getOwnPropertyDescriptors(config));
     }
     var escapeIdentifier = function(str) {
       return '"' + str.replace(/"/g, '""') + '"';
@@ -1306,7 +1322,7 @@ var require_cert_signatures = __commonJS({
           }
           throw x509Error("unknown hash OID " + hashOID, data);
         }
-        // Ed25519 -- see https: return//github.com/openssl/openssl/issues/15477
+        // Ed25519 -- see https://github.com/openssl/openssl/issues/15477
         case "1.3.101.110":
         case "1.3.101.112":
           return "SHA-512";
@@ -1578,7 +1594,7 @@ var require_pg_connection_string = __commonJS({
         config.client_encoding = result.searchParams.get("encoding");
         return config;
       }
-      const hostname = dummyHost ? "" : result.hostname;
+      const hostname = (dummyHost ? "" : result.hostname).replace(/^\[(.+)\]$/, "$1");
       if (!config.host) {
         config.host = decodeURIComponent(hostname);
       } else if (hostname && /^%2f/i.test(hostname)) {
@@ -2115,7 +2131,7 @@ var require_query = __commonJS({
         return null;
       }
       hasBeenParsed(connection) {
-        return this.name && (connection.parsedStatements[this.name] || connection.submittedNamedStatements[this.name]);
+        return this.name && (connection.parsedStatements[this.name] !== void 0 || connection.submittedNamedStatements[this.name] !== void 0);
       }
       handlePortalSuspended(connection) {
         this._getRows(connection, this.rows);
@@ -2357,7 +2373,7 @@ var require_buffer_writer = __commonJS({
           const oldBuffer = this.buffer;
           const newSize = oldBuffer.length + (oldBuffer.length >> 1) + size;
           this.buffer = Buffer.allocUnsafe(newSize);
-          oldBuffer.copy(this.buffer);
+          oldBuffer.copy(this.buffer, 0, 0, this.offset);
         }
       }
       addInt32(num) {
@@ -2417,6 +2433,15 @@ var require_buffer_writer = __commonJS({
         otherBuffer.copy(this.buffer, this.offset);
         this.offset += otherBuffer.length;
         return this;
+      }
+      /**
+       * Appends an uninitialized block of {@link size} bytes to the buffer and returns its offset.
+       */
+      reserveUnsafe(size) {
+        const offset = this.offset;
+        this.ensure(size);
+        this.offset += size;
+        return offset;
       }
       join(code) {
         if (code) {
@@ -2510,30 +2535,23 @@ var require_serializer = __commonJS({
         /* code.parse */
       );
     };
-    var paramWriter = new buffer_writer_1.Writer();
-    var writeValues = function(values, valueMapper) {
-      for (let i = 0; i < values.length; i++) {
+    var writeValues = function(values, valueMapper, formatsOffset) {
+      const len = values.length;
+      for (let i = 0; i < len; i++) {
         const mappedVal = valueMapper ? valueMapper(values[i], i) : values[i];
+        let formatByte = 0;
         if (mappedVal == null) {
-          writer.addInt16(
-            0
-            /* ParamType.STRING */
-          );
-          paramWriter.addInt32(-1);
+          writer.addInt32(-1);
         } else if (mappedVal instanceof Buffer) {
-          writer.addInt16(
-            1
-            /* ParamType.BINARY */
-          );
-          paramWriter.addInt32(mappedVal.length);
-          paramWriter.add(mappedVal);
+          formatByte = 1;
+          writer.addInt32(mappedVal.length);
+          writer.add(mappedVal);
         } else {
-          writer.addInt16(
-            0
-            /* ParamType.STRING */
-          );
-          paramWriter.addInt32PrefixedString(mappedVal);
+          writer.addInt32PrefixedString(mappedVal);
         }
+        const buf = writer.buffer;
+        buf[formatsOffset++] = 0;
+        buf[formatsOffset++] = formatByte;
       }
     };
     var bind = (config = {}) => {
@@ -2544,15 +2562,14 @@ var require_serializer = __commonJS({
       const len = values.length;
       writer.addCString(portal).addCString(statement);
       writer.addInt16(len);
+      const formatsOffset = writer.reserveUnsafe(len * 2);
+      writer.addInt16(len);
       try {
-        writeValues(values, config.valueMapper);
+        writeValues(values, config.valueMapper, formatsOffset);
       } catch (err) {
         writer.clear();
-        paramWriter.clear();
         throw err;
       }
-      writer.addInt16(len);
-      writer.add(paramWriter.flush());
       writer.addInt16(1);
       writer.addInt16(
         binary ? 1 : 0
@@ -3210,7 +3227,12 @@ var require_connection = __commonJS({
       upgradeToSSL(host, reportStreamError) {
         const self = this;
         const options = {
-          socket: self.stream
+          socket: self.stream,
+          // tls.connect checks the server identity against `servername`, falling
+          // back to `host` and then to 'localhost'. `servername` must stay unset
+          // for IP addresses (see below), so `host` is needed to keep certificate
+          // validation working when connecting to an IP address.
+          host
         };
         if (self.ssl !== true) {
           Object.assign(options, self.ssl);
@@ -3288,7 +3310,6 @@ var require_connection = __commonJS({
         }
       }
       sync() {
-        this._ending = true;
         this._send(syncBuffer);
       }
       ref() {
@@ -4243,6 +4264,15 @@ var require_client = __commonJS({
         if (query._result && !query._result._types) {
           query._result._types = this._types;
         }
+        if (this.pipeline) {
+          const portalQuery = typeof config.submit === "function" && !(query instanceof Query) ? "Custom query classes such as pg-cursor and pg-query-stream are" : query.rows ? "The `rows` option is" : null;
+          if (portalQuery) {
+            process.nextTick(() => {
+              query.handleError(new Error(`${portalQuery} not supported in pipeline mode`), this.connection);
+            });
+            return result;
+          }
+        }
         if (!this._queryable) {
           process.nextTick(() => {
             query.handleError(new Error("Client has encountered a connection error and is not queryable"), this.connection);
@@ -4764,6 +4794,8 @@ var require_query2 = __commonJS({
       sqlState: "code",
       statementPosition: "position",
       messagePrimary: "message",
+      messageDetail: "detail",
+      messageHint: "hint",
       context: "where",
       schemaName: "schema",
       tableName: "table",
@@ -4847,7 +4879,7 @@ var require_query2 = __commonJS({
           console.error("This can cause conflicts and silent errors executing queries");
         }
         const values = (this.values || []).map(utils.prepareValue);
-        if (client.namedQueries[this.name]) {
+        if (client.namedQueries[this.name] !== void 0) {
           if (this.text && client.namedQueries[this.name] !== this.text) {
             const err = new Error(`Prepared statements must be unique - '${this.name}' was used for a different statement`);
             return after(err);
@@ -5139,7 +5171,7 @@ var require_client2 = __commonJS({
         this.hasExecuted = true;
         nativeQueries.push(query);
         const values = query.values ? query.values.map(utils.prepareValue) : null;
-        const pipelineEntry = { text: query.text, name: query.name };
+        const pipelineEntry = { text: query.text, name: query.name, arrayMode: query._arrayMode };
         if (values) {
           pipelineEntry.values = values;
         }
@@ -5151,12 +5183,16 @@ var require_client2 = __commonJS({
       this.native.pipeline(queries, function(err, results) {
         self._pipelineInFlight = false;
         if (err) {
+          self._connected = false;
+          self._queryable = false;
           for (let i = 0; i < nativeQueries.length; i++) {
             const q = nativeQueries[i];
             q.native = self.native;
             q.handleError(err);
           }
-          self._pulsePipelinedQueryQueue();
+          self._errorAllQueries(err);
+          self.emit("error", err);
+          self.emit("end");
           return;
         }
         for (let i = 0; i < nativeQueries.length; i++) {
