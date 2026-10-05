@@ -4752,8 +4752,7 @@ it runs <code>shutdown[Role]</code> methods before exiting. if app.exitTimeout d
     
     <dt class="tag-description">Description:</dt>
     <dd class="tag-description"><ul class="dummy"><li><p>Dynamically load services from the specified directory.</p>
-<p>The modules are loaded using <strong>require</strong> as a normal nodejs module but in addition if the module exports
-<strong>init</strong> method it is called immediately with options passed as an argument.</p>
+<p>The modules are loaded using <strong>require</strong> as a normal nodejs module.</p>
 <p>This is a synchronous function so it is supposed to be
 called on startup, not dynamically during a request processing.</p>
 <p>System default is to load all *.js files that do not start with underscore.</p>
@@ -5053,7 +5052,7 @@ names allow a better separation of modules and name collisions.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_app_utils.js.html">lib/app/utils.js</a>, <a href="lib_app_utils.js.html#line638">line 638</a>
+        <a href="lib_app_utils.js.html">lib/app/utils.js</a>, <a href="lib_app_utils.js.html#line633">line 633</a>
     </li></ul></dd>
     
 
@@ -7782,7 +7781,7 @@ it in the spawned web server will fail due to the fact that we already set the h
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_app_utils.js.html">lib/app/utils.js</a>, <a href="lib_app_utils.js.html#line585">line 585</a>
+        <a href="lib_app_utils.js.html">lib/app/utils.js</a>, <a href="lib_app_utils.js.html#line580">line 580</a>
     </li></ul></dd>
     
 

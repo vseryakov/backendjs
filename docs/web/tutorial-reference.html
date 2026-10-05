@@ -63,6 +63,10 @@
   'middleware'
 ]
 </code></pre>
+<p>In ESM mode it will work the same way:</p>
+<pre class="prettyprint source lang-js"><code>const bkjs = await import(&quot;backendjs&quot;)
+> Object.keys(bkjs)
+</code></pre>
 <h2 id="project-structure">Project Structure</h2>
 <p>Typical structure might look like this but is not required or necessary:</p>
 <pre class="prettyprint source"><code>myapp/
@@ -78,7 +82,7 @@
 <h2 id="modules">Modules</h2>
 <p>The primary way to add functionality to the backend is via external modules specific to the backend,
 these modules are loaded on startup from the local subdirectory <strong>modules/</strong> where the backendjs was started.</p>
-<p>The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup, but can be configured to
+<p>The format is the same as for regular Node.js modules and only top level .js/.cjs files are loaded on the backend startup, but can be configured to
 go deeper with <strong>app-modules-depth</strong> config.</p>
 <p>Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
 can be shipped regardless of the npm, node modules and other env setup.</p>
@@ -88,6 +92,8 @@ dynamically detect module at runtime, the app can be bundled with subset of modu
 this way allows not to hard code imports in the code.</p>
 <p>By having module names contain dots it is possible to create a module hierarchy, for example
 modules with names billing.invoice, billing.stripe can be accessed like this:</p>
+<p><strong>⚠️ NOTE: At this moment loadable modules are supported only in CJS mode, so if your project is type of &quot;module&quot; name all files under <code>modules/</code>
+with <code>.cjs</code> extention.</strong></p>
 <pre class="prettyprint source lang-js"><code>// modules/billing_invoice.js
 module.exports = {
     name: &quot;billing.invoice&quot;,
@@ -112,8 +118,8 @@ modules.billing.invoice.process({...})
 modules.billing.stripe.request({...})
 </code></pre>
 <h2 id="npm-packages-as-modules">NPM packages as modules</h2>
-<p>Such modules will NOT be loaded via <strong>require()</strong> but by the backendjs <a href="module-app.html#.loadModules"><code>module:app.loadModules</code></a> machinery,
-the NPM packages are just to keep different modules separate from each other and distribute in established ways.</p>
+<p>Such modules will NOT be loaded via <strong>require()</strong> but by the backendjs <a href="module-app.html#.loadModules"><code>module:app.loadModules</code></a> machinery, which still uses <code>require</code>,
+the use of NPM packages is just to keep different modules separate from each other and distribute in established ways.</p>
 <p>The config parameter <strong>app-import</strong> can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:</p>
 <ul>

@@ -19,6 +19,13 @@ const bkjs = require("backendjs");
 ]
 ```
 
+In ESM mode it will work the same way:
+
+```js
+const bkjs = await import("backendjs")
+> Object.keys(bkjs)
+````
+
 ## Project Structure
 
 Typical structure might look like this but is not required or necessary:
@@ -40,7 +47,7 @@ myapp/
 The primary way to add functionality to the backend is via external modules specific to the backend,
 these modules are loaded on startup from the local subdirectory **modules/** where the backendjs was started.
 
-The format is the same as for regular Node.js modules and only top level .js files are loaded on the backend startup, but can be configured to
+The format is the same as for regular Node.js modules and only top level .js/.cjs files are loaded on the backend startup, but can be configured to
 go deeper with **app-modules-depth** config.
 
 Once loaded they have the same access to the backend as the rest of the code, the only difference is that they reside in the backend home and
@@ -54,6 +61,9 @@ this way allows not to hard code imports in the code.
 
 By having module names contain dots it is possible to create a module hierarchy, for example
 modules with names billing.invoice, billing.stripe can be accessed like this:
+
+**⚠️ NOTE: At this moment loadable modules are supported only in CJS mode, so if your project is type of "module" name all files under `modules/`
+with `.cjs` extention.**
 
 ```js
 // modules/billing_invoice.js
@@ -86,8 +96,8 @@ modules.billing.stripe.request({...})
 
 ## NPM packages as modules
 
-Such modules will NOT be loaded via **require()** but by the backendjs {@link module:app.loadModules} machinery,
-the NPM packages are just to keep different modules separate from each other and distribute in established ways.
+Such modules will NOT be loaded via **require()** but by the backendjs {@link module:app.loadModules} machinery, which still uses `require`,
+the use of NPM packages is just to keep different modules separate from each other and distribute in established ways.
 
 The config parameter **app-import** can be used to specify NPM package names to be loaded separated by comma, as with the default
 application structure all subfolders inside each NPM package will be added to the core:
