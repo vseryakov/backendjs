@@ -124,16 +124,22 @@ module.exports = {
       */
     port: process.env.BKJS_PORT || 8000,
 
-    /** @var {string} bind - listen on the specified local interfcae,
+    /** @var {string} bind - listen on the specified local interface,
       * @default 0.0.0.0
       */
-    bind: '0.0.0.0',
+    bind: "0.0.0.0",
 
+
+    /** @var {int} backlog - listen queue
+     * @default
+     */
     backlog: 5000,
 
+    /** @var {object} ssl - SSL/TLS params for https server
+     */
     ssl: {
         port: 443,
-        bind: '0.0.0.0'
+        bind: "0.0.0.0",
     },
 
     /** @var {object} - options to apply for every new request context
@@ -283,7 +289,7 @@ api.init = function(options, callback)
 
         function(next) {
             // Start http server
-            if (api.port) {
+            if (api.port || api.bind) {
                 api.server = api.createServer({
                     name: "http",
                     port: api.port,
@@ -299,7 +305,7 @@ api.init = function(options, callback)
             }
 
             // Start SSL server
-            if (api.ssl?.port &amp;&amp; (api.ssl.key || api.ssl.pfx)) {
+            if ((api.ssl?.port || api.ssl?.bind) &amp;&amp; (api.ssl.key || api.ssl.pfx)) {
                 api.sslServer = api.createServer({
                     name: "https",
                     ssl: api.ssl,
@@ -362,12 +368,12 @@ api.shutdown = function(options, callback)
     clearInterval(api._restartInterval);
     api._restartInterval = undefined;
     api.metrics.req.end();
+    api.app.reset();
 
     // Make workers not ready during the shutdown
     ipc.sendMsg("api:shutdown", { id: app.workerId || process.pid, pid: process.pid, port: api.port });
 
     app.runMethods("shutdownServer", options, { direct: 1, parallel: 1 }, () => {
-        api.app = undefined;
         _exiting = false;
         lib.tryCall(callback);
     });

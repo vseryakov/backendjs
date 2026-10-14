@@ -57,10 +57,11 @@
  */
 'use strict';
 
-const path = require("node:path");
+const { basename } = require("node:path");
 const qs = require('node:querystring');
 const http = require('node:http');
 const https = require('node:https');
+const stream = require("node:stream");
 const logger = require(__dirname + '/../logger');
 const lib = require(__dirname + '/../lib');
 const aws = require(__dirname + '/../aws');
@@ -79,9 +80,13 @@ const aws = require(__dirname + '/../aws');
  * @param {object} [options.headers] - request headers, updated in place with signing headers
  * @param {object} [options.query] - query parameters to include in the signed URL
  * @param {object} [options.credentials] - credentials to sign with, defaults to `aws`
+ * @param {boolean} [options.nodns] - disable DNS compatibility access
  * @param {boolean} [options.url] - if set, append the signing params to the URL (presigned URL)
  * @param {number} [options.expires] - expiration seconds for a presigned URL
  * @param {boolean} [options.postfile] - payload is a file, use UNSIGNED-PAYLOAD
+ * @param {string} [options.endpoint] - full endpoint url, only protocol and host are used
+ * @param {string} [options.endpoint_host] - custom host, default is AWS region
+ * @param {string} [options.endpoint_protocol] - http or https default
  * @returns {string} the signed request URL
  */
 aws.signS3 = function(method, bucket, path, body, options)
@@ -89,38 +94,63 @@ aws.signS3 = function(method, bucket, path, body, options)
     if (!options) options = {};
     if (!options.headers) options.headers = {};
 
-    var region = options.region || this.region || 'us-east-1';
-    if (!options.headers["content-type"]) options.headers["content-type"] = "binary/octet-stream";
+    const region = options.region || this.region || 'us-east-1';
+    if (!options.headers["content-type"]) {
+        options.headers["content-type"] = "binary/octet-stream";
+    }
+
     // For text files to prevent encoding/decoding issues
     if (/text|html|xml|json/.test(options.headers["content-type"]) &amp;&amp;
-        options.headers["content-type"].indexOf("charset=") === -1) {
+        !options.headers["content-type"].includes("charset=")) {
         options.headers["content-type"] += "; charset=utf-8";
     }
-    var credentials = options.credentials || this;
+    const credentials = options.credentials || this;
 
     // Run through the encoding so our signature match the real url sent by app.fetch
     if (typeof path !== "string") path = String(path);
     if (path[0] !== "/") path = "/" + path;
-    var key = URL.parse("file:" + (path || "/"))?.pathname;
+    const key = URL.parse("file:" + (path || "/"))?.pathname;
 
     // DNS compatible or not, use path-style if not for access otherwise virtual host style
-    var dns = /[a-z0-9][a-z0-9-]*[a-z0-9]/.test(bucket);
+    const dns = options.nodns ? false : /[a-z0-9][a-z0-9-]*[a-z0-9]/.test(bucket);
 
-    var host = (dns ? bucket + "." : "") + "s3" + (region !== "us-east-1" ? "-" + region : "") + ".amazonaws.com";
+    let host = options.endpoint_host;
+    let proto = lib.isString(options.endpoint_protocol, "https:");
 
-    if (bucket) bucket = "/" + bucket;
-    var uri = (options.endpoint_protocol || "https") + "://" + host + (dns ? "" : bucket) + key;
+    if (options.endpoint) {
+        const e = URL.parse(options.endpoint);
+        if (e) {
+            host = e.host;
+            proto = e.protocol;
+        }
+    }
+    if (!proto.endsWith(":")) {
+        proto += ":";
+    }
+    if (!host) {
+        host = (dns ? bucket + "." : "") + "s3" + (region !== "us-east-1" ? "-" + region : "") + ".amazonaws.com";
+    }
+    bucket = bucket ? "/" + bucket : "";
+    let uri = proto + "//" + host + (dns ? "" : bucket) + key;
 
-    if (!dns) path = bucket + path;
-    var q = Object.keys(options.query || []).
-                   sort().
-                   map((x) => (aws.uriEscape(x) + (options.query[x] === null ? "" : "=" + aws.uriEscape(options.query[x])))).join("&amp;");
-    if (q) path += "?" + q;
+    if (!dns) {
+        path = bucket + path;
+    }
+    const q = lib.objKeys(options.query).
+                sort().
+                map((x) => (aws.uriEscape(x) + (options.query[x] === null ? "" : "=" + aws.uriEscape(options.query[x])))).
+                join("&amp;");
+    if (q) {
+        path += "?" + q;
+    }
+
     if (!options.headers["x-amz-content-sha256"]) {
         options.headers["x-amz-content-sha256"] = method !== "GET" &amp;&amp; options.postfile ? "UNSIGNED-PAYLOAD" : lib.hash(body || "", "sha256", "hex");
     }
-    var opts = {};
+
+    const opts = {};
     this.signQuery(region, "s3", host, method || "GET", path, body, options.headers, options.credentials, opts);
+
     if (options.url) {
         uri += '&amp;X-Amz-Date=' + opts.date;
         uri += '&amp;X-Amz-Algorithm=AWS4-HMAC-SHA256';
@@ -152,15 +182,16 @@ aws.signS3 = function(method, bucket, path, body, options)
  */
 aws.queryS3 = function(bucket, path, options, callback)
 {
-    if (typeof options === "function") callback = options, options = {};
-    if (!options) options = {};
+    if (typeof options === "function") callback = options, options = null;
+    options = lib.clone(options);
 
     if (!options.retryCount) options.retryCount = 3;
     if (!options.retryTimeout) options.retryTimeout = 1000;
     options.retryOnError = function() { return this.status === 503 || this.status === 500 }
-    const uri = this.signS3(options.method, bucket, path, options.postdata, options);
 
-    lib.fetch(uri, options, (err, rc) => {
+    const url = this.signS3(options.method, bucket, path, options.postdata, options);
+
+    lib.fetch(url, options, (err, rc) => {
         if ((rc.status &lt; 200 || rc.status > 399) &amp;&amp; rc.data) err = aws.parseError(rc);
         if (err) err.path = path;
         logger.logger(err ? "error" : "debug", "queryS3:", bucket, path, options, err);
@@ -196,24 +227,33 @@ aws.aqueryS3 = function(bucket, path, options)
 aws.s3List = function(path, options, callback)
 {
     if (typeof options === "function") callback = options, options = {};
-    if (!options) options = {};
+    options = lib.clone(options);
 
     options.query = options.query || {};
-    var uri = this.s3ParseUrl(path);
-    for (const p in uri.query) options.query[p] = uri.query[p];
-    if (uri.path) options.query.prefix = uri.path;
-    if (uri.key) options = lib.clone(options, { credentials: { key: uri.key, secret: uri.secret } });
-    options.query['list-type'] = 2;
-    var rows = [], prefixes = [], truncated = false;
+
+    const s3 = aws.s3ParseUrl(path);
+    if (s3.endpoint) options.endpoint = s3.endpoint;
+    if (s3.path) options.query.prefix = s3.path;
+    if (s3.key) options.credentials = { key: s3.key, secret: s3.secret };
+    if (s3.bucket) options.query['list-type'] = 2;
+    for (const p in s3.query) options.query[p] = s3.query[p];
+    const rows = [], prefixes = [];
+    let truncated = false;
 
     lib.doWhilst(
       function(next) {
-          aws.queryS3(uri.bucket, "", options, (err, rc) => {
+          aws.queryS3(s3.bucket, "", options, (err, rc) => {
               if (err) return next(err);
-              rows.push.apply(rows, lib.objGet(rc.obj, "ListBucketResult.Contents", { list: 1 }));
-              prefixes.push.apply(prefixes, lib.objGet(rc.obj, "ListBucketResult.CommonPrefixes", { list: 1 }).map((x) => (x.Prefix.replace(uri.path, ""))));
-              truncated = lib.toBool(rc.obj?.ListBucketResult?.IsTruncated);
-              options.query['continuation-token'] = rc.obj?.ListBucketResult?.NextContinuationToken || "";
+              if (s3.bucket) {
+                  rows.push.apply(rows, lib.objGet(rc.obj, "ListBucketResult.Contents", { list: 1 }));
+                  prefixes.push.apply(prefixes, lib.objGet(rc.obj, "ListBucketResult.CommonPrefixes", { list: 1 }).map((x) => (x.Prefix.replace(s3.path, ""))));
+                  truncated = lib.toBool(rc.obj?.ListBucketResult?.IsTruncated);
+                  options.query['continuation-token'] = rc.obj?.ListBucketResult?.NextContinuationToken || "";
+              } else {
+                  rows.push.apply(rows, lib.objGet(rc.obj, "ListAllMyBucketsResult.Buckets.Bucket", { list: 1 }));
+                  truncated = rc.obj?.ListAllMyBucketsResult?.ContinuationToken;
+                  options.query['continuation-token'] = truncated;
+              }
               next(err);
           });
       },
@@ -235,12 +275,13 @@ aws.s3List = function(path, options, callback)
 aws.s3GetFile = function(path, options, callback)
 {
     if (typeof options === "function") callback = options, options = {};
-    if (!options) options = {};
+    options = lib.clone(options);
 
-    var uri = this.s3ParseUrl(path);
-    if (uri.query) options.query = uri.query;
-    if (uri.key) options = lib.clone(options, { credentials: { key: uri.key, secret: uri.secret } });
-    this.queryS3(uri.bucket, uri.path, options, (err, rc) => {
+    const s3 = this.s3ParseUrl(path);
+    if (s3.endpoint) options.endpoint = s3.endpoint;
+    if (s3.query) options.query = s3.query;
+    if (s3.key) options.credentials = { key: s3.key, secret: s3.secret };
+    this.queryS3(s3.bucket, s3.path, options, (err, rc) => {
         if (rc.status === 200) {
             // A weird case when noSuchKey returned with status 200 as JSON
             if (/^"?&lt;\?xml version=[\s\S]+&lt;Error>&lt;Code>/.test(rc.data)) {
@@ -268,18 +309,20 @@ aws.s3GetFile = function(path, options, callback)
 aws.s3PutFile = function(path, file, options, callback)
 {
     if (typeof options === "function") callback = options, options = {};
-    if (!options) options = {};
+    options = lib.clone(options);
 
     options.method = "PUT";
     if (!options.headers) options.headers = {};
     if (options.acl) options.headers['x-amz-acl'] = options.acl;
     if (options.contentType) options.headers['content-type'] = options.contentType;
     options[Buffer.isBuffer(file) ? 'postdata' : 'postfile'] = file;
-    const uri = this.s3ParseUrl(path);
-    if (uri.query) options.query = uri.query;
-    if (uri.key) options = lib.clone(options, { credentials: { key: uri.key, secret: uri.secret } });
-    logger.debug("s3PutFile:", uri, options);
-    this.queryS3(uri.bucket, uri.path, options, callback);
+
+    const s3 = this.s3ParseUrl(path);
+    if (s3.endpoint) options.endpoint = s3.endpoint;
+    if (s3.query) options.query = s3.query;
+    if (s3.key) options.credentials = { key: s3.key, secret: s3.secret };
+    logger.debug("s3PutFile:", s3, options);
+    this.queryS3(s3.bucket, s3.path, options, callback);
 }
 
 /**
@@ -296,7 +339,7 @@ aws.s3PutFile = function(path, file, options, callback)
 aws.s3CopyFile = function(path, source, options, callback)
 {
     if (typeof options === "function") callback = options, options = {};
-    if (!options) options = {};
+    options = lib.clone(options);
 
     options.method = "PUT";
     if (!options.headers) options.headers = {};
@@ -304,31 +347,41 @@ aws.s3CopyFile = function(path, source, options, callback)
     if (options.acl) options.headers['x-amz-acl'] = options.acl;
     if (options.contentType) options.headers['content-type'] = options.contentType;
     if (!options.headers['content-type']) options.headers['content-type'] = lib.getMimeType(path);
-    const uri = this.s3ParseUrl(path);
-    if (uri.query) options.query = uri.query;
-    if (uri.key) options = lib.clone(options, { credentials: { key: uri.key, secret: uri.secret } });
-    logger.debug("s3CopyFile:", uri, options);
-    this.queryS3(uri.bucket, uri.path, options, callback);
+
+    const s3 = this.s3ParseUrl(path);
+    if (s3.endpoint) options.endpoint = s3.endpoint;
+    if (s3.query) options.query = s3.query;
+    if (s3.key) options.credentials = { key: s3.key, secret: s3.secret };
+    logger.debug("s3CopyFile:", s3, options);
+    this.queryS3(s3.bucket, s3.path, options, callback);
 }
 
 /**
- * Parse an S3 URL into its components.
+ * Parse an S3 URL into its components, if starts with http:// or https:// then endpoint will be extracted,
+ * urls that start with s3://bucket are accepted for aws cli compatibility.
  * @memberof module:aws
  * @method s3ParseUrl
  * @param {string} link - an S3 URL/path, optionally with `key:secret@` credentials and a query string
- * @returns {object} `{ bucket, path, [key], [secret], [query] }`
+ * @returns {object} `{ bucket, path, [key], [secret], [query], [endpoint] }`
  */
 aws.s3ParseUrl = function(link)
 {
-    var rc = {};
-    if (!link) return rc;
+    var rc = { bucket: "", path: "" };
+    if (!lib.isString(link)) return rc;
+
+    // Endpoint detection
+    let d = link.match(/^https?:\/\/([^/]+)/);
+    if (d) {
+        rc.endpoint = d[0];
+        link = link.substr(d[0].length);
+    }
     link = link.split("?");
     // Remove the protocol part and leading slashes
     link[0] = link[0].replace(/(^.+:\/\/|^\/+)/, "");
     const path = link[0].replaceAll("//", "/").split("/");
     rc.bucket = path[0];
     // Access key and secret as auth
-    const d = rc.bucket.match(/^([^:]+):([^@]+)@(.+)$/);
+    d = rc.bucket.match(/^([^:]+):([^@]+)@(.+)$/);
     if (d) {
         rc.key = d[1];
         rc.secret = d[2];
@@ -350,35 +403,46 @@ aws.s3ParseUrl = function(link)
  * @function s3Proxy
  *
  * @param {http.ServerResponse} res Node.js HTTP response object to write to. The S3 object data is streamed into it.
- * @param {string} bucket S3 bucket name that contains the object.
- * @param {string} file S3 object key (path inside the bucket).
- * @param {Object} [options] Controls how the object is fetched and how the HTTP response is produced.
- * @param {Object} [options.headers] Extra headers to send to S3 (commonly used for `Range`).
- * @param {boolean} [options.attachment] If true, sets `Content-Disposition` to attachment (usually derived from filename).
- * @param {function(Error=):void} [callback] Called when proxying finishes or fails.
+ * @param {string} path - S3 url, bucket and path
+ * @param {Object} [options] - Controls how the object is fetched and how the HTTP response is produced.
+ * @param {int} [options.httpTimeout] - cancel if no data after this timeout
+ * @param {Object} [options.headers] - Extra headers to send to S3 (commonly used for `Range`).
+ * @param {boolean} [options.attachment] - If true, sets `Content-Disposition` to attachment (usually derived from filename).
+ * @param {function(err)} [callback] Called when proxying finishes or fails.
  *  - `err` is set on any S3/stream/response error.
  */
-aws.s3Proxy = function(res, bucket, file, options, callback)
+aws.s3Proxy = function(res, path, options, callback)
 {
     if (typeof options === "function") callback = options, options = null;
-    var opts = lib.clone(options);
-    var params = URL.parse(this.signS3("GET", bucket, file, "", opts)) || {};
-    params.headers = opts.headers;
-    var mod = params.protocol === "https:" ? https : http;
-    var s3req = mod.request(params, (s3res) => {
+
+    options = lib.clone(options);
+
+    const s3 = this.s3ParseUrl(path);
+    if (s3.endpoint) options.endpoint = s3.endpoint;
+
+    const url = this.signS3("GET", s3.bucket, s3.path, "", options);
+
+    let called = false;
+    const done = (err) => {
+        if (called) return;
+        called = true;
+        if (err) logger.error("s3Proxy:", s3, err);
+        lib.tryCall(callback, err);
+    };
+
+    const mod = url.startsWith("https:") ? https : http;
+    const s3req = mod.request(url, { headers: options.headers }, (s3res) => {
         if (options.attachment) {
-            const fname = typeof options.attachment === "string" ? options.attachment : path.basename(file);
+            const fname = typeof options.attachment === "string" ? options.attachment : basename(s3.path);
             s3res.headers["Content-Disposition"] = "attachment; filename=" + fname;
         }
         res.writeHead(s3res.statusCode, s3res.headers);
-        s3res.pipe(res, { end: true });
-    }).on("error", (err) => {
-        logger.error('s3Proxy:', bucket, file, err);
-        s3req.abort();
-    }).on("close", () => {
-        lib.tryCall(null, callback);
+        stream.pipeline(s3res, res, done);
     });
-    s3req.setTimeout(options.httpTimeout || 10000, () => { s3req.abort() });
+    s3req.on("error", done);
+    s3req.setTimeout(lib.toNumber(options.httpTimeout, { dflt: 10000, min: 1000 }), () => {
+        s3req.destroy(lib.newError("Request timed out", 408, "ETIMEDOUT"));
+    });
     s3req.end();
 }
 

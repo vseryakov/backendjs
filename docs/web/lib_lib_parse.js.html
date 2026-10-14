@@ -144,14 +144,16 @@ lib.configParse = function(data, options)
         line[0] = line[0].trim();
         if (lib.badProperties.has(line[0])) continue;
 
+        const val = line.slice(1).join('=').trim();
+
         if (options?.obj) {
-            if (line[0]) argv[line[0]] = line.slice(1).join('=').trim();
+            if (line[0]) argv[line[0]] = val;
         } else
         if (options?.list) {
-            if (line[0]) argv.push([line[0], line.slice(1).join('=').trim()]);
+            if (line[0]) argv.push([line[0], val]);
         } else {
             if (line[0]) argv.push('-' + line[0]);
-            if (line[1]) argv.push(line.slice(1).join('=').trim());
+            if (val) argv.push(val);
         }
     }
     return argv;
@@ -264,7 +266,7 @@ function _checkResult(type, err, obj, options)
  */
 lib.parseCookies = function(header)
 {
-    const obj = Object.create(null);
+    const obj = lib.objCreate();
     const len = typeof header === "string" ? header.length : 0;
     // RFC 6265 sec 4.1.1, RFC 2616 2.2 defines a cookie name consists of one char minimum, plus '='.
     if (len &lt; 2) return obj;

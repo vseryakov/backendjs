@@ -2472,7 +2472,7 @@ Running the shell will make the object **mymod** available
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_app.js.html">lib/app.js</a>, <a href="lib_app.js.html#line365">line 365</a>
+        <a href="lib_app.js.html">lib/app.js</a>, <a href="lib_app.js.html#line366">line 366</a>
     </li></ul></dd>
     
 
@@ -3197,7 +3197,7 @@ Running the shell will make the object **mymod** available
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_app_args.js.html">lib/app/args.js</a>, <a href="lib_app_args.js.html#line637">line 637</a>
+        <a href="lib_app_args.js.html">lib/app/args.js</a>, <a href="lib_app_args.js.html#line649">line 649</a>
     </li></ul></dd>
     
 
@@ -5772,7 +5772,7 @@ api.reuse-port=1</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_app_args.js.html">lib/app/args.js</a>, <a href="lib_app_args.js.html#line189">line 189</a>
+        <a href="lib_app_args.js.html">lib/app/args.js</a>, <a href="lib_app_args.js.html#line197">line 197</a>
     </li></ul></dd>
     
 
@@ -5897,6 +5897,16 @@ api.reuse-port=1</code></pre>
 
 
 <dl class="details">
+    
+    <dt class="tag-description">Description:</dt>
+    <dd class="tag-description"><ul class="dummy"><li><p>Process config parameters from the <code>argv</code> list, the parameters are in format <code>-arg [value]</code></p>
+<p>Special values:</p>
+<ul>
+<li><code>&quot;&quot;</code> or <code>''</code> - converted into empty string</li>
+<li><code>&lt;null&gt;</code> or <code>~</code> - set the config value to null</li>
+<li><code>~~</code> for objects/regexp resrt it to null using <code>set</code> property</li>
+<li>'$env.NAME' - use the actual value from the environment variable NAME, no substitutions are performed</li>
+</ul></li></ul></dd>
     
 
     
@@ -6135,7 +6145,7 @@ api.reuse-port=1</code></pre>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_app_args.js.html">lib/app/args.js</a>, <a href="lib_app_args.js.html#line168">line 168</a>
+        <a href="lib_app_args.js.html">lib/app/args.js</a>, <a href="lib_app_args.js.html#line176">line 176</a>
     </li></ul></dd>
     
 

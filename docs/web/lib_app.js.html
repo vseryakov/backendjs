@@ -166,7 +166,7 @@ module.exports = {
      * @property {string} accountId - AWS account id
      * @property {string} zone - AWS availability zone
      */
-    env: Object.assign(Object.create(null), {
+    env: lib.objCreate({
         id: os.hostname().toLowerCase(),
         pid: process.pid,
         tag: process.env.BKJS_TAG || "",
@@ -242,7 +242,7 @@ module.exports = {
     none: [],
 
     /** @var {object} - imported packages */
-    packages: Object.create(null),
+    packages: lib.objCreate(),
 
     /** @var {object} - modules config */
     modules: {
@@ -341,10 +341,11 @@ app.init = function(options, callback)
     // Serialize initialization procedure, run each function one after another
     lib.series([
         function(next) {
-            var config = "", extra = "", mods = [];
+            var extra = "", mods = [];
 
             app.config = options.config || app.config;
-            config = lib.readFileSync(app.config);
+            const config = lib.readFileSync(app.config);
+
             app.parseConfig(config, 1, app.config);
             app.parseArgs(process.argv, 1, "cmdline");
 

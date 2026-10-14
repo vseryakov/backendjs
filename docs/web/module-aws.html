@@ -1225,7 +1225,7 @@ using <code>fast-xml-parser</code> into objects.</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line118">line 118</a>
+        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line149">line 149</a>
     </li></ul></dd>
     
 
@@ -29021,7 +29021,7 @@ signature <code>(err, data, request)</code> where:</p>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line84">line 84</a>
+        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line114">line 114</a>
     </li></ul></dd>
     
 
@@ -33812,7 +33812,7 @@ will be loaded. Supports login sessions created via <code>aws login</code>.</p><
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line232">line 232</a>
+        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line275">line 275</a>
     </li></ul></dd>
     
 
@@ -34131,7 +34131,7 @@ will be loaded. Supports login sessions created via <code>aws login</code>.</p><
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line174">line 174</a>
+        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line214">line 214</a>
     </li></ul></dd>
     
 
@@ -34334,7 +34334,7 @@ will be loaded. Supports login sessions created via <code>aws login</code>.</p><
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line134">line 134</a>
+        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line165">line 165</a>
     </li></ul></dd>
     
 
@@ -34587,7 +34587,8 @@ will be loaded. Supports login sessions created via <code>aws login</code>.</p><
 <dl class="details">
     
     <dt class="tag-description">Description:</dt>
-    <dd class="tag-description"><ul class="dummy"><li><p>Parse an S3 URL into its components.</p></li></ul></dd>
+    <dd class="tag-description"><ul class="dummy"><li><p>Parse an S3 URL into its components, if starts with http:// or https:// then endpoint will be extracted,
+urls that start with s3://bucket are accepted for aws cli compatibility.</p></li></ul></dd>
     
 
     
@@ -34595,7 +34596,7 @@ will be loaded. Supports login sessions created via <code>aws login</code>.</p><
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line261">line 261</a>
+        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line306">line 306</a>
     </li></ul></dd>
     
 
@@ -34717,7 +34718,7 @@ will be loaded. Supports login sessions created via <code>aws login</code>.</p><
             </td>
             <td class="description last">
                 
-                <p><code>{ bucket, path, [key], [secret], [query] }</code></p>
+                <p><code>{ bucket, path, [key], [secret], [query], [endpoint] }</code></p>
                 
             </td>
         </tr>
@@ -34737,7 +34738,7 @@ will be loaded. Supports login sessions created via <code>aws login</code>.</p><
 
     
 
-    <h4 class="name" id=".s3Proxy"><span class="type-signature type-signature-static">(static) </span>s3Proxy<span class="signature">(res, bucket, file, options<span class="signature-attributes">opt</span>, callback<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id=".s3Proxy"><span class="type-signature type-signature-static">(static) </span>s3Proxy<span class="signature">(res, path, options<span class="signature-attributes">opt</span>, callback<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
 
     
 
@@ -34758,7 +34759,7 @@ and pipes the S3 response directly into <code>res</code>, preserving status/head
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line289">line 289</a>
+        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line342">line 342</a>
     </li></ul></dd>
     
 
@@ -34858,7 +34859,7 @@ and pipes the S3 response directly into <code>res</code>, preserving status/head
 
         <tr>
             
-                <td class="name"><code>bucket</code></td>
+                <td class="name"><code>path</code></td>
             
 
             <td class="type">
@@ -34879,35 +34880,7 @@ and pipes the S3 response directly into <code>res</code>, preserving status/head
 
             
 
-            <td class="description last"><p>S3 bucket name that contains the object.</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>file</code></td>
-            
-
-            <td class="type">
-            
-                string
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-
-            <td class="description last"><p>S3 object key (path inside the bucket).</p></td>
+            <td class="description last"><p>S3 url, bucket and path</p></td>
         </tr>
 
     
@@ -34961,6 +34934,36 @@ and pipes the S3 response directly into <code>res</code>, preserving status/head
     </thead>
 
     <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>httpTimeout</code></td>
+            
+
+            <td class="type">
+            
+                int
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>cancel if no data after this timeout</p></td>
+        </tr>
+
     
 
         <tr>
@@ -35037,7 +35040,7 @@ and pipes the S3 response directly into <code>res</code>, preserving status/head
 
             <td class="type">
             
-                function(Error=): void
+                function(err)
             
             </td>
 
@@ -35110,7 +35113,7 @@ and pipes the S3 response directly into <code>res</code>, preserving status/head
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line204">line 204</a>
+        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line245">line 245</a>
     </li></ul></dd>
     
 
@@ -37272,7 +37275,7 @@ with all headers required for signing.</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line15">line 15</a>
+        <a href="lib_aws_s3.js.html">lib/aws/s3.js</a>, <a href="lib_aws_s3.js.html#line16">line 16</a>
     </li></ul></dd>
     
 
@@ -37653,6 +37656,36 @@ with all headers required for signing.</p></li></ul></dd>
 
         <tr>
             
+                <td class="name"><code>nodns</code></td>
+            
+
+            <td class="type">
+            
+                boolean
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>disable DNS compatibility access</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
                 <td class="name"><code>url</code></td>
             
 
@@ -37737,6 +37770,96 @@ with all headers required for signing.</p></li></ul></dd>
             
 
             <td class="description last"><p>payload is a file, use UNSIGNED-PAYLOAD</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>endpoint</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>full endpoint url, only protocol and host are used</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>endpoint_host</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>custom host, default is AWS region</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>endpoint_protocol</code></td>
+            
+
+            <td class="type">
+            
+                string
+            
+            </td>
+
+            
+                <td class="attributes">
+                
+                    &lt;optional><br>
+                
+
+                
+
+                
+                </td>
+            
+
+            
+
+            <td class="description last"><p>http or https default</p></td>
         </tr>
 
     

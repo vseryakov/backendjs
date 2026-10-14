@@ -610,7 +610,7 @@ module.exports = {
         { name: "name", key: "db-name", descr: "Default database name to be used for default connections in cases when no db is specified in the connection url" },
         { name: "config", descr: "Configuration database pool to be used to retrieve config parameters from the database, must be defined to use remote db for config parameters" },
         { name: "config-map", obj: "config-map", type: "map", merge: 1, descr: "Config options: `.interval` between loading configuration from the database configured with db-config, in minutes, 0 disables refreshing config from the db, `.count` max records to load in one select, see the docs about `.top`, `.main`, `.other` config parameters" },
-        { name: "aliases-(.+)", obj: "aliases", no_camel: 1, reverse: 1, onparse(v,o) { o.name=this.table(o.name); return this.table(v) }, descr: "Table aliases to be used instead of the requested table name, only high level db operations will use it, low level utilities use the real table names" },
+        { name: "aliases-(.+)", obj: "aliases", no_camel: 1, reverse: 1, descr: "Table aliases to be used instead of the requested table name, only high level db operations will use it, low level utilities use the real table names" },
         { name: "describe-tables", type: "callback", callback: "describeTables", descr: "A JSON object with table descriptions to be merged with the existing definitions" },
         { name: "describe-column-([a-z0-9_]+)-([a-zA-Z0-9_.]+)", obj: "columns.$1", make: "$2", type: "map", no_camel: 1, dot: 1, descr: "Describe a table column properties, can be a new or existing column, overrides existing property", example: "db-describe-column-users-name.validate = max:255", },
         { name: "cache-tables", obj: "cache", array: 1, type: "list", descr: "List of tables that can be cached: users, bk_counter. This list defines which DB calls will cache data with currently configured cache. This is global for all db pools." },
@@ -645,7 +645,7 @@ module.exports = {
 
     /** @var {object} - Database modules by type */
     modules: {
-        none: { defaults: Object.create(null), Pool: dbPool },
+        none: { defaults: lib.objCreate(), Pool: dbPool },
     },
 
     /** @var {object} - Database connection pools by pool name */
@@ -654,21 +654,21 @@ module.exports = {
     },
 
     // Configuration parameters
-    _config: Object.create(null, { none: { value: Object.create(null) } }),
+    _config: lib.objCreate({ none: { value: lib.objCreate() } }),
 
     // Tables to be cached
     cache: {
         tables: [],
         pools: [],
         sync: [],
-        keys: Object.create(null),
-        name: Object.create(null),
-        update: Object.create(null),
-        ttl: Object.create(null),
+        keys: lib.objCreate(),
+        name: lib.objCreate(),
+        update: lib.objCreate(),
+        ttl: lib.objCreate(),
     },
 
     // Level 2 cache objects
-    cache2: Object.create(null),
+    cache2: lib.objCreate(),
     lru: new lib.LRUCache(),
 
     /** @var {string} - Default database pool for the backend */
@@ -698,20 +698,20 @@ module.exports = {
      */
     tryCatch: 1,
 
-    processRows: Object.create(null),
+    processRows: lib.objCreate(),
     processColumns: [],
 
-    customColumn: Object.create(null),
+    customColumn: lib.objCreate(),
 
-    columns: Object.create(null),
+    columns: lib.objCreate(),
 
     columnType: DbColumnType,
 
-    aliases: Object.create(null),
+    aliases: lib.objCreate(),
 
-    poolAliases: Object.create(null),
+    poolAliases: lib.objCreate(),
 
-    cleanup: Object.create(null),
+    cleanup: lib.objCreate(),
 
     /** @var {string} - Separator to combined columns
      * @default
@@ -729,13 +729,13 @@ module.exports = {
     rxTable: /^\s*([$#.a-z0-9_]+)/i,
 
     /** @var {object} - All tables from all modules by table name*/
-    tables: Object.create(null),
+    tables: lib.objCreate(),
 
     /** @var {object} - All primary keys for each table by name */
-    keys: Object.create(null),
+    keys: lib.objCreate(),
 
-    indexes: Object.create(null),
-    joins: Object.create(null),
+    indexes: lib.objCreate(),
+    joins: lib.objCreate(),
 };
 
 db.configure = function(_options, callback)

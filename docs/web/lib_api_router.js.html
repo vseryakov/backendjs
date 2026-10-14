@@ -384,9 +384,7 @@ class Router {
             let child = node.children?.[key];
             if (!child) {
                 if (!node.children) {
-                    node.children = Object.create(null, {
-                        toJSON: { value() { return Object.keys(this).join(", ") } }
-                    });
+                    node.children = lib.objCreate({ toJSON() { return Object.keys(this).join(", ") } });
                 }
                 child = node.children[key] = { index: i, name };
             }
@@ -487,7 +485,7 @@ class Router {
         for (const route of node.handlers.filter(x => (!x.method || x.method === method))) {
             if (route.params) {
                 let index = 0;
-                const params = Object.create(null);
+                const params = lib.objCreate();
                 route.params.forEach((part, i) => {
                     params[part === "*" ? index++ : part] = paths[i];
                 });
