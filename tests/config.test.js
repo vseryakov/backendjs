@@ -53,6 +53,7 @@ line2=line2
     it("test parameters", async () => {
 
         var argv = [
+            "-app-env-user", "$env.USER",
             "-api-redirect-url", '{ "^a/$": "a", "^b": "b" }',
             "-db-sqlite-pool-max", "10",
             "-db-sqlite1-pool", "a",
@@ -76,6 +77,8 @@ line2=line2
 
         app.parseArgs(argv);
         logger.debug("config:", db._config);
+
+        assert.strictEqual(app.env.user, process.env.USER);
 
         assert.strictEqual(db.aliases.t, "Test6");
 
