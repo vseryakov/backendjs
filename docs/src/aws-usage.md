@@ -439,6 +439,14 @@ all middleware and routes work the same way.
 
 ---
 
+## Using Lambda Web Functions
+
+Run the same as locally just add the following config parameter to bkjs.conf:
+
+api-bind = $env.AWS_LAMBDA_HTTP_ENDPOINT
+
+---
+
 ## Calling a service directly
 
 When a convenience helper is not provided, drop down to the two raw request builders. These
