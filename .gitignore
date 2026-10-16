@@ -22,6 +22,7 @@
 .env*
 .bkjsrc
 .bkjs_history
+bin
 nodejs
 node_modules
 var
