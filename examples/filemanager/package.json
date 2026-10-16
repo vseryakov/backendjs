@@ -1,0 +1,17 @@
+{
+ "version": "0.1.0",
+ "author": "vlad",
+ "name": "File manager",
+ "description": "File manager example",
+ "dependencies": {
+     "backendjs": "github:vseryakov/backendjs"
+ },
+ "engines": { "node": ">= 24.0" },
+ "scripts": {
+      "symlink": "../../bin/bkjs install-symlink",
+      "setup": "npm run symlink && bksh -db-create-tables && node tools/seed.js",
+      "start": "bkjs run -api -watch",
+      "bksh": "bksh"
+ },
+ "license": "BSD-3-Clause"
+}

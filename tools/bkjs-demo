@@ -136,24 +136,33 @@ middleware-routing-enable = true
 middleware-routing-/app/*=/index.html
 
 middleware-static-enable = true
-middleware-static-etag = true
+middleware-body-enable = true
 
 # default db pool
-db-sqlite-pool=demo
 db-pool=sqlite
+db-sqlite-pool=var/sqlite
 
+# Local PostgreSQL-like dbs
 [roles=pg]
 db-pool=pg
 db-pg-pool=default
 
+# AWS DynamoDB
 [roles=dynamodb]
 db-pool=dynamodb
 db-dynamodb-pool=default
 
+# Local DynamoDB
+[roles=ddb]
+db-pool=dynamodb
+db-dynamodb-pool = http://localhost:8181
+
+# Local Elasticsearch
 [roles=es]
 db-pool=elasticsearch
 db-elasticsearch-pool=default
 
+# Local Rqlite
 [roles=rqlite]
 db-pool=rqlite
 db-rqlite-pool=default
@@ -171,7 +180,7 @@ cat > README.md <<EOF
 
 2. Create tables
 
-    npm run initdb
+    npm run setup
 
 3. Run the app
 
@@ -185,7 +194,7 @@ cat > README.md <<EOF
 
 6. Run with PostgreSQL
 
-    npm run initdb -- -app-roles pg
+    npm run setup -- -app-roles pg
     npm run start -- -app-roles pg
 
 # Authors
@@ -202,21 +211,8 @@ cat > package.json <<EOF
     "backendjs": "github:vseryakov/backendjs"
  },
  "engines": { "node": ">= 24.0" },
- "eslintConfig": {
-    "env": {
-        "browser": true
-    },
-    "globals": {
-        "app": false,
-        "Alpine": false,
-        "bootstrap": false,
-        "bootpopup": false,
-        "window": false,
-        "document": false
-    }
- },
  "scripts": {
-    "initdb": "bksh -shell -db-create-tables",
+    "setup": "bksh -shell -db-create-tables",
     "start": "bkjs run -api -watch",
     "bksh": "bksh"
  },

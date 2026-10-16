@@ -1,0 +1,297 @@
+<head>
+    <title>File Manager</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+    <link rel="icon" href="/logo.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/logo2.png" />
+
+    <link href="/css/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/bootstrap.css" rel="stylesheet">
+</head>
+
+<body class="overflow-hidden">
+    <div class="alerts"></div>
+    <div id="app-main"></div>
+
+    <script src="/js/popper2.js"></script>
+    <script src="/js/bootstrap.js"></script>
+    <script src="/js/app-bootstrap.js"></script>
+    <script src="/js/alpinejs.js"></script>
+    <script src="/index.js"></script>
+</body>
+
+<template id=index>
+  <div class="vh-100 d-flex flex-column">
+    <!-- Header -->
+    <nav class="navbar navbar-expand bg-body-tertiary border-bottom py-1 px-3 flex-shrink-0">
+        <span class="navbar-brand d-flex align-items-center py-0">
+            <i class="bi bi-folder2-open me-2 text-primary"></i>
+            File Manager
+        </span>
+
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <span class="text-secondary small font-monospace" x-text="current?.path || '/'"></span>
+            <button class="btn btn-outline-secondary btn-sm" title="Reload tree" @click="reload()">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Panes -->
+    <div class="d-flex flex-nowrap flex-grow-1 overflow-hidden" x-ref="panes" :class="resizing && 'user-select-none'">
+
+        <!-- Left: file system tree -->
+        <div class="flex-shrink-0 d-flex flex-column overflow-hidden bg-body-tertiary" :style="'width:' + width + 'px'">
+
+            <!-- Search -->
+            <div class="p-2 flex-shrink-0">
+                <div class="input-group input-group-sm rounded">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="search" class="form-control rounded-end" placeholder="Search…" x-model.debounce.300ms="query" @keydown.escape="query = ''">
+                    <span class="input-group-text" x-show="searching"><span class="spinner-border spinner-border-sm"></span></span>
+                    <button class="btn btn-outline-secondary" x-show="query" title="Clear" @click="query = ''">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tree: file system tree or, while searching, /api/find results as expandable roots -->
+            <div class="flex-grow-1 overflow-auto m-2 rounded">
+
+            <div class="px-3 py-1 small text-secondary border-bottom" x-show="query && !searching">
+                <span x-text="results.length"></span> result<span x-show="results.length != 1">s</span>
+            </div>
+
+            <template x-if="!rows.length && !loading && !searching">
+                <div class="p-3 text-secondary small" x-text="query ? 'No matches' : 'No files'"></div>
+            </template>
+
+            <template x-if="loading && !rows.length">
+                <div class="p-3 text-secondary small">
+                    <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+                </div>
+            </template>
+
+            <div class="list-group list-group-flush">
+                <template x-for="node in rows" :key="node.path">
+                    <a href="#"
+                       class="list-group-item list-group-item-action py-1 border-0 text-nowrap d-flex align-items-center"
+                       :class="{ active: current?.path == node.path }"
+                       :data-path="node.path"
+                       :style="'padding-left:' + (node.depth * indent + 8) + 'px'"
+                       @click.prevent="select(node)">
+
+                        <!-- expander (folders only) -->
+                        <span class="d-inline-block text-center me-1" style="width:1.25rem" @click.stop.prevent="toggle(node)">
+                            <template x-if="node.type == 'd' && node.loading">
+                                <span class="spinner-border spinner-border-sm" style="width:.75rem;height:.75rem"></span>
+                            </template>
+
+                            <template x-if="node.type == 'd' && !node.loading">
+                                <i class="bi" :class="node.open ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                            </template>
+                        </span>
+
+                        <i class="bi me-2 flex-shrink-0" :class="icon(node)"></i>
+
+                        <div class="overflow-hidden">
+                            <div class="text-truncate" x-text="node.name"></div>
+                            <template x-if="node.root">
+                                <div class="text-truncate small text-secondary" x-text="'/' + node.path"></div>
+                            </template>
+                        </div>
+
+                        <template x-if="node.root">
+                            <button class="btn btn-link btn-sm ms-auto p-0 flex-shrink-0" title="Reveal in tree" @click.stop.prevent="reveal(node)">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </button>
+                        </template>
+                    </a>
+                </template>
+            </div>
+            </div>
+        </div>
+
+        <!-- Splitter -->
+        <div class="flex-shrink-0 border-start border-end bg-body-tertiary"
+             :class="resizing == 'left' ? 'border-primary' : 'border-secondary-subtle'"
+             style="width:6px;cursor:col-resize"
+             title="Drag to resize, double click to reset"
+             @pointerdown="resizeStart($event, 'left')"
+             @dblclick="width = 320"></div>
+
+        <!-- Right: actions + preview -->
+        <div class="flex-grow-1 d-flex flex-column overflow-hidden" :class="resizing && 'pe-none'">
+
+            <!-- Action bar -->
+            <div class="d-flex align-items-center gap-2 p-2 border-bottom flex-shrink-0">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" :disabled="!current" @click="rename()">
+                        <i class="bi bi-pencil me-1"></i>Rename
+                    </button>
+
+                    <button class="btn btn-outline-danger" :disabled="!current" @click="remove()">
+                        <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+
+                    <a class="btn btn-outline-success" :class="{ disabled: !current || current.type == 'd' }"
+                       :href="current && current?.type !== 'd' ? url(current, 1) : '#'" :download="current?.name">
+                        <i class="bi bi-download me-1"></i>Download
+                    </a>
+                </div>
+
+                <div class="ms-auto text-secondary small text-truncate" x-show="current">
+                    <i class="bi me-1" :class="current && icon(current)"></i>
+                    <span x-text="current?.name"></span>
+                </div>
+
+                <button class="btn btn-outline-secondary btn-sm" :class="{ active: showInfo }" title="Toggle info panel" @click="showInfo = !showInfo">
+                    <i class="bi bi-info-circle"></i>
+                </button>
+            </div>
+
+            <!-- Preview | Info -->
+            <div class="d-flex flex-nowrap flex-grow-1 overflow-hidden">
+
+            <!-- Preview -->
+            <div class="flex-grow-1 overflow-auto p-2 bg-body-secondary">
+
+                <template x-if="!current">
+                    <div class="h-100 d-flex flex-column align-items-center justify-content-center text-secondary">
+                        <i class="bi bi-file-earmark display-1"></i>
+                        <p class="mt-3">Select a file to preview</p>
+                    </div>
+                </template>
+
+                <template x-if="current && current.type == 'd'">
+                    <div class="h-100 d-flex flex-column align-items-center justify-content-center text-secondary">
+                        <i class="bi bi-folder display-1 text-warning"></i>
+                        <p class="mt-3 mb-0" x-text="current.name"></p>
+                        <small x-text="(current.children?.length || 0) + ' items'"></small>
+                    </div>
+                </template>
+
+                <template x-if="current && current.type !== 'd' && preview == 'image'">
+                    <div class="text-center">
+                        <img :src="url(current)" :alt="current.name" class="img-fluid rounded shadow-sm bg-white">
+                    </div>
+                </template>
+
+                <template x-if="current && current.type !== 'd' && preview == 'video'">
+                    <div class="text-center">
+                        <video :src="url(current)" controls class="w-100 rounded shadow-sm"></video>
+                    </div>
+                </template>
+
+                <template x-if="current && current.type !== 'd' && preview == 'audio'">
+                    <div class="d-flex justify-content-center py-5">
+                        <audio :src="url(current)" controls></audio>
+                    </div>
+                </template>
+
+                <template x-if="current && current.type !== 'd' && preview == 'frame'">
+                    <iframe :src="url(current)" class="w-100 h-100 border-0 rounded bg-white shadow-sm" :title="current.name"></iframe>
+                </template>
+
+                <template x-if="current && current.type !== 'd' && preview == 'text'">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body overflow-auto">
+                            <template x-if="textLoading">
+                                <div class="text-secondary small"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</div>
+                            </template>
+                            <pre class="mb-0 font-monospace small" x-show="!textLoading" x-text="text"></pre>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="current && current.type !== 'd' && preview == 'none'">
+                    <div class="h-100 d-flex flex-column align-items-center justify-content-center text-secondary">
+                        <i class="bi bi-file-earmark-zip display-1"></i>
+                        <p class="mt-3 mb-1" x-text="current.name"></p>
+                        <small class="mb-3">No preview available for this file type</small>
+                        <a class="btn btn-success" :href="url(current, 1)" :download="current.name">
+                            <i class="bi bi-download me-1"></i>Download
+                        </a>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Splitter -->
+            <div class="flex-shrink-0 border-start border-end bg-body-tertiary"
+                 :class="resizing == 'info' ? 'border-primary' : 'border-secondary-subtle'"
+                 style="width:6px;cursor:col-resize"
+                 title="Drag to resize, double click to reset"
+                 x-show="showInfo"
+                 @pointerdown="resizeStart($event, 'info')"
+                 @dblclick="infoWidth = 280"></div>
+
+            <!-- Info panel -->
+            <div class="flex-shrink-0 overflow-auto bg-body-tertiary" :style="'width:' + infoWidth + 'px'" x-show="showInfo">
+                <template x-if="!current">
+                    <div class="p-3 text-secondary small">Nothing selected</div>
+                </template>
+
+                <template x-if="current">
+                    <div>
+                        <div class="text-center p-3 border-bottom">
+                            <i class="bi display-4" :class="icon(current)"></i>
+                            <div class="fw-semibold text-break mt-2" x-text="current.name"></div>
+                            <div class="text-secondary small" x-text="current.type == 'd' ? 'Folder' : kind(current)"></div>
+                        </div>
+
+                        <dl class="row g-0 small m-0 p-3">
+                            <dt class="col-5 text-secondary fw-normal">Path</dt>
+                            <dd class="col-7 text-break font-monospace" x-text="'/' + current.path"></dd>
+
+                            <dt class="col-5 text-secondary fw-normal">Type</dt>
+                            <dd class="col-7" x-text="current.type == 'd' ? 'Folder' : (ext(current.name) || 'file')"></dd>
+
+                            <template x-if="current.type !== 'd'">
+                                <dt class="col-5 text-secondary fw-normal">Size</dt>
+                            </template>
+
+                            <template x-if="current.type !== 'd'">
+                                <dd class="col-7">
+                                    <span x-text="app.toSize(current.size || 0)"></span>
+                                    <span class="text-secondary" x-text="'(' + (current.size || 0).toLocaleString() + ' bytes)'"></span>
+                                </dd>
+                            </template>
+
+                            <template x-if="current.type == 'd'">
+                                <dt class="col-5 text-secondary fw-normal">Items</dt>
+                            </template>
+
+                            <template x-if="current.type == 'd'">
+                                <dd class="col-7" x-text="current.loaded ? current.children.length : '—'"></dd>
+                            </template>
+
+                            <dt class="col-5 text-secondary fw-normal">Modified</dt>
+                            <dd class="col-7" x-text="current.mtime ? app.strftime(current.mtime) : '—'"></dd>
+
+                            <dt class="col-5 text-secondary fw-normal">Depth</dt>
+                            <dd class="col-7" x-text="current.depth"></dd>
+
+                            <dt class="col-5 text-secondary fw-normal">Preview</dt>
+                            <dd class="col-7" x-text="current.type == 'd' ? '—' : preview"></dd>
+
+                            <template x-if="current.meta">
+                                <dt class="col-12 text-secondary fw-normal border-top mt-2 pt-2">Metadata</dt>
+                            </template>
+
+                            <template x-for="[k, v] in Object.entries(current.meta || {})" :key="k">
+                                <div class="row g-0 col-12">
+                                    <dt class="col-5 text-secondary fw-normal" x-text="k"></dt>
+                                    <dd class="col-7 text-break mb-1" x-text="v"></dd>
+                                </div>
+                            </template>
+                        </dl>
+                    </div>
+                </template>
+            </div>
+
+            </div>
+        </div>
+    </div>
+  </div>
+</template>
