@@ -264,7 +264,7 @@ app.components.index = class extends app.AlpineComponent {
                 const name = (d.name || "").trim();
                 if (!name) return popup.showAlert("Name is required");
                 if (name.includes("/")) return popup.showAlert("Name cannot contain /");
-                const { err } = await app.fetch("/api/mv", { post: 1, body: { path: node.path, name } });
+                const { err } = await app.fetch("/api/mv", { post: 1, body: { file: node.file, name } });
                 if (err) return popup.showAlert(err);
                 const parent = node.path.includes("/") ? node.path.slice(0, node.path.lastIndexOf("/")) : "";
                 node.name = name;
@@ -273,7 +273,7 @@ app.components.index = class extends app.AlpineComponent {
                 node.loaded = false;
                 node.open = false;
                 node.children = [];
-                this.flatten(this.tree);
+                this.flatten(this.results || this.tree);
                 popup.close();
                 app.showToast("success", "Renamed");
                 return null;
@@ -287,12 +287,12 @@ app.components.index = class extends app.AlpineComponent {
         if (!node) return;
         app.bootpopup.confirm(`Delete ${node.type == "d" ? "folder" : node.type == "l" ? "link": "file"} "${node.name}"?`, async (ok) => {
             if (!ok) return;
-            const { err } = await app.fetch("/api/rm", { post: 1, body: { path: node.path } });
+            const { err } = await app.fetch("/api/rm", { post: 1, body: { file: node.file } });
             if (err) return app.showToast("error", err);
             // remove from whichever list holds it: search results or the tree
             node.hidden = true;
             this.current = null;
-            this.flatten(this.tree);
+            this.flatten(this.results || this.tree);
             app.showToast("success", "Deleted");
         });
     }

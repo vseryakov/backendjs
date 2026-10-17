@@ -6,7 +6,7 @@ Small Backend.js sample that shows Explorer-like file manager.
 
 **What’s here**
 
-- `modules/api.js`: API endpoint that composes images and text overlays.
+- `modules/api.js`: API endpoints to browse filesystem using the files module
 - `web/index.html`: UI main page
 - `web/index.js`: Alpine component with logic
 
