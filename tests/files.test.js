@@ -71,7 +71,7 @@ describe('Files tests', async () => {
         assert.ok(!rc.err, rc?.err?.message);
         assert.strictEqual(rc.data, "files test");
 
-        rc = await files.alist("", { filter: /files.txt/, base: true });
+        rc = await files.alist("", { include: /files.txt/, base: true });
         assert.deepStrictEqual(rc.data, [ "files.txt" ]);
 
         rc = await files.adel('files.txt');
