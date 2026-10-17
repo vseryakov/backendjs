@@ -60,7 +60,7 @@
             <div class="flex-grow-1 overflow-auto m-2 rounded">
 
             <div class="px-3 py-1 small text-secondary border-bottom" x-show="query && !searching">
-                <span x-text="results.length"></span> result<span x-show="results.length != 1">s</span>
+                <span x-text="results?.length"></span> result<span x-show="results?.length != 1">s</span>
             </div>
 
             <template x-if="!rows.length && !loading && !searching">
@@ -240,49 +240,62 @@
                             <div class="text-secondary small" x-text="current.type == 'd' ? 'Folder' : kind(current)"></div>
                         </div>
 
-                        <dl class="row g-0 small m-0 p-3">
-                            <dt class="col-5 text-secondary fw-normal">Path</dt>
-                            <dd class="col-7 text-break font-monospace" x-text="'/' + current.path"></dd>
+                        <dl class="g-0 small m-0 p-3">
+                            <div class="row g-0">
+                                <dt class="col-5 text-secondary fw-normal">Path</dt>
+                                <dd class="col-7 text-break font-monospace" x-text="current.path"></dd>
+                            </div>
 
-                            <dt class="col-5 text-secondary fw-normal">Type</dt>
-                            <dd class="col-7" x-text="current.type == 'd' ? 'Folder' : (ext(current.name) || 'file')"></dd>
+                            <div class="row g-0">
+                                <dt class="col-5 text-secondary fw-normal">Type</dt>
+                                <dd class="col-7" x-text="current.type == 'd' ? 'Folder' : ext(current.name) || 'file'"></dd>
+                            </div>
 
                             <template x-if="current.type !== 'd'">
-                                <dt class="col-5 text-secondary fw-normal">Size</dt>
-                            </template>
-
-                            <template x-if="current.type !== 'd'">
-                                <dd class="col-7">
-                                    <span x-text="app.toSize(current.size || 0)"></span>
-                                    <span class="text-secondary" x-text="'(' + (current.size || 0).toLocaleString() + ' bytes)'"></span>
-                                </dd>
+                                <div class="row g-0">
+                                    <dt class="col-5 text-secondary fw-normal">Size</dt>
+                                    <dd class="col-7" x-text="app.toSize(current.size)"></dd>
+                                </div>
                             </template>
 
                             <template x-if="current.type == 'd'">
-                                <dt class="col-5 text-secondary fw-normal">Items</dt>
+                                <div class="row g-0">
+                                    <dt class="col-5 text-secondary fw-normal">Items</dt>
+                                    <dd class="col-7" x-text="current.loaded ? current.children.length : '—'"></dd>
+                                </div>
                             </template>
 
-                            <template x-if="current.type == 'd'">
-                                <dd class="col-7" x-text="current.loaded ? current.children.length : '—'"></dd>
-                            </template>
+                            <div class="row g-0">
+                                <dt class="col-5 text-secondary fw-normal">Modified</dt>
+                                <dd class="col-7" x-text="current.mtime ? app.strftime(current.mtime) : '—'"></dd>
+                            </div>
 
-                            <dt class="col-5 text-secondary fw-normal">Modified</dt>
-                            <dd class="col-7" x-text="current.mtime ? app.strftime(current.mtime) : '—'"></dd>
+                            <div class="row g-0">
+                                <dt class="col-5 text-secondary fw-normal">Depth</dt>
+                                <dd class="col-7" x-text="current.depth"></dd>
+                            </div>
 
-                            <dt class="col-5 text-secondary fw-normal">Depth</dt>
-                            <dd class="col-7" x-text="current.depth"></dd>
+                            <div class="row g-0">
+                                <dt class="col-5 text-secondary fw-normal">Mode</dt>
+                                <dd class="col-7" x-text="current.mode"></dd>
+                            </div>
 
-                            <dt class="col-5 text-secondary fw-normal">Preview</dt>
-                            <dd class="col-7" x-text="current.type == 'd' ? '—' : preview"></dd>
+                            <div class="row g-0">
+                                <dt class="col-5 text-secondary fw-normal">Preview</dt>
+                                <dd class="col-7" x-text="current.type == 'd' ? '—' : preview"></dd>
+                            </div>
 
                             <template x-if="current.meta">
-                                <dt class="col-12 text-secondary fw-normal border-top mt-2 pt-2">Metadata</dt>
-                            </template>
-
-                            <template x-for="[k, v] in Object.entries(current.meta || {})" :key="k">
-                                <div class="row g-0 col-12">
-                                    <dt class="col-5 text-secondary fw-normal" x-text="k"></dt>
-                                    <dd class="col-7 text-break mb-1" x-text="v"></dd>
+                                <div class="row g-0">
+                                    <dt class="col-4 text-secondary fw-normal border-top mt-2 pt-2">Metadata</dt>
+                                    <div class="col-8">
+                                        <template x-for="k in current.meta">
+                                            <div class="row">
+                                                <dt class="col-5 text-secondary fw-normal" x-text="k"></dt>
+                                                <dd class="col-7 text-break mb-1" x-text="v"></dd>
+                                            </div>
+                                        </template>
+                                    </div>
                                 </div>
                             </template>
                         </dl>

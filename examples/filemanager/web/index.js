@@ -19,7 +19,7 @@ app.components.index = class extends app.AlpineComponent {
     textLoading = false;
 
     query = "";         // search string
-    results = [];       // flat list of matches from /api/find
+    results = null;     // flat list of matches from /api/find
     searching = false;
     _searchId = 0;
 
@@ -35,12 +35,6 @@ app.components.index = class extends app.AlpineComponent {
     async ls(path)
     {
         return app.fetch("/api/ls/?file=" + encodeURI(path || ""));
-    }
-
-    // Returns flat list of all nodes matching the query: [{ path, name, type, size, mtime }]
-    async find(q)
-    {
-        return app.fetch("/api/find", { post: 1, body: { q, limit: 500 } });
     }
 
     // URL to view/download a file
@@ -87,42 +81,46 @@ app.components.index = class extends app.AlpineComponent {
     async reload()
     {
         this.current = null;
+        this.results = null;
         this.loading = true;
         const { err, data } = await this.ls("");
         this.loading = false;
         if (err) return app.showToast("error", err);
-        this.tree = this.nodes(data, "", 0);
-        this.flatten();
+        this.tree = this.prepare(data).
+                         sort((a, b) => (a.name.localeCompare(b.name)));
+        this.flatten(this.tree);
     }
 
-    nodes(list, parent, depth)
+    prepare(list, parent, depth)
     {
         return (list || []).map(x => ({
             name: x.name,
             type: x.type,
-            path: parent ? parent + "/" + x.name : x.name,
+            file: x.file,
+            path: parent ? parent + "/" + x.name : x.file || x.name,
             size: x.size,
+            mode: x.mode,
             mtime: x.mtime,
             meta: x.meta,
-            depth,
+            depth: depth || 0,
             open: false,
             loading: false,
             loaded: false,
             children: [],
-        })).sort((a, b) => (a.name.localeCompare(b.name)));
+        }));
     }
 
     // Build the visible rows list from expanded nodes, either the file tree or the search results
-    flatten()
+    flatten(tree)
     {
         const rows = [];
         const walk = (list) => {
             for (const n of list) {
-                rows.push(n);
+                if (!n.hidden) rows.push(n);
                 if (n.type == "d" && n.open) walk(n.children);
             }
         };
-        walk(this.query.trim() ? this.results : this.tree);
+        walk(tree);
         this.rows = rows;
     }
 
@@ -132,33 +130,18 @@ app.components.index = class extends app.AlpineComponent {
     {
         const q = this.query.trim();
         if (!q) {
-            this.results = [];
+            this.results = null;
             this.searching = false;
-            return this.flatten();
+            return this.flatten(this.tree);
         }
         const id = ++this._searchId;
         this.searching = true;
-        this.results = [];
-        this.flatten();
-        const { err, data } = await this.find(q);
-        if (id != this._searchId) return;      // stale response, newer query in flight
+        this.flatten([]);
+        const { err, data } = await app.fetch("/api/find", { body: { q, limit: 500 } });
+        if (id != this._searchId) return;
         this.searching = false;
         if (err) return app.showToast("error", err);
-        // flat list, each match becomes a root node that can be expanded like in the tree
-        this.results = (data || []).map(x => ({
-            name: x.name,
-            path: x.path,
-            size: x.size,
-            mtime: x.mtime,
-            meta: x.meta,
-            depth: 0,
-            root: true,
-            open: false,
-            loading: false,
-            loaded: false,
-            children: [],
-        }));
-        this.flatten();
+        this.flatten(this.results = this.prepare(data));
     }
 
     // Expand the tree down to the given path, select the node and clear the search
@@ -188,18 +171,19 @@ app.components.index = class extends app.AlpineComponent {
         if (node.type != "d") return this.select(node);
         if (node.open) {
             node.open = false;
-            return this.flatten();
+            return this.flatten(this.results || this.tree);
         }
         if (!node.loaded) {
             node.loading = true;
             const { err, data } = await this.ls(node.path);
             node.loading = false;
             if (err) return app.showToast("error", err);
-            node.children = this.nodes(data, node.path, node.depth + 1);
+            node.children = this.prepare(data, node.path, node.depth + 1).
+                                 sort((a, b) => (a.name.localeCompare(b.name)));
             node.loaded = true;
         }
         node.open = true;
-        this.flatten();
+        this.flatten(this.results || this.tree);
     }
 
     async select(node)
@@ -289,7 +273,7 @@ app.components.index = class extends app.AlpineComponent {
                 node.loaded = false;
                 node.open = false;
                 node.children = [];
-                this.flatten();
+                this.flatten(this.tree);
                 popup.close();
                 app.showToast("success", "Renamed");
                 return null;
@@ -306,28 +290,13 @@ app.components.index = class extends app.AlpineComponent {
             const { err } = await app.fetch("/api/rm", { post: 1, body: { path: node.path } });
             if (err) return app.showToast("error", err);
             // remove from whichever list holds it: search results or the tree
-            const parentPath = node.path.includes("/") ? node.path.slice(0, node.path.lastIndexOf("/")) : "";
-            for (const roots of [this.results, this.tree]) {
-                const parent = node.root ? null : this.findNode(parentPath, roots);
-                const list = parent ? parent.children : roots;
-                const i = list.indexOf(node);
-                if (i >= 0) list.splice(i, 1);
-            }
+            node.hidden = true;
             this.current = null;
-            this.flatten();
+            this.flatten(this.tree);
             app.showToast("success", "Deleted");
         });
     }
 
-    findNode(path, list)
-    {
-        if (!path) return null;
-        for (const n of list || this.tree) {
-            if (n.path == path) return n;
-            if (n.type == "d" && path.startsWith(n.path + "/")) return this.findNode(path, n.children);
-        }
-        return null;
-    }
 };
 
 app.$ready(() => {

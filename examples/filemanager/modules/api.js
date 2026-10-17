@@ -12,45 +12,68 @@ module.exports = {
     name: "filemanager",
 
     args: [
+        { name: "read-only", type: "bool", descr: "Read only mode, no delete or rename" },
+        { name: "depth", type: "int", descr: "Max folder depth in search" },
     ],
+
+    depth: 7,
+    readOnly: true,
 
     configureMiddleware(_options, callback)
     {
         api.app.
-            get("/api/find", find).
             get("/api/ls", ls).
+            get("/api/find", find).
             get("/api/cat", cat).
             post("/api/upload", upload).
-            post("/api/rm", rm).
-            post("/api/mv", mv);
+            post("/api/rm", readOnly, rm).
+            post("/api/mv", readOnly, mv);
 
         callback();
     },
 };
 
-function ls(context)
+function prepare(data)
 {
-    const file = context.query.file || "/";
-    const include = lib.toRegexp(context.query.q);
-
-    files.list(file, { depth: 0, details: true, base: true, include }, (err, data) => {
-        if (err) return context.reply(err);
-
-        context.json(data.map(x => ({
+    return data.map(x => ({
             name: x.name,
+            file: x.file,
             type: x.isSymbolicLink() ? "l" : x.isDirectory() ? "d" :  "f",
             owner: x.uid,
             group: x.gid,
             size: x.size,
+            mode: lib.fileAccessMode(x.mode),
             mtime: x.mtime,
             ctime: x.ctime
-        })));
+        }))
+}
+
+function readOnly(context, next)
+{
+    if (mod.readOnly) return context.reply({ status: 403, message: "Read only mode" })
+    next();
+}
+
+function ls(context)
+{
+    const file = context.query.file || "/";
+
+    files.list(file, { depth: 0, strip: true, details: true, base: true }, (err, data) => {
+        if (err) return context.reply(err);
+
+        context.json(prepare(data));
     });
 }
 
 function find(context)
 {
+    const include = lib.toRegexp(context.query.q);
+    if (!include) return context.json([]);
 
+    files.list("", { depth: mod.depth, strip: true, details: true, base: true, include }, (err, data) => {
+        if (err) return context.reply(err);
+        context.json(prepare(data));
+    });
 }
 
 function cat(context)
@@ -64,10 +87,14 @@ function upload(context)
 
 function rm(context)
 {
-    files.send(context, context.query.file)
+    files.del(context, context.query.file, err => {
+        context.reply(err);
+    })
 }
 
 function mv(context)
 {
-    files.rename(context.query.file, context.query.dest)
+    files.move(context.query.file, context.query.dest, err => {
+        context.reply(err);
+    })
 }

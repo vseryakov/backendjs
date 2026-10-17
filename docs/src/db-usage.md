@@ -1,6 +1,10 @@
 # Using the Database Layer
 
-The `db` module works the same way across SQLite, PostgreSQL, DynamoDB, Elasticsearch, and Rqlite. Pick your backend with an environment variable:
+The `db` module works the same way across SQLite, PostgreSQL, DynamoDB, Elasticsearch, and Rqlite.
+
+Multiple databases can be used at the same time in the application, all using the same DB layer.
+
+Pick your backend with an environment variable, bkjs.conf defines these sextions for each database:
 
 ```bash
 BKJS_ROLES=sqlite       # default
@@ -174,6 +178,15 @@ const { data } = await db.aselect("users", {}, {
     desc: true 
 });
 ```
+
+**Use different database:**
+
+If you need full text capability for example just use a different DB pool:
+
+```js
+const { data } = await db.aselect("users", { role: "admin" }, { pool: "elasticsearch" });
+
+````
 
 ---
 
