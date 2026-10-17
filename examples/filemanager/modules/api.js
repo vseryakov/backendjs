@@ -83,6 +83,9 @@ function cat(context)
 
 function upload(context)
 {
+    files.upload(context, "file", (err, opts) => {
+        context.reply(err);
+    });
 }
 
 function rm(context)
@@ -94,7 +97,7 @@ function rm(context)
 
 function mv(context)
 {
-    files.move(context.query.file, context.query.dest, err => {
+    files.move(context.query.file, context.query.name, err => {
         context.reply(err);
     })
 }

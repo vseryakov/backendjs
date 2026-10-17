@@ -13,7 +13,7 @@ describe('Files tests', async () => {
 
             configureMiddleware(options, callback) {
                 api.app.post("/upload/", (context) => {
-                    files.upload(context, "file", { namekeep: true, name: "files2.txt" }, (err) => {
+                    files.upload(context, "file", { keep_name: true, name: "files2.txt" }, (err) => {
                         context.reply(err);
                     });
                 });
@@ -71,8 +71,17 @@ describe('Files tests', async () => {
         assert.ok(!rc.err, rc?.err?.message);
         assert.strictEqual(rc.data, "files test");
 
+        rc = await files.adel('dir/files.txt');
+        assert.ok(!rc.err);
+
         rc = await files.alist("", { include: /files.txt/, base: true });
         assert.deepStrictEqual(rc.data, [ "files.txt" ]);
+
+        rc = await files.astore(buf, "dir/files.txt");
+        assert.ok(!rc.err, rc?.err?.message);
+
+        rc = await files.alist("", { include: /files.txt/, strip: true });
+        assert.deepStrictEqual(rc.data, [ "/dir/files.txt", "/files.txt" ]);
 
         rc = await files.adel('files.txt');
         assert.ok(!rc.err);
