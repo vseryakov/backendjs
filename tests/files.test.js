@@ -79,6 +79,7 @@ describe('Files tests', async () => {
 
         rc = await files.astore(buf, "dir/files.txt");
         assert.ok(!rc.err, rc?.err?.message);
+        assert.ok(rc.data);
 
         rc = await files.alist("", { include: /files.txt/, strip: true });
         assert.deepStrictEqual(rc.data, [ "/dir/files.txt", "/files.txt" ]);
@@ -140,13 +141,29 @@ describe('Files tests', async () => {
             retryCount: 2,
             retryTimeut: 100,
             retryOnError: function() {
-                var t = parseInt(this.origUrl.at(-1)) + 1;
-                this.origUrl = this.origUrl.slice(0, -1) + t;
+                var t = parseInt(this.url.at(-1)) + 1;
+                this.url = this.url.slice(0, -1) + t;
                 return true;
             }
         });
         assert.strictEqual(rc.status, 200);
         assert.strictEqual(rc.request.retryTotal, 2);
+
+        rc = await lib.afetch({
+            hostname: "127.0.0.1",
+            port: api.port,
+            path: "/retry?a=2&t=4",
+            retryCount: 2,
+            retryTimeut: 100,
+            retryOnError: function() {
+                var t = parseInt(this.path.at(-1)) + 1;
+                this.path = this.path.slice(0, -1) + t;
+                return true;
+            }
+        });
+        assert.strictEqual(rc.status, 200);
+        assert.strictEqual(rc.request.retryTotal, 2);
+
     });
 
     await it('detect mime type', async () => {
