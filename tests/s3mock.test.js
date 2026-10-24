@@ -10,7 +10,7 @@ const now = new Date('2013-05-24T00:00:00Z');
 const emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
 // This requires AWS S3 example keys and secret published online set in bkjs.conf.local as
-// [roles=s3]
+// [roles=s3mock]
 // aws-key =
 // aws-secret =
 
@@ -32,7 +32,7 @@ function checkWireSignature(record)
     }
 }
 
-app.env.roles = ["s3"];
+app.env.roles = ["s3mock"];
 app.parseConfig(lib.readFileSync(__dirname + "/bkjs.conf"));
 
 describe('S3 known signing cases', () => {

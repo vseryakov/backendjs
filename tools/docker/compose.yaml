@@ -1,0 +1,125 @@
+name: bkjs
+
+services:
+  redis:
+    image: redis:latest
+    container_name: redis
+    command: sh -c "touch /data/redis.conf && redis-server /data/redis.conf"
+    env_file:
+      - path: $BKJS_HOME/bkjs.conf.redis.local
+        required: false
+      - path: $BKJS_HOME/bkjs.conf.local
+        required: false
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis:/data
+    restart: unless-stopped
+
+  rqlite:
+    image: rqlite/rqlite
+    container_name: rqlite
+    env_file:
+      - path: $BKJS_HOME/bkjs.conf.rqlite.local
+        required: false
+      - path: $BKJS_HOME/bkjs.conf.local
+        required: false
+    ports:
+      - "4001:4001"
+    volumes:
+      - rqlite:/rqlite/file
+    restart: unless-stopped
+
+  cockroachdb:
+    image: cockroachdb/cockroach:latest
+    container_name: cockroachdb
+    command: start-single-node --insecure
+    hostname: cockroachdb
+    env_file:
+      - path: $BKJS_HOME/bkjs.conf.crdb.local
+        required: false
+      - path: $BKJS_HOME/bkjs.conf.local
+        required: false
+    ports:
+      - "26257:26257"
+      - "8080:8080"
+    volumes:
+      - cockroachdb:/cockroach/cockroach-data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18
+    container_name: postgres
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all
+    env_file:
+      - path: $BKJS_HOME/bkjs.conf.pg.local
+        required: false
+      - path: $BKJS_HOME/bkjs.conf.local
+        required: false
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    env_file:
+      - path: $BKJS_HOME/bkjs.conf.mysql.local
+        required: false
+      - path: $BKJS_HOME/bkjs.conf.local
+        required: false
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-conf:/etc/mysql
+      - mysql-data:/var/lib/mysql
+    restart: unless-stopped
+
+  nats:
+    image: nats:alpine
+    container_name: nats
+    env_file:
+      - path: $BKJS_HOME/bkjs.conf.nats.local
+        required: false
+      - path: $BKJS_HOME/bkjs.conf.local
+        required: false
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+    volumes:
+      - nats-conf:/etc/nats
+      - nats-data:/data
+    command: ["-js", "-sd", "/data"]
+    restart: unless-stopped
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: minio
+    entrypoint: sh
+    command: -c 'mkdir -p /data/test && minio server --console-address ":9001" /data'
+    env_file:
+      - path: $BKJS_HOME/bkjs.conf.minio.local
+        required: false
+      - path: $BKJS_HOME/bkjs.conf.local
+        required: false
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio:/data
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  minio:
+  redis:
+  rqlite:
+  cockroachdb:
+  nats-conf:
+  nats-data:
+  mysql-conf:
+  mysql-data:
+
