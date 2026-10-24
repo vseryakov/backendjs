@@ -58,7 +58,7 @@ function ls(context)
 {
     const file = context.query.file || "/";
 
-    files.list(file, { depth: 0, strip: true, details: true, base: true }, (err, data) => {
+    files.list(file, { strip: true, details: true, base: true }, (err, data) => {
         if (err) return context.reply(err);
 
         context.json(prepare(data));

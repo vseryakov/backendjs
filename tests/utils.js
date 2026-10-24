@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const util = require("util");
 const fs = require("fs");
 
+setTimeout(() => { console.error("Process timeout"); process.exit(1) }, lib.toNumber(process.env.BKJS_TIMEOUT) || 180000).unref();
+
 const mock = {
     name: "mock",
 
@@ -64,6 +66,7 @@ exports.init = function(options, callback)
         await initServices(options);
         setTimeout(callback || lib.noop, options.delay || 500);
     });
+
 }
 
 exports.ainit = async function(options)
