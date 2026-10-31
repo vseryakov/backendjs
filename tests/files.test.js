@@ -67,9 +67,11 @@ describe('Files tests', async () => {
         rc = await files.aread('files.txt');
         assert.strictEqual(rc.data, "files test");
 
-        rc = await lib.afetch("http://127.0.0.1:" + api.port + "/files.txt");
-        assert.ok(!rc.err, rc?.err?.message);
-        assert.strictEqual(rc.data, "files test");
+        if (!files.default) {
+            rc = await lib.afetch("http://127.0.0.1:" + api.port + "/files.txt");
+            assert.ok(!rc.err, rc?.err?.message);
+            assert.strictEqual(rc.data, "files test");
+        }
 
         rc = await files.adel('dir/files.txt');
         assert.ok(!rc.err);
@@ -81,8 +83,8 @@ describe('Files tests', async () => {
         assert.ok(!rc.err, rc?.err?.message);
         assert.ok(rc.data);
 
-        rc = await files.alist("", { include: /files.txt/, strip: true });
-        assert.deepStrictEqual(rc.data, [ "/dir/files.txt", "/files.txt" ]);
+        rc = await files.alist("", { include: /files.txt/, depth: 1, strip: true });
+        assert.deepStrictEqual(rc.data?.sort(), [ "/dir/files.txt", "/files.txt" ]);
 
         rc = await files.adel('files.txt');
         assert.ok(!rc.err);
@@ -115,10 +117,12 @@ describe('Files tests', async () => {
         rc = await files.aread('putfile.html');
         assert.strictEqual(rc.data, "render.html");
 
-        rc = await lib.afetch("http://127.0.0.1:" + api.port + "/lib.test.js", {
-            stream: fs.createWriteStream(files.file.root + "/lib.test.js", { highWaterMark: 100 })
-        });
-        assert.strictEqual(rc.status, 200);
+        if (!files.default) {
+            rc = await lib.afetch("http://127.0.0.1:" + api.port + "/lib.test.js", {
+                stream: fs.createWriteStream(files.file.root + "/lib.test.js", { highWaterMark: 100 })
+            });
+            assert.strictEqual(rc.status, 200);
+        }
 
     });
 
