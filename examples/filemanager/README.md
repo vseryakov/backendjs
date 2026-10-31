@@ -6,7 +6,7 @@ Small Backend.js sample that shows Explorer-like file manager.
 
 **What’s here**
 
-- `modules/api.js`: API endpoints to browse filesystem using the files module
+- `modules/api.js`: API endpoints to browse filesystem or S3 using the files module
 - `web/index.html`: UI main page
 - `web/index.js`: Alpine component with logic
 
@@ -27,12 +27,21 @@ Small Backend.js sample that shows Explorer-like file manager.
   cd backendjs/examples/filemanager
   ```
 
-3.. Prepare and start the example
+3. Prepare and start the example
 
-  ```
-  npm run setup
-  npm run start
-  ```
+  1. Browse your local filessystem:
+     ```
+     npm run setup
+     npm run start
+     ```
+
+  2. To browse S3 bucket on local laptop:
+     - login into AWS CLI: `aws login`
+     - run the backend with additional parameters where BUCKET is the name of your S3 bucket
+
+       ```
+       npm run start -- -app-roles s3 -files-s3-bucket BUCKET
+       ```
 
 4. Visit [http://localhost:8000](http://localhost:8000)
 

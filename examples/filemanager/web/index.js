@@ -13,6 +13,7 @@ app.components.index = class extends app.AlpineComponent {
     infoWidth = 280;    // info panel width in px
     resizing = "";      // "left" | "info" while dragging
     showInfo = true;    // info panel visible
+    maxPreviewSize = 100000
 
     preview = "none";   // image, video, audio, frame, text, none
     text = "";
@@ -97,7 +98,7 @@ app.components.index = class extends app.AlpineComponent {
             name: x.name,
             type: x.type,
             file: x.file,
-            path: parent ? parent + "/" + x.name : x.file || x.name,
+            path: x.file,
             size: x.size,
             mode: x.mode,
             mtime: x.mtime,
@@ -213,7 +214,7 @@ app.components.index = class extends app.AlpineComponent {
         if (ext == "pdf") return "bi-file-earmark-pdf text-danger";
         if (["zip", "tar", "gz", "tgz", "rar", "7z"].includes(ext)) return "bi-file-earmark-zip text-secondary";
         if (["js", "json", "html", "css", "py", "sh", "ts", "md"].includes(ext)) return "bi-file-earmark-code text-primary";
-        if (["txt", "csv", "log", "xml", "yml", "yaml", "ini", "conf"].includes(ext)) return "bi-file-earmark-text text-secondary";
+        if (["txt", "csv", "log", "xml", "yml", "yaml", "ini", "conf", "toml"].includes(ext)) return "bi-file-earmark-text text-secondary";
         return "bi-file-earmark text-secondary";
     }
 
@@ -240,6 +241,10 @@ app.components.index = class extends app.AlpineComponent {
         this.preview = this.previewType(node);
         this.text = "";
         if (this.preview != "text") return;
+        if (node.size > this.maxPreviewSize) {
+            this.preview = "none";
+            return;
+        }
         this.textLoading = true;
         const { err, data } = await this.readText(node);
         this.textLoading = false;

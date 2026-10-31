@@ -110,6 +110,65 @@ describe('S3 URL parsing', () => {
     it('preserves repeated slashes', () => {
         assert.equal(aws.s3ParseUrl('s3://bucket/a///b').pathname, 'a///b');
     });
+
+    it('parses s3://bucket/key into bucket, path and pathname', () => {
+        const parsed = aws.s3ParseUrl('s3://mybucket/dir/file.txt');
+        assert.equal(parsed.bucket, 'mybucket');
+        assert.equal(parsed.path, 'dir/file.txt');
+        assert.equal(parsed.pathname, 'dir/file.txt');
+        assert.equal(parsed.endpoint, undefined);
+        assert.equal(parsed.query, undefined);
+    });
+
+    it('parses bare bucket/key format', () => {
+        const parsed = aws.s3ParseUrl('mybucket/dir/file.txt');
+        assert.equal(parsed.bucket, 'mybucket');
+        assert.equal(parsed.path, 'dir/file.txt');
+        assert.equal(parsed.pathname, 'dir/file.txt');
+    });
+
+    it('keeps endpoint from absolute http(s) URLs', () => {
+        const parsed = aws.s3ParseUrl('https://s3.example.com/mybucket/dir/file.txt');
+        assert.equal(parsed.bucket, 'mybucket');
+        assert.equal(parsed.path, 'dir/file.txt');
+        assert.equal(parsed.pathname, 'dir/file.txt');
+        assert.equal(parsed.endpoint, 'https://s3.example.com/');
+    });
+
+    it('keeps port and query from absolute URLs', () => {
+        const parsed = aws.s3ParseUrl('http://localhost:9000/bucket/key?versionId=v');
+        assert.equal(parsed.bucket, 'bucket');
+        assert.equal(parsed.path, 'key?versionId=v');
+        assert.equal(parsed.pathname, 'key');
+        assert.equal(parsed.endpoint, 'http://localhost:9000/');
+        assert.deepEqual({ ...parsed.query }, { versionId: 'v' });
+    });
+
+    it('keeps query parameters from bucket/key?versionId=v', () => {
+        const parsed = aws.s3ParseUrl('s3://bucket/key?versionId=abc');
+        assert.equal(parsed.bucket, 'bucket');
+        assert.equal(parsed.path, 'key?versionId=abc');
+        assert.equal(parsed.pathname, 'key');
+        assert.deepEqual({ ...parsed.query }, { versionId: 'abc' });
+    });
+
+    it('parses the s3:/key shorthand format', () => {
+        const parsed = aws.s3ParseUrl('s3:/key');
+        assert.equal(parsed.bucket, '');
+        assert.equal(parsed.path, 'key');
+        assert.equal(parsed.pathname, 'key');
+    });
+
+    it('parses the /key shorthand format', () => {
+        const parsed = aws.s3ParseUrl('/key?a=1');
+        assert.equal(parsed.bucket, '');
+        assert.equal(parsed.path, 'key?a=1');
+        assert.equal(parsed.pathname, 'key');
+    });
+
+    it('returns empty components for non-string input', () => {
+        assert.deepEqual(aws.s3ParseUrl(123), { bucket: "", path: "", pathname: "" });
+    });
 });
 
 describe('S3 through real fetch', { concurrency: false }, () => {
@@ -134,7 +193,6 @@ describe('S3 through real fetch', { concurrency: false }, () => {
                 const record = { method: req.method, url: req.url, headers: req.headers, body: Buffer.concat(chunks) };
                 records.push(record);
                 const reply = respond(record, records.length);
-                console.log(reply, record)
                 res.writeHead(reply.status || 200, { 'content-type': 'application/xml', ...reply.headers });
                 res.end(reply.body || '');
             } catch (err) {
@@ -259,7 +317,7 @@ describe('S3 through real fetch', { concurrency: false }, () => {
             (page === 1 ? '<NextContinuationToken>next+token</NextContinuationToken>' : '') +
             '</ListBucketResult>' });
         const { data } = await lib.promisify(aws.s3List, 's3://bucket/prefix', opts());
-        assert.equal(data.length, 2);
+        assert.equal(data.keys?.length, 2);
         assert.equal(records.length, 2);
         for (const record of records) {
             assert.equal(new URL(record.url, endpoint).searchParams.get('prefix'), 'prefix');
@@ -271,9 +329,9 @@ describe('S3 through real fetch', { concurrency: false }, () => {
     it('uses list URL query parameters and returns relative common prefixes', async () => {
         respond = () => ({ body: '<ListBucketResult><IsTruncated>false</IsTruncated>' +
             '<CommonPrefixes><Prefix>prefix/child/</Prefix></CommonPrefixes></ListBucketResult>' });
-        const { args } = await lib.promisify(aws.s3List, 's3://bucket/prefix/', opts({ query: { delimiter: "/" } }));
+        const { data } = await lib.promisify(aws.s3List, 's3://bucket/prefix/', opts({ query: { delimiter: "/" } }));
         assert.equal(new URL(records[0].url, endpoint).searchParams.get('delimiter'), '/');
-        assert.deepEqual(args?.[0], ['child/']);
+        assert.deepEqual(data?.prefixes?.[0], { Prefix: 'prefix/child/' });
     });
 
     it('encodes the copy source and handles embedded HTTP-200 XML errors', async () => {
