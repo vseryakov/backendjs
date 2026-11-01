@@ -1,3 +1,9 @@
+//
+// To run against MinIO:
+//
+// BKJS_ROLES=minio node --test tests/s3mock.test.js
+//
+
 const { it, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const { api, app, files, lib } = require("../");
@@ -66,6 +72,10 @@ describe('Files tests', async () => {
 
         rc = await files.aread('files.txt');
         assert.strictEqual(rc.data, "files test");
+        assert.strictEqual(rc.stat?.size, 10);
+
+        rc = await files.aread('files.txt', { encoding: "binary" });
+        assert.deepStrictEqual(rc.data, Buffer.from("files test"));
 
         if (!files.default) {
             rc = await lib.afetch("http://127.0.0.1:" + api.port + "/files.txt");
