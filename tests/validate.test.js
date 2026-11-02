@@ -146,6 +146,9 @@ describe("lib.validate checks", function () {
         q = lib.validate({ url: "http//a.com" }, schema);
         assert.strictEqual(q.data?.url, undefined);
         assert.match(q?.err?.message, /invalid/);
+
+        q = lib.validate({ unknown: 1 }, schema, { strict: true })
+        assert.strictEqual(q?.err?.code, "unknown");
     });
 
   it("skips undefined schema entries and ignored fields", function () {
