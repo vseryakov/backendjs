@@ -57,14 +57,18 @@
                 "useCollapsedIf": "off",
                 "useDestructuring": "off",
                 "useNumericSeparators": "off",
+                "useNamedCaptureGroup": "off",
                 "noIncrementDecrement": "off",
                 "useExplicitLengthCheck": "off",
                 "useNamingConvention": "off",
                 "useSingleVarDeclarator": "off",
                 "noMagicNumbers": "off",
+                "useUnicodeRegex": "off",
                 "useDefaultSwitchClause": "off",
                 "noParameterAssign": "off",
                 "useBlockStatements": "off",
+                "useVarsOnTop": "off",
+                "useThisInClassMethods": "off",
                 "noCommonJs": "off",
 				"noContinue": "off",
 				"useTemplate": "off"
@@ -79,6 +83,7 @@
                 "noUndeclaredDependencies": "off",
                 "useImportExtensions": "off",
                 "noSwitchDeclarations": "off",
+                "noUnusedFunctionParameters": "off",
                 "useParseIntRadix": "off"
             },
 			"suspicious": {
