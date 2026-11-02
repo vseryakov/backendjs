@@ -26,4 +26,6 @@ bin
 nodejs
 node_modules
 var
+tmp
+
 

@@ -2,12 +2,13 @@
 // To run against MinIO:
 //
 // BKJS_ROLES=minio node --test tests/s3mock.test.js
+// BKJS_ROLES=minio node --test tests/files.test.js
 //
 
 const { it, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const { api, app, files, lib } = require("../");
-const { ainit, astop } = require("./utils");
+const { ainit, astop, acheckAccess } = require("./utils");
 const fs = require("node:fs");
 
 describe('Files tests', async () => {
@@ -30,6 +31,18 @@ describe('Files tests', async () => {
                 api.app.get("/retry/", async (context) => {
                     await lib.sleep(100);
                     context.send(["3", "4", "5"].includes(context.query.t) ? 500 : 200);
+                });
+                api.app.get("/sendfile/", async (context) => {
+                    files.send(context, "send.txt");
+                });
+                api.app.get("/sendfileatt/", async (context) => {
+                    files.send(context, "send.txt", { attachment: "send.txt" });
+                });
+                api.app.get("/sendmissing/", async (context) => {
+                    files.send(context, "nope.txt");
+                });
+                api.app.get("/sendinvalid/", async (context) => {
+                    files.send(context, "../secret.txt");
                 });
                 callback();
             }
@@ -184,5 +197,89 @@ describe('Files tests', async () => {
         const { data, ext } = await files.adetect("web/img/logo.png");
         assert.strictEqual(data, "image/png");
         assert.strictEqual(ext, "png");
+    });
+
+    it('module resolution tests', () => {
+
+        assert.strictEqual(files.getModule("/key", { filesModule: "s3" }).name, "files.s3");
+        assert.strictEqual(files.getModule("s3://bucket/key").name, "files.s3");
+        assert.strictEqual(files.getModule("s3:/key").name, "files.s3");
+        assert.ok([ "files.file", "files.s3" ].includes(files.getModule("/file.txt").name), "unexpected default files module: " + files.getModule("/file.txt").name);
+
+    });
+
+    it('stat tests', async () => {
+
+        await files.astore(Buffer.from("stat file"), "statfile.txt");
+
+        const stat = await new Promise((resolve, reject) => {
+            files.stat("statfile.txt", (err, stat) => err ? reject(err) : resolve(stat));
+        });
+        assert.ok(stat, "stat must be returned");
+        assert.strictEqual(stat.size, 9);
+        assert.ok(stat.isFile());
+
+        await files.adel("statfile.txt");
+
+        const err = await new Promise((resolve) => {
+            files.stat("nope.txt", (e) => resolve(e));
+        });
+        assert.ok(err, "expected stat error for missing file");
+
+    });
+
+    it('upload options tests', async () => {
+
+        lib.makePathSync("tmp");
+
+        let rc = await files.adetectAndStore(Buffer.from("files test"), "opts.txt", { max_size: 5 });
+        assert.ok(rc.err, "expected error for oversized upload");
+        assert.strictEqual(rc.err.status, 413);
+
+        rc = await files.adetectAndStore(Buffer.from("files test"), "opts2.txt", { allow_mime: /^text\// });
+        assert.ok(!rc.err, rc.err?.message);
+        assert.ok(rc.data.file_name.endsWith("opts2.txt"));
+        assert.strictEqual(rc.data.file_size, 10);
+
+        rc = await files.aread("opts2.txt");
+        assert.strictEqual(rc.data, "files test");
+
+        rc = await files.adetectAndStore(Buffer.from("files test"), "opts3.txt", { allow_mime: /^image\// });
+        assert.ok(rc.err);
+        assert.strictEqual(rc.err.status, 415);
+
+        await files.adel("opts2.txt");
+
+    });
+
+    it('send tests', async () => {
+
+        await files.astore(Buffer.from("hello send"), "send.txt");
+
+        var etag;
+        const config = [
+            { get: "/sendfile/", status: 200, resheaders: { "content-type": /(text\/plain|binary\/octet-stream)/ } },
+            { get: "/sendfileatt/", status: 200, resheaders: { "content-disposition": /send\.txt/ } },
+            { get: "/sendmissing/", status: 404 },
+            { get: "/sendinvalid/", status: 403 },
+        ];
+
+        // Conditional requests (304) are handled by context.sendFile etag logic, which is only
+        // used by the local files module, the S3 proxy streams directly without etag checks.
+        if (files.getModule("/send.txt").name !== "files.s3") {
+            config.push(
+                { get: "/sendfile/", status: 200, postprocess: (c, rc, next) => { etag = rc.resheaders.etag; next(); } },
+                { get: "/sendfile/", status: 304, preprocess: (conf, q, next) => { q.headers["if-none-match"] = etag; next(); } },
+            );
+        }
+        await acheckAccess({ config });
+
+        await files.adel("send.txt");
+
+    });
+
+    it('delete missing file tests', async () => {
+        const rc = await files.adel("no-such-file.txt");
+        assert.ok(!rc.err, "expected no error deleting missing file");
     });
 });
