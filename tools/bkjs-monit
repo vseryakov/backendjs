@@ -81,7 +81,7 @@ case "$BKJS_CMD" in
     echo -e "set mail-format { from: $email }" >> /etc/monit.d/alert.conf
     [ -z "$host" ] && exit
     server="set mailserver $host"
-    if match $host amazonaws; then server="$server port 465"; fi
+    if match $host amazonaws; then server="$server port 587"; fi
     [ -n "$user" ] && server="$server username $user"
     [ -n "$password" ] && server="$server password $password"
     if match $host amazonaws; then server="$server using tlsv13"; fi

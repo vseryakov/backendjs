@@ -13,6 +13,7 @@ The API module is the HTTP layer of backendjs. A request flows through a small t
 | `middleware.validate` | Validate query/body/path params (and optionally rate limit by a param value). |
 | `middleware.routing` | Config-driven URL rewrites and redirects. |
 | `middleware.static` | Serve static files from the configured web folders. |
+| `middleware.jwt` | JWT/JWKS authentication
 
 ```js
 const { api, middleware } = require("backendjs");
