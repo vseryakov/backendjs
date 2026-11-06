@@ -98,4 +98,85 @@ it(`PS384 sign & verify`, async () => {
 
 })
 
+it('getKey: returns undefined when url is not valid', async () => {
+    assert.equal(await JWT.getKey(), undefined);
+    assert.equal(await JWT.getKey(123), undefined);
+})
+
+it('getKey: loads keys from https jwks url', async t => {
+    const keys = [{ kid: 'key-2025', kty: 'EC' }];
+    const fetch = t.mock.method(lib, 'afetch', async options => {
+        assert.equal(options.url, 'https://auth.example.com/jwks.json');
+        assert.equal(options.noredirects, true);
+        return { ok: true, obj: { keys } };
+    });
+    const { key } = await JWT.getKey('https://auth.example.com/jwks.json');
+    assert.deepEqual(key, keys);
+    assert.equal(fetch.mock.callCount(), 1);
+})
+
+it('getKey: loads keys from local jwks file', async t => {
+    const keys = [{ kid: 'key-2025', kty: 'EC' }];
+    const readFile = t.mock.method(lib, 'areadFile', async (path, options) => {
+        assert.equal(path, '/tmp/backendjs-jwt-jwks-test.json');
+        assert.equal(options.json, true);
+        return { data: { keys } };
+    });
+    const { key } = await JWT.getKey('/tmp/backendjs-jwt-jwks-test.json');
+    assert.deepEqual(key, keys);
+    assert.equal(readFile.mock.callCount(), 1);
+})
+
+it('getKey: returns err when jwks fetch failed', async t => {
+    const err = new Error('unavailable');
+    t.mock.method(lib, 'afetch', async () => ({ ok: false, err }));
+    const { err: e } = await JWT.getKey('https://auth.example.com/jwks.json');
+    assert.equal(e, err);
+})
+
+it('getKey: returns err when local jwks file cannot be read', async t => {
+    const err = new Error('ENOENT');
+    t.mock.method(lib, 'areadFile', async () => ({ err }));
+    const { err: e } = await JWT.getKey('/tmp/backendjs-jwt-jwks-test.json');
+    assert.equal(e, err);
+})
+
+it('getKey: returns err when jwks has no keys', async t => {
+    t.mock.method(lib, 'afetch', async () => ({ ok: true, obj: { keys: [] } }));
+    const { err } = await JWT.getKey('https://auth.example.com/jwks.json');
+    assert.ok(err);
+    assert.match(err?.message, /JWKS must contain at least one key/);
+})
+
+it('getKey: selects key by kid', async t => {
+    const keys = [{ kid: 'key-2025' }, { kid: 'key-2026' }];
+    t.mock.method(lib, 'afetch', async () => ({ ok: true, obj: { keys } }));
+    const { key } = await JWT.getKey('https://auth.example.com/jwks.json', { kid: 'key-2026' });
+    assert.deepEqual(key, [{ kid: 'key-2026' }]);
+})
+
+it('getKey: caches keys for age', async t => {
+    const url = 'https://auth.example.com/jwks.json';
+    JWT.lru.del(url);
+    const keys = [{ kid: 'key-2025' }];
+    const fetch = t.mock.method(lib, 'afetch', async () => ({ ok: true, obj: { keys } }));
+    const first = await JWT.getKey(url, { age: 60000 });
+    const second = await JWT.getKey(url, { age: 60000 });
+    assert.deepEqual(first.key, keys);
+    assert.deepEqual(second.key, keys);
+    assert.equal(fetch.mock.callCount(), 1);
+    JWT.lru.del(url);
+})
+
+it('getKey: does not use cache when age is zero', async t => {
+    const url = 'https://auth.example.com/jwks.json';
+    JWT.lru.del(url);
+    const keys = [{ kid: 'key-2025' }];
+    const fetch = t.mock.method(lib, 'afetch', async () => ({ ok: true, obj: { keys } }));
+    await JWT.getKey(url, { age: 0 });
+    await JWT.getKey(url, { age: 0 });
+    assert.equal(fetch.mock.callCount(), 2);
+    JWT.lru.del(url);
+})
+
 })

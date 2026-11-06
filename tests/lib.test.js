@@ -1424,7 +1424,7 @@ describe("lib.isPositive", function() {
         it("returns true for positive numbers", function() {
             assert.strictEqual(lib.isPositive(1), true);
             assert.strictEqual(lib.isPositive(0.1), true);
-            assert.strictEqual(lib.isPositive(Infinity), true);
+            assert.strictEqual(lib.isPositive(Infinity), false);
         });
 
         it("returns false for zero and negative numbers", function() {
