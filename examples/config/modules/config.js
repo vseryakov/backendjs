@@ -32,6 +32,11 @@ module.exports = {
             value: {},
             mtime: { type: "now" },
         },
+
+        bk_user: {
+            email: {},
+            picture: {},
+        }
     },
 
     //

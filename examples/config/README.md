@@ -1,7 +1,12 @@
 
 # Backend.js sample CRUD app with Alpine.js to manage config database
 
+Also it shows how to use SSO middleware to login with Google/Github
+
+
 ![Screenshot](screenshot.jpg)
+
+![Screenshot2](screenshot2.jpg)
 
 ## Tech Stack
 
@@ -97,8 +102,20 @@ src/
 │   └── config.db      # Local SQLite database
 ```
 
+## SSO login
+
+Create a file bkjs.conf.local and add client id/secrets for Google/Github apps, then use buttons to login,
+users will be added to bk_user table on first login
+
+
+```
+middleware-sso-providers-google = {"client_id":"XXX.apps.googleusercontent.com","client_secret":"YYY"}
+middleware-sso-providers-github = {"client_id":"XXX","client_secret":"YYY"}
+```
+
 ## Features
 
+- ✅ SSO with Google/Github using internal sso middleware
 - ✅ Create, edit, and delete config records
 - ✅ Responsive design with Bootstrap theme
 - ✅ Alpinejs-app for dynamic updates

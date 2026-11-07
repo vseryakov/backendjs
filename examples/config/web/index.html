@@ -6,6 +6,7 @@
     <link rel="icon" href="/img/logo.png" type="image/png" />
 
     <link href="/css/bootstrap.css" rel="stylesheet">
+    <link href="/css/bootstrap-icons.css" rel="stylesheet">
 </head>
 
 <body>
@@ -65,6 +66,16 @@
         <a class="btn btn-primary" x-show="!$user.id" @click="submit">
             <i class="fa fa-user fa-fw"></i>
             Login
+        </a>
+
+        <div class="my-3 border-bottom w-100 text-center">OR</div>
+
+        <a href="/sso/login/google" class="btn btn-secondary m-2">
+            <i class="bi bi-google"></i> Login with Google
+        </a>
+
+        <a href="/sso/login/github" class="btn btn-secondary m-2">
+            <i class="bi bi-github"></i> Login with Github
         </a>
 
     </div>

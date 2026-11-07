@@ -155,13 +155,13 @@ describe("SSO middleware", async () => {
     });
 
     it("resolves providers by name and rejects unknown ones", async () => {
-        const { provider } = await sso.resolve("test");
-        assert.equal(provider.name, "test");
-        assert.equal(provider.token_endpoint, ISSUER + "/token");
+        const provider = await sso.resolve("test");
+        assert.equal(provider?.name, "test");
+        assert.equal(provider?.token_endpoint, ISSUER + "/token");
         assert.equal(sso.providers.test.name, undefined, "preset must not be mutated");
 
         for (const name of ["none", "__proto__", "constructor", "toString", undefined]) {
-            assert.ok((await sso.resolve(name)).err, String(name));
+            assert.ok(!(await sso.resolve(name)), String(name));
         }
         const rc = await get("/sso/login/constructor");
         assert.equal(rc.status, 400);
@@ -192,7 +192,7 @@ describe("SSO middleware", async () => {
         assert.equal(replay.status, 400);
 
         // Same subject maps to the same local user
-        const user = await api.users.aget({ login: "sso:" + lib.hash(lib.stringify(["test", ISSUER, idp.sub]), "sha256", "hex") });
+        const user = await api.users.aget({ login: "sso:" + lib.hash(`test,${ISSUER},${idp.sub}`, "sha256", "hex") });
         assert.equal(user.data?.name, "Oidc User");
         const rc2 = await callback(await login("test"));
         assert.equal(rc2.status, 302);
@@ -257,7 +257,7 @@ describe("SSO middleware", async () => {
         assert.equal(rc.resheaders.location, "/");
         assert.equal((await get("/app/1", flow.jar)).status, 200);
 
-        const user = await api.users.aget({ login: "sso:" + lib.hash(lib.stringify(["github", "", idp.sub]), "sha256", "hex") });
+        const user = await api.users.aget({ login: "sso:" + lib.hash(`github,,${idp.sub}`, "sha256", "hex") });
         assert.equal(user.data?.name, "Octo Cat");
     });
 

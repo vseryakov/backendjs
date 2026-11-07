@@ -14,6 +14,7 @@ The API module is the HTTP layer of backendjs. A request flows through a small t
 | `middleware.routing` | Config-driven URL rewrites and redirects. |
 | `middleware.static` | Serve static files from the configured web folders. |
 | `middleware.jwt` | JWT/JWKS authentication
+| `middleware.sso` | SSO with OAuth2 / OIDC provider
 
 ```js
 const { api, middleware } = require("backendjs");
@@ -281,3 +282,6 @@ api.app.post("/api/data", body, validate, (context) => {
 - `validate` — param validation (+ optional rate limit)
 - `routing` — rewrite / redirect
 - `static` — serve static files
+- `jwt` - authentication with JWT/JWKS
+- `sso` - authentication via OAuth2 / OIDC provider
+
