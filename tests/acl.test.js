@@ -82,7 +82,7 @@ describe("ACL tests", () => {
             context.user.roles = lib.split(check.roles);
             context.path = check.path;
             logger.debug("checking:", check);
-            var err = middleware.users.authorize(context);
+            var err = api.users.authorize(context);
             logger.debug("checked:", err);
             assert.ok((err?.status || 200) === check.status, lib.inspect({ check, err, user: context.user }));
             if (err && check.code !== undefined) {

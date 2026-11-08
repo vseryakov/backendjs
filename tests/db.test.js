@@ -222,7 +222,7 @@ describe("DB tests", async () => {
 
         rc = await db.aget("bk_test1", { id: id1, key1, key2 });
         assert.strictEqual(rc?.err, null);
-        assert.strictEqual(rc?.data, null);
+        assert.strictEqual(rc?.data, undefined);
 
         rc = await db.aadd("bk_test1", row, { result_query: true, first: true });
         assert.strictEqual(rc?.err, null);
