@@ -93,7 +93,9 @@
 All metrics are stored in a single object and sent to the confgured destination</p>
 <p>To use Elasticsearch run
 bkjs es-prepare-stats -table bk_stats
-Then set in config <code>stats-target={ &quot;url&quot;: &quot;http://localhost:9200/bk_stats/_doc/&quot; }</code></p></li></ul></dd>
+Then set in config <code>stats-target={ &quot;url&quot;: &quot;http://localhost:9200/bk_stats/_doc/&quot; }</code></p>
+<p>To send to OpenTelemetry collector via OTLP/HTTP JSON:
+stats-target={ &quot;otlp&quot;: &quot;http://localhost:4318/v1/metrics&quot;, &quot;headers&quot;: { &quot;authorization&quot;: &quot;...&quot; } }</p></li></ul></dd>
     
 
     
@@ -101,7 +103,7 @@ Then set in config <code>stats-target={ &quot;url&quot;: &quot;http://localhost:
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_stats.js.html">lib/stats.js</a>, <a href="lib_stats.js.html#line28">line 28</a>
+        <a href="lib_stats.js.html">lib/stats.js</a>, <a href="lib_stats.js.html#line31">line 31</a>
     </li></ul></dd>
     
 
@@ -207,7 +209,7 @@ Then set in config <code>stats-target={ &quot;url&quot;: &quot;http://localhost:
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_stats.js.html">lib/stats.js</a>, <a href="lib_stats.js.html#line35">line 35</a>
+        <a href="lib_stats.js.html">lib/stats.js</a>, <a href="lib_stats.js.html#line38">line 38</a>
     </li></ul></dd>
     
 
@@ -266,6 +268,16 @@ Then set in config <code>stats-target={ &quot;url&quot;: &quot;http://localhost:
     "not_empty": 1,
     "descr": "For each metric prefix provide regexp to keep only matched stats",
     "example": "-stats-filter db:dynamodb"
+  },
+  {
+    "name": "otlp-map",
+    "obj": "otlp-map",
+    "type": "map",
+    "map_type": "regexp",
+    "merge": 1,
+    "not_empty": 1,
+    "descr": "OTLP metric name to regexp, first match renames a stat, named groups become attributes, {var} in name is replaced with actual group value, use JSON for complex regexps",
+    "example": "-stats-otlp-map cache.{type}:^cache_(?<cache>.+)_(?<op>.+)_(?<type>[^_]+)$"
   }
 ]</code></pre></details></li>
         </ul></dd>

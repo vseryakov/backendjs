@@ -66,6 +66,7 @@ import { app, api, db, logger } from 'backendjs'
    - Advanced logging with **syslog, file, and console support**.
    - Metrics collection for **CPU, memory, network, and API performance**.
    - Integration with **Elasticsearch** for log aggregation.
+   - Send metric as OpenTelemetry JSON to OTLP collectors
 
 8. **Push Notifications**
    - Supports **WebPush, FCM (Firebase Cloud Messaging), and APNs (Apple Push Notification Service)**.
@@ -77,6 +78,7 @@ import { app, api, db, logger } from 'backendjs'
 10. **Security**
     - **CSRF protection**, **cookie sessions**, **API tokens** and **rate limiting**.
     - **JWT (JSON Web Tokens)** support for authentication.
+    - **OAuth2 / OIDC SOO authenication**
     - **ACL** base authorization.
 
 ## **Optional Modules**

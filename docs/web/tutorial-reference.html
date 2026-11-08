@@ -232,6 +232,10 @@ Each module can add its own telemetry data to the <strong>options.stats</strong>
 <pre class="prettyprint source lang-js"><code>function finishJob(options, callback)
 </code></pre>
 <p>Called after a job is finished to possibly perform cleanup.</p>
+<pre class="prettyprint source lang-js"><code>function configureUserSSO(options, callback)
+</code></pre>
+<p>Called before adding a new SSO user, options are { user: { login, ... }, profile: {} },
+profile is OIDC profile with user info</p>
 <h2 id="dependencies">Dependencies</h2>
 <p>Only core required dependencies are required but there are many modules which require a module to work correctly.</p>
 <p>The command below will install minimal dependencies to serve API and worker jobs</p>
@@ -276,6 +280,8 @@ hook which is called by the backend after the API server is initialized.</p>
 <li><a href="module-middleware_users.html"><code>middleware.users: User authentication/authorization</code></a></li>
 <li><a href="module-middleware_validate.html"><code>middleware.validate: Validate and rate limit requests by query/body parameters</code></a></li>
 <li><a href="module-middleware_static.html"><code>middleware.static: Serve static assets</code></a></li>
+<li><a href="module-middleware_jwt.html"><code>middleware.jwt: JWT/JWKS authentication</code></a></li>
+<li><a href="module-middleware_sso.html"><code>middleware.sso: SSO authentication with users middleware</code></a></li>
 </ul>
 <p>Each module supports special config parameter <code>priority</code> that may change the place of a module in the router execution list,
 see module documentation for details.</p>

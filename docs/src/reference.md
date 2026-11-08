@@ -271,6 +271,13 @@ function finishJob(options, callback)
 Called after a job is finished to possibly perform cleanup.
 
 
+```js
+function configureUserSSO(options, callback)
+```
+
+Called before adding a new SSO user, options are { user: { login, ... }, profile: {} },
+profile is OIDC profile with user info
+
 ## Dependencies
 
 Only core required dependencies are required but there are many modules which require a module to work correctly.
@@ -330,6 +337,8 @@ Default middleware modules are initialized in the order shown below by default, 
 - {@link module:middleware/users middleware.users: User authentication/authorization}
 - {@link module:middleware/validate middleware.validate: Validate and rate limit requests by query/body parameters}
 - {@link module:middleware/static middleware.static: Serve static assets}
+- {@link module:middleware/jwt middleware.jwt: JWT/JWKS authentication}
+- {@link module:middleware/sso middleware.sso: SSO authentication with users middleware}
 
 Each module supports special config parameter `priority` that may change the place of a module in the router execution list,
 see module documentation for details.

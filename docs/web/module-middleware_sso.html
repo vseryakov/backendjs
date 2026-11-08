@@ -107,10 +107,12 @@ makes any conforming OAuth2/OIDC provider work without code changes.</p>
 <li><code>identity</code> - how the user is resolved: <code>id_token</code> (verify the OIDC id_token via JWKS), <code>userinfo</code> (call the userinfo endpoint), or <code>both</code></li>
 <li><code>subject_field</code> - stable profile identifier for local account mapping, default <code>sub</code></li>
 </ul>
-<h2 id="google">Google</h2>
+<h2 id="default-presets">Default presets</h2>
 <pre class="prettyprint source"><code>middleware-sso-providers-google = {&quot;client_id&quot;:&quot;xxx&quot;,&quot;client_secret&quot;:&quot;yyy&quot;}
+middleware-sso-providers-github = {&quot;client_id&quot;:&quot;xxx&quot;,&quot;client_secret&quot;:&quot;yyy&quot;}
 </code></pre>
-<p>Google is the <code>google</code> preset, issuer <code>https://accounts.google.com</code>, no other config is required.</p>
+<p>Google is the <code>google</code> preset, issuer <code>https://accounts.google.com</code>,
+Github is the <code>github</code> preset, no other config is required.</p>
 <p>Uses browser-bound transactions and provider/issuer/subject-derived local logins, never email linking.
 Reuses <a href="module-api_users.html"><code>module:api/users</code></a> / <a href="module-api_session.html"><code>module:api/session</code></a> to provision and session-login a local user.</p>
 <h2 id="endpoints">Endpoints</h2>
@@ -154,7 +156,7 @@ middleware-sso-callback-path = /callback/:provider
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line102">line 102</a>
+        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line104">line 104</a>
     </li></ul></dd>
     
 
@@ -260,7 +262,7 @@ middleware-sso-callback-path = /callback/:provider
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line109">line 109</a>
+        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line111">line 111</a>
     </li></ul></dd>
     
 
@@ -371,6 +373,10 @@ middleware-sso-callback-path = /callback/:provider
     "name": "protocol",
     "type": "list",
     "descr": "Protocols allowed in urls, default is https:"
+  },
+  {
+    "name": "cache",
+    "descr": "Cache name to use for state"
   },
   {
     "name": "priority",
@@ -821,7 +827,7 @@ the user profile, provision or load the local user, start a session and redirect
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line264">line 264</a>
+        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line262">line 262</a>
     </li></ul></dd>
     
 
@@ -956,7 +962,7 @@ the user profile, provision or load the local user, start a session and redirect
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line178">line 178</a>
+        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line176">line 176</a>
     </li></ul></dd>
     
 
@@ -1274,7 +1280,7 @@ verifier and authenticates the client per <code>provider.token_auth</code>.</p><
             </td>
             <td class="description last">
                 
-                <p>empty on error or object where it has <code>access_token</code> and optionally <code>id_token</code></p>
+                <p>undefined on error or object where it has <code>access_token</code> and optionally <code>id_token</code></p>
                 
             </td>
         </tr>
@@ -1435,7 +1441,7 @@ discovery source is configured, in that case the provider must supply the endpoi
             </td>
             <td class="description last">
                 
-                <p>discovered doc or empty on error</p>
+                <p>discovered doc or undefined on error</p>
                 
             </td>
         </tr>
@@ -1636,7 +1642,7 @@ discovery source is configured, in that case the provider must supply the endpoi
             </td>
             <td class="description last">
                 
-                <p>empty on error or profile object</p>
+                <p>undefined on error or profile object</p>
                 
             </td>
         </tr>
@@ -1818,7 +1824,7 @@ failure, or an empty object when the user is not allowed.</p></li></ul></dd>
             </td>
             <td class="description last">
                 
-                <p>with user record or empty on error</p>
+                <p>with user record or undefined on error</p>
                 
             </td>
         </tr>
@@ -1859,7 +1865,7 @@ accepted. Login and callback must use HTTPS on the same host for the browser-bin
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line212">line 212</a>
+        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line210">line 210</a>
     </li></ul></dd>
     
 
@@ -2173,7 +2179,7 @@ match exactly what is registered with the provider.</p></li></ul></dd>
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line202">line 202</a>
+        <a href="lib_middleware_sso.js.html">lib/middleware/sso.js</a>, <a href="lib_middleware_sso.js.html#line200">line 200</a>
     </li></ul></dd>
     
 
@@ -2385,7 +2391,7 @@ returns a fully resolved provider or <code>{ err }</code> on failure. The result
             </td>
             <td class="description last">
                 
-                <p>with <code>{ err, provider }</code></p>
+                <p>with provider object or undefined on error</p>
                 
             </td>
         </tr>
@@ -2613,7 +2619,7 @@ returns a fully resolved provider or <code>{ err }</code> on failure. The result
             </td>
             <td class="description last">
                 
-                <p>empty on error or claims object</p>
+                <p>undefined on error or claims object</p>
                 
             </td>
         </tr>

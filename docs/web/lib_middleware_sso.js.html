@@ -89,13 +89,15 @@ const mod =
  * - `identity` - how the user is resolved: `id_token` (verify the OIDC id_token via JWKS), `userinfo` (call the userinfo endpoint), or `both`
  * - `subject_field` - stable profile identifier for local account mapping, default `sub`
  *
- * ## Google
+ * ## Default presets
  *
  * ```
  * middleware-sso-providers-google = {"client_id":"xxx","client_secret":"yyy"}
+ * middleware-sso-providers-github = {"client_id":"xxx","client_secret":"yyy"}
  * ```
  *
- * Google is the `google` preset, issuer `https://accounts.google.com`, no other config is required.
+ * Google is the `google` preset, issuer `https://accounts.google.com`,
+ * Github is the `github` preset, no other config is required.
  *
  * Uses browser-bound transactions and provider/issuer/subject-derived local logins, never email linking.
  * Reuses {@link module:api/users} / {@link module:api/session} to provision and session-login a local user.
@@ -176,6 +178,7 @@ module.exports = {
         { name: "state-key", descr: "Cache key prefix for the OAuth state", default: "sso.state" },
         { name: "state-age", type: "int", min: 60000, descr: "OAuth state TTL in ms" },
         { name: "protocol", type: "list", descr: "Protocols allowed in urls, default is https:" },
+        { name: "cache", descr: "Cache name to use for state" },
         { name: "priority", type: "int", descr: "Add routes with this priority sorting number, for config mode only" },
         { name: "reset", type: "callback", callback(v) { if (v) this.reset() }, descr: "Reset cache" },
         { name: "err-(.+)", descr: "Error messages for various cases" },
@@ -213,18 +216,13 @@ module.exports = {
     stateAge: 600000,
     autoCreate: true,
     redirect: "/",
-    userAgent: "bkjs/1.0",
+    userAgent: app.version,
 
     _cache: new lib.LRUCache(),
 
     errNoProvider: "No SSO provider specified",
     errNoState: "Invalid or expired SSO state",
     errUnknownProvider: "Unknown SSO provider",
-    errNoCode: "Authorization code is required",
-    errNoToken: "No token returned by the provider",
-    errNoProfile: "No user profile returned by the provider",
-    errInvalidIdToken: "Invalid identity token",
-    errNoLogin: "No user login resolved from the provider profile",
     errRequireHTTPS: "SSO callback requires HTTPS",
 };
 
@@ -303,7 +301,7 @@ mod.login = async function(context)
     });
     const key = mod.cacheKey(state, binding);
 
-    const stored = await cache.aput(key, value, { ttl: mod.stateAge });
+    const stored = await cache.aput(key, value, { cacheName: mod.cache, ttl: mod.stateAge });
     if (stored?.err) {
         return context.reply({ status: 500, message: "SSO state storage failed" });
     }
@@ -336,12 +334,14 @@ mod.callback = async function(context)
 
     const binding = context.cookie(`__Host-bk-sso-${state}`);
     if (!/^[A-Za-z0-9_-]{43}$/.test(binding)) {
+        logger.error("callback:", mod.name, "invalid cookie", binding);
         return context.reply({ status: 400, message: mod.errNoState });
     }
 
     const key = mod.cacheKey(state, binding);
-    const cached = await cache.aget(key, { del: 1 });
+    const cached = await cache.aget(key, { cacheName: mod.cache, del: 1 });
     if (cached?.err) {
+        logger.error("callback:", mod.name, "invalid cached", cached);
         return context.reply({ status: 500, message: "SSO state storage failed" });
     }
 
@@ -355,7 +355,7 @@ mod.callback = async function(context)
         !lib.isString(cookie.redirect_uri) ||
         !Number.isFinite(cookie.expires) ||
         cookie.expires &lt;= Date.now()) {
-        logger.error("callback:", mod.name, "invalid cookie", cookie);
+        logger.error("callback:", mod.name, "invalid cache", cookie);
         return context.reply({ status: 400, message: mod.errNoState });
     }
     if (error) {
@@ -519,7 +519,7 @@ mod.setCookie = function(context, state, value)
  *
  * @param {object} provider - resolved provider
  * @param {object} profile - user profile from {@link module:api/sso.getUser}
- * @returns {Promise} with user record or empty on error
+ * @returns {Promise} with user record or undefined on error
  * @memberof module:middleware/sso
  * @method getUser
  * @async
@@ -584,7 +584,7 @@ mod.getUser = async function(provider, profile)
  * @param {object} provider - resolved provider
  * @param {object} tokens - tokens from {@link module:middleware/sso.exchangeCode}
  * @param {object} nonce - expected nonce for OIDC token verification
- * @returns {Promise} empty on error or profile object
+ * @returns {Promise} undefined on error or profile object
  * @memberof module:middleware/sso
  * @method getProfile
  * @async
@@ -636,7 +636,7 @@ mod.getProfile = async function(provider, tokens, nonce)
  * returns a fully resolved provider or `{ err }` on failure. The result is cached on `mod.discovery`.
  *
  * @param {object|string} provider - provider config object, or a preset name when a string
- * @returns {Promise} with `{ err, provider }`
+ * @returns {Promise} with provider object or undefined on error
  * @memberof module:middleware/sso
  * @method resolve
  * @async
@@ -694,7 +694,7 @@ mod.resolve = async function(provider)
  * discovery source is configured, in that case the provider must supply the endpoints explicitly.
  *
  * @param {object} provider
- * @returns {Promise} discovered doc or empty on error
+ * @returns {Promise} discovered doc or undefined on error
  * @memberof module:middleware/sso
  * @method getDiscovery
  * @async
@@ -743,7 +743,7 @@ mod.getDiscovery = async function(provider)
  * @param {object} options
  * @param {string} options.code_verifier - PKCE code verifier
  * @param {string} options.redirect_uri - must match the value used at the authorization step
- * @returns {Promise} empty on error or object where it has `access_token` and optionally `id_token`
+ * @returns {Promise} undefined on error or object where it has `access_token` and optionally `id_token`
  * @memberof module:middleware/sso
  * @method exchangeCode
  * @async
@@ -793,7 +793,7 @@ mod.exchangeCode = async function(provider, code, options)
  * @param {object} provider - resolved provider
  * @param {string} id_token
  * @param {string} [nonce] - expected transaction nonce
- * @returns {Promise} empty on error or claims object
+ * @returns {Promise} undefined on error or claims object
  * @memberof module:middleware/sso
  * @method verifyIdToken
  * @async
