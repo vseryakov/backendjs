@@ -481,4 +481,36 @@ On startup some env variable will be used for initial configuration:
     > logger.setLevel('info')
     ```
 
+## Running services and servers
 
+Docker compose is provided with all servers supported by the backendjs,
+
+```bash
+BKJS_HOME=$(pwd) d compose -f tools/docker/compose.yaml up redis
+BKJS_HOME=$(pwd) d compose -f tools/docker/compose.yaml up postgres
+BKJS_HOME=$(pwd) d compose -f tools/docker/compose.yaml up mysql
+BKJS_HOME=$(pwd) d compose -f tools/docker/compose.yaml up minio
+BKJS_HOME=$(pwd) d compose -f tools/docker/compose.yaml up nats
+BKJS_HOME=$(pwd) d compose -f tools/docker/compose.yaml up rqlite
+BKJS_HOME=$(pwd) d compose -f tools/docker/compose.yaml up cockroachdb
+BKJS_HOME=$(pwd) d compose -f tools/docker/compose.yaml up elasticsearch
+BKJS_HOME=$(pwd) d compose -f tools/docker/compose.yaml up opensearch
+```
+
+Many require passwords so create a file bkjs.conf.local with password you want to use.
+
+NOTES:
+- Minio password must be at least 8 chars
+- Opensearch requires real strong password
+
+```
+POSTGRES_PASSWORD = XXXXXXXX
+
+MYSQL_ROOT_PASSWORD = XXXXXXXX
+MYSQL_PASSWORD = XXXXXXXX
+
+MINIO_ROOT_USER = root
+MINIO_ROOT_PASSWORD = XXXXXXXX
+
+OPENSEARCH_INITIAL_ADMIN_PASSWORD=XXXXXXXXXX
+```
