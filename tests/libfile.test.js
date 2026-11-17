@@ -270,9 +270,13 @@ describe("lib/file tests", async (t) => {
         fs.writeFileSync(f("find/two.log"), "2", "utf8");
         fs.writeFileSync(f("find/a/three.txt"), "3", "utf8");
         fs.writeFileSync(f("find/a/sub/four.txt"), "4", "utf8");
+        fs.symlinkSync("../../../../../../aaa/bbb../ccc", f("find/a/fake.txt"));
 
         const allTxt = lib.findFileSync(f("find"), { include: /\.txt$/, depth: 5, strip: tmp + "/" }).sort();
         assert.deepEqual(allTxt, ["find/a/sub/four.txt", "find/a/three.txt", "find/one.txt"]);
+
+        const allTxt2 = lib.findFileSync(f("find"), { include: /\.txt$/, depth: 5, strip: tmp + "/", keep_errors: true }).sort();
+        assert.deepEqual(allTxt2, ["find/a/fake.txt", "find/a/sub/four.txt", "find/a/three.txt", "find/one.txt"]);
 
         // depth 0 -> top level only
         const top = lib.findFileSync(f("find"), { depth: 0, types: "f", strip: tmp + "/" }).sort();
@@ -291,6 +295,20 @@ describe("lib/file tests", async (t) => {
                 err ? reject(err) : resolve(list));
         });
         assert.deepEqual(list, ["find/two.log"]);
+
+        const allTxt = await new Promise((resolve, reject) => {
+            lib.findFile(f("find"), { include: /\.txt$/, depth: 5, strip: tmp + "/" }, (err, list) =>
+                err ? reject(err) : resolve(list));
+        });
+        assert.deepEqual(allTxt.sort(), ["find/a/sub/four.txt", "find/a/three.txt", "find/one.txt"]);
+
+        const allTxt2 = await new Promise((resolve, reject) => {
+            lib.findFile(f("find"), { include: /\.txt$/, depth: 5, strip: tmp + "/", keep_errors: true, details: true }, (err, list) =>
+                err ? reject(err) : resolve(list));
+        });
+        assert.deepEqual(allTxt2.map(x => x.file).sort(), ["find/a/fake.txt", "find/a/sub/four.txt", "find/a/three.txt", "find/one.txt"]);
+        assert.deepEqual(allTxt2.find(x => x.file === "find/a/fake.txt").errcode, "ENOENT");
+
     });
 
     // ---------- mime ----------
