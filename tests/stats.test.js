@@ -41,12 +41,12 @@ describe('stats', () => {
     });
 
     it('converts stats into OTLP', () => {
-        stats._otlptime = 1000;
-        const m = stats.toOTLP({ timestamp: 2000, pid: 123, role: "web", proc_mem_rss: 10.6, api_res_time: 2.5, api_200_count: 5 });
+        stats._otlpstart = '1000000000';
+        const m = stats.toOTLP({ timestamp: 2000, role: "web", proc_mem_rss: 10.6, api_res_time: 2.5, api_200_count: 5 });
 
         const res = attrs(m.resourceMetrics[0].resource.attributes);
         assert.equal(res["service.name"], app.id);
-        assert.equal(res["process.pid"], "123");
+        assert.equal(res["process.pid"], app.env.pid);
         assert.equal(res.role, "web");
 
         const [rss, time, count] = metrics(m);
@@ -58,24 +58,27 @@ describe('stats', () => {
         assert.deepEqual(time.gauge.dataPoints, [{ timeUnixNano: "2000000000", asDouble: 2.5 }]);
 
         assert.equal(count.name, "api.200.count");
-        assert.equal(count.sum.aggregationTemporality, 1);
+        assert.equal(count.sum.aggregationTemporality, 2);
         assert.equal(count.sum.isMonotonic, true);
         assert.deepEqual(count.sum.dataPoints, [{ timeUnixNano: "2000000000", startTimeUnixNano: "1000000000", asDouble: 5 }]);
 
-        assert.equal(stats._otlptime, 2000);
+        assert.equal(stats._otlpstart, '1000000000');
     });
 
     it('maps stats with default regexps into attributes', () => {
         const m = metrics(stats.toOTLP({
             timestamp: 1,
-            db_dynamodb_req_count: 1,
+            db_dynamodb_res_time: 1,
             db_dynamodb_users_read_count: 2,
             db_dynamodb_bk_config_write_count: 3,
             cache_default_req_rate: 4,
+            queue_redis_req_rate: 5,
         }));
         const byName = Object.fromEntries(m.map((x) => ([x.name, x])));
 
-        assert.ok(byName["db.dynamodb.req.count"]);
+        const pool = byName["db.pool.time"].gauge.dataPoints;
+        assert.equal(pool.length, 1);
+        assert.deepEqual(attrs(pool[0].attributes), { pool: "dynamodb", op: "res" });
 
         const db = byName["db.table.count"].sum.dataPoints;
         assert.equal(db.length, 2);
@@ -84,18 +87,10 @@ describe('stats', () => {
 
         const cache = byName["cache.rate"].gauge.dataPoints;
         assert.deepEqual(attrs(cache[0].attributes), { cache: "default", op: "req" });
-    });
 
-    it('parses otlp-map config', () => {
-        stats.otlpMap = {};
-        app.processArgs(stats, ["-stats-otlp-map", "jobs.{type}:^jobs_(?<op>[a-z]+)_(?<type>[a-z]+)$"]);
-        assert.ok(stats.otlpMap["jobs.{type}"] instanceof RegExp);
+        const queue = byName["queue.rate"].gauge.dataPoints;
+        assert.deepEqual(attrs(queue[0].attributes), { queue: "redis", op: "req" });
 
-        const m = metrics(stats.toOTLP({ timestamp: 1, jobs_err_count: 1, jobs_task_count: 2 }));
-        assert.equal(m.length, 1);
-        assert.equal(m[0].name, "jobs.count");
-        assert.deepEqual(m[0].sum.dataPoints.map((x) => (attrs(x.attributes).op)), ["err", "task"]);
-        stats.otlpMap = otlpMap;
     });
 
     it('filters stats and sends to a file', (t, done) => {

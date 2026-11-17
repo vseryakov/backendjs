@@ -329,7 +329,7 @@ Default middleware modules are initialized in the order shown below by default, 
 - {@link module:middleware/proxy middleware.proxy: Proxy request using httpproxy}
 - {@link module:middleware/routing middleware.routing: Reroute requests internally to different path}
 - {@link module:middleware/csrf middleware.csrf: CSRF protection}
-- {@link module:middleware/xray middleware.xray: AWS X-ray tracing support}
+- {@link module:middleware/trace middleware.trace: OTEL Tracing support}
 - {@link module:middleware/limiter middleware.limiter: Rate limiter of requests by path}
 - {@link module:middleware/cors middleware.cors: CORS permissions}
 - {@link module:middleware/body middleware.body: Body parser for JSON, XML, Formdata}
@@ -445,7 +445,8 @@ On startup some env variable will be used for initial configuration:
   - BKJS_DB_POOL - default db pool, __-db-pool__ overrides it
   - BKJS_DB_CONFIG - config db pool, __-db-config__ overrides it
   - BKJS_ROLES - additional roles to use for config, __-app-roles__ overrides it
-  - BKJS_VERSION - default app name and version, __-app-version__ overrides it
+  - BKJS_APP - default app name, __-app-env-app__ overrides it
+  - BKJS_VERSION - default app version, __-app-env-version__ overrides it
   - BKJS_TAG - initial instance tag, __-app-env-tag__ overrides it, it may be also overridden by AWS instance tag
   - BKJS_LOG_OPTIONS - logger options, __-app-log-options__ overrides it
   - BKJS_PORT - port for web server, __-api-port__ overrides it
@@ -476,8 +477,8 @@ On startup some env variable will be used for initial configuration:
 
     ```
     $ bin/bksh
-    > app.version
-    'bkjs/0.0'
+    > app.env.name
+    'bkjs'
     > logger.setLevel('info')
     ```
 

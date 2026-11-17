@@ -81,6 +81,7 @@ services:
   dynamodb:
     image: amazon/dynamodb-local:latest
     container_name: dynamodb
+    user: root
     command: "-jar DynamoDBLocal.jar -port 8181 -sharedDb -disableTelemetry -dbPath ./data"
     env_file:
       - path: $BKJS_HOME/bkjs.conf.ddb.local
@@ -190,6 +191,39 @@ services:
       - minio:/data
     restart: unless-stopped
 
+  extenddb:
+    image: extenddb/extenddb-dev:latest
+    env_file:
+      - path: $BKJS_HOME/bkjs.conf.extenddb.local
+        required: false
+      - path: $BKJS_HOME/bkjs.conf.local
+        required: false
+    ports:
+      - "8181:18080"
+    volumes:
+      - extenddb:/var/lib/extenddb
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/otel-lgtm:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"   # Grafana Web UI
+      - "4317:4317"   # OpenTelemetry Collector (OTLP gRPC)
+      - "4318:4318"   # OpenTelemetry Collector (OTLP HTTP)
+      - "9090:9090"   # Prometheus UI (optional)
+      - "4040:4040"   # Pyroscope UI (optional)
+    environment:
+      - GF_PATHS_DATA=/data/grafana
+    env_file:
+      - path: $BKJS_HOME/bkjs.conf.grafana.local
+        required: false
+      - path: $BKJS_HOME/bkjs.conf.local
+        required: false
+    volumes:
+      - grafana:/data
+    restart: unless-stopped
+
 networks:
   elasticsearch:
   opensearch:
@@ -209,3 +243,5 @@ volumes:
   os-data:
   os-conf:
   dynamodb:
+  extenddb:
+  grafana:

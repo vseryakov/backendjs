@@ -2,7 +2,7 @@
 
 - No commit unless explicitly asked
 
-- No external dependencies unless asked, if a dependency makes sense ask first describing why
+- No external dependencies unless asked, if a dependency makes sense ask first explaining why
 
 - Keep the code minimal, only required functionality, no extra or good to have abstractions or logic
 

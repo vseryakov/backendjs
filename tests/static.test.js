@@ -1,9 +1,11 @@
 /* global  */
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const { describe, it, before, after } = require('node:test');
 const { acheckAccess, ainit, astop } = require("./utils");
-const { files, lib } = require("../");
+const { api, files, lib } = require("../");
+const staticMiddleware = require("../lib/middleware/static");
 
 describe('Static tests', async () => {
 
@@ -15,6 +17,11 @@ describe('Static tests', async () => {
         await files.astore(Buffer.from("index.js"), "index.js");
         await files.astore(Buffer.from("index.js.gz"), "index.js.gz");
 
+        fs.mkdirSync(__dirname + "/../var/subdir", { recursive: true });
+        await files.astore(Buffer.from("nc"), "nc/index.html");
+        fs.mkdirSync(__dirname + "/../var/nc", { recursive: true });
+
+        api.app.get("/nc/*", { root: "var", noCache: true, handle: staticMiddleware.handle });
     });
 
     await it("checks static endpoints", async () => {
@@ -38,13 +45,20 @@ describe('Static tests', async () => {
             { get: "/index.js", regexp: /index.js/ },
             { get: "/index.js.gz", headers: { "accept-encoding": "gzip" }, regexp: /index.js.gz/ },
             { get: "/\0passwd", status: 403, headers: { connection: "close" } },
-            { get: "/img/1.png", binary: 1,
+            { get: "/img/1.png", binary: 1, status: 200, resheaders: { "content-type": /^image\/png$/, "content-length": /.+/ },
                 postprocess: (c, rc, next) => {
                     const png = lib.readFileSync(__dirname + "/../web/img/1.png");
                     assert.strictEqual(png, rc.data.toString());
+                    assert.strictEqual(Number(rc.resheaders["content-length"]), rc.size);
                     next();
                 }
             },
+            { get: "/", status: 200, resheaders: { "content-type": /^text\/html$/, "cache-control": /max-age=0/, "content-length": /^10$/, etag: /^W\//, "last-modified": /.+/ } },
+            { get: "/index.js", status: 200, resheaders: { "content-type": /^text\/javascript$/ } },
+            { get: "/index.js", status: 200, headers: { "accept-encoding": "gzip" }, resheaders: { "content-type": /^text\/javascript$/, "content-encoding": /gzip/, vary: /Accept-Encoding/, "content-length": /^11$/ } },
+            { get: "/", status: 412, headers: { "if-unmodified-since": "2000-01-01T00:00:00Z" } },
+            { get: "/subdir/", status: 404 },
+            { get: "/nc/index.html", status: 200, resheaders: { "cache-control": /no-cache/ } },
         ];
 
         await acheckAccess({ config });

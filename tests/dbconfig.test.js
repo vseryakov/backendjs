@@ -24,7 +24,6 @@ describe("DB config tests", async () => {
         assert.ok(!err);
 
         app.appName = "app";
-        app.version = "bkjs/1.0.0";
         app.roles = "test,dev";
         app.role = "shell";
         app.tag = "qa";
@@ -73,13 +72,11 @@ describe("DB config tests", async () => {
         let rc = await db.agetConfig();
         assert.partialDeepStrictEqual(rc.data, [ { name: "param1" }, { name: "param3", value: "etime" } ]);
 
-        app.version = "bkjs/1.1.0";
         rc = await db.agetConfig();
         assert.partialDeepStrictEqual(rc.data, [{ name: "param1" }, { name: "param2" }, { name: "param3" }]);
 
         await lib.sleep(200);
 
-        app.version = "bkjs/1.0.0";
         rc = await db.agetConfig();
         assert.partialDeepStrictEqual(rc.data, [ { name: "param1" }, { name: "param3", value: "stime" } ]);
 
