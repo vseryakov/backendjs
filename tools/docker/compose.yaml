@@ -204,25 +204,17 @@ services:
       - extenddb:/var/lib/extenddb
     restart: unless-stopped
 
-  grafana:
-    image: grafana/otel-lgtm:latest
-    container_name: grafana
+  jaeger:
+    image: jaegertracing/jaeger:latest
     ports:
-      - "3000:3000"   # Grafana Web UI
-      - "4317:4317"   # OpenTelemetry Collector (OTLP gRPC)
-      - "4318:4318"   # OpenTelemetry Collector (OTLP HTTP)
-      - "9090:9090"   # Prometheus UI (optional)
-      - "4040:4040"   # Pyroscope UI (optional)
-    environment:
-      - GF_PATHS_DATA=/data/grafana
-    env_file:
-      - path: $BKJS_HOME/bkjs.conf.grafana.local
-        required: false
-      - path: $BKJS_HOME/bkjs.conf.local
-        required: false
-    volumes:
-      - grafana:/data
-    restart: unless-stopped
+      - "4318:4318"
+      - "16686:16686"
+
+  prometheus:
+    image: prom/prometheus:latest
+    command: --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --web.enable-otlp-receiver
+    ports:
+      - "9090:9090"
 
 networks:
   elasticsearch:
@@ -244,4 +236,4 @@ volumes:
   os-conf:
   dynamodb:
   extenddb:
-  grafana:
+
