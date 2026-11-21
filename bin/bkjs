@@ -334,6 +334,11 @@ case "$BKJS_CMD" in
     exit
     ;;
 
+  json)
+    exec node -e "console.log(util.inspect(JSON.parse(fs.readFileSync(0).toString()),{showHidden:true,maxArrayLength:null,maxStringLength:null,depth:null}))"
+    exit
+    ;;
+
   env)
     set
     ;;
@@ -354,6 +359,7 @@ case "$BKJS_CMD" in
     echo ""
     echo "  help - show shell commands"
     echo "  env - show all environment variables"
+    echo "  json - read JSON from the input and show it nicely formatted"
     echo ""
     echo "Common options:"
     echo "  -home path - path to the backend home directory"
